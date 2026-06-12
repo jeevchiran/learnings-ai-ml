@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 5: Paired t-Test</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Module 5 &mdash; Paired t-Test</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-ht-foundations.html">1. Foundations</a>
+    <a href="02-errors-alpha-pvalue.html">2. Errors and p-value</a>
+    <a href="03-one-sample-z.html">3. One-Sample Z-Test</a>
+    <a href="04-two-sample-tests.html">4. Two-Sample Tests</a>
+    <a href="05-paired-t.html" class="active">5. Paired t-Test</a>
+  </nav>
+
+  <!-- WHY / Bridge -->
+  <div class="bridge">
+    <strong>Real-world hook &mdash; blood pressure treatment:</strong> A cardiologist wants to evaluate whether a 12-week lifestyle intervention (diet and exercise) reduces systolic blood pressure. She measures each of 15 patients before the program and again after completion. The key phrase is "each patient" &mdash; the same person is measured twice. These two measurements are not independent of each other: a patient who starts with high blood pressure is likely to have higher-than-average blood pressure at both time points. If we treated this as two independent groups (as in Module 4), we would be ignoring this built-in structure &mdash; and throwing away statistical power in the process. The paired t-test exploits the connection between the two measurements to give us a more sensitive and more appropriate test.
+  </div>
+
+  <!-- ================================================================== -->
+  <h2>Section 1: Paired vs Independent &mdash; Why It Matters</h2>
+
+  <h3>The core idea</h3>
+
+  <p>In Module 4, the two groups consisted of entirely different people: Group A vs Group B. Each measurement belonged to one group and one group only; there was no correspondence between an observation in Group A and any observation in Group B. In a paired design, the same subject (or a carefully matched pair of subjects) appears in <em>both</em> conditions. This seemingly small structural difference has profound consequences for the analysis and its sensitivity.</p>
+
+  <p>Paired designs arise in three main forms in practice:</p>
+  <ul>
+    <li><strong>Before/After:</strong> The same subject is measured before and after a treatment, intervention, or period of time.</li>
+    <li><strong>Matched pairs:</strong> Two distinct subjects are matched on key characteristics (age, weight, baseline health) so that within each pair, one receives the treatment and the other serves as the control.</li>
+    <li><strong>Crossover:</strong> Each subject receives both treatments in sequence (with a washout period in between), and the order is randomized.</li>
+  </ul>
+
+  <h3>Why pairing is powerful</h3>
+
+  <p>Consider the cardiologist's study. Patient A might naturally have a systolic BP of 155 mmHg and patient B might naturally have 135 mmHg. This between-subject variability &mdash; the variation in baseline blood pressure from person to person &mdash; has nothing to do with whether the intervention works. Yet if we analyzed the pre- and post-intervention readings as two independent groups, this person-to-person noise would inflate the standard error of our estimate and make it harder to detect the intervention's true effect.</p>
+
+  <p>The remedy is elegant: compute the difference <span class="math-latex">d_i = x_{\text{before},i} - x_{\text{after},i}</span> for each subject. Because both measurements come from the same person, patient A's natural tendency toward higher BP is present in <em>both</em> readings and cancels out in the subtraction. The variability that remains in the <span class="math-latex">d_i</span> values reflects only within-person change, which is exactly what we want to measure. By eliminating between-subject noise, we are left with a cleaner, more precise signal.</p>
+
+  <p>This reduction to differences means the paired t-test is, at its core, nothing more than a one-sample t-test applied to the set of differences <span class="math-latex">d_1, d_2, \ldots, d_n</span>. All the machinery from Module 3 applies directly.</p>
+
+  <h3>The mathematical reduction</h3>
+
+  <p>Define the difference for each pair as:</p>
+  <div class="math-block">
+    <span class="math-latex math-block">d_i = x_{1i} - x_{2i} \quad \text{for each subject } i = 1, 2, \ldots, n</span>
+  </div>
+
+  <p>From these <span class="math-latex">n</span> differences, compute their sample mean and standard deviation:</p>
+  <div class="math-block">
+    <span class="math-latex math-block">\bar{d} = \frac{1}{n}\sum_{i=1}^n d_i, \qquad s_d = \sqrt{\frac{1}{n-1}\sum_{i=1}^n (d_i - \bar{d})^2}</span>
+  </div>
+
+  <p>The null hypothesis <span class="math-latex">H_0: \mu_d = 0</span> is then tested using a standard one-sample t-test on <span class="math-latex">d_1, d_2, \ldots, d_n</span>. We have reduced a seemingly two-sample problem to a one-sample problem by a single algebraic step.</p>
+
+  <!-- ================================================================== -->
+  <h2>Section 2: Derivation of the Test Statistic</h2>
+
+  <p>We now derive the paired t-test statistic step by step. Each step is logically necessary; together they give us an exact procedure for testing whether the mean difference in the population is zero.</p>
+
+  <div class="derivation">
+
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <div class="step-explanation">
+          <strong>Compute the difference for each pair.</strong> For subject <span class="math-latex">i</span>, the difference is <span class="math-latex">d_i = x_{1i} - x_{2i}</span> (before minus after, or treatment minus control, depending on the research question). The sign convention determines which direction of difference will be positive, so choose it to match the research hypothesis.
+        </div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <div class="step-explanation">
+          <strong>State the hypotheses.</strong> The null hypothesis asserts no average change in the population: <span class="math-latex">H_0: \mu_d = 0</span>. The alternative may be two-tailed (<span class="math-latex">H_1: \mu_d \neq 0</span>), right-tailed (<span class="math-latex">H_1: \mu_d > 0</span>), or left-tailed (<span class="math-latex">H_1: \mu_d &lt; 0</span>), chosen to reflect the direction of the effect the researcher expects or cares about.
+        </div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <div class="step-explanation">
+          <strong>Compute the sample mean of differences.</strong>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">\bar{d} = \frac{1}{n} \sum_{i=1}^{n} d_i</span>
+        </div>
+        <div class="step-explanation">
+          This is the point estimate of <span class="math-latex">\mu_d</span>, the true population mean difference. It is the quantity we will compare to zero.
+        </div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <div class="step-explanation">
+          <strong>Compute the sample standard deviation of differences.</strong>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">s_d = \sqrt{\frac{\sum_{i=1}^{n}(d_i - \bar{d})^2}{n - 1}}</span>
+        </div>
+        <div class="step-explanation">
+          This measures how variable the individual differences are. A small <span class="math-latex">s_d</span> means the treatment had a very consistent effect across subjects; a large <span class="math-latex">s_d</span> means the effect was heterogeneous.
+        </div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">5</div>
+      <div class="step-content">
+        <div class="step-explanation">
+          <strong>Compute the standard error of <span class="math-latex">\bar{d}</span>.</strong>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{SE}(\bar{d}) = \frac{s_d}{\sqrt{n}}</span>
+        </div>
+        <div class="step-explanation">
+          The standard error quantifies the precision of <span class="math-latex">\bar{d}</span> as an estimate of <span class="math-latex">\mu_d</span>. It shrinks as <span class="math-latex">n</span> increases (more pairs = more precise estimate) and as <span class="math-latex">s_d</span> decreases (more consistent differences = more precise estimate).
+        </div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">6</div>
+      <div class="step-content">
+        <div class="step-explanation">
+          <strong>Form the paired t-statistic.</strong>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">t = \frac{\bar{d} - 0}{s_d / \sqrt{n}} = \frac{\bar{d}}{s_d / \sqrt{n}}</span>
+        </div>
+        <div class="step-explanation">
+          This is exactly the one-sample t-statistic from Module 3, applied to the differences. It measures how many standard errors <span class="math-latex">\bar{d}</span> lies from zero. The null hypothesis value of <span class="math-latex">\mu_d</span> is zero, hence the numerator simplifies to <span class="math-latex">\bar{d}</span>.
+        </div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">7</div>
+      <div class="step-content">
+        <div class="step-explanation">
+          <strong>Identify the null distribution.</strong> Under <span class="math-latex">H_0</span>, the statistic <span class="math-latex">t</span> follows a Student's t-distribution with <span class="math-latex">n - 1</span> degrees of freedom. There are <span class="math-latex">n - 1</span> degrees of freedom because we have <span class="math-latex">n</span> differences and we estimate one parameter (<span class="math-latex">\bar{d}</span>) from them before computing <span class="math-latex">s_d</span>.
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">t \sim t(n-1) \quad \text{under } H_0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">8</div>
+      <div class="step-content">
+        <div class="step-explanation">
+          <strong>Make a decision.</strong> Compare the observed <span class="math-latex">t</span> to the critical value <span class="math-latex">t^*(\alpha/2,\, n-1)</span> for a two-tailed test (or <span class="math-latex">t^*(\alpha,\, n-1)</span> for a one-tailed test), or equivalently compute the p-value from the t-distribution and compare to <span class="math-latex">\alpha</span>. Reject <span class="math-latex">H_0</span> if the observed <span class="math-latex">|t| > t^*</span> (two-tailed) or if p-value <span class="math-latex">&lt; \alpha</span>.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================================================================== -->
+  <h2>Section 3: Assumptions of the Paired t-Test</h2>
+
+  <p>Like all parametric tests, the paired t-test rests on assumptions that must be checked before the results can be trusted. Violating these assumptions can lead to incorrect p-values and misleading conclusions.</p>
+
+  <div class="assumptions-grid">
+
+    <div class="assumption-card">
+      <h4>1. Random sample of pairs</h4>
+      <p>The pairs must be randomly sampled from the population of interest, or the assignment to paired conditions must be random (as in a randomized crossover trial). Non-random sampling risks selection bias: the sample may not represent the population, and the inferential leap from sample to population is unjustified.</p>
+    </div>
+
+    <div class="assumption-card">
+      <h4>2. Normality of differences</h4>
+      <p>The differences <span class="math-latex">d_i</span> must be approximately normally distributed in the population. For small samples (roughly <span class="math-latex">n &lt; 30</span>), this is a consequential assumption; check it with a histogram or QQ-plot of the differences. For <span class="math-latex">n \geq 30</span>, the Central Limit Theorem ensures that <span class="math-latex">\bar{d}</span> is approximately normal regardless of the shape of the difference distribution, making the test robust.</p>
+    </div>
+
+    <div class="assumption-card">
+      <h4>3. Independence between pairs</h4>
+      <p>Different pairs must be independent of each other. The within-pair dependence is intentional and is the whole point of the design. But pair 1 and pair 2 must not influence each other. This is violated, for example, if pairs are family members, or if subjects are treated simultaneously in a way that allows contamination across pairs.</p>
+    </div>
+
+    <div class="assumption-card">
+      <h4>4. No extreme outliers in differences</h4>
+      <p>Outliers in the <span class="math-latex">d_i</span> values can heavily distort both <span class="math-latex">\bar{d}</span> and <span class="math-latex">s_d</span>, invalidating the t-statistic. Inspect the differences with a boxplot before proceeding. A single large outlier can either produce a spurious rejection of <span class="math-latex">H_0</span> or mask a real effect. If outliers are present, consider a non-parametric alternative such as the Wilcoxon signed-rank test.</p>
+    </div>
+
+  </div>
+
+  <!-- ================================================================== -->
+  <h2>Section 4: When to Use Paired vs Independent Tests</h2>
+
+  <p>Choosing the correct test structure is not optional &mdash; using an independent-samples t-test on data from a paired design is a methodological error, even if it sometimes yields a numerically similar answer. The table below summarizes the key differences to guide your choice.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th>Paired t-Test</th>
+        <th>Independent t-Test</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Sample structure</strong></td>
+        <td>Same subject measured twice, or matched pairs</td>
+        <td>Two unrelated groups with no correspondence</td>
+      </tr>
+      <tr>
+        <td><strong>n per group</strong></td>
+        <td>Must be equal (n pairs)</td>
+        <td>Can differ between groups</td>
+      </tr>
+      <tr>
+        <td><strong>Degrees of freedom</strong></td>
+        <td><span class="math-latex">n - 1</span> (one per pair)</td>
+        <td>Welch approximation, typically close to <span class="math-latex">n_1 + n_2 - 2</span></td>
+      </tr>
+      <tr>
+        <td><strong>Between-subject noise</strong></td>
+        <td>Eliminated by differencing within pairs</td>
+        <td>Present in SE, reduces power</td>
+      </tr>
+      <tr>
+        <td><strong>Typical power</strong></td>
+        <td>Higher, when data is truly paired</td>
+        <td>Lower when pairing is available but ignored</td>
+      </tr>
+      <tr>
+        <td><strong>When to use</strong></td>
+        <td>Before/after designs, matched pair studies, crossover trials</td>
+        <td>Completely separate, unrelated groups</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="concept-box">
+    <h4>Key principle: the design determines the test</h4>
+    <p>If the data were collected in a paired fashion (same subject twice, or matched pairs), use the paired t-test. Using an independent-samples test on paired data ignores structure in the data that reduces variability and increases power. You do not get to "choose" the independent test because it is simpler &mdash; the data structure mandates the paired analysis.</p>
+  </div>
+
+  <!-- ================================================================== -->
+  <h2>Section 5: Interactive Widgets</h2>
+
+  <!-- Widget 1: Paired Difference Visualizer -->
+  <div class="widget-container">
+    <h4>Widget 1: Paired Difference Visualizer</h4>
+    <p>Each dot is one subject. Lines connect before and after measurements. The difference distribution builds as you add more subjects. Adjust the sliders to see how sample size, the magnitude of the true mean difference, and the variability of individual differences each affect the test outcome.</p>
+
+    <div class="widget-controls">
+      <label>
+        Number of subjects (n): <strong id="w1-n-label">10</strong>
+        <input type="range" id="w1-n" min="5" max="30" step="1" value="10">
+      </label>
+      <label>
+        True mean difference (<span class="math-latex">\mu_d</span>): <strong id="w1-mu-label">&minus;6</strong>
+        <input type="range" id="w1-mu" min="-15" max="15" step="0.5" value="-6">
+      </label>
+      <label>
+        Std dev of differences (<span class="math-latex">\sigma_d</span>): <strong id="w1-sigma-label">5</strong>
+        <input type="range" id="w1-sigma" min="2" max="15" step="0.5" value="5">
+      </label>
+      <button id="w1-resample">Resample</button>
+    </div>
+
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+      <div id="w1-plot-scatter" class="plot-area" style="flex: 1; min-width: 280px;"></div>
+      <div id="w1-plot-hist" class="plot-area" style="flex: 1; min-width: 280px;"></div>
+    </div>
+
+    <div class="ht-stat-row" id="w1-stats">
+      <div class="ht-stat"><span><span class="math-latex">\bar{d}</span></span><strong id="w1-dbar">&mdash;</strong></div>
+      <div class="ht-stat"><span><span class="math-latex">s_d</span></span><strong id="w1-sd">&mdash;</strong></div>
+      <div class="ht-stat"><span>SE</span><strong id="w1-se">&mdash;</strong></div>
+      <div class="ht-stat"><span>t</span><strong id="w1-t">&mdash;</strong></div>
+      <div class="ht-stat"><span>df</span><strong id="w1-df">&mdash;</strong></div>
+      <div class="ht-stat"><span>p-value</span><strong id="w1-pval">&mdash;</strong></div>
+      <div id="w1-decision"></div>
+    </div>
+  </div>
+
+  <!-- Widget 2: Paired vs Independent Comparison -->
+  <div class="widget-container">
+    <h4>Widget 2: Paired vs Independent Comparison</h4>
+    <p>The same eight-patient blood pressure dataset is analyzed two ways: first using the correct paired t-test, then using an independent-samples t-test as if the before and after measurements were from entirely different groups. Compare the resulting t-statistics to see concretely why the paired design is more powerful when the data genuinely come from the same subjects.</p>
+
+    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+
+      <div class="concept-box" style="flex: 1; min-width: 240px;">
+        <h4>Paired t-Test (correct analysis)</h4>
+        <div class="ht-stat-row">
+          <div class="ht-stat"><span><span class="math-latex">\bar{d}</span></span><strong id="w2-paired-dbar">&mdash;</strong></div>
+          <div class="ht-stat"><span><span class="math-latex">s_d</span></span><strong id="w2-paired-sd">&mdash;</strong></div>
+          <div class="ht-stat"><span>SE</span><strong id="w2-paired-se">&mdash;</strong></div>
+          <div class="ht-stat"><span>t</span><strong id="w2-paired-t">&mdash;</strong></div>
+          <div class="ht-stat"><span>df</span><strong id="w2-paired-df">&mdash;</strong></div>
+          <div class="ht-stat"><span>p-value</span><strong id="w2-paired-pval">&mdash;</strong></div>
+        </div>
+        <div id="w2-paired-decision" style="margin-top: 0.5rem;"></div>
+      </div>
+
+      <div class="concept-box" style="flex: 1; min-width: 240px;">
+        <h4>Independent t-Test (incorrect analysis)</h4>
+        <div class="ht-stat-row">
+          <div class="ht-stat"><span><span class="math-latex">\bar{x}_1</span></span><strong id="w2-ind-xbar1">&mdash;</strong></div>
+          <div class="ht-stat"><span><span class="math-latex">\bar{x}_2</span></span><strong id="w2-ind-xbar2">&mdash;</strong></div>
+          <div class="ht-stat"><span>SE</span><strong id="w2-ind-se">&mdash;</strong></div>
+          <div class="ht-stat"><span>t</span><strong id="w2-ind-t">&mdash;</strong></div>
+          <div class="ht-stat"><span>df</span><strong id="w2-ind-df">&mdash;</strong></div>
+          <div class="ht-stat"><span>p-value</span><strong id="w2-ind-pval">&mdash;</strong></div>
+        </div>
+        <div id="w2-ind-decision" style="margin-top: 0.5rem;"></div>
+      </div>
+
+    </div>
+
+    <div id="w2-plot" class="plot-area"></div>
+
+    <p style="margin-top: 0.75rem; font-size: 0.92em; color: var(--text-muted);">
+      When data is truly paired, the paired test has a smaller standard error because between-subject variance is removed by differencing. This yields a larger t-statistic and more power to detect the real effect. The independent test retains that extra noise and consequently produces a less significant result.
+    </p>
+  </div>
+
+  <!-- ================================================================== -->
+  <h2>Section 6: Worked Example</h2>
+
+  <p>We now apply the paired t-test to the cardiologist's blood pressure study in full detail, working through every numerical step from raw data to conclusion.</p>
+
+  <h3>Research context and hypotheses</h3>
+
+  <p>Eight patients completed a 12-week lifestyle intervention. Systolic blood pressure was recorded for each patient immediately before the program and immediately upon completion. The differences are defined as <span class="math-latex">d_i = x_{\text{before},i} - x_{\text{after},i}</span>, so a positive difference means blood pressure decreased (improvement).</p>
+
+  <p>Because the cardiologist believes the intervention reduces blood pressure, she specifies a one-sided (right-tailed) alternative. The hypotheses are:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">H_0: \mu_d = 0 \quad \text{(no average change in blood pressure)}</span>
+  </div>
+  <div class="math-block">
+    <span class="math-latex math-block">H_1: \mu_d > 0 \quad \text{(blood pressure decreases on average, so before} > \text{after)}</span>
+  </div>
+
+  <p>The significance level is <span class="math-latex">\alpha = 0.05</span>.</p>
+
+  <h3>Data</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Patient</th>
+        <th>Before (mmHg)</th>
+        <th>After (mmHg)</th>
+        <th>Difference <span class="math-latex">d_i</span> (Before &minus; After)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>152</td><td>144</td><td>8</td></tr>
+      <tr><td>2</td><td>143</td><td>137</td><td>6</td></tr>
+      <tr><td>3</td><td>160</td><td>149</td><td>11</td></tr>
+      <tr><td>4</td><td>137</td><td>128</td><td>9</td></tr>
+      <tr><td>5</td><td>148</td><td>140</td><td>8</td></tr>
+      <tr><td>6</td><td>155</td><td>145</td><td>10</td></tr>
+      <tr><td>7</td><td>142</td><td>136</td><td>6</td></tr>
+      <tr><td>8</td><td>138</td><td>130</td><td>8</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Step-by-step calculation</h3>
+
+  <p><strong>Step 1: Sample size.</strong> We have <span class="math-latex">n = 8</span> pairs.</p>
+
+  <p><strong>Step 2: Mean of differences.</strong></p>
+  <div class="math-block">
+    <span class="math-latex math-block">\bar{d} = \frac{8 + 6 + 11 + 9 + 8 + 10 + 6 + 8}{8} = \frac{66}{8} = 8.25 \text{ mmHg}</span>
+  </div>
+
+  <p><strong>Step 3: Standard deviation of differences.</strong> The deviations from <span class="math-latex">\bar{d} = 8.25</span> are:</p>
+  <div class="math-block">
+    <span class="math-latex math-block">-0.25,\; -2.25,\; 2.75,\; 0.75,\; -0.25,\; 1.75,\; -2.25,\; -0.25</span>
+  </div>
+  <p>Squaring each: <span class="math-latex">0.0625,\; 5.0625,\; 7.5625,\; 0.5625,\; 0.0625,\; 3.0625,\; 5.0625,\; 0.0625</span>. Sum of squared deviations <span class="math-latex">= 21.5</span>.</p>
+  <div class="math-block">
+    <span class="math-latex math-block">s_d = \sqrt{\frac{21.5}{8 - 1}} = \sqrt{\frac{21.5}{7}} = \sqrt{3.071} \approx 1.753 \text{ mmHg}</span>
+  </div>
+
+  <p><strong>Step 4: Standard error.</strong></p>
+  <div class="math-block">
+    <span class="math-latex math-block">\text{SE}(\bar{d}) = \frac{s_d}{\sqrt{n}} = \frac{1.753}{\sqrt{8}} = \frac{1.753}{2.828} \approx 0.620 \text{ mmHg}</span>
+  </div>
+
+  <p><strong>Step 5: Paired t-statistic.</strong></p>
+  <div class="math-block">
+    <span class="math-latex math-block">t = \frac{\bar{d}}{\text{SE}(\bar{d})} = \frac{8.25}{0.620} \approx 13.31</span>
+  </div>
+
+  <p><strong>Step 6: Degrees of freedom.</strong> <span class="math-latex">df = n - 1 = 8 - 1 = 7</span>.</p>
+
+  <p><strong>Step 7: Decision.</strong> For a right-tailed test at <span class="math-latex">\alpha = 0.05</span> with <span class="math-latex">df = 7</span>, the critical value is <span class="math-latex">t^*(0.05, 7) = 1.895</span>. The observed <span class="math-latex">t = 13.31 \gg 1.895</span>, so we <strong>reject <span class="math-latex">H_0</span></strong> overwhelmingly. The p-value <span class="math-latex">= P(t_{7} > 13.31) \approx 0.0000012</span>, far below any conventional significance threshold.</p>
+
+  <div class="ht-decision reject">Reject H&#8320; &mdash; very strong evidence that the intervention reduces systolic blood pressure</div>
+
+  <p><strong>Conclusion:</strong> At the 5% significance level, there is extremely strong statistical evidence that the 12-week lifestyle intervention reduces systolic blood pressure. The estimated mean reduction is 8.25 mmHg. A 95% confidence interval for the true mean reduction is:</p>
+  <div class="math-block">
+    <span class="math-latex math-block">\bar{d} \pm t^*(0.025, 7) \times \text{SE} = 8.25 \pm 2.365 \times 0.620 = [6.78,\; 9.72] \text{ mmHg}</span>
+  </div>
+  <p>We are 95% confident the true average blood pressure reduction in the population lies between 6.78 and 9.72 mmHg.</p>
+
+  <!-- ================================================================== -->
+  <h2>Section 7: Practice Problem</h2>
+
+  <details>
+    <summary>
+      <strong>Practice Problem: Statistics Workshop Scores</strong>
+      <span class="solution">Show solution</span>
+    </summary>
+
+    <div style="padding: 1rem 0;">
+
+      <p>A statistics tutor works with 6 students before and after a 4-week intensive workshop. Their pre-workshop and post-workshop test scores (out of 100) are:</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Pre-workshop</th>
+            <th>Post-workshop</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>62</td><td>70</td></tr>
+          <tr><td>2</td><td>75</td><td>79</td></tr>
+          <tr><td>3</td><td>58</td><td>65</td></tr>
+          <tr><td>4</td><td>80</td><td>76</td></tr>
+          <tr><td>5</td><td>70</td><td>80</td></tr>
+          <tr><td>6</td><td>65</td><td>72</td></tr>
+        </tbody>
+      </table>
+
+      <p>At <span class="math-latex">\alpha = 0.05</span>, test whether the workshop improved scores. Define <span class="math-latex">d_i = \text{Post}_i - \text{Pre}_i</span> (positive values indicate improvement). The hypotheses are <span class="math-latex">H_0: \mu_d = 0</span> vs <span class="math-latex">H_1: \mu_d > 0</span> (right-tailed).</p>
+
+      <hr>
+      <h4>Solution</h4>
+
+      <p><strong>Step 1: Compute differences</strong> <span class="math-latex">d_i = \text{Post}_i - \text{Pre}_i</span>:</p>
+      <div class="math-block">
+        <span class="math-latex math-block">d = (8,\; 4,\; 7,\; -4,\; 10,\; 7)</span>
+      </div>
+
+      <p><strong>Step 2: Mean of differences.</strong></p>
+      <div class="math-block">
+        <span class="math-latex math-block">\bar{d} = \frac{8 + 4 + 7 + (-4) + 10 + 7}{6} = \frac{32}{6} \approx 5.333</span>
+      </div>
+
+      <p><strong>Step 3: Standard deviation.</strong> Deviations from <span class="math-latex">\bar{d} = 5.333</span>: <span class="math-latex">2.667,\; -1.333,\; 1.667,\; -9.333,\; 4.667,\; 1.667</span>. Squared deviations: <span class="math-latex">7.111,\; 1.778,\; 2.778,\; 87.111,\; 21.778,\; 2.778</span>. Sum <span class="math-latex">= 123.333</span>.</p>
+      <div class="math-block">
+        <span class="math-latex math-block">s_d = \sqrt{\frac{123.333}{5}} = \sqrt{24.667} \approx 4.967</span>
+      </div>
+
+      <p><strong>Step 4: Standard error.</strong></p>
+      <div class="math-block">
+        <span class="math-latex math-block">\text{SE} = \frac{4.967}{\sqrt{6}} = \frac{4.967}{2.449} \approx 2.028</span>
+      </div>
+
+      <p><strong>Step 5: t-statistic.</strong></p>
+      <div class="math-block">
+        <span class="math-latex math-block">t = \frac{5.333}{2.028} \approx 2.630</span>
+      </div>
+
+      <p><strong>Step 6:</strong> <span class="math-latex">df = 6 - 1 = 5</span>. Right-tailed critical value: <span class="math-latex">t^*(0.05, 5) = 2.015</span>. Since <span class="math-latex">2.630 > 2.015</span>, we reject <span class="math-latex">H_0</span>. The one-tailed p-value <span class="math-latex">= P(t_5 > 2.630) \approx 0.023 &lt; 0.05</span>.</p>
+
+      <div class="ht-decision reject">Reject H&#8320; &mdash; sufficient evidence that the workshop improved test scores</div>
+
+      <p><strong>Conclusion:</strong> At the 5% significance level, there is sufficient evidence to conclude that the 4-week intensive workshop improved student test scores. The mean improvement was 5.33 points. Note, however, that student 4's score <em>decreased</em> by 4 points &mdash; with only 6 students the analysis is sensitive to individual variation, and the relatively large <span class="math-latex">s_d</span> reflects this heterogeneity in outcomes.</p>
+
+    </div>
+  </details>
+
+  <!-- ================================================================== -->
+  <!-- Navigation -->
+  <div class="nav-buttons">
+    <a href="04-two-sample-tests.html" class="nav-btn prev">Previous: Two-Sample Tests</a>
+    <a href="../index.html" class="nav-btn">Back to Track Home</a>
+  </div>
+
+</div><!-- /.container -->
+
+<!-- ====================================================================
+     All Plotly code in one DOMContentLoaded listener
+==================================================================== -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ── Widget 1: Paired Difference Visualizer ──────────────────────────────────
+
+  var w1Dataset = null;
+
+  function w1GenerateData() {
+    var n     = parseInt(document.getElementById('w1-n').value, 10);
+    var mu    = parseFloat(document.getElementById('w1-mu').value);
+    var sigma = parseFloat(document.getElementById('w1-sigma').value);
+
+    var before = [], after = [], diffs = [];
+    for (var i = 0; i < n; i++) {
+      var b = 130 + 15 * randn();
+      var d = mu + sigma * randn();
+      var a = b - d;
+      before.push(b);
+      after.push(a);
+      diffs.push(d);
+    }
+    return { before: before, after: after, diffs: diffs, n: n };
+  }
+
+  function w1UpdateStats(data) {
+    var diffs = data.diffs;
+    var n     = data.n;
+    var dbar  = mean(diffs);
+    var sd    = stddev(diffs, true);
+    var se    = sd / Math.sqrt(n);
+    var tStat = dbar / se;
+    var df    = n - 1;
+    var pval  = 2 * Math.min(tCDF(tStat, df), 1 - tCDF(tStat, df));
+
+    document.getElementById('w1-dbar').textContent = dbar.toFixed(2);
+    document.getElementById('w1-sd').textContent   = sd.toFixed(2);
+    document.getElementById('w1-se').textContent   = se.toFixed(2);
+    document.getElementById('w1-t').textContent    = tStat.toFixed(3);
+    document.getElementById('w1-df').textContent   = df;
+    document.getElementById('w1-pval').textContent = pval.toFixed(4);
+
+    var decEl = document.getElementById('w1-decision');
+    if (pval < 0.05) {
+      decEl.innerHTML = '<span class="ht-decision reject">Reject H&#8320; (&#945; = 0.05)</span>';
+    } else {
+      decEl.innerHTML = '<span class="ht-decision fail">Fail to Reject H&#8320; (&#945; = 0.05)</span>';
+    }
+  }
+
+  function w1Render() {
+    var data = w1Dataset;
+    var n    = data.n;
+
+    // Left panel: scatter with lines per subject
+    var scatterTraces = [];
+    for (var i = 0; i < n; i++) {
+      var d = data.before[i] - data.after[i];
+      var color;
+      if (d > 0.5) {
+        color = '#16a34a';   // green: BP decreased (improvement)
+      } else if (d < -0.5) {
+        color = '#dc2626';   // red: BP increased (worsening)
+      } else {
+        color = '#9ca3af';   // gray: near zero
+      }
+      scatterTraces.push({
+        x: [0, 1],
+        y: [data.before[i], data.after[i]],
+        mode: 'lines+markers',
+        line:   { color: color, width: 1.5 },
+        marker: { color: color, size: 6 },
+        showlegend: false,
+        hovertemplate: 'Subject ' + (i + 1) + '<br>Before: %{y:.1f}<extra></extra>'
+      });
+    }
+
+    // Add legend entries for color meaning
+    scatterTraces.push({
+      x: [null], y: [null], mode: 'lines+markers',
+      line: { color: '#16a34a' }, marker: { color: '#16a34a' },
+      name: 'BP decreased', showlegend: true
+    });
+    scatterTraces.push({
+      x: [null], y: [null], mode: 'lines+markers',
+      line: { color: '#dc2626' }, marker: { color: '#dc2626' },
+      name: 'BP increased', showlegend: true
+    });
+    scatterTraces.push({
+      x: [null], y: [null], mode: 'lines+markers',
+      line: { color: '#9ca3af' }, marker: { color: '#9ca3af' },
+      name: 'Near zero', showlegend: true
+    });
+
+    var scatterLayout = plotlyLayout({
+      title: { text: 'Before vs After (per subject)', font: { size: 13 } },
+      xaxis: {
+        tickvals: [0, 1],
+        ticktext: ['Before', 'After'],
+        title: '',
+        range: [-0.3, 1.3]
+      },
+      yaxis: { title: 'Systolic BP (mmHg)' },
+      showlegend: true,
+      legend: { x: 0.01, y: 0.01 }
+    });
+
+    Plotly.newPlot('w1-plot-scatter', scatterTraces, scatterLayout, PLOTLY_CONFIG);
+
+    // Right panel: histogram of differences
+    var dbar = mean(data.diffs);
+    var histTrace = {
+      x: data.diffs,
+      type: 'histogram',
+      name: 'Differences',
+      marker: { color: 'rgba(59, 130, 246, 0.6)', line: { color: 'rgba(59,130,246,1)', width: 1 } },
+      autobinx: true
+    };
+    var meanLine = {
+      x: [dbar, dbar],
+      y: [0, n],
+      mode: 'lines',
+      name: 'd̄ = ' + dbar.toFixed(2),
+      line: { color: '#f59e0b', width: 2, dash: 'dash' }
+    };
+
+    var histLayout = plotlyLayout({
+      title: { text: 'Distribution of Differences', font: { size: 13 } },
+      xaxis: { title: 'Difference dᵢ (Before − After)' },
+      yaxis: { title: 'Count' },
+      showlegend: true,
+      legend: { x: 0.01, y: 0.99 }
+    });
+
+    Plotly.newPlot('w1-plot-hist', [histTrace, meanLine], histLayout, PLOTLY_CONFIG);
+
+    w1UpdateStats(data);
+  }
+
+  function w1Refresh() {
+    w1Dataset = w1GenerateData();
+    w1Render();
+  }
+
+  // Slider labels
+  document.getElementById('w1-n').addEventListener('input', function () {
+    document.getElementById('w1-n-label').textContent = this.value;
+    w1Refresh();
+  });
+  document.getElementById('w1-mu').addEventListener('input', function () {
+    var v = parseFloat(this.value);
+    document.getElementById('w1-mu-label').textContent = (v < 0 ? '−' + Math.abs(v) : v);
+    w1Refresh();
+  });
+  document.getElementById('w1-sigma').addEventListener('input', function () {
+    document.getElementById('w1-sigma-label').textContent = this.value;
+    w1Refresh();
+  });
+  document.getElementById('w1-resample').addEventListener('click', w1Refresh);
+
+  // Initial render for widget 1
+  w1Refresh();
+
+
+  // ── Widget 2: Paired vs Independent Comparison ──────────────────────────────
+
+  var before2 = [152, 143, 160, 137, 148, 155, 142, 138];
+  var after2  = [144, 137, 149, 128, 140, 145, 136, 130];
+  var n2      = 8;
+
+  // Paired analysis
+  var diffs2   = before2.map(function (b, i) { return b - after2[i]; });
+  var dbar2    = mean(diffs2);
+  var sd2      = stddev(diffs2, true);
+  var se2p     = sd2 / Math.sqrt(n2);
+  var t2p      = dbar2 / se2p;
+  var df2p     = n2 - 1;
+  var pval2p   = 2 * Math.min(tCDF(t2p, df2p), 1 - tCDF(t2p, df2p));
+
+  // Independent analysis (treating as two unrelated groups)
+  var xbar1    = mean(before2);
+  var xbar2    = mean(after2);
+  var s1       = stddev(before2, true);
+  var s2       = stddev(after2, true);
+  var se2i     = pooledStdErr(s1, n2, s2, n2);
+  var t2i      = (xbar1 - xbar2) / se2i;
+  var df2i     = welchDf(s1, n2, s2, n2);
+  var pval2i   = 2 * Math.min(tCDF(t2i, df2i), 1 - tCDF(t2i, df2i));
+
+  // Populate paired stats
+  document.getElementById('w2-paired-dbar').textContent = dbar2.toFixed(2);
+  document.getElementById('w2-paired-sd').textContent   = sd2.toFixed(2);
+  document.getElementById('w2-paired-se').textContent   = se2p.toFixed(3);
+  document.getElementById('w2-paired-t').textContent    = t2p.toFixed(3);
+  document.getElementById('w2-paired-df').textContent   = df2p;
+  document.getElementById('w2-paired-pval').textContent = pval2p < 0.0001 ? '< 0.0001' : pval2p.toFixed(4);
+
+  var pairedDecEl = document.getElementById('w2-paired-decision');
+  if (pval2p < 0.05) {
+    pairedDecEl.innerHTML = '<span class="ht-decision reject">Reject H&#8320; (&#945; = 0.05)</span>';
+  } else {
+    pairedDecEl.innerHTML = '<span class="ht-decision fail">Fail to Reject H&#8320;</span>';
+  }
+
+  // Populate independent stats
+  document.getElementById('w2-ind-xbar1').textContent = xbar1.toFixed(2);
+  document.getElementById('w2-ind-xbar2').textContent = xbar2.toFixed(2);
+  document.getElementById('w2-ind-se').textContent    = se2i.toFixed(3);
+  document.getElementById('w2-ind-t').textContent     = t2i.toFixed(3);
+  document.getElementById('w2-ind-df').textContent    = df2i.toFixed(1);
+  document.getElementById('w2-ind-pval').textContent  = pval2i < 0.0001 ? '< 0.0001' : pval2i.toFixed(4);
+
+  var indDecEl = document.getElementById('w2-ind-decision');
+  if (pval2i < 0.05) {
+    indDecEl.innerHTML = '<span class="ht-decision reject">Reject H&#8320; (&#945; = 0.05)</span>';
+  } else {
+    indDecEl.innerHTML = '<span class="ht-decision fail">Fail to Reject H&#8320;</span>';
+  }
+
+  // Bar chart: |t| comparison
+  var barTrace = {
+    x: ['Paired t-Test', 'Independent t-Test'],
+    y: [Math.abs(t2p), Math.abs(t2i)],
+    type: 'bar',
+    marker: {
+      color: ['#16a34a', '#dc2626'],
+      opacity: 0.8
+    },
+    text: [Math.abs(t2p).toFixed(3), Math.abs(t2i).toFixed(3)],
+    textposition: 'auto',
+    showlegend: false
+  };
+
+  var barLayout = plotlyLayout({
+    title: { text: 'Absolute t-Statistic: Paired vs Independent', font: { size: 13 } },
+    yaxis: { title: '|t statistic|', rangemode: 'tozero' },
+    xaxis: { title: '' },
+    showlegend: false
+  });
+
+  Plotly.newPlot('w2-plot', [barTrace], barLayout, PLOTLY_CONFIG);
+
+});
+</script>
+
+</body>
+</html>

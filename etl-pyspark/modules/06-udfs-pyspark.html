@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 6: UDFs in PySpark</title>
+  <link rel="stylesheet" href="../assets/style.css">
+<script>try{if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <p class="progress-indicator">Module 6 of 10</p>
+        <h1>UDFs in PySpark</h1>
+      </div>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="theme-toggle">Dark mode</button>
+        <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+      </div>
+    </header>
+    <nav class="module-nav-bar" style="display:none">
+      <a href="../index.html">Track Home</a>
+      <a href="01-etl-pyspark.html">1. ETL with PySpark</a>
+      <a href="02-in-memory-processing.html">2. In-Memory Processing</a>
+      <a href="03-spark-rdds.html">3. Spark RDDs</a>
+      <a href="04-dataframes-pyspark-vs-pandas.html">4. DataFrames</a>
+      <a href="05-pyspark-sql.html">5. PySpark SQL</a>
+      <a href="06-udfs-pyspark.html">6. UDFs</a>
+      <a href="07-data-cleaning.html">7. Data Cleaning</a>
+      <a href="08-data-exploration.html">8. Data Exploration</a>
+      <a href="09-transformation-operations.html">9. Transformations</a>
+      <a href="10-caching-broadcasting.html">10. Caching</a>
+    </nav>
+
+    <!-- 1. Where We Left Off -->
+    <details>
+      <summary>Where We Left Off</summary>
+      <p>In Module 5, we queried DataFrames using SQL syntax — SELECT, JOIN, GROUP BY, CTEs. These built-in operations handle most transformations. But when you need custom logic, you write a UDF.</p>
+    </details>
+
+    <!-- 2. What are UDFs? -->
+    <h2>What are UDFs?</h2>
+    <p>User-Defined Functions (UDFs) let you apply custom Python logic to DataFrame columns. Spark ships with a rich library of built-in functions — arithmetic, string manipulation, date handling, aggregations — but sometimes your business rules don't fit neatly into what's already available. That's where UDFs come in: you write a regular Python function and register it so Spark can apply it row by row (or batch by batch) across your distributed data.</p>
+    <p>Common use cases include converting numeric grades to letter grades, applying domain-specific categorizations (like risk tiers or customer segments), computing custom metrics that combine multiple columns, or encoding business rules that would be awkward to express with nested <code>when()</code> chains. If you find yourself thinking "I wish I could just call my Python function on every row," a UDF is the answer.</p>
+
+    <!-- 3. Creating UDFs — Two Approaches -->
+    <h2>Creating UDFs — Two Approaches</h2>
+
+    <h3>Approach 1: @udf decorator</h3>
+    <p>The decorator approach lets you define and register a UDF in one step. You annotate your function with <code>@udf(returnType=...)</code> and then use it directly in DataFrame expressions:</p>
+    <div class="code-block simulated" data-output="+-------------+-----------+-----+------------+&#10;|enrollment_id|course_name|grade|letter_grade|&#10;+-------------+-----------+-----+------------+&#10;|        1    |   Python  |   92|           A|&#10;|        2    |  Calculus  |   88|           B|&#10;|        3    | Statistics |   75|           C|&#10;|        4    |   Python  |   63|           D|&#10;|        5    |  Calculus  |   55|           F|&#10;+-------------+-----------+-----+------------+&#10;only showing top 5 rows">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>from pyspark.sql.functions import udf
+from pyspark.sql.types import StringType
+
+@udf(returnType=StringType())
+def grade_letter(numeric_grade):
+    if numeric_grade >= 90: return 'A'
+    elif numeric_grade >= 80: return 'B'
+    elif numeric_grade >= 70: return 'C'
+    elif numeric_grade >= 60: return 'D'
+    else: return 'F'
+
+result = enrollments_df.withColumn("letter_grade", grade_letter("grade"))
+result.show(5)</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <h3>Approach 2: Register for SQL use</h3>
+    <p>If you prefer writing SQL queries, you can register a UDF with <code>spark.udf.register()</code> so it becomes callable inside <code>spark.sql()</code> statements:</p>
+    <div class="code-block simulated" data-output="+-------------+-----------+-----+------+&#10;|enrollment_id|course_name|grade|letter|&#10;+-------------+-----------+-----+------+&#10;|        1    |   Python  |   92|     A|&#10;|        2    |  Calculus  |   88|     B|&#10;|        3    | Statistics |   75|     C|&#10;|        4    |   Python  |   63|     D|&#10;|        5    |  Calculus  |   55|     F|&#10;+-------------+-----------+-----+------+&#10;only showing top 5 rows">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>spark.udf.register("grade_letter", grade_letter, StringType())
+spark.sql("SELECT enrollment_id, course_name, grade, grade_letter(grade) as letter FROM enrollments").show(5)</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 4. Return Types Matter -->
+    <h2>Return Types Matter</h2>
+    <p>Every UDF must declare its return type explicitly. Spark uses this to build the schema of the resulting DataFrame. If your function returns a value that doesn't match the declared type, you'll get a runtime error — often a cryptic serialization failure. Common return types include <code>StringType()</code>, <code>IntegerType()</code>, <code>FloatType()</code>, <code>BooleanType()</code>, and <code>ArrayType()</code>.</p>
+    <p>For complex return values, you can use <code>StructType</code> to define a multi-field schema:</p>
+    <div class="code-block simulated" data-output="+-------------+-----+-------------------+&#10;|enrollment_id|grade|       grade_info  |&#10;+-------------+-----+-------------------+&#10;|        1    |   92|{A, Dean's List}   |&#10;|        2    |   88|{B, Honor Roll}    |&#10;|        3    |   75|{C, Good Standing} |&#10;|        4    |   63|{D, Probation}     |&#10;|        5    |   55|{F, Academic Hold} |&#10;+-------------+-----+-------------------+&#10;only showing top 5 rows">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>from pyspark.sql.types import StructType, StructField, StringType
+
+grade_schema = StructType([
+    StructField("letter", StringType(), False),
+    StructField("standing", StringType(), False)
+])
+
+@udf(returnType=grade_schema)
+def grade_info(numeric_grade):
+    if numeric_grade >= 90: return ('A', "Dean's List")
+    elif numeric_grade >= 80: return ('B', 'Honor Roll')
+    elif numeric_grade >= 70: return ('C', 'Good Standing')
+    elif numeric_grade >= 60: return ('D', 'Probation')
+    else: return ('F', 'Academic Hold')
+
+result = enrollments_df.withColumn("grade_info", grade_info("grade"))
+result.select("enrollment_id", "grade", "grade_info").show(5)</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 5. Performance Implications -->
+    <h2>Performance Implications</h2>
+    <p>Regular UDFs come with a significant performance cost. For every row, Spark must serialize the data from the JVM, send it to a Python process, execute your function, serialize the result back, and return it to the JVM. This row-by-row round-trip is orders of magnitude slower than Spark's built-in functions, which execute entirely within the JVM using optimized code generation.</p>
+    <p>Beyond serialization overhead, the Catalyst optimizer cannot "see inside" a UDF. When you use built-in functions, Spark can reorder operations, push filters down, and combine steps. With a UDF, the optimizer treats it as an opaque black box — it must execute exactly as written, with no possibility of optimization. The rule of thumb: prefer built-in functions whenever possible, and reserve UDFs for logic that truly cannot be expressed any other way.</p>
+
+    <!-- 6. Pandas UDFs (Vectorized) -->
+    <h2>Pandas UDFs (Vectorized)</h2>
+    <p>Pandas UDFs (also called vectorized UDFs) address the performance problem by processing data in batches rather than one row at a time. Under the hood, Spark uses Apache Arrow to transfer entire columns of data between the JVM and Python as zero-copy arrays. Your function receives a <code>pd.Series</code> and returns a <code>pd.Series</code>, letting you use vectorized Pandas/NumPy operations that are much faster than Python loops.</p>
+    <p>Depending on the workload, Pandas UDFs can be 3x to 100x faster than regular row-at-a-time UDFs. They are the recommended approach whenever you need custom Python logic at scale.</p>
+    <div class="code-block simulated" data-output="+-------------+-----------+-----+------------+&#10;|enrollment_id|course_name|grade|letter_grade|&#10;+-------------+-----------+-----+------------+&#10;|        1    |   Python  |   92|           A|&#10;|        2    |  Calculus  |   88|           B|&#10;|        3    | Statistics |   75|           C|&#10;|        4    |   Python  |   63|           D|&#10;|        5    |  Calculus  |   55|           F|&#10;+-------------+-----------+-----+------------+&#10;only showing top 5 rows">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>from pyspark.sql.functions import pandas_udf
+import pandas as pd
+
+@pandas_udf(StringType())
+def grade_letter_vec(grades: pd.Series) -> pd.Series:
+    return grades.map(lambda g: 'A' if g >= 90 else 'B' if g >= 80 else 'C' if g >= 70 else 'D' if g >= 60 else 'F')
+
+result = enrollments_df.withColumn("letter_grade", grade_letter_vec("grade"))
+result.show(5)</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 7. Live Demo: The Logic in Plain Python -->
+    <h2>Live Demo: The Logic in Plain Python</h2>
+    <p>The custom logic inside a UDF is just regular Python. Below, we compare a row-at-a-time approach (like a regular UDF) with a vectorized approach (like a Pandas UDF) using plain Pandas — no Spark required.</p>
+    <div class="code-block live">
+      <div class="code-block-header">
+        <span>Python (runs in browser)</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea># The same UDF logic works in plain Python/Pandas
+import pandas as pd
+
+grades = pd.Series([92, 88, 75, 63, 55, 81, 94, 70, 68, 85])
+
+def grade_letter(g):
+    if g >= 90: return 'A'
+    elif g >= 80: return 'B'
+    elif g >= 70: return 'C'
+    elif g >= 60: return 'D'
+    else: return 'F'
+
+# Apply as a regular function (like a UDF)
+letters = grades.map(grade_letter)
+
+# Vectorized approach (like a Pandas UDF)
+letters_vec = pd.cut(grades, bins=[0, 60, 70, 80, 90, 100], labels=['F', 'D', 'C', 'B', 'A'])
+
+print("Row-at-a-time:")
+print(pd.DataFrame({'grade': grades, 'letter': letters}))
+print("\nVectorized (pd.cut):")
+print(pd.DataFrame({'grade': grades, 'letter': letters_vec}))</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 8. Checkpoint -->
+    <div class="checkpoint" data-correct="b">
+      <p class="checkpoint-question">Why are Pandas UDFs faster than regular UDFs?</p>
+      <label><input type="radio" name="cp1" value="a"> (a) They use less memory</label>
+      <label><input type="radio" name="cp1" value="b"> (b) They process data in batches using Arrow serialization</label>
+      <label><input type="radio" name="cp1" value="c"> (c) They run on the driver only</label>
+      <label><input type="radio" name="cp1" value="d"> (d) They skip type checking</label>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- 9. Practice Problems -->
+    <div class="practice-section">
+      <h2>Practice Problems</h2>
+
+      <!-- Problem 1 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Recall</span> — Problem 1</p>
+        <p>Write a UDF that converts a numeric grade (0-100) to a letter grade (A/B/C/D/F) and apply it to the enrollments DataFrame.</p>
+        <div class="code-block simulated" data-output="+-------------+-----------+-----+------------+&#10;|enrollment_id|course_name|grade|letter_grade|&#10;+-------------+-----------+-----+------------+&#10;|        1    |   Python  |   92|           A|&#10;|        2    |  Calculus  |   88|           B|&#10;|        3    | Statistics |   75|           C|&#10;|        4    |   Python  |   63|           D|&#10;|        5    |  Calculus  |   55|           F|&#10;+-------------+-----------+-----+------------+&#10;only showing top 5 rows">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea>from pyspark.sql.functions import udf
+from pyspark.sql.types import StringType
+
+# Define a UDF that maps numeric grades to letters
+@udf(returnType=StringType())
+def grade_letter(numeric_grade):
+    if numeric_grade >= 90: return 'A'
+    elif numeric_grade >= 80: return 'B'
+    elif numeric_grade >= 70: return 'C'
+    elif numeric_grade >= 60: return 'D'
+    else: return 'F'
+
+# Apply the UDF to create a new column
+result = enrollments_df.withColumn("letter_grade", grade_letter("grade"))
+result.show(5)</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+
+      <!-- Problem 2 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Apply</span> — Problem 2</p>
+        <p>Register a UDF for SQL use and apply it in a SELECT statement to show enrollment_id, course_name, and letter_grade.</p>
+        <div class="code-block simulated" data-output="+-------------+-----------+------------+&#10;|enrollment_id|course_name|letter_grade|&#10;+-------------+-----------+------------+&#10;|        1    |   Python  |           A|&#10;|        2    |  Calculus  |           B|&#10;|        3    | Statistics |           C|&#10;|        4    |   Python  |           D|&#10;|        5    |  Calculus  |           F|&#10;+-------------+-----------+------------+&#10;only showing top 5 rows">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea># Register the UDF so it can be used in SQL
+spark.udf.register("grade_letter", grade_letter, StringType())
+
+# Create a temp view if not already registered
+enrollments_df.createOrReplaceTempView("enrollments")
+
+# Use the UDF in a SQL query
+spark.sql("""
+    SELECT enrollment_id, course_name, grade_letter(grade) as letter_grade
+    FROM enrollments
+""").show(5)</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+
+      <!-- Problem 3 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Stretch</span> — Problem 3</p>
+        <p>Write a Pandas UDF that normalizes GPA to a 0-100 scale (gpa / 4.0 * 100) and apply it to the students DataFrame.</p>
+        <div class="code-block simulated" data-output="+----------+-----------+---+---+---+--------------+&#10;|student_id|       name|maj|yr |gpa|gpa_normalized|&#10;+----------+-----------+---+---+---+--------------+&#10;|      1001|  Alice Chen| CS|  3|3.8|          95.0|&#10;|      1002|Bob Martinez| DS|  2|3.5|          87.5|&#10;|      1003|Carol Johns.|Mat|  4|3.9|          97.5|&#10;|      1004|  David Kim | CS|  1|3.2|          80.0|&#10;|      1005|  Eva Patel | DS|  3|3.7|          92.5|&#10;+----------+-----------+---+---+---+--------------+&#10;only showing top 5 rows">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea>from pyspark.sql.functions import pandas_udf
+from pyspark.sql.types import FloatType
+import pandas as pd
+
+@pandas_udf(FloatType())
+def normalize_gpa(gpa_col: pd.Series) -> pd.Series:
+    return gpa_col / 4.0 * 100
+
+result = students_df.withColumn("gpa_normalized", normalize_gpa("gpa"))
+result.show(5)</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10. Bridge -->
+    <h2>Up Next</h2>
+    <p>Now we can transform data any way we want — with built-in functions, SQL, or custom UDFs. But real-world data is messy. Before any meaningful analysis, we need to clean it. Next module introduces a dirty version of our dataset.</p>
+
+    <!-- Navigation -->
+    <nav class="module-nav">
+      <a href="05-pyspark-sql.html">&larr; Module 5: Querying with PySpark SQL</a>
+      <a href="07-data-cleaning.html">Module 7: Data Cleaning &rarr;</a>
+    </nav>
+  </div>
+
+  <script src="../assets/pyodide-loader.js"></script>
+  <script src="../assets/main.js"></script>
+</body>
+</html>

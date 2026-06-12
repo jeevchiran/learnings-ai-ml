@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 4: Silhouette Score and Evaluation Metrics</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-clustering-intro.html">1. Intro</a>
+    <a href="02-distance-centroids.html">2. Distance &amp; Centroids</a>
+    <a href="03-inertia-wcss.html">3. Inertia (WCSS)</a>
+    <a href="04-silhouette-metrics.html" class="active">4. Silhouette &amp; Metrics</a>
+  </nav>
+  <header>
+    <h1>Module 4: Silhouette Score and Evaluation Metrics</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- SECTION 1: WHY WCSS IS NOT ENOUGH -->
+  <h2>Why WCSS Is Not Enough</h2>
+
+  <p>Module 3 introduced Within-Cluster Sum of Squares (WCSS) as the objective K-means minimises. WCSS measures <em>cohesion</em> — how tightly the points within each cluster pack around their centroid. A smaller WCSS means each cluster is internally compact. That is a good property. But it is not the only property a useful clustering should have.</p>
+
+  <p>Consider what WCSS cannot see: <strong>separation</strong>. Two clusters can each be individually tight while sitting right next to each other, overlapping at their boundaries. A student looking at that clustering would say it is bad — the groups are not meaningfully distinct. Yet WCSS might be low, reporting a falsely optimistic score.</p>
+
+  <div class="callout note">
+    <strong>The blind spot of WCSS</strong>
+    WCSS only looks <em>inside</em> each cluster. It has no term that penalises clusters for being close to one another. A partition with tight clusters pressed against each other will earn a low WCSS, but it fails to answer the more important question: are the clusters well-separated from one another?
+  </div>
+
+  <p>Two concrete failure modes illustrate why we need something more:</p>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>Case A: Tight but too close</h5>
+      <p>Two elongated clusters each have very low internal scatter, so WCSS is small. But they nearly touch. A point near the boundary could plausibly belong to either cluster. Cohesion is high; separation is poor.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Case B: Overlapping blobs</h5>
+      <p>Two clusters overlap substantially in the middle. Points in the overlap region are equidistant from both centroids. WCSS may be similar to Case A, yet intuitively the clustering is worse — many points are ambiguously assigned.</p>
+    </div>
+  </div>
+
+  <p>Both cases might produce almost identical WCSS values, yet both are poor clusterings for different reasons. We need a metric that captures <strong>cohesion AND separation simultaneously</strong>. That metric is the silhouette score.</p>
+
+  <div class="bridge">
+    <strong>The key insight.</strong> A good clustering places each point closer to the members of its own cluster than to the members of any other cluster — by a wide margin. The silhouette score quantifies exactly this margin, for every single point in the dataset, and then averages them into a single interpretable number.
+  </div>
+
+  <!-- SECTION 2: SILHOUETTE SCORE DERIVATION -->
+  <h2>The Silhouette Score — Derivation</h2>
+
+  <p>The silhouette coefficient was introduced by Peter Rousseeuw in 1987. It assigns every data point a score between -1 and 1 measuring how well it sits inside its assigned cluster relative to alternative clusters. Here is the derivation from first principles.</p>
+
+  <h3>Step 1 — Intra-cluster distance a(i)</h3>
+
+  <p>For point <span class="math-latex math-inline">x_i</span> assigned to cluster <span class="math-latex math-inline">C_k</span>, define the <strong>mean distance to all other members of its own cluster</strong>:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">a(i) = \frac{1}{|C_k| - 1} \sum_{j \in C_k,\, j \neq i} d(x_i,\, x_j)</span>
+  </div>
+
+  <p>The denominator is <span class="math-latex math-inline">|C_k| - 1</span>, not <span class="math-latex math-inline">|C_k|</span>, because we exclude point <span class="math-latex math-inline">i</span> itself. This quantity measures <em>cohesion</em>: how tightly point <span class="math-latex math-inline">i</span> belongs to its cluster. A small <span class="math-latex math-inline">a(i)</span> means the point is deep inside its cluster; a large <span class="math-latex math-inline">a(i)</span> means it is on the fringe.</p>
+
+  <h3>Step 2 — Nearest-cluster distance b(i)</h3>
+
+  <p>For each cluster <span class="math-latex math-inline">C_{k'}</span> that does not contain point <span class="math-latex math-inline">i</span>, compute the mean distance from <span class="math-latex math-inline">x_i</span> to all points in <span class="math-latex math-inline">C_{k'}</span>:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">b(i) = \min_{k' \neq k} \frac{1}{|C_{k'}|} \sum_{j \in C_{k'}} d(x_i,\, x_j)</span>
+  </div>
+
+  <p>We take the <em>minimum</em> over all competing clusters — this identifies the <strong>nearest other cluster</strong> to point <span class="math-latex math-inline">i</span>. That nearest other cluster is the most plausible alternative home for point <span class="math-latex math-inline">i</span>. A large <span class="math-latex math-inline">b(i)</span> means the nearest competitor is far away, so the current assignment is well-justified.</p>
+
+  <h3>Step 3 — The silhouette score for point i</h3>
+
+  <div class="math-block">
+    <span class="math-latex math-block">s(i) = \frac{b(i) - a(i)}{\max(a(i),\, b(i))}</span>
+  </div>
+
+  <p>The numerator <span class="math-latex math-inline">b(i) - a(i)</span> is positive when <span class="math-latex math-inline">b(i) > a(i)</span>, meaning the point is closer to its own cluster than to the best competitor. The denominator normalises by the larger of the two values, mapping the result into <span class="math-latex math-inline">[-1, 1]</span>.</p>
+
+  <h3>Derivation of the range</h3>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Case a(i) &lt; b(i) — correctly clustered</strong>
+        <div class="step-explanation">
+          Here <span class="math-latex math-inline">\max(a, b) = b</span>, so:
+        </div>
+        <div class="math-block" style="margin-top:0.5rem;">
+          <span class="math-latex math-block">s(i) = \frac{b - a}{b} = 1 - \frac{a}{b} \in (0, 1]</span>
+        </div>
+        <div class="step-explanation">The closer <span class="math-latex math-inline">a</span> is to 0 (perfectly tight cluster) and the larger <span class="math-latex math-inline">b</span> is (far competitor), the nearer <span class="math-latex math-inline">s(i)</span> is to 1. Equality <span class="math-latex math-inline">s(i) = 1</span> requires <span class="math-latex math-inline">a(i) = 0</span>, i.e., the point is at the exact centroid of a one-member cluster.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Case a(i) = b(i) — boundary point</strong>
+        <div class="step-explanation">
+          The numerator is zero:
+        </div>
+        <div class="math-block" style="margin-top:0.5rem;">
+          <span class="math-latex math-block">s(i) = \frac{b - a}{\max(a, b)} = \frac{0}{\max(a, a)} = 0</span>
+        </div>
+        <div class="step-explanation">The point is equidistant from its own cluster and the nearest competitor. It sits exactly on the decision boundary and could reasonably belong to either cluster.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Case a(i) &gt; b(i) — possibly misclustered</strong>
+        <div class="step-explanation">
+          Here <span class="math-latex math-inline">\max(a, b) = a</span>, so:
+        </div>
+        <div class="math-block" style="margin-top:0.5rem;">
+          <span class="math-latex math-block">s(i) = \frac{b - a}{a} = \frac{b}{a} - 1 \in [-1, 0)</span>
+        </div>
+        <div class="step-explanation">The point is on average closer to a competing cluster than to its own. This strongly suggests it has been assigned to the wrong cluster. The more extreme the mismatch, the closer <span class="math-latex math-inline">s(i)</span> is to -1.</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Overall silhouette score</h3>
+
+  <p>The overall silhouette score for a clustering is the mean over all <span class="math-latex math-inline">n</span> points:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">S = \frac{1}{n} \sum_{i=1}^{n} s(i) \in [-1,\, 1]</span>
+  </div>
+
+  <p>Higher is better. A score above 0.7 typically indicates strong cluster structure; a score below 0.2 suggests weak or no meaningful structure.</p>
+
+  <!-- SECTION 3: INTERPRETING SILHOUETTE VALUES -->
+  <h2>Interpreting Silhouette Values</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Silhouette Score</th>
+        <th>Interpretation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>0.71 – 1.00</td><td>Strong cluster structure</td></tr>
+      <tr><td>0.51 – 0.70</td><td>Reasonable cluster structure</td></tr>
+      <tr><td>0.26 – 0.50</td><td>Weak structure; may be artificial</td></tr>
+      <tr><td>0.00 – 0.25</td><td>No substantial structure</td></tr>
+      <tr><td>&lt; 0</td><td>Points likely in wrong cluster</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout insight">
+    <strong>What silhouette answers that WCSS cannot</strong>
+    The silhouette score answers a question that WCSS cannot: is this point happier in its current cluster, or would it be happier elsewhere? It combines both cohesion and separation into a single [-1, 1] number per point. A cluster where most points have high positive silhouette values is genuinely well-formed — not just internally tight, but also clearly distinct from neighbouring clusters.
+  </div>
+
+  <h3>Worked example — four points</h3>
+
+  <p>Consider two clusters on the number line:</p>
+  <ul>
+    <li>Cluster A: <span class="math-latex math-inline">x_1 = (0,0)</span>, <span class="math-latex math-inline">x_2 = (1,0)</span></li>
+    <li>Cluster B: <span class="math-latex math-inline">x_3 = (5,0)</span>, <span class="math-latex math-inline">x_4 = (6,0)</span></li>
+  </ul>
+
+  <p>We compute the silhouette score for <span class="math-latex math-inline">x_1</span> step by step:</p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Compute a(x<sub>1</sub>) — intra-cluster distance</strong>
+        <div class="step-explanation">
+          Cluster A has only one other point, <span class="math-latex math-inline">x_2 = (1,0)</span>. With a single neighbour the mean is just that one distance:
+        </div>
+        <div class="math-block" style="margin-top:0.5rem;">
+          <span class="math-latex math-block">a(x_1) = d(x_1, x_2) = \sqrt{(1-0)^2 + 0^2} = 1</span>
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Compute b(x<sub>1</sub>) — nearest other cluster distance</strong>
+        <div class="step-explanation">
+          The only other cluster is Cluster B = {x<sub>3</sub>, x<sub>4</sub>}:
+        </div>
+        <div class="math-block" style="margin-top:0.5rem;">
+          <span class="math-latex math-block">b(x_1) = \frac{d(x_1, x_3) + d(x_1, x_4)}{2} = \frac{5 + 6}{2} = 5.5</span>
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Compute s(x<sub>1</sub>)</strong>
+        <div class="math-block" style="margin-top:0.5rem;">
+          <span class="math-latex math-block">s(x_1) = \frac{b - a}{\max(a, b)} = \frac{5.5 - 1}{\max(5.5,\, 1)} = \frac{4.5}{5.5} \approx 0.818</span>
+        </div>
+        <div class="step-explanation"><span class="math-latex math-inline">x_1</span> is well-clustered: it sits much closer to its cluster partner than to Cluster B.</div>
+      </div>
+    </div>
+  </div>
+
+  <p>By symmetry, all four points produce similar values. The complete picture:</p>
+
+  <table>
+    <thead>
+      <tr><th>Point</th><th>Cluster</th><th>a(i)</th><th>b(i)</th><th>s(i)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="math-latex math-inline">x_1 = (0,0)</span></td><td>A</td><td>1</td><td>5.5</td><td>0.818</td></tr>
+      <tr><td><span class="math-latex math-inline">x_2 = (1,0)</span></td><td>A</td><td>1</td><td>4.5</td><td>0.778</td></tr>
+      <tr><td><span class="math-latex math-inline">x_3 = (5,0)</span></td><td>B</td><td>1</td><td>4.5</td><td>0.778</td></tr>
+      <tr><td><span class="math-latex math-inline">x_4 = (6,0)</span></td><td>B</td><td>1</td><td>5.5</td><td>0.818</td></tr>
+    </tbody>
+  </table>
+
+  <p>Overall silhouette score:</p>
+  <div class="math-block">
+    <span class="math-latex math-block">S = \frac{0.818 + 0.778 + 0.778 + 0.818}{4} = 0.798</span>
+  </div>
+  <p>This confirms what the eye can see: two tight, well-separated clusters.</p>
+
+  <!-- SECTION 4: SILHOUETTE PLOTS -->
+  <h2>Silhouette Plots</h2>
+
+  <p>A silhouette plot is a horizontal bar chart where each bar represents one data point. The width of each bar equals the silhouette value <span class="math-latex math-inline">s(i)</span> for that point. Bars pointing right (positive) belong to well-clustered points; bars pointing left (negative) flag misclustered points. Points are grouped by cluster and sorted within each cluster by their silhouette value, so the overall shape of each cluster section is immediately visible.</p>
+
+  <div class="concept-box">
+    <h4>Reading a silhouette plot</h4>
+    <ul>
+      <li><strong>Cluster thickness</strong> — the vertical extent of each cluster section shows cluster size. Balanced clustering means sections of similar thickness.</li>
+      <li><strong>Bar length</strong> — uniformly long positive bars within a section mean all points are confidently assigned. Short or uneven bars suggest the cluster is fuzzy or overlapping another.</li>
+      <li><strong>Negative bars</strong> — any bar extending left signals a point that is closer to a different cluster than its own. These are candidates for reassignment.</li>
+      <li><strong>Average line</strong> — a dashed vertical line marks the overall mean silhouette. For good clusterings, most bars exceed this line. If many bars fall below it, K is probably wrong.</li>
+    </ul>
+  </div>
+
+  <h3>Using silhouette plots to choose K</h3>
+
+  <p>The most powerful application of silhouette plots is K selection. Run the plot for several values of K and look for:</p>
+
+  <ul>
+    <li>The K that maximises the mean silhouette score (the dashed line furthest to the right)</li>
+    <li>No wide negative-bar regions — even a high mean silhouette can mask a bad cluster if one cluster has many negative points</li>
+    <li>Cluster sections of broadly similar thickness — very unequal sizes often indicate over- or under-clustering</li>
+  </ul>
+
+  <p>The K satisfying all three criteria is the preferred choice. The interactive widget below lets you explore this directly.</p>
+
+  <!-- SECTION 5: DAVIES-BOULDIN INDEX -->
+  <h2>Davies-Bouldin Index</h2>
+
+  <p>Davies and Bouldin (1979) proposed a complementary metric that measures the average "worst-case" cluster overlap. Unlike the silhouette score, it operates on cluster-level summaries rather than individual points, making it computationally cheaper.</p>
+
+  <h3>Scatter within a cluster</h3>
+
+  <p>For cluster <span class="math-latex math-inline">k</span> with centroid <span class="math-latex math-inline">\mu_k</span>, define the <strong>scatter</strong> as the mean distance from each point to the centroid:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">s_k = \frac{1}{|C_k|} \sum_{i \in C_k} \|x_i - \mu_k\|</span>
+  </div>
+
+  <p>A small scatter means the cluster is compact. This is the cluster-level analogue of <span class="math-latex math-inline">a(i)</span> from the silhouette score.</p>
+
+  <h3>Similarity between two clusters</h3>
+
+  <p>The similarity between clusters <span class="math-latex math-inline">i</span> and <span class="math-latex math-inline">j</span> is:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">R_{ij} = \frac{s_i + s_j}{d(\mu_i,\, \mu_j)}</span>
+  </div>
+
+  <div class="callout note">
+    <strong>Key insight: when is R<sub>ij</sub> large?</strong>
+    <span class="math-latex math-inline">R_{ij}</span> is large when either scatter is large (fuzzy clusters) or when the centroid distance is small (close clusters) — or both. This is precisely the bad clustering scenario: scattered clusters that are close together. The Davies-Bouldin index penalises exactly the situations a human eye would call poor.
+  </div>
+
+  <h3>Davies-Bouldin index</h3>
+
+  <p>For each cluster <span class="math-latex math-inline">k</span>, find the worst similarity to any other cluster. Average over all clusters:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">DB = \frac{1}{K} \sum_{k=1}^{K} \max_{j \neq k}\, R_{kj}</span>
+  </div>
+
+  <p><strong>Lower DB is better.</strong> Unlike the silhouette score, DB is not bounded above — its absolute value depends on the scale of the data. It should only be used for comparison within the same dataset (e.g., comparing K = 3 vs K = 4 on the same points). Never compare DB values across different datasets.</p>
+
+  <!-- SECTION 6: CALINSKI-HARABASZ INDEX -->
+  <h2>Calinski-Harabasz Index</h2>
+
+  <p>The Calinski-Harabasz index (1974), also called the Variance Ratio Criterion, takes a different approach. Rather than measuring individual point-level fit or worst-case cluster pairs, it computes the ratio of <em>between-cluster variance</em> to <em>within-cluster variance</em>. This is structurally identical to the F-statistic in one-way ANOVA.</p>
+
+  <h3>Between-cluster sum of squares (BCSS)</h3>
+
+  <p>Let <span class="math-latex math-inline">\mu</span> be the global mean of all points. BCSS measures how far each cluster centroid is from the global mean, weighted by cluster size:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{BCSS} = \sum_{k=1}^{K} |C_k| \cdot \|\mu_k - \mu\|^2</span>
+  </div>
+
+  <p>Large BCSS means the clusters are well-spread out from the global centre — i.e., good separation.</p>
+
+  <h3>Calinski-Harabasz index</h3>
+
+  <div class="math-block">
+    <span class="math-latex math-block">CH(K) = \frac{\text{BCSS} / (K-1)}{\text{WCSS} / (n - K)}</span>
+  </div>
+
+  <p>The denominators are degrees-of-freedom corrections (analogous to mean squares in ANOVA). <strong>Higher CH is better</strong> — it means between-cluster variance is large relative to within-cluster variance, i.e., clusters are both separated and compact.</p>
+
+  <div class="callout note">
+    <strong>Monotonicity caveat</strong>
+    For some datasets, CH increases monotonically with K even when adding clusters is not meaningful. Like WCSS, use it comparatively across K values, not as an absolute measure. Silhouette score is generally more robust for K selection because it accounts for both cohesion and separation without degeneracy at large K.
+  </div>
+
+  <!-- SECTION 7: PRACTICAL GUIDE CHOOSING K -->
+  <h2>Practical Guide: Choosing K</h2>
+
+  <p>No single metric definitively identifies the correct K. The standard practice is to use several metrics together and look for agreement. Here is a comparison of the main methods:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Method</th>
+        <th>Measures</th>
+        <th>Optimum</th>
+        <th>Cost</th>
+        <th>Works for non-spherical?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>WCSS (Elbow)</td>
+        <td>Cohesion only</td>
+        <td>Elbow kink</td>
+        <td>O(K &middot; n &middot; iter)</td>
+        <td>No</td>
+      </tr>
+      <tr>
+        <td>Gap Statistic</td>
+        <td>Cohesion vs. random</td>
+        <td>Max gap</td>
+        <td>O(B &middot; K &middot; n &middot; iter)</td>
+        <td>Better</td>
+      </tr>
+      <tr>
+        <td>Silhouette</td>
+        <td>Cohesion + separation</td>
+        <td>Max score</td>
+        <td>O(K &middot; n&sup2;)</td>
+        <td>Partial</td>
+      </tr>
+      <tr>
+        <td>Davies-Bouldin</td>
+        <td>Cohesion + separation</td>
+        <td>Min value</td>
+        <td>O(K &middot; n)</td>
+        <td>Partial</td>
+      </tr>
+      <tr>
+        <td>Calinski-Harabasz</td>
+        <td>Between vs. within</td>
+        <td>Max value</td>
+        <td>O(K &middot; n)</td>
+        <td>No</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Recommended workflow</h3>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Scale features first</strong>
+        <div class="step-explanation">Euclidean distance (and therefore all these metrics) is sensitive to the scale of each feature. Standardise features to zero mean and unit variance before running K-means. A feature with range [0, 10000] will dominate a feature with range [0, 1] otherwise.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Run K-means for K = 1, 2, ..., K<sub>max</sub></strong>
+        <div class="step-explanation">Try K from 2 to 10-15. For each K, run multiple random restarts (at least 10) and keep the solution with the lowest WCSS to avoid poor local minima.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Compute the Elbow curve</strong>
+        <div class="step-explanation">Plot WCSS vs K. Look for the "elbow" — the K beyond which WCSS decreases only marginally. This gives a rough plausible range (often 2-4 values).</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong>Compute silhouette scores and plots</strong>
+        <div class="step-explanation">For each K in the rough range, compute the mean silhouette score and inspect the silhouette plot. Look for the K with the highest mean silhouette and no wide negative-bar regions.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">5</div>
+      <div class="step-content">
+        <strong>Choose K with highest mean silhouette</strong>
+        <div class="step-explanation">Among the candidates from step 4, prefer the K that balances all three criteria: high mean silhouette, no negative outlier regions, and approximately balanced cluster sizes.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">6</div>
+      <div class="step-content">
+        <strong>Validate with domain knowledge</strong>
+        <div class="step-explanation">A statistically justified K must also make sense in context. Three customer segments that map to recognisable behavioural groups are more valuable than five statistically clean segments that nobody can interpret or act on.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout insight">
+    <strong>No metric is definitive</strong>
+    The best K is both mathematically justified AND domain-meaningful. Metrics guide the search; domain knowledge confirms the answer. When the metrics disagree (which they often do), silhouette score is generally the most reliable starting point because it captures both cohesion and separation without degeneracy.
+  </div>
+
+  <!-- WIDGET 1: SILHOUETTE SCORE VISUALIZER -->
+  <h2>Interactive: Silhouette Score vs. K</h2>
+
+  <div class="widget-container">
+    <h4>120 points from 4 Gaussian blobs (fixed seed). Adjust K to see how silhouette score and cluster assignments change. The silhouette plot shows each point as a horizontal bar — positive bars (coloured) indicate well-clustered points; gray bars indicate negative silhouette values (possibly misclustered).</h4>
+    <div class="widget-controls">
+      <label>
+        K (clusters):
+        <input type="range" id="sil-k-slider" min="2" max="8" step="1" value="4">
+        <span id="sil-k-val" style="font-weight:600;color:var(--accent-blue);min-width:1.2em;display:inline-block;">4</span>
+      </label>
+      <button id="sil-reseed-btn">Reseed</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div id="sil-scatter-plot" style="height:420px;"></div>
+      <div id="sil-bar-plot" style="height:420px;"></div>
+    </div>
+    <div class="stat-row" style="margin-top:0.75rem;">
+      <div class="stat-card">
+        <span>Mean Silhouette</span>
+        <strong id="sil-stat-score">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>WCSS</span>
+        <strong id="sil-stat-wcss">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Negative s(i) count</span>
+        <strong id="sil-stat-neg">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Well-clustered (s &gt; 0.5)</span>
+        <strong id="sil-stat-well">—</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- WIDGET 2: MULTI-METRIC COMPARISON -->
+  <h2>Interactive: All Metrics vs. K</h2>
+
+  <div class="widget-container">
+    <h4>Same dataset (120 points, 4 true blobs, seed=99). All four metrics are normalised to [0,1] and plotted so that "up = better". For silhouette and Calinski-Harabasz (CH), higher is better and no transformation is needed. For WCSS and Davies-Bouldin (DB), lower is better, so the plot shows (1 - normalised value). A vertical dashed line marks K=4 (the true number of clusters). The metrics do not always agree, but they tend to converge near the true K.</h4>
+    <div id="multi-metric-plot" style="height:420px;"></div>
+  </div>
+
+  <!-- PRACTICE PROBLEMS -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: Computing Silhouette by Hand</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>Point <span class="math-latex math-inline">x = (3, 0)</span> belongs to Cluster A = {(2,0), (4,0)} and the nearest other cluster is Cluster B = {(8,0), (10,0)}.</p>
+      <p><strong>(a)</strong> Compute <span class="math-latex math-inline">a(x)</span>: the mean distance from <span class="math-latex math-inline">x</span> to all other points in Cluster A.</p>
+      <p><strong>(b)</strong> Compute <span class="math-latex math-inline">b(x)</span>: the mean distance from <span class="math-latex math-inline">x</span> to all points in Cluster B.</p>
+      <p><strong>(c)</strong> Compute <span class="math-latex math-inline">s(x)</span>.</p>
+      <p><strong>(d)</strong> Interpret the result: is <span class="math-latex math-inline">x</span> well-clustered?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Intra-cluster distance a(x):</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">a(x) = \frac{d(x,(2,0)) + d(x,(4,0))}{2} = \frac{|3-2| + |3-4|}{2} = \frac{1 + 1}{2} = 1</span>
+        </div>
+        <p><strong>(b) Nearest-cluster distance b(x):</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">b(x) = \frac{d(x,(8,0)) + d(x,(10,0))}{2} = \frac{|3-8| + |3-10|}{2} = \frac{5 + 7}{2} = 6</span>
+        </div>
+        <p><strong>(c) Silhouette score s(x):</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">s(x) = \frac{b - a}{\max(a,b)} = \frac{6 - 1}{\max(6, 1)} = \frac{5}{6} \approx 0.833</span>
+        </div>
+        <p><strong>(d) Interpretation:</strong> <span class="math-latex math-inline">s(x) = 0.833</span> is close to 1, placing this point in the "strong cluster structure" range. Point <span class="math-latex math-inline">x</span> is well-clustered — it sits much closer to its two cluster partners (mean distance 1) than to the nearest competing cluster (mean distance 6). The assignment is clearly correct.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: Comparing Metrics Across Clusterings</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>Two competing clusterings of the same 6 points are evaluated:</p>
+      <ul>
+        <li>Clustering A: K = 2, mean silhouette = 0.62, DB index = 0.8</li>
+        <li>Clustering B: K = 3, mean silhouette = 0.74, DB index = 0.5</li>
+      </ul>
+      <p><strong>(a)</strong> Which clustering does the silhouette score prefer?</p>
+      <p><strong>(b)</strong> Which clustering does the Davies-Bouldin index prefer?</p>
+      <p><strong>(c)</strong> Describe a realistic scenario where K = 3 is genuinely better than K = 2, even though adding a cluster increases model complexity.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Silhouette prefers Clustering B (K=3).</strong> The mean silhouette is 0.74 vs 0.62. For silhouette, higher is better. Clustering B's score falls in the "strong structure" range (>0.7), while Clustering A's score falls in the "reasonable" range. The improvement is substantial — B's clusters are meaningfully better separated and more cohesive.</p>
+        <p><strong>(b) Davies-Bouldin also prefers Clustering B (K=3).</strong> DB = 0.5 vs 0.8. For DB, lower is better. A lower DB means clusters are more compact relative to the distances between them. Both metrics agree here, which increases confidence in the K=3 solution.</p>
+        <p><strong>(c) Scenario where K=3 is genuinely better:</strong> Suppose the 6 points form three natural groups — for example, customers with low, medium, and high spending — but two of the groups are closer to each other than either is to the third. With K=2, the algorithm merges the low and medium groups into one cluster. That cluster spans two genuinely different behaviours, so points on each side feel weakly affiliated, producing lower silhouette. With K=3, each customer type is assigned its own centroid; intra-cluster distances are short, inter-cluster distances are large, and both silhouette and DB improve. The correct K here is 3, not 2, even though 3 is "more complex".</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: Proving the Range of s(i)</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>Prove that <span class="math-latex math-inline">s(i) \in [-1, 1]</span> for all data points <span class="math-latex math-inline">i</span>, where <span class="math-latex math-inline">s(i) = \frac{b(i) - a(i)}{\max(a(i), b(i))}</span> and <span class="math-latex math-inline">a(i), b(i) \geq 0</span>.</p>
+      <p><strong>(a)</strong> Show <span class="math-latex math-inline">s(i) \leq 1</span> always. When does equality hold?</p>
+      <p><strong>(b)</strong> Show <span class="math-latex math-inline">s(i) \geq -1</span> always. When does equality hold?</p>
+      <p><strong>(c)</strong> Show <span class="math-latex math-inline">s(i) = 0</span> when <span class="math-latex math-inline">a(i) = b(i)</span>. Interpret geometrically.</p>
+      <p><strong>(d)</strong> For a perfectly clustered dataset where all points are exactly at their centroid and clusters do not overlap, what does <span class="math-latex math-inline">s(i)</span> approach as cluster size <span class="math-latex math-inline">n \to \infty</span>?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Proof that s(i) &le; 1:</strong></p>
+        <p>We need <span class="math-latex math-inline">b - a \leq \max(a, b)</span>. Since <span class="math-latex math-inline">\max(a,b) \geq b</span> always, and <span class="math-latex math-inline">a \geq 0</span>, we have <span class="math-latex math-inline">b - a \leq b \leq \max(a, b)</span>. Therefore <span class="math-latex math-inline">s(i) = (b-a)/\max(a,b) \leq 1</span>.</p>
+        <p>Equality holds when <span class="math-latex math-inline">a = 0</span> and <span class="math-latex math-inline">b > 0</span>. Geometrically, <span class="math-latex math-inline">a(i) = 0</span> means point <span class="math-latex math-inline">i</span> is the sole member of its cluster (no other points to measure distance to, so the empty mean is defined as 0), or in the limit, all other cluster members are coincident with <span class="math-latex math-inline">i</span>.</p>
+        <p><strong>(b) Proof that s(i) &ge; -1:</strong></p>
+        <p>We need <span class="math-latex math-inline">b - a \geq -\max(a,b)</span>, i.e., <span class="math-latex math-inline">b + \max(a,b) \geq a</span>. Since <span class="math-latex math-inline">\max(a,b) \geq a</span>, we have <span class="math-latex math-inline">b + \max(a,b) \geq b + a \geq a</span> (as <span class="math-latex math-inline">b \geq 0</span>). Therefore <span class="math-latex math-inline">s(i) \geq -1</span>.</p>
+        <p>Equality holds when <span class="math-latex math-inline">b = 0</span> and <span class="math-latex math-inline">a > 0</span>. This means the nearest other cluster has all its points coincident with <span class="math-latex math-inline">i</span> itself (zero distance), while the point's own cluster is spread away from it. This is the worst possible misclustering: the point is sitting exactly on top of another cluster's members.</p>
+        <p><strong>(c) When a(i) = b(i):</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">s(i) = \frac{b - a}{\max(a, b)} = \frac{0}{\max(a, a)} = 0</span>
+        </div>
+        <p>Geometrically, <span class="math-latex math-inline">s(i) = 0</span> means point <span class="math-latex math-inline">i</span> lies on the decision boundary between its own cluster and the nearest competing cluster. It is equidistant from both in the mean sense. Reassigning it to the competing cluster would produce an equally valid (or invalid) clustering — the algorithm has no strong preference, and the point provides no evidence for either cluster assignment.</p>
+        <p><strong>(d) Perfect clustering as n &rarr; &infin;:</strong></p>
+        <p>If all points are exactly at their centroid and clusters do not overlap, then for any point <span class="math-latex math-inline">i</span>: <span class="math-latex math-inline">a(i) = 0</span> (all cluster partners are at the same position) and <span class="math-latex math-inline">b(i) = d(\mu_k, \mu_{k'})</span> for the nearest centroid (positive, since clusters do not overlap). Therefore:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">s(i) = \frac{b(i) - 0}{\max(0, b(i))} = \frac{b(i)}{b(i)} = 1</span>
+        </div>
+        <p>As <span class="math-latex math-inline">n \to \infty</span>, with points drawn independently from the same position (a degenerate distribution), <span class="math-latex math-inline">a(i) \to 0</span> and <span class="math-latex math-inline">s(i) \to 1</span>. The silhouette score approaches its maximum value of 1 for a perfectly separated, perfectly cohesive clustering.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="03-inertia-wcss.html" class="nav-btn prev">Prev: Inertia (WCSS)</a>
+    <a href="../index.html" class="nav-btn">Track Home</a>
+  </div>
+
+  <div class="callout insight" style="margin-top:2rem;">
+    <strong>You have completed the K-Means Clustering track.</strong>
+    You can now formalise what "similar" means, derive the centroid update from first principles, explain why WCSS decreases with K but is not sufficient to choose K, and compute and interpret silhouette scores. You have also seen how the Davies-Bouldin and Calinski-Harabasz indices complement the silhouette score and when each is appropriate. The natural next step is exploring non-parametric clustering methods (DBSCAN) and Gaussian Mixture Models, both of which relax the spherical, equal-variance assumptions of K-means.
+  </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Shared dataset — 120 points from 4 blobs, seed=99
+  // ═══════════════════════════════════════════════════════════════════════════
+  var blobData = generateBlobs(120, 4, 1.1, 99);
+  var ALL_POINTS = blobData.points;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Metric helpers (DB and CH implemented inline per spec)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  function dbIndex(points, labels, centroids) {
+    var K = centroids.length;
+    var scatter = centroids.map(function (mu, k) {
+      var clusterPts = points.filter(function (_, i) { return labels[i] === k; });
+      if (!clusterPts.length) return 0;
+      return mean(clusterPts.map(function (p) { return euclidean(p, mu); }));
+    });
+    var db = 0;
+    for (var i = 0; i < K; i++) {
+      var maxR = 0;
+      for (var j = 0; j < K; j++) {
+        if (i === j) continue;
+        var dCentroids = euclidean(centroids[i], centroids[j]);
+        if (dCentroids === 0) continue;
+        var R = (scatter[i] + scatter[j]) / dCentroids;
+        if (R > maxR) maxR = R;
+      }
+      db += maxR;
+    }
+    return db / K;
+  }
+
+  function chIndex(points, labels, centroids, K) {
+    var n = points.length;
+    if (K < 2 || n <= K) return 0;
+    var globalMean = centroid(points);
+    var bcss = centroids.reduce(function (s, mu, k) {
+      var nk = labels.filter(function (l) { return l === k; }).length;
+      var d = euclidean(mu, globalMean);
+      return s + nk * d * d;
+    }, 0);
+    var wcssCur = wcss(points, labels, centroids);
+    if (wcssCur === 0) return 0;
+    return (bcss / (K - 1)) / (wcssCur / (n - K));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WIDGET 1 — Silhouette Score Visualizer
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  var w1Points = ALL_POINTS;
+  var w1Seed = 99;
+
+  function runKMeansForWidget(points, K) {
+    var initC = kMeansPlusPlusInit(points, K);
+    return kMeans(points, K, 100, initC);
+  }
+
+  function buildScatterTraces(points, labels, K) {
+    var traces = [];
+    for (var k = 0; k < K; k++) {
+      var xs = [], ys = [];
+      for (var i = 0; i < points.length; i++) {
+        if (labels[i] === k) {
+          xs.push(points[i][0]);
+          ys.push(points[i][1]);
+        }
+      }
+      traces.push({
+        type: 'scatter',
+        mode: 'markers',
+        x: xs,
+        y: ys,
+        name: 'Cluster ' + (k + 1),
+        marker: {
+          color: CLUSTER_COLORS[k],
+          size: 6,
+          opacity: 0.8,
+          line: { color: 'rgba(255,255,255,0.4)', width: 0.5 }
+        },
+        showlegend: true
+      });
+    }
+    return traces;
+  }
+
+  function buildSilhouetteBarTraces(points, labels, K) {
+    // Compute per-point silhouette values
+    var sVals = points.map(function (_, i) { return silhouettePoint(i, points, labels); });
+
+    // Group by cluster, sort within cluster by silhouette value ascending
+    var grouped = [];
+    for (var k = 0; k < K; k++) {
+      var clusterPoints = points.map(function (_, i) { return { idx: i, s: sVals[i], cluster: k }; })
+        .filter(function (p) { return labels[p.idx] === k; });
+      clusterPoints.sort(function (a, b) { return a.s - b.s; });
+      grouped.push.apply(grouped, clusterPoints);
+    }
+
+    var xVals = grouped.map(function (p) { return p.s; });
+    var yVals = grouped.map(function (_, i) { return i; });
+    var colors = grouped.map(function (p) { return p.s >= 0 ? CLUSTER_COLORS[labels[p.idx]] : '#9ca3af'; });
+
+    var meanS = mean(sVals);
+
+    // Build cluster boundary y-positions for tick labels
+    var tickVals = [];
+    var tickText = [];
+    var runningIdx = 0;
+    for (var k = 0; k < K; k++) {
+      var clusterCount = labels.filter(function (l) { return l === k; }).length;
+      tickVals.push(runningIdx + clusterCount / 2);
+      tickText.push('C' + (k + 1));
+      runningIdx += clusterCount;
+    }
+
+    var barTrace = {
+      type: 'bar',
+      orientation: 'h',
+      x: xVals,
+      y: yVals,
+      marker: { color: colors, line: { width: 0 } },
+      name: 'Silhouette s(i)',
+      showlegend: false
+    };
+
+    var meanLine = {
+      type: 'scatter',
+      mode: 'lines',
+      x: [meanS, meanS],
+      y: [-0.5, grouped.length - 0.5],
+      line: { color: '#dc2626', width: 1.5, dash: 'dash' },
+      name: 'Mean s = ' + meanS.toFixed(3),
+      showlegend: true
+    };
+
+    return {
+      traces: [barTrace, meanLine],
+      tickVals: tickVals,
+      tickText: tickText,
+      meanS: meanS,
+      sVals: sVals
+    };
+  }
+
+  function updateWidget1(K) {
+    var result = runKMeansForWidget(w1Points, K);
+    var labels = result.labels;
+    var centroids = result.centroids;
+    var inertia = result.inertia;
+
+    // Scatter chart
+    var scatterTraces = buildScatterTraces(w1Points, labels, K);
+    var scatterLayout = plotlyLayout({
+      height: 420,
+      title: { text: 'K = ' + K + ' Cluster Assignment', font: { size: 12 } },
+      xaxis: { title: 'Feature 1' },
+      yaxis: { title: 'Feature 2' },
+      legend: { orientation: 'h', y: -0.15, font: { size: 10 } },
+      margin: { t: 45, r: 15, b: 70, l: 50 }
+    });
+    Plotly.react('sil-scatter-plot', scatterTraces, scatterLayout, PLOTLY_CONFIG);
+
+    // Silhouette bar chart
+    var silData = buildSilhouetteBarTraces(w1Points, labels, K);
+    var barLayout = plotlyLayout({
+      height: 420,
+      title: { text: 'Silhouette Plot (K = ' + K + ')', font: { size: 12 } },
+      xaxis: {
+        title: 'Silhouette coefficient s(i)',
+        range: [-1, 1],
+        zeroline: true,
+        zerolinewidth: 1.5
+      },
+      yaxis: {
+        title: 'Point (grouped by cluster)',
+        tickvals: silData.tickVals,
+        ticktext: silData.tickText,
+        showgrid: false,
+        zeroline: false
+      },
+      bargap: 0,
+      legend: { orientation: 'h', y: -0.15, font: { size: 10 } },
+      margin: { t: 45, r: 15, b: 70, l: 45 }
+    });
+    Plotly.react('sil-bar-plot', silData.traces, barLayout, PLOTLY_CONFIG);
+
+    // Stat cards
+    var sVals = silData.sVals;
+    var negCount = sVals.filter(function (s) { return s < 0; }).length;
+    var wellCount = sVals.filter(function (s) { return s > 0.5; }).length;
+    var wellPct = ((wellCount / sVals.length) * 100).toFixed(1) + '%';
+
+    document.getElementById('sil-stat-score').textContent = silData.meanS.toFixed(3);
+    document.getElementById('sil-stat-wcss').textContent = inertia.toFixed(1);
+    document.getElementById('sil-stat-neg').textContent = negCount;
+    document.getElementById('sil-stat-well').textContent = wellPct;
+  }
+
+  // Initial render
+  updateWidget1(4);
+
+  document.getElementById('sil-k-slider').addEventListener('input', function () {
+    var K = parseInt(this.value, 10);
+    document.getElementById('sil-k-val').textContent = K;
+    updateWidget1(K);
+  });
+
+  document.getElementById('sil-reseed-btn').addEventListener('click', function () {
+    var K = parseInt(document.getElementById('sil-k-slider').value, 10);
+    // Generate a new random seed each time
+    w1Seed = Math.floor(Math.random() * 10000);
+    var newData = generateBlobs(120, 4, 1.1, w1Seed);
+    w1Points = newData.points;
+    updateWidget1(K);
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WIDGET 2 — Multi-Metric Comparison (static, precomputed)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  var KValues = [2, 3, 4, 5, 6, 7, 8];
+  var wcssVals = [];
+  var silVals = [];
+  var dbVals = [];
+  var chVals = [];
+
+  // Compute K=1 WCSS for normalisation baseline
+  // For K=1, all points in one cluster, centroid = global mean
+  var globalC = centroid(ALL_POINTS);
+  var labelsK1 = ALL_POINTS.map(function () { return 0; });
+  var wcssK1 = wcss(ALL_POINTS, labelsK1, [globalC]);
+
+  KValues.forEach(function (K) {
+    var initC = kMeansPlusPlusInit(ALL_POINTS, K);
+    var result = kMeans(ALL_POINTS, K, 100, initC);
+    var labels = result.labels;
+    var centroids = result.centroids;
+
+    wcssVals.push(result.inertia);
+    silVals.push(silhouetteScore(ALL_POINTS, labels));
+    dbVals.push(dbIndex(ALL_POINTS, labels, centroids));
+    chVals.push(chIndex(ALL_POINTS, labels, centroids, K));
+  });
+
+  // Normalise each metric to [0, 1]
+  var wcssNorm = wcssVals.map(function (v) { return v / wcssK1; }); // 0 = best
+  var silNorm = silVals.map(function (v) {                           // 1 = best, already in [-1,1]
+    var mn = Math.min.apply(null, silVals);
+    var mx = Math.max.apply(null, silVals);
+    return mx === mn ? 1 : (v - mn) / (mx - mn);
+  });
+  var dbMax = Math.max.apply(null, dbVals);
+  var dbNorm = dbVals.map(function (v) { return dbMax === 0 ? 0 : v / dbMax; }); // 0 = best
+  var chMax = Math.max.apply(null, chVals);
+  var chNorm = chVals.map(function (v) { return chMax === 0 ? 0 : v / chMax; }); // 1 = best
+
+  // Transform so all "up = better": invert WCSS and DB
+  var wcssDisplay = wcssNorm.map(function (v) { return 1 - v; });
+  var dbDisplay   = dbNorm.map(function (v) { return 1 - v; });
+
+  var multiLayout = plotlyLayout({
+    height: 420,
+    title: { text: 'Normalised Metrics vs. K (all "up = better")', font: { size: 12 } },
+    xaxis: {
+      title: 'K (number of clusters)',
+      tickvals: KValues,
+      dtick: 1
+    },
+    yaxis: {
+      title: 'Normalised score (0-1, higher = better)',
+      range: [-0.05, 1.15]
+    },
+    legend: { orientation: 'h', y: -0.18, font: { size: 11 } },
+    margin: { t: 50, r: 20, b: 80, l: 60 },
+    shapes: [
+      {
+        type: 'line',
+        x0: 4, x1: 4, y0: 0, y1: 1.1,
+        line: { color: '#6b7280', width: 1.5, dash: 'dot' }
+      }
+    ],
+    annotations: [
+      {
+        x: 4, y: 1.1,
+        xanchor: 'left',
+        yanchor: 'top',
+        text: 'True K = 4',
+        showarrow: false,
+        font: { size: 11, color: '#6b7280' }
+      }
+    ]
+  });
+
+  var traceWCSS = {
+    type: 'scatter',
+    mode: 'lines+markers',
+    x: KValues,
+    y: wcssDisplay,
+    name: '1 - WCSS (Elbow, inverted)',
+    line: { color: '#dc2626', width: 2 },
+    marker: { size: 7, color: '#dc2626' }
+  };
+
+  var traceSil = {
+    type: 'scatter',
+    mode: 'lines+markers',
+    x: KValues,
+    y: silNorm,
+    name: 'Silhouette score',
+    line: { color: '#2563eb', width: 2 },
+    marker: { size: 7, color: '#2563eb' }
+  };
+
+  var traceDB = {
+    type: 'scatter',
+    mode: 'lines+markers',
+    x: KValues,
+    y: dbDisplay,
+    name: '1 - DB index (inverted)',
+    line: { color: '#d97706', width: 2, dash: 'dashdot' },
+    marker: { size: 7, color: '#d97706' }
+  };
+
+  var traceCH = {
+    type: 'scatter',
+    mode: 'lines+markers',
+    x: KValues,
+    y: chNorm,
+    name: 'Calinski-Harabasz (normalised)',
+    line: { color: '#16a34a', width: 2, dash: 'dash' },
+    marker: { size: 7, color: '#16a34a' }
+  };
+
+  Plotly.newPlot('multi-metric-plot', [traceWCSS, traceSil, traceDB, traceCH], multiLayout, PLOTLY_CONFIG);
+
+});
+</script>
+</body>
+</html>

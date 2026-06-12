@@ -1,0 +1,51 @@
+student_id,name,major,year,gpa
+S001,Alice Johnson,Computer Science,3,3.72
+S002,Bob Martinez,Data Science,2,3.45
+S003,Carol Williams,Mathematics,4,3.88
+S004,David Chen,Statistics,1,3.21
+S005,Emma Thompson,Computer Science,2,3.56
+S006,Frank Garcia,Data Science,3,3.34
+S007,Grace Kim,Mathematics,1,2.98
+S008,Henry Wilson,Statistics,4,3.67
+S009,Isabella Brown,Computer Science,1,3.12
+S010,James Davis,Data Science,4,3.79
+S011,Karen Lee,Mathematics,2,3.41
+S012,Liam Anderson,Statistics,3,3.53
+S013,Mia Rodriguez,Computer Science,4,3.91
+S014,Noah Taylor,Data Science,1,2.87
+S015,Olivia Martin,Mathematics,3,3.65
+S016,Patrick White,Statistics,2,3.28
+S017,Quinn Harris,Computer Science,2,3.48
+S018,Rachel Clark,Data Science,3,3.72
+S019,Samuel Lewis,Mathematics,4,3.84
+S020,Tanya Robinson,Statistics,1,3.15
+S021,Umar Khan,Computer Science,3,3.62
+S022,Victoria Hall,Data Science,2,3.39
+S023,William Young,Mathematics,1,2.76
+S024,Xena Scott,Statistics,4,3.71
+S025,Yusuf Adams,Computer Science,4,3.87
+S026,Zoe Baker,Data Science,1,3.04
+S027,Aaron Mitchell,Mathematics,2,3.52
+S028,Bianca Turner,Statistics,3,3.43
+S029,Charles Phillips,Computer Science,1,2.95
+S030,Diana Campbell,Data Science,4,3.76
+S031,Ethan Parker,Mathematics,3,3.61
+S032,Fiona Evans,Statistics,2,3.33
+S033,George Edwards,Computer Science,2,3.47
+S034,Hannah Collins,Data Science,3,3.58
+S035,Ian Stewart,Mathematics,4,3.82
+S036,Julia Sanchez,Statistics,1,3.09
+S037,Kevin Morris,Computer Science,3,3.69
+S038,Laura Rogers,Data Science,2,3.26
+S039,Michael Reed,Mathematics,1,2.81
+S040,Natalie Cook,Statistics,4,3.74
+S041,Oscar Morgan,Computer Science,4,3.85
+S042,Penelope Bell,Data Science,1,2.93
+S043,Ricardo Murphy,Mathematics,2,3.37
+S044,Sophia Bailey,Statistics,3,3.55
+S045,Thomas Rivera,Computer Science,1,3.18
+S046,Uma Cooper,Data Science,4,3.78
+S047,Vincent Cox,Mathematics,3,3.63
+S048,Wendy Howard,Statistics,2,3.31
+S049,Xavier Ward,Computer Science,2,3.44
+S050,Yasmin Torres,Data Science,3,3.68

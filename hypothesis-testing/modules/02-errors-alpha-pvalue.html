@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 2: Errors, Alpha, and p-value</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Module 2 &mdash; Errors, Alpha, p-value, and the Critical Value Method</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-ht-foundations.html">1. Foundations</a>
+    <a href="02-errors-alpha-pvalue.html" class="active">2. Errors and p-value</a>
+    <a href="03-one-sample-z.html">3. One-Sample Z-Test</a>
+    <a href="04-two-sample-tests.html">4. Two-Sample Tests</a>
+    <a href="05-paired-t.html">5. Paired t-Test</a>
+  </nav>
+
+  <!-- WHY / Bridge -->
+  <div class="bridge">
+    <strong>Why does this matter?</strong> When a jury deliberates, exactly two mistakes are possible. The jury might convict an innocent person &mdash; a grave injustice that punishes someone for a crime they did not commit. Or the jury might acquit a guilty person &mdash; allowing a criminal to go free. Notice that these errors pull in opposite directions: a jury that is very reluctant to convict (stringent standard) will rarely convict the innocent, but will more often let the guilty walk. A jury that convicts readily will catch more criminals, but will also wrongly convict more innocent people. Statistics has exactly the same structure. Every time we run a hypothesis test we risk one of two analogous mistakes. Understanding those mistakes, quantifying them, and deliberately choosing how to balance them is not a technicality &mdash; it is the most consequential decision in any statistical analysis.
+  </div>
+
+  <!-- ================================================================== -->
+  <h2>Section 1: Two Types of Errors</h2>
+
+  <p>A hypothesis test always ends with a binary decision: either we reject the null hypothesis H<sub>0</sub>, or we fail to reject it. Reality is also binary: either H<sub>0</sub> is actually true, or it is actually false. Crossing these two dimensions gives four possible outcomes, two of which are correct decisions and two of which are errors.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th></th>
+        <th>H<sub>0</sub> is TRUE</th>
+        <th>H<sub>0</sub> is FALSE</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Reject H<sub>0</sub></strong></td>
+        <td style="color: var(--error);">Type I Error (false positive)</td>
+        <td style="color: var(--success);">Correct Decision (power)</td>
+      </tr>
+      <tr>
+        <td><strong>Fail to Reject H<sub>0</sub></strong></td>
+        <td style="color: var(--success);">Correct Decision</td>
+        <td style="color: var(--warning);">Type II Error (false negative)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Type I Error (&alpha;): The False Positive</h3>
+
+  <p>A Type I error occurs when we reject H<sub>0</sub> even though it is actually true. We see a result that looks surprising enough to cross our threshold, but that surprising result was produced by nothing more than the random variability inherent in sampling. The probability of committing a Type I error is denoted <span class="math-latex">\alpha</span> and is called the <em>significance level</em> of the test.</p>
+
+  <ul>
+    <li>In a drug trial: concluding the drug works when it actually has no real effect on the population.</li>
+    <li>In the court analogy: convicting an innocent person.</li>
+    <li>In manufacturing QC: shutting down a production line that is functioning within specification.</li>
+  </ul>
+
+  <div class="math-block">
+    <span class="math-latex math-block">P(\text{Type I Error}) = P(\text{Reject } H_0 \mid H_0 \text{ is true}) = \alpha</span>
+  </div>
+
+  <p>The key word in that formula is the conditional: "given that H<sub>0</sub> is true." This is the probability that our test gives a false alarm when there is nothing real to detect. We control this probability directly by our choice of <span class="math-latex">\alpha</span> before we collect any data.</p>
+
+  <h3>Type II Error (&beta;): The False Negative</h3>
+
+  <p>A Type II error occurs when we fail to reject H<sub>0</sub> even though it is actually false &mdash; meaning something real is happening in the world, but our test did not detect it. This can happen when the effect is genuinely small, when the sample size is too small to provide sufficient resolution, or when the variability in our data is too large relative to the signal.</p>
+
+  <ul>
+    <li>In a drug trial: concluding the drug has no effect when it actually does help patients.</li>
+    <li>In the court analogy: acquitting a guilty person.</li>
+    <li>In manufacturing QC: letting a defective production run continue undetected.</li>
+  </ul>
+
+  <div class="math-block">
+    <span class="math-latex math-block">P(\text{Type II Error}) = P(\text{Fail to Reject } H_0 \mid H_0 \text{ is false}) = \beta</span>
+  </div>
+
+  <h3>Statistical Power</h3>
+
+  <p>Statistical power is the complement of <span class="math-latex">\beta</span>: the probability that the test correctly rejects a false null hypothesis. Power is what researchers strive to maximize. A test with low power is like a smoke detector that only triggers on large fires &mdash; it misses the small blazes that still destroy property.</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{Power} = 1 - \beta = P(\text{Reject } H_0 \mid H_0 \text{ is false})</span>
+  </div>
+
+  <div class="concept-box">
+    <h4>What determines statistical power?</h4>
+    <p>Power is not a fixed property of a test &mdash; it depends on several factors that you can, to varying degrees, control as a researcher:</p>
+    <ul>
+      <li><strong>Sample size n.</strong> Larger samples produce narrower sampling distributions, making it easier to distinguish a real effect from noise. Doubling n typically increases power substantially. This is the most direct lever a researcher controls at the design stage.</li>
+      <li><strong>Effect size <span class="math-latex">\delta</span>.</strong> A larger true difference between the hypothesized and actual parameter value is inherently easier to detect. Effect size is a property of the world, not of the study design, but researchers can choose to study contexts where effects are expected to be large.</li>
+      <li><strong>Significance level <span class="math-latex">\alpha</span>.</strong> A larger <span class="math-latex">\alpha</span> makes the rejection region wider, so the test is more likely to reject any given null hypothesis &mdash; increasing power but simultaneously increasing the rate of false positives. This is the core trade-off.</li>
+      <li><strong>Population variance <span class="math-latex">\sigma^2</span>.</strong> Lower variability in the underlying population means the sampling distribution is tighter, and smaller effects become distinguishable from noise.</li>
+    </ul>
+    <p>A target of 80% power (i.e., <span class="math-latex">\beta = 0.20</span>) is a conventional minimum in many fields. Well-designed studies in medicine often target 90% or higher. Power analysis, conducted before data collection, determines the sample size needed to achieve a desired power for an anticipated effect size.</p>
+  </div>
+
+  <!-- ================================================================== -->
+  <h2>Section 2: The Significance Level Alpha</h2>
+
+  <p>The significance level <span class="math-latex">\alpha</span> is the maximum probability of a Type I error that we are willing to tolerate. It is set by the researcher <em>before</em> seeing the data &mdash; this is a critical requirement, not a stylistic preference. Setting <span class="math-latex">\alpha</span> after seeing the data, or adjusting it once you have seen preliminary results, undermines the mathematical guarantee that the false positive rate is controlled at level <span class="math-latex">\alpha</span>.</p>
+
+  <p>The three most common choices are:</p>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5><span class="math-latex">\alpha = 0.05</span> (5%)</h5>
+      <p>The default in most social and behavioral sciences. Accepts a 1-in-20 chance of a false positive. Established as a rough convention by Ronald Fisher in the 1920s and widely adopted since, though its automatic use has been increasingly criticized.</p>
+    </div>
+    <div class="assumption-card">
+      <h5><span class="math-latex">\alpha = 0.01</span> (1%)</h5>
+      <p>Used when the cost of a false positive is high: drug approval, clinical trials, regulatory decisions. Accepts only a 1-in-100 chance of wrongly rejecting H<sub>0</sub>. Requires larger sample sizes to maintain adequate power.</p>
+    </div>
+    <div class="assumption-card">
+      <h5><span class="math-latex">\alpha = 0.10</span> (10%)</h5>
+      <p>Acceptable in exploratory research, pilot studies, and contexts where missing a real effect is particularly costly. The relaxed threshold acknowledges that early-stage investigation tolerates higher false positive rates in exchange for fewer missed discoveries.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Field-specific standards</h5>
+      <p>Particle physics uses <span class="math-latex">\alpha = 2.87 \times 10^{-7}</span> (the famous "5-sigma" criterion). Genomics uses per-test thresholds as low as <span class="math-latex">5 \times 10^{-8}</span> after Bonferroni correction across millions of genetic variants. The appropriate <span class="math-latex">\alpha</span> is domain-specific.</p>
+    </div>
+  </div>
+
+  <p>Choosing <span class="math-latex">\alpha</span> is a policy decision that reflects how seriously the decision-maker treats the two categories of error. If convicting the innocent is the worst possible outcome (as in criminal law), <span class="math-latex">\alpha</span> should be very small &mdash; the standard "beyond reasonable doubt" is roughly equivalent to an extremely small <span class="math-latex">\alpha</span>. If failing to detect a real effect is more costly (for instance, missing a treatable disease), the balance shifts the other way.</p>
+
+  <div class="concept-box">
+    <h4>The alpha-beta trade-off (for fixed n)</h4>
+    <p><span class="math-latex">\alpha</span> and <span class="math-latex">\beta</span> are inversely related when the sample size is held fixed. Making <span class="math-latex">\alpha</span> smaller (tighter rejection region) necessarily makes <span class="math-latex">\beta</span> larger (lower power), because moving the critical boundary to reduce false positives simultaneously reduces the test's sensitivity to real effects. The <strong>only way to reduce both <span class="math-latex">\alpha</span> and <span class="math-latex">\beta</span> simultaneously</strong> is to increase the sample size <span class="math-latex">n</span>, which shrinks the standard error and pulls both null and alternative distributions apart relative to any fixed threshold. This is why sample size determination is inseparable from the choice of <span class="math-latex">\alpha</span> and target power.</p>
+  </div>
+
+  <!-- ================================================================== -->
+  <h2>Section 3: The p-value</h2>
+
+  <p>The p-value is perhaps the most widely reported and most widely misunderstood number in all of applied statistics. Getting the definition right &mdash; precisely right, not approximately right &mdash; is essential.</p>
+
+  <h3>The correct definition</h3>
+
+  <p>The p-value is the probability of observing a test statistic as extreme as, or more extreme than, the one actually computed from the data, <em>under the assumption that H<sub>0</sub> is true</em>. For a two-tailed test:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">p\text{-value} = P\!\left(|T| \geq |t_{\text{obs}}| \mid H_0 \text{ true}\right) \quad \text{(two-tailed)}</span>
+  </div>
+
+  <p>The p-value measures how compatible the observed data is with the null hypothesis. A small p-value means the observed result would be very unlikely if H<sub>0</sub> were true &mdash; providing strong evidence against H<sub>0</sub>. A large p-value means the observed result is entirely plausible under H<sub>0</sub> &mdash; providing no evidence against it.</p>
+
+  <h3>The decision rule</h3>
+
+  <p>Once the p-value is computed, the decision follows mechanically:</p>
+  <ul>
+    <li>If <span class="math-latex">p\text{-value} \leq \alpha</span> &rarr; Reject H<sub>0</sub>. The result is <em>statistically significant</em> at level <span class="math-latex">\alpha</span>.</li>
+    <li>If <span class="math-latex">p\text{-value} > \alpha</span> &rarr; Fail to reject H<sub>0</sub>. The result is <em>not statistically significant</em> at level <span class="math-latex">\alpha</span>.</li>
+  </ul>
+
+  <div class="concept-box">
+    <h4>Three common misconceptions about the p-value</h4>
+    <p>Each of the following is a popular but incorrect interpretation. Understanding why each is wrong is as important as knowing the correct definition.</p>
+    <ol>
+      <li>
+        <strong>Misconception: "The p-value is the probability that H<sub>0</sub> is true."</strong><br>
+        <em>Why it is wrong:</em> H<sub>0</sub> is either true or false &mdash; it is not a random variable. The p-value is computed <em>assuming</em> H<sub>0</sub> is true; it cannot simultaneously be a probability that it is true. Making this statement requires a Bayesian framework (prior probability on H<sub>0</sub>), which classical hypothesis testing does not use.
+      </li>
+      <li style="margin-top: 0.75rem;">
+        <strong>Misconception: "The p-value is the probability that the result is due to chance."</strong><br>
+        <em>Why it is wrong:</em> This conflates the sampling distribution (which is a model of what chance produces under H<sub>0</sub>) with a verdict about what produced the observed data. The p-value describes how often chance alone would produce a result this extreme; it does not say anything about the probability that this particular result was caused by chance.
+      </li>
+      <li style="margin-top: 0.75rem;">
+        <strong>Misconception: "A p-value of 0.03 means there is a 3% chance of making an error if we reject H<sub>0</sub>."</strong><br>
+        <em>Why it is wrong:</em> The false discovery rate (the probability that a rejected null is actually true) depends on the prior probability that H<sub>0</sub> is true across all the tests being conducted &mdash; a quantity the p-value alone does not encode. A p-value of 0.03 tells us nothing about what fraction of statistically significant findings in a given field are spurious.
+      </li>
+    </ol>
+  </div>
+
+  <p>The p-value is a continuous measure of the strength of evidence against H<sub>0</sub>. Crossing the threshold <span class="math-latex">\alpha</span> is a binary decision rule applied on top of that continuous measure &mdash; the threshold is chosen by convention and context, not discovered from the data.</p>
+
+  <!-- ================================================================== -->
+  <h2>Section 4: The Critical Value Method</h2>
+
+  <p>The critical value method is an alternative computational approach to the same decision. Instead of computing how far into the tail the observed statistic falls (p-value), we ask: what is the boundary value of the test statistic that separates the rejection region from the non-rejection region? This boundary is called the <em>critical value</em>, written <span class="math-latex">z^*</span> for a Z-test or <span class="math-latex">t^*</span> for a t-test.</p>
+
+  <p>For a two-tailed Z-test at significance level <span class="math-latex">\alpha</span>:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{Reject } H_0 \text{ if } |Z| > z^* \quad \text{where} \quad z^* = z_{\alpha/2} = \Phi^{-1}\!\left(1 - \tfrac{\alpha}{2}\right)</span>
+  </div>
+
+  <p>For a one-tailed Z-test (right-tailed, i.e., H<sub>1</sub>: <span class="math-latex">\mu > \mu_0</span>):</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{Reject } H_0 \text{ if } Z > z^* \quad \text{where} \quad z^* = z_\alpha = \Phi^{-1}(1 - \alpha)</span>
+  </div>
+
+  <p>Common critical values to remember: for a two-tailed test, <span class="math-latex">z^* = 1.96</span> when <span class="math-latex">\alpha = 0.05</span>, and <span class="math-latex">z^* = 2.576</span> when <span class="math-latex">\alpha = 0.01</span>. For a one-tailed test at <span class="math-latex">\alpha = 0.05</span>, <span class="math-latex">z^* = 1.645</span>.</p>
+
+  <div class="concept-box">
+    <h4>Key insight: The p-value method and the critical value method always agree</h4>
+    <p>These two approaches are not separate tests &mdash; they are two different ways of reading the same underlying geometry. When the test statistic exceeds the critical value in magnitude, the p-value is necessarily less than <span class="math-latex">\alpha</span>, and vice versa. Formally:</p>
+    <div class="math-block">
+      <span class="math-latex math-block">|Z_{\text{obs}}| \geq z^* \iff p\text{-value} \leq \alpha</span>
+    </div>
+    <p>This equivalence is not a coincidence. The critical value <span class="math-latex">z^*</span> is defined as the value for which the tail probability equals <span class="math-latex">\alpha</span>. If the observed statistic equals the critical value, the p-value equals <span class="math-latex">\alpha</span> exactly. If the observed statistic is larger, the p-value is smaller. The two methods must reach the same decision every time. Use whichever is more convenient for the problem at hand, but never expect them to disagree.</p>
+  </div>
+
+  <!-- ================================================================== -->
+  <h2>Interactive Visualizations</h2>
+
+  <!-- Widget 1: Error Region Visualizer -->
+  <div class="widget-container">
+    <h4>Widget 1 &mdash; Explore how alpha, effect size, and sample size affect Type I and Type II errors.</h4>
+    <div class="widget-controls">
+      <label>
+        Alpha (<span class="math-latex">\alpha</span>):
+        <input type="range" id="w1-alpha" min="0.01" max="0.20" step="0.01" value="0.05">
+        <strong id="w1-alpha-val">0.05</strong>
+      </label>
+      <label>
+        Effect size (<span class="math-latex">\delta</span>, std devs):
+        <input type="range" id="w1-delta" min="0.5" max="3.0" step="0.1" value="1.5">
+        <strong id="w1-delta-val">1.5</strong>
+      </label>
+    </div>
+    <div class="plot-area" id="plot-errors"></div>
+    <div class="ht-stat-row" id="w1-stats">
+      <div class="ht-stat">
+        <span>Alpha (Type I rate)</span>
+        <strong id="w1-stat-alpha">&mdash;</strong>
+      </div>
+      <div class="ht-stat">
+        <span>Beta (Type II rate)</span>
+        <strong id="w1-stat-beta">&mdash;</strong>
+      </div>
+      <div class="ht-stat">
+        <span>Power (1 &minus; &beta;)</span>
+        <strong id="w1-stat-power">&mdash;</strong>
+      </div>
+      <div class="ht-stat">
+        <span>Critical value z*</span>
+        <strong id="w1-stat-zcrit">&mdash;</strong>
+      </div>
+    </div>
+    <p style="font-size:0.82rem; color:var(--text-muted); margin-top:0.5rem;">
+      This widget uses a <em>right-tailed</em> test for clearest visualization of the error regions. Increase <span class="math-latex">\delta</span> (move the alternative distribution rightward) to see power grow. Decrease <span class="math-latex">\alpha</span> (tighten the rejection threshold) to see power fall for fixed effect size.
+    </p>
+  </div>
+
+  <!-- Widget 2: p-value Live Viewer -->
+  <div class="widget-container">
+    <h4>Widget 2 &mdash; Drag the test statistic to see how the p-value changes. Toggle one-tailed vs two-tailed.</h4>
+    <div class="widget-controls">
+      <label>
+        Test statistic (z):
+        <input type="range" id="w2-z" min="-4" max="4" step="0.05" value="-1.5">
+        <strong id="w2-z-val">-1.50</strong>
+      </label>
+      <label>
+        Test type:
+        <select id="w2-type">
+          <option value="left">One-tailed (left)</option>
+          <option value="two">Two-tailed</option>
+        </select>
+      </label>
+    </div>
+    <div class="plot-area" id="plot-pvalue"></div>
+    <div class="ht-stat-row">
+      <div class="ht-stat">
+        <span>Test statistic (z)</span>
+        <strong id="w2-stat-z">&mdash;</strong>
+      </div>
+      <div class="ht-stat">
+        <span>p-value</span>
+        <strong id="w2-stat-p">&mdash;</strong>
+      </div>
+      <div class="ht-stat">
+        <span>Alpha (fixed at 0.05)</span>
+        <strong>0.05</strong>
+      </div>
+    </div>
+    <div id="w2-decision" style="margin-top: 0.5rem;"></div>
+  </div>
+
+  <!-- Widget 3: Critical Value Explorer -->
+  <div class="widget-container">
+    <h4>Widget 3 &mdash; Set alpha and the test type to see where the rejection region falls.</h4>
+    <div class="widget-controls">
+      <label>
+        Alpha (<span class="math-latex">\alpha</span>):
+        <input type="range" id="w3-alpha" min="0.01" max="0.20" step="0.01" value="0.05">
+        <strong id="w3-alpha-val">0.05</strong>
+      </label>
+      <label>
+        Test type:
+        <select id="w3-type">
+          <option value="two">Two-tailed</option>
+          <option value="right">One-tailed (right)</option>
+          <option value="left">One-tailed (left)</option>
+        </select>
+      </label>
+    </div>
+    <div class="plot-area" id="plot-critval"></div>
+    <div class="ht-stat-row" id="w3-stats">
+      <div class="ht-stat">
+        <span>Alpha</span>
+        <strong id="w3-stat-alpha">&mdash;</strong>
+      </div>
+      <div class="ht-stat">
+        <span>Critical value(s)</span>
+        <strong id="w3-stat-crit">&mdash;</strong>
+      </div>
+      <div class="ht-stat">
+        <span>Rejection region area</span>
+        <strong id="w3-stat-area">&mdash;</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
+  <h2>Worked Example: Manufacturing Quality Control</h2>
+
+  <p>A machine fills bags with flour to a target weight of 500g. From years of historical records, the population standard deviation is known to be <span class="math-latex">\sigma = 8</span>g. A quality control engineer collects a sample of <span class="math-latex">n = 36</span> bags and computes a sample mean of <span class="math-latex">\bar{x} = 497</span>g. Is there sufficient evidence that the machine is not filling to the target weight?</p>
+
+  <div class="derivation">
+
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>State the hypotheses.</strong>
+        <div class="math-block">
+          <span class="math-latex math-block">H_0: \mu = 500 \quad \text{vs} \quad H_1: \mu \neq 500</span>
+        </div>
+        <div class="step-explanation">A two-tailed test is appropriate because any deviation from 500g &mdash; underfilling or overfilling &mdash; is a production problem. The engineer has no prior reason to suspect only one direction of fault.</div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Set the significance level.</strong>
+        <div class="math-block">
+          <span class="math-latex math-block">\alpha = 0.05</span>
+        </div>
+        <div class="step-explanation">A 5% significance level is standard for industrial QC in this context. The cost of shutting down a correctly functioning line (Type I error) and the cost of missing a malfunctioning line (Type II error) are judged to be roughly balanced by this choice.</div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Compute the test statistic.</strong>
+        <div class="math-block">
+          <span class="math-latex math-block">Z = \frac{\bar{x} - \mu_0}{\sigma / \sqrt{n}} = \frac{497 - 500}{8 / \sqrt{36}} = \frac{-3}{8/6} = \frac{-3}{1.333} = -2.25</span>
+        </div>
+        <div class="step-explanation">The observed sample mean is 2.25 standard errors below the hypothesized mean. Under H<sub>0</sub>, this statistic follows a standard normal distribution.</div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong>Compute the p-value (p-value method).</strong>
+        <div class="math-block">
+          <span class="math-latex math-block">p\text{-value} = 2 \times P(Z < -2.25) = 2 \times 0.0122 = 0.0244</span>
+        </div>
+        <div class="step-explanation">Because this is two-tailed, we double the one-tail probability. The p-value of 0.0244 is the probability of observing a sample mean at least 3g away from 500g if the machine were correctly calibrated.</div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">5</div>
+      <div class="step-content">
+        <strong>Apply the critical value method (alternative check).</strong>
+        <div class="math-block">
+          <span class="math-latex math-block">z^* = z_{0.025} = 1.96 \quad \Longrightarrow \quad |Z_{\text{obs}}| = 2.25 > 1.96 = z^*</span>
+        </div>
+        <div class="step-explanation">The critical values for a two-tailed test at <span class="math-latex">\alpha = 0.05</span> are <span class="math-latex">\pm 1.96</span>. Since the observed statistic of <span class="math-latex">-2.25</span> falls below <span class="math-latex">-1.96</span>, it is inside the rejection region. Both methods confirm the same decision.</div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">6</div>
+      <div class="step-content">
+        <strong>Make the decision and state the conclusion.</strong>
+        <div style="margin: 0.5rem 0;">
+          <span class="ht-decision reject">Reject H<sub>0</sub></span>
+        </div>
+        <div class="step-explanation">Since <span class="math-latex">p\text{-value} = 0.0244 < 0.05 = \alpha</span>, we reject H<sub>0</sub>. At the 5% significance level, there is sufficient statistical evidence that the machine's mean fill weight is not 500g. The engineer should investigate and recalibrate the machine. Note that both the p-value method and the critical value method reached identical conclusions &mdash; as they always must.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================================================================== -->
+  <h2>Practice Problem</h2>
+
+  <details>
+    <summary>Problem: Study App and Test Scores &mdash; Both Methods</summary>
+    <div class="solution">
+      <p><strong>Setup:</strong> A researcher tests whether a new study app improves test scores. Historical average: <span class="math-latex">\mu_0 = 75</span>, population standard deviation <span class="math-latex">\sigma = 10</span>. A sample of <span class="math-latex">n = 25</span> students using the app achieves <span class="math-latex">\bar{x} = 79</span>. Test at <span class="math-latex">\alpha = 0.05</span> using both the p-value method and the critical value method. The researcher believes the app can only improve scores, not decrease them.</p>
+
+      <p><strong>Step 1 &mdash; State the hypotheses.</strong> Because the researcher believes the app can only improve scores, this is a right-tailed (one-tailed) test:</p>
+      <div class="math-block">
+        <span class="math-latex math-block">H_0: \mu = 75 \quad \text{vs} \quad H_1: \mu > 75</span>
+      </div>
+
+      <p><strong>Step 2 &mdash; Set the significance level.</strong> <span class="math-latex">\alpha = 0.05</span>.</p>
+
+      <p><strong>Step 3 &mdash; Compute the test statistic.</strong></p>
+      <div class="math-block">
+        <span class="math-latex math-block">Z = \frac{\bar{x} - \mu_0}{\sigma / \sqrt{n}} = \frac{79 - 75}{10 / \sqrt{25}} = \frac{4}{10/5} = \frac{4}{2} = 2.00</span>
+      </div>
+
+      <p><strong>Step 4 &mdash; p-value method.</strong></p>
+      <div class="math-block">
+        <span class="math-latex math-block">p\text{-value} = P(Z > 2.00) = 1 - \Phi(2.00) = 1 - 0.9772 = 0.0228</span>
+      </div>
+      <p>Since <span class="math-latex">0.0228 < 0.05 = \alpha</span> &rarr; <span class="ht-decision reject">Reject H<sub>0</sub></span></p>
+
+      <p><strong>Step 5 &mdash; Critical value method.</strong></p>
+      <div class="math-block">
+        <span class="math-latex math-block">z^* = z_{0.05} = 1.645 \quad \text{(one-tailed right)}</span>
+      </div>
+      <p>Since <span class="math-latex">Z_{\text{obs}} = 2.00 > 1.645 = z^*</span> &rarr; <span class="ht-decision reject">Reject H<sub>0</sub></span></p>
+
+      <p><strong>Conclusion:</strong> Both methods agree. At the 5% significance level, there is sufficient statistical evidence that the study app improves test scores above the historical average of 75. The result is statistically significant. (Note: statistical significance does not automatically imply practical significance &mdash; a 4-point gain should also be evaluated for its real-world educational meaning.)</p>
+    </div>
+  </details>
+
+  <!-- ================================================================== -->
+  <div class="nav-buttons">
+    <a href="01-ht-foundations.html" class="nav-btn prev">&larr; Module 1: Foundations</a>
+    <a href="03-one-sample-z.html" class="nav-btn">Module 3: One-Sample Z-Test &rarr;</a>
+  </div>
+
+</div><!-- end .container -->
+
+<!-- ====================================================================
+     ALL PLOTLY WIDGET CODE — single DOMContentLoaded listener
+     ==================================================================== -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ──────────────────────────────────────────────────────────────────────
+  // WIDGET 1: Error Region Visualizer
+  // ──────────────────────────────────────────────────────────────────────
+
+  var w1AlphaSlider = document.getElementById('w1-alpha');
+  var w1DeltaSlider = document.getElementById('w1-delta');
+  var w1AlphaVal    = document.getElementById('w1-alpha-val');
+  var w1DeltaVal    = document.getElementById('w1-delta-val');
+  var w1StatAlpha   = document.getElementById('w1-stat-alpha');
+  var w1StatBeta    = document.getElementById('w1-stat-beta');
+  var w1StatPower   = document.getElementById('w1-stat-power');
+  var w1StatZcrit   = document.getElementById('w1-stat-zcrit');
+
+  function buildErrorPlot(alpha, delta) {
+    var zStar = zCritical(alpha, 1); // right-tailed
+    var beta  = normalCDF(zStar - delta); // P(Z < z* - delta) under H1
+    var power = 1 - beta;
+
+    // x range covers both distributions
+    var xMin = -4;
+    var xMax = delta + 4;
+    var xs   = linspace(xMin, xMax, 400);
+
+    // Full null distribution (H0 centered at 0)
+    var yNull = xs.map(function (x) { return normalPDF(x); });
+
+    // Full alternative distribution (H1 centered at delta)
+    var yAlt = xs.map(function (x) { return normalPDF(x - delta); });
+
+    // Type I region: x >= z* under H0
+    var xTypeI = xs.filter(function (x) { return x >= zStar; });
+    var yTypeI = xTypeI.map(function (x) { return normalPDF(x); });
+
+    // Type II region: x <= z* under H1
+    var xTypeII = xs.filter(function (x) { return x <= zStar; });
+    var yTypeII = xTypeII.map(function (x) { return normalPDF(x - delta); });
+
+    // Build traces
+    var traceNull = {
+      x: xs, y: yNull,
+      type: 'scatter', mode: 'lines',
+      name: 'Null Distribution (H₀)',
+      line: { color: '#2563eb', width: 2 }
+    };
+
+    var traceAlt = {
+      x: xs, y: yAlt,
+      type: 'scatter', mode: 'lines',
+      name: 'Alternative Distribution (H₁)',
+      line: { color: '#ea580c', width: 2 }
+    };
+
+    // Type I shading (fill under H0 beyond z*)
+    var xTypeIFill = [xTypeI[0]].concat(xTypeI).concat([xTypeI[xTypeI.length - 1]]);
+    var yTypeIFill = [0].concat(yTypeI).concat([0]);
+    var traceTypeI = {
+      x: xTypeIFill, y: yTypeIFill,
+      type: 'scatter', mode: 'none', fill: 'toself',
+      fillcolor: 'rgba(220,38,38,0.30)',
+      line: { width: 0 },
+      name: 'Type I Error (α)',
+      showlegend: true
+    };
+
+    // Type II shading (fill under H1 below z*)
+    var xTypeIIFill = [xTypeII[0]].concat(xTypeII).concat([xTypeII[xTypeII.length - 1]]);
+    var yTypeIIFill = [0].concat(yTypeII).concat([0]);
+    var traceTypeII = {
+      x: xTypeIIFill, y: yTypeIIFill,
+      type: 'scatter', mode: 'none', fill: 'toself',
+      fillcolor: 'rgba(124,58,237,0.28)',
+      line: { width: 0 },
+      name: 'Type II Error (β)',
+      showlegend: true
+    };
+
+    // Critical value vertical line (implemented as a shape + annotation)
+    var layout = plotlyLayout({
+      xaxis: { title: { text: 'Test Statistic (Z)' }, range: [xMin, xMax] },
+      yaxis: { title: { text: 'Probability Density' }, rangemode: 'tozero' },
+      shapes: [{
+        type: 'line',
+        x0: zStar, x1: zStar, y0: 0, y1: 0.42,
+        line: { color: '#374151', width: 2, dash: 'dash' }
+      }],
+      annotations: [{
+        x: zStar, y: 0.40,
+        text: 'z* = ' + zStar.toFixed(3),
+        showarrow: true, arrowhead: 2, arrowsize: 1,
+        ax: 30, ay: -20,
+        font: { size: 11 }
+      }]
+    });
+
+    var data = [traceNull, traceAlt, traceTypeI, traceTypeII];
+    return { data: data, layout: layout, beta: beta, power: power, zStar: zStar };
+  }
+
+  function renderErrorPlot() {
+    var alpha = parseFloat(w1AlphaSlider.value);
+    var delta = parseFloat(w1DeltaSlider.value);
+    w1AlphaVal.textContent = alpha.toFixed(2);
+    w1DeltaVal.textContent = delta.toFixed(1);
+
+    var result = buildErrorPlot(alpha, delta);
+    Plotly.react('plot-errors', result.data, result.layout, PLOTLY_CONFIG);
+
+    w1StatAlpha.textContent = alpha.toFixed(4);
+    w1StatBeta.textContent  = result.beta.toFixed(4);
+    w1StatPower.textContent = result.power.toFixed(4);
+    w1StatZcrit.textContent = result.zStar.toFixed(4);
+  }
+
+  // Initial render
+  (function () {
+    var alpha = parseFloat(w1AlphaSlider.value);
+    var delta = parseFloat(w1DeltaSlider.value);
+    var result = buildErrorPlot(alpha, delta);
+    Plotly.newPlot('plot-errors', result.data, result.layout, PLOTLY_CONFIG);
+    w1AlphaVal.textContent = alpha.toFixed(2);
+    w1DeltaVal.textContent = delta.toFixed(1);
+    w1StatAlpha.textContent = alpha.toFixed(4);
+    w1StatBeta.textContent  = result.beta.toFixed(4);
+    w1StatPower.textContent = result.power.toFixed(4);
+    w1StatZcrit.textContent = result.zStar.toFixed(4);
+  })();
+
+  w1AlphaSlider.addEventListener('input', renderErrorPlot);
+  w1DeltaSlider.addEventListener('input', renderErrorPlot);
+
+
+  // ──────────────────────────────────────────────────────────────────────
+  // WIDGET 2: p-value Live Viewer
+  // ──────────────────────────────────────────────────────────────────────
+
+  var w2ZSlider   = document.getElementById('w2-z');
+  var w2TypeSel   = document.getElementById('w2-type');
+  var w2ZVal      = document.getElementById('w2-z-val');
+  var w2StatZ     = document.getElementById('w2-stat-z');
+  var w2StatP     = document.getElementById('w2-stat-p');
+  var w2Decision  = document.getElementById('w2-decision');
+
+  function buildPValuePlot(zObs, testType) {
+    var xs = linspace(-4, 4, 400);
+    var ys = xs.map(function (x) { return normalPDF(x); });
+
+    var pValue;
+    var shadeXArr = [];
+    var shadeYArr = [];
+
+    if (testType === 'left') {
+      pValue = normalCDF(zObs);
+      var leftXs = xs.filter(function (x) { return x <= zObs; });
+      if (leftXs.length > 1) {
+        shadeXArr = [leftXs[0]].concat(leftXs).concat([leftXs[leftXs.length - 1]]);
+        shadeYArr = [0].concat(leftXs.map(function (x) { return normalPDF(x); })).concat([0]);
+      }
+    } else {
+      // two-tailed
+      var absZ = Math.abs(zObs);
+      pValue = 2 * normalCDF(-absZ);
+      var rightXs = xs.filter(function (x) { return x >= absZ; });
+      var leftXs2 = xs.filter(function (x) { return x <= -absZ; });
+
+      var rightFill = rightXs.length > 1
+        ? [rightXs[0]].concat(rightXs).concat([rightXs[rightXs.length - 1]])
+        : [];
+      var rightFillY = rightXs.length > 1
+        ? [0].concat(rightXs.map(function (x) { return normalPDF(x); })).concat([0])
+        : [];
+      var leftFill = leftXs2.length > 1
+        ? [leftXs2[0]].concat(leftXs2).concat([leftXs2[leftXs2.length - 1]])
+        : [];
+      var leftFillY = leftXs2.length > 1
+        ? [0].concat(leftXs2.map(function (x) { return normalPDF(x); })).concat([0])
+        : [];
+
+      shadeXArr = leftFill.concat(rightFill);
+      shadeYArr = leftFillY.concat(rightFillY);
+    }
+
+    var traceCurve = {
+      x: xs, y: ys,
+      type: 'scatter', mode: 'lines',
+      name: 'Standard Normal',
+      line: { color: '#2563eb', width: 2 },
+      showlegend: false
+    };
+
+    var traceShade = {
+      x: shadeXArr, y: shadeYArr,
+      type: 'scatter', mode: 'none', fill: 'toself',
+      fillcolor: 'rgba(239,68,68,0.40)',
+      line: { width: 0 },
+      name: 'p-value region',
+      showlegend: false
+    };
+
+    // Vertical line(s) at observed z
+    var shapes = [];
+    var annotations = [];
+
+    if (testType === 'left') {
+      shapes.push({
+        type: 'line',
+        x0: zObs, x1: zObs, y0: 0, y1: 0.42,
+        line: { color: '#dc2626', width: 2, dash: 'solid' }
+      });
+      annotations.push({
+        x: zObs, y: 0.38,
+        text: 'z = ' + zObs.toFixed(2),
+        showarrow: true, arrowhead: 2, ax: -30, ay: -20,
+        font: { size: 11 }
+      });
+    } else {
+      var absZAnn = Math.abs(zObs);
+      shapes.push({
+        type: 'line',
+        x0: absZAnn, x1: absZAnn, y0: 0, y1: 0.42,
+        line: { color: '#dc2626', width: 2, dash: 'solid' }
+      });
+      shapes.push({
+        type: 'line',
+        x0: -absZAnn, x1: -absZAnn, y0: 0, y1: 0.42,
+        line: { color: '#dc2626', width: 2, dash: 'solid' }
+      });
+      annotations.push({
+        x: absZAnn, y: 0.38,
+        text: '|z| = ' + absZAnn.toFixed(2),
+        showarrow: true, arrowhead: 2, ax: 25, ay: -20,
+        font: { size: 11 }
+      });
+    }
+
+    var layout = plotlyLayout({
+      xaxis: { title: { text: 'Z' }, range: [-4, 4] },
+      yaxis: { title: { text: 'Density' }, rangemode: 'tozero' },
+      shapes: shapes,
+      annotations: annotations
+    });
+
+    return { data: [traceCurve, traceShade], layout: layout, pValue: pValue };
+  }
+
+  function renderPValuePlot() {
+    var zObs     = parseFloat(w2ZSlider.value);
+    var testType = w2TypeSel.value;
+    w2ZVal.textContent  = zObs.toFixed(2);
+    w2StatZ.textContent = zObs.toFixed(2);
+
+    var result = buildPValuePlot(zObs, testType);
+    Plotly.react('plot-pvalue', result.data, result.layout, PLOTLY_CONFIG);
+
+    var pVal = result.pValue;
+    w2StatP.textContent = pVal < 0.0001
+      ? pVal.toExponential(3)
+      : pVal.toFixed(4);
+
+    if (pVal <= 0.05) {
+      w2Decision.innerHTML = '<span class="ht-decision reject">Reject H₀ at α = 0.05</span>';
+    } else {
+      w2Decision.innerHTML = '<span class="ht-decision fail">Fail to Reject H₀ at α = 0.05</span>';
+    }
+  }
+
+  // Initial render
+  (function () {
+    var zObs     = parseFloat(w2ZSlider.value);
+    var testType = w2TypeSel.value;
+    var result = buildPValuePlot(zObs, testType);
+    Plotly.newPlot('plot-pvalue', result.data, result.layout, PLOTLY_CONFIG);
+    w2ZVal.textContent  = zObs.toFixed(2);
+    w2StatZ.textContent = zObs.toFixed(2);
+    var pVal = result.pValue;
+    w2StatP.textContent = pVal < 0.0001 ? pVal.toExponential(3) : pVal.toFixed(4);
+    if (pVal <= 0.05) {
+      w2Decision.innerHTML = '<span class="ht-decision reject">Reject H₀ at α = 0.05</span>';
+    } else {
+      w2Decision.innerHTML = '<span class="ht-decision fail">Fail to Reject H₀ at α = 0.05</span>';
+    }
+  })();
+
+  w2ZSlider.addEventListener('input', renderPValuePlot);
+  w2TypeSel.addEventListener('change', renderPValuePlot);
+
+
+  // ──────────────────────────────────────────────────────────────────────
+  // WIDGET 3: Critical Value Explorer
+  // ──────────────────────────────────────────────────────────────────────
+
+  var w3AlphaSlider = document.getElementById('w3-alpha');
+  var w3TypeSel     = document.getElementById('w3-type');
+  var w3AlphaVal    = document.getElementById('w3-alpha-val');
+  var w3StatAlpha   = document.getElementById('w3-stat-alpha');
+  var w3StatCrit    = document.getElementById('w3-stat-crit');
+  var w3StatArea    = document.getElementById('w3-stat-area');
+
+  function buildCritValPlot(alpha, testType) {
+    var xs = linspace(-4, 4, 400);
+    var ys = xs.map(function (x) { return normalPDF(x); });
+
+    var critValStr;
+    var shadeTraces = [];
+    var shapes = [];
+    var annotations = [];
+
+    if (testType === 'two') {
+      var zStar = zCritical(alpha, 2);
+      critValStr = '±' + zStar.toFixed(3);
+
+      // Right tail shading
+      var rightXs = xs.filter(function (x) { return x >= zStar; });
+      if (rightXs.length > 1) {
+        shadeTraces.push({
+          x: [rightXs[0]].concat(rightXs).concat([rightXs[rightXs.length - 1]]),
+          y: [0].concat(rightXs.map(function (x) { return normalPDF(x); })).concat([0]),
+          type: 'scatter', mode: 'none', fill: 'toself',
+          fillcolor: 'rgba(220,38,38,0.35)', line: { width: 0 },
+          name: 'Rejection region', showlegend: true
+        });
+      }
+      // Left tail shading
+      var leftXs = xs.filter(function (x) { return x <= -zStar; });
+      if (leftXs.length > 1) {
+        shadeTraces.push({
+          x: [leftXs[0]].concat(leftXs).concat([leftXs[leftXs.length - 1]]),
+          y: [0].concat(leftXs.map(function (x) { return normalPDF(x); })).concat([0]),
+          type: 'scatter', mode: 'none', fill: 'toself',
+          fillcolor: 'rgba(220,38,38,0.35)', line: { width: 0 },
+          name: 'Rejection region', showlegend: false
+        });
+      }
+      shapes.push(
+        { type: 'line', x0: zStar,  x1: zStar,  y0: 0, y1: 0.42, line: { color: '#dc2626', width: 2, dash: 'dash' } },
+        { type: 'line', x0: -zStar, x1: -zStar, y0: 0, y1: 0.42, line: { color: '#dc2626', width: 2, dash: 'dash' } }
+      );
+      annotations.push(
+        { x: zStar,  y: 0.40, text: 'z* = +'  + zStar.toFixed(3), showarrow: true, arrowhead: 2, ax: 30, ay: -20, font: { size: 11 } },
+        { x: -zStar, y: 0.40, text: 'z* = −' + zStar.toFixed(3), showarrow: true, arrowhead: 2, ax: -30, ay: -20, font: { size: 11 } }
+      );
+
+    } else if (testType === 'right') {
+      var zStarR = zCritical(alpha, 1);
+      critValStr = '+' + zStarR.toFixed(3);
+      var rightXs2 = xs.filter(function (x) { return x >= zStarR; });
+      if (rightXs2.length > 1) {
+        shadeTraces.push({
+          x: [rightXs2[0]].concat(rightXs2).concat([rightXs2[rightXs2.length - 1]]),
+          y: [0].concat(rightXs2.map(function (x) { return normalPDF(x); })).concat([0]),
+          type: 'scatter', mode: 'none', fill: 'toself',
+          fillcolor: 'rgba(220,38,38,0.35)', line: { width: 0 },
+          name: 'Rejection region', showlegend: true
+        });
+      }
+      shapes.push({ type: 'line', x0: zStarR, x1: zStarR, y0: 0, y1: 0.42, line: { color: '#dc2626', width: 2, dash: 'dash' } });
+      annotations.push({ x: zStarR, y: 0.40, text: 'z* = +' + zStarR.toFixed(3), showarrow: true, arrowhead: 2, ax: 30, ay: -20, font: { size: 11 } });
+
+    } else {
+      // left-tailed
+      var zStarL = zCritical(alpha, 1);
+      critValStr = '−' + zStarL.toFixed(3);
+      var leftXs3 = xs.filter(function (x) { return x <= -zStarL; });
+      if (leftXs3.length > 1) {
+        shadeTraces.push({
+          x: [leftXs3[0]].concat(leftXs3).concat([leftXs3[leftXs3.length - 1]]),
+          y: [0].concat(leftXs3.map(function (x) { return normalPDF(x); })).concat([0]),
+          type: 'scatter', mode: 'none', fill: 'toself',
+          fillcolor: 'rgba(220,38,38,0.35)', line: { width: 0 },
+          name: 'Rejection region', showlegend: true
+        });
+      }
+      shapes.push({ type: 'line', x0: -zStarL, x1: -zStarL, y0: 0, y1: 0.42, line: { color: '#dc2626', width: 2, dash: 'dash' } });
+      annotations.push({ x: -zStarL, y: 0.40, text: 'z* = −' + zStarL.toFixed(3), showarrow: true, arrowhead: 2, ax: -30, ay: -20, font: { size: 11 } });
+    }
+
+    var traceCurve = {
+      x: xs, y: ys,
+      type: 'scatter', mode: 'lines',
+      name: 'Standard Normal',
+      line: { color: '#2563eb', width: 2 }
+    };
+
+    var layout = plotlyLayout({
+      xaxis: { title: { text: 'Z' }, range: [-4, 4] },
+      yaxis: { title: { text: 'Density' }, rangemode: 'tozero' },
+      shapes: shapes,
+      annotations: annotations
+    });
+
+    return {
+      data: [traceCurve].concat(shadeTraces),
+      layout: layout,
+      critValStr: critValStr
+    };
+  }
+
+  function renderCritValPlot() {
+    var alpha    = parseFloat(w3AlphaSlider.value);
+    var testType = w3TypeSel.value;
+    w3AlphaVal.textContent   = alpha.toFixed(2);
+    w3StatAlpha.textContent  = alpha.toFixed(2);
+
+    var result = buildCritValPlot(alpha, testType);
+    Plotly.react('plot-critval', result.data, result.layout, PLOTLY_CONFIG);
+
+    w3StatCrit.textContent = result.critValStr;
+    w3StatArea.textContent = alpha.toFixed(4);
+  }
+
+  // Initial render
+  (function () {
+    var alpha    = parseFloat(w3AlphaSlider.value);
+    var testType = w3TypeSel.value;
+    var result = buildCritValPlot(alpha, testType);
+    Plotly.newPlot('plot-critval', result.data, result.layout, PLOTLY_CONFIG);
+    w3AlphaVal.textContent  = alpha.toFixed(2);
+    w3StatAlpha.textContent = alpha.toFixed(2);
+    w3StatCrit.textContent  = result.critValStr;
+    w3StatArea.textContent  = alpha.toFixed(4);
+  })();
+
+  w3AlphaSlider.addEventListener('input', renderCritValPlot);
+  w3TypeSel.addEventListener('change', renderCritValPlot);
+
+}); // end DOMContentLoaded
+</script>
+
+</body>
+</html>

@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 1: Foundations of Hypothesis Testing</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+  <div class="container">
+
+    <nav class="module-nav-bar">
+      <a href="../index.html">Track Home</a>
+      <a href="01-ht-foundations.html" class="active">1. Foundations</a>
+      <a href="02-errors-alpha-pvalue.html">2. Errors and p-value</a>
+      <a href="03-one-sample-z.html">3. One-Sample Z-Test</a>
+      <a href="04-two-sample-tests.html">4. Two-Sample Tests</a>
+      <a href="05-paired-t.html">5. Paired t-Test</a>
+    </nav>
+
+    <main>
+      <header>
+        <h1>Module 1: Foundations of Hypothesis Testing</h1>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <button class="theme-toggle">Dark mode</button>
+          <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+        </div>
+      </header>
+
+      <!-- ── WHY ──────────────────────────────────────────────────────────────── -->
+      <div class="bridge">
+        <strong>Why does this matter?</strong> A pharmaceutical company runs a clinical trial
+        claiming their new drug reduces average patient recovery time from 10 days to 8 days.
+        You are a statistician hired to evaluate this claim. You have outcome data on 50 patients.
+        How do you decide whether the evidence supports the company's claim, or whether the
+        apparent improvement might simply be random noise in a small sample?
+        <br><br>
+        You cannot measure every patient who will ever take this drug — you only have a sample.
+        Intuition alone is not enough: a two-day improvement could be genuinely due to the drug,
+        or it could occur by chance even if the drug does nothing at all. You need a principled,
+        formal procedure for making this decision under uncertainty. That procedure is
+        <strong>hypothesis testing</strong>.
+      </div>
+
+      <!-- ── WHAT ─────────────────────────────────────────────────────────────── -->
+      <h2>What is a Hypothesis Test?</h2>
+
+      <p>
+        A hypothesis test is a formal statistical procedure for deciding between two competing
+        claims about a population, based on evidence drawn from a sample. The core logic
+        is built around a carefully controlled form of indirect reasoning: we ask whether the
+        data we observed would be very unlikely if a specific baseline claim were true.
+      </p>
+
+      <p>
+        The two competing claims are called the <strong>null hypothesis</strong>
+        <span class="math-latex">H_0</span> and the <strong>alternative hypothesis</strong>
+        <span class="math-latex">H_1</span> (also written <span class="math-latex">H_a</span>).
+        Every hypothesis test is a structured argument about these two claims.
+      </p>
+
+      <p>In general, for a population parameter <span class="math-latex">\theta</span> and a
+        hypothesized reference value <span class="math-latex">\theta_0</span>, the structure is:</p>
+
+      <div class="math-block">
+        <span class="math-latex math-block">H_0 : \theta = \theta_0 \quad \text{vs} \quad H_1 : \theta \neq \theta_0 \;\; (\text{or } > \theta_0 \text{ or } < \theta_0)</span>
+      </div>
+
+      <p>
+        In the drug trial example, the population parameter of interest is the true mean recovery
+        time <span class="math-latex">\mu</span> for all patients who might ever take this drug.
+        The reference value is <span class="math-latex">\mu_0 = 10</span> days (recovery under
+        no treatment). The company claims recovery is faster, so:
+      </p>
+
+      <div class="math-block">
+        <span class="math-latex math-block">H_0 : \mu = 10 \quad \text{vs} \quad H_1 : \mu < 10</span>
+      </div>
+
+      <!-- ── NULL HYPOTHESIS ──────────────────────────────────────────────────── -->
+      <h3>The Null Hypothesis <span class="math-latex">H_0</span></h3>
+
+      <p>
+        The null hypothesis is always the claim of no effect, no difference, or the status quo.
+        It is the position we adopt by default — we assume it is true at the outset of every
+        test. The purpose of the data analysis is to decide whether there is enough evidence to
+        overturn this default.
+      </p>
+
+      <p>
+        A critical and often misunderstood point: we never "prove" <span class="math-latex">H_0</span>.
+        We do not show that the null is true; we only decide whether to <em>reject</em> it or
+        <em>fail to reject</em> it. Failing to reject <span class="math-latex">H_0</span> is not
+        the same as proving it — it simply means the data did not provide sufficiently strong
+        evidence against it.
+      </p>
+
+      <div class="concept-box">
+        <h4>Analogy: Innocent Until Proven Guilty</h4>
+        <p>
+          In a criminal trial, a defendant is presumed innocent. The prosecution must present
+          evidence strong enough to overcome that presumption. If the evidence falls short, the
+          verdict is "not guilty" — not "definitely innocent."
+        </p>
+        <p>
+          <span class="math-latex">H_0</span> plays exactly the same role. It is the presumption
+          of innocence. The burden of proof lies entirely with the data. We reject
+          <span class="math-latex">H_0</span> only when the evidence against it is compelling
+          enough by a pre-specified standard. Failing to meet that standard is not evidence in
+          favor of <span class="math-latex">H_0</span> — it is simply an absence of evidence
+          against it.
+        </p>
+      </div>
+
+      <!-- ── ALTERNATIVE HYPOTHESIS ───────────────────────────────────────────── -->
+      <h3>The Alternative Hypothesis <span class="math-latex">H_1</span></h3>
+
+      <p>
+        The alternative hypothesis is the research claim — the position the investigator believes
+        may be true, or the effect they are trying to detect. It is always stated in opposition
+        to <span class="math-latex">H_0</span>. There are three possible forms, determined by
+        the nature of the research question:
+      </p>
+
+      <div class="math-block">
+        <span class="math-latex math-block">
+          \text{Two-tailed:} \quad H_1 : \theta \neq \theta_0
+          \qquad
+          \text{Left-tailed:} \quad H_1 : \theta < \theta_0
+          \qquad
+          \text{Right-tailed:} \quad H_1 : \theta > \theta_0
+        </span>
+      </div>
+
+      <p>
+        The choice between these three forms is driven entirely by the research question —
+        what direction of departure from <span class="math-latex">H_0</span> would be
+        scientifically meaningful? This choice must be made <em>before</em> collecting data,
+        not after examining the results. Choosing the alternative hypothesis to match an
+        observed pattern after the fact invalidates the test.
+      </p>
+
+      <!-- ── HOW TO WRITE HYPOTHESES ──────────────────────────────────────────── -->
+      <h3>How to Write Hypotheses</h3>
+
+      <p>
+        Formulating the hypotheses correctly is the most consequential step in any hypothesis
+        test. Errors here — such as writing the wrong direction, or placing the sample statistic
+        in the hypothesis — cannot be fixed by any amount of careful computation. Follow this
+        procedure:
+      </p>
+
+      <div class="derivation">
+        <div class="derivation-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <strong>Identify the population parameter of interest.</strong>
+            <div class="step-explanation">
+              Common choices are the population mean <span class="math-latex">\mu</span>,
+              population proportion <span class="math-latex">p</span>, or population
+              variance <span class="math-latex">\sigma^2</span>. The parameter must describe
+              a characteristic of the <em>population</em>, not the sample.
+            </div>
+          </div>
+        </div>
+
+        <div class="derivation-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <strong>State <span class="math-latex">H_0</span> as an equality.</strong>
+            <div class="step-explanation">
+              The null hypothesis always takes the form
+              <span class="math-latex">H_0 : \mu = \mu_0</span> (or
+              <span class="math-latex">H_0 : p = p_0</span>, etc.) where
+              <span class="math-latex">\mu_0</span> is the claimed or reference value.
+              <span class="math-latex">H_0</span> is always a precise, equality-based claim,
+              because the test statistic is computed under this assumption.
+            </div>
+          </div>
+        </div>
+
+        <div class="derivation-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <strong>State <span class="math-latex">H_1</span> based on the research question.</strong>
+            <div class="step-explanation">
+              Look for direction-indicating language: "different from" or "changed" implies
+              two-tailed (<span class="math-latex">\neq</span>); "greater than," "increased,"
+              or "exceeded" implies right-tailed (<span class="math-latex">></span>); "less
+              than," "decreased," or "reduced" implies left-tailed
+              (<span class="math-latex"><</span>).
+            </div>
+          </div>
+        </div>
+
+        <div class="derivation-step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <strong>Never place a sample statistic in <span class="math-latex">H_0</span> or <span class="math-latex">H_1</span>.</strong>
+            <div class="step-explanation">
+              Hypotheses are about population parameters, not sample statistics. Writing
+              <span class="math-latex">H_0 : \bar{x} = 10</span> is incorrect because
+              <span class="math-latex">\bar{x}</span> is the sample mean — a number you
+              compute from data. The correct form is always
+              <span class="math-latex">H_0 : \mu = 10</span>.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ONE-TAILED vs TWO-TAILED ─────────────────────────────────────────── -->
+      <h3>One-Tailed vs Two-Tailed Tests</h3>
+
+      <p>
+        The directionality of <span class="math-latex">H_1</span> determines how the test
+        distributes its allowable error between the two ends (tails) of the sampling distribution.
+        This has a direct impact on the strength of evidence required to reject
+        <span class="math-latex">H_0</span>.
+      </p>
+
+      <div class="assumptions-grid">
+        <div class="assumption-card">
+          <h5>Two-Tailed Test <span class="math-latex">(H_1 : \theta \neq \theta_0)</span></h5>
+          <p>
+            We reject <span class="math-latex">H_0</span> if the sample result is extreme in
+            either direction — either much larger or much smaller than
+            <span class="math-latex">\theta_0</span>. The rejection region is split equally
+            between both tails of the distribution. Used when any deviation from
+            <span class="math-latex">\theta_0</span> would be scientifically meaningful,
+            regardless of direction. This is the default in most scientific research, and
+            it requires a stronger departure from <span class="math-latex">H_0</span>
+            to reject compared to a one-tailed test at the same significance level.
+          </p>
+        </div>
+        <div class="assumption-card">
+          <h5>One-Tailed Test <span class="math-latex">(H_1 : \theta > \theta_0 \text{ or } \theta < \theta_0)</span></h5>
+          <p>
+            We reject <span class="math-latex">H_0</span> only if the sample result is
+            extreme in one specific direction. The entire rejection region sits in a single
+            tail. Use a one-tailed test only when there is a strong, pre-specified scientific
+            reason to care about deviations in only one direction. One-tailed tests are more
+            powerful in their specified direction but provide no protection against deviations
+            in the opposite direction, making them inappropriate for exploratory research.
+          </p>
+        </div>
+      </div>
+
+      <p>
+        <strong>Practical guidance:</strong> two-tailed tests are the conservative default.
+        Choosing a one-tailed test to gain power is only justified when you can make a compelling
+        scientific argument — before seeing the data — that an effect in the opposite direction
+        would be uninterpretable or irrelevant.
+      </p>
+
+      <!-- ── HOW ──────────────────────────────────────────────────────────────── -->
+      <h2>How Hypothesis Testing Works: The Decision Framework</h2>
+
+      <p>
+        Every hypothesis test, regardless of the specific statistical procedure used, follows
+        the same six-step decision framework. Learning this structure deeply will make every
+        subsequent test — Z-test, t-test, F-test, chi-squared test — feel like a familiar
+        application of the same underlying logic.
+      </p>
+
+      <div class="derivation">
+        <div class="derivation-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <strong>State <span class="math-latex">H_0</span> and <span class="math-latex">H_1</span>.</strong>
+            <div class="step-explanation">
+              Write both hypotheses in terms of the population parameter, using the
+              formulation rules above. Be explicit about the direction (two-tailed, left, right).
+            </div>
+          </div>
+        </div>
+
+        <div class="derivation-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <strong>Choose the significance level <span class="math-latex">\alpha</span>.</strong>
+            <div class="step-explanation">
+              <span class="math-latex">\alpha</span> is the maximum probability of wrongly
+              rejecting a true <span class="math-latex">H_0</span> that you are willing to
+              tolerate. Common choices are <span class="math-latex">\alpha = 0.05</span>
+              (5%) and <span class="math-latex">\alpha = 0.01</span> (1%).
+              This must be fixed before collecting data — changing <span class="math-latex">\alpha</span>
+              after seeing results is a form of result manipulation. Module 2 covers the
+              interpretation of <span class="math-latex">\alpha</span> in detail.
+            </div>
+          </div>
+        </div>
+
+        <div class="derivation-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <strong>Collect sample data and compute the test statistic.</strong>
+            <div class="step-explanation">
+              The test statistic is a single number that summarizes how far the sample
+              evidence is from what <span class="math-latex">H_0</span> predicts. Different
+              tests use different statistics (Z, t, F, chi-squared), but all of them measure
+              "distance from the null" on a known probability distribution.
+            </div>
+          </div>
+        </div>
+
+        <div class="derivation-step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <strong>Find the p-value or critical value.</strong>
+            <div class="step-explanation">
+              The p-value is the probability of observing a test statistic at least as
+              extreme as the one computed, assuming <span class="math-latex">H_0</span> is
+              true. The critical value is the threshold the test statistic must cross to
+              trigger rejection. Both methods are equivalent; the p-value is covered in
+              depth in Module 2.
+            </div>
+          </div>
+        </div>
+
+        <div class="derivation-step">
+          <div class="step-number">5</div>
+          <div class="step-content">
+            <strong>Make a decision: reject <span class="math-latex">H_0</span> or fail to reject <span class="math-latex">H_0</span>.</strong>
+            <div class="step-explanation">
+              If the p-value is less than <span class="math-latex">\alpha</span>, reject
+              <span class="math-latex">H_0</span>. If it is greater than or equal to
+              <span class="math-latex">\alpha</span>, fail to reject <span class="math-latex">H_0</span>.
+              Never "accept" <span class="math-latex">H_0</span> — the language is always
+              "fail to reject."
+            </div>
+          </div>
+        </div>
+
+        <div class="derivation-step">
+          <div class="step-number">6</div>
+          <div class="step-content">
+            <strong>State the conclusion in plain language in context.</strong>
+            <div class="step-explanation">
+              A statistical decision without a substantive interpretation is incomplete.
+              Always connect the conclusion back to the original research question. Specify
+              the significance level, the direction of the result, and what it means for
+              the problem at hand.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TEST STATISTIC ───────────────────────────────────────────────────── -->
+      <h3>What is a Test Statistic?</h3>
+
+      <p>
+        A test statistic is the number that converts your sample evidence into a position on
+        a known probability distribution, so you can quantify how unusual your data would be
+        if <span class="math-latex">H_0</span> were true. The fundamental idea is
+        standardization: we ask how many standard errors the observed sample estimate lies
+        away from the value predicted by <span class="math-latex">H_0</span>.
+      </p>
+
+      <div class="math-block">
+        <span class="math-latex math-block">T = \frac{\hat{\theta} - \theta_0}{\text{SE}(\hat{\theta})}</span>
+      </div>
+
+      <p>
+        Here, <span class="math-latex">\hat{\theta}</span> is the sample estimate of the
+        parameter (for example, the sample mean <span class="math-latex">\bar{x}</span>),
+        <span class="math-latex">\theta_0</span> is the value claimed by
+        <span class="math-latex">H_0</span>, and
+        <span class="math-latex">\text{SE}(\hat{\theta})</span> is the standard error of
+        the estimate — a measure of how much sampling variability we expect.
+      </p>
+
+      <p>
+        When <span class="math-latex">H_0</span> is true, this ratio follows a known
+        distribution centered at zero. A test statistic near zero means the sample result
+        is consistent with <span class="math-latex">H_0</span>. A test statistic far from
+        zero — in the tail of the distribution — means the sample result would be rare if
+        <span class="math-latex">H_0</span> were true, which is evidence against it.
+        Different tests use different reference distributions (Z, t, F, chi-squared),
+        chosen based on what parameter is being tested and what is known about the population.
+        These are developed systematically in Modules 3 through 5.
+      </p>
+
+      <!-- ── INTERACTIVE WIDGET ───────────────────────────────────────────────── -->
+      <h2>Interactive: Decision Framework Explorer</h2>
+
+      <div class="widget-container">
+        <h4>Select a real-world scenario to see how to set up the hypotheses and visualize the rejection regions under a standard normal distribution with <span class="math-latex">\alpha = 0.05</span>.</h4>
+
+        <div class="widget-controls">
+          <label for="scenario-select">Scenario:</label>
+          <select id="scenario-select">
+            <option value="left">Drug trial: Does a drug reduce recovery time below 10 days?</option>
+            <option value="two-coin">Coin fairness: Is this coin biased?</option>
+            <option value="right">Quality control: Do batteries exceed claimed 100-hour lifetime?</option>
+            <option value="two-teach">Teaching method: Does a new method change test scores from 72?</option>
+          </select>
+        </div>
+
+        <div id="scenario-description" style="margin: 0.75rem 0; font-size: 0.9rem; padding: 0.75rem 1rem; background: var(--bg-secondary); border-radius: 4px; border: 1px solid var(--border);"></div>
+
+        <div id="decision-plot" class="plot-area"></div>
+
+        <div id="plot-legend" style="margin-top: 0.75rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;"></div>
+      </div>
+
+      <!-- ── WORKED EXAMPLE ───────────────────────────────────────────────────── -->
+      <h2>Worked Example: The Drug Trial</h2>
+
+      <p>
+        Let us walk through the decision framework for the clinical trial introduced at the
+        start of this module. The pharmaceutical company claims a new drug reduces mean
+        patient recovery time. We have data on 50 patients.
+      </p>
+
+      <h3>Step 1: State the Hypotheses</h3>
+
+      <p>
+        The population parameter of interest is <span class="math-latex">\mu</span>, the
+        true mean recovery time for all patients who might take this drug. The status quo
+        (no drug effect) corresponds to <span class="math-latex">\mu = 10</span> days.
+        The company claims the drug <em>reduces</em> recovery time — a directional claim
+        pointing in one specific direction.
+      </p>
+
+      <div class="math-block">
+        <span class="math-latex math-block">H_0 : \mu = 10 \quad \text{(drug has no effect on recovery time)}</span>
+      </div>
+      <div class="math-block">
+        <span class="math-latex math-block">H_1 : \mu < 10 \quad \text{(drug reduces recovery time)}</span>
+      </div>
+
+      <p>
+        This is a <strong>left-tailed test</strong> because the company's claim is that the
+        drug decreases the mean. We would only reject <span class="math-latex">H_0</span>
+        if the observed sample mean is substantially lower than 10 — a result in the left
+        tail of the sampling distribution.
+      </p>
+
+      <h3>Step 2: Choose <span class="math-latex">\alpha</span></h3>
+
+      <p>
+        We set <span class="math-latex">\alpha = 0.05</span>. This means we accept a 5%
+        chance of incorrectly concluding the drug works when it actually does not.
+        This is the standard threshold in clinical research for a preliminary trial.
+      </p>
+
+      <h3>Step 3: Compute the Test Statistic (Preview)</h3>
+
+      <p>
+        The full computation of the test statistic for this scenario — which requires knowing
+        the sample mean, sample standard deviation, and sample size — is carried out in
+        Module 3 (One-Sample Z-Test). For now, suppose that after collecting data on all
+        50 patients, the analysis yields a test statistic of:
+      </p>
+
+      <div class="math-block">
+        <span class="math-latex math-block">Z = \frac{\bar{x} - \mu_0}{\sigma / \sqrt{n}} = -2.31</span>
+      </div>
+
+      <p>
+        A value of <span class="math-latex">Z = -2.31</span> means the observed sample mean
+        sits 2.31 standard errors to the left of 10. Under
+        <span class="math-latex">H_0</span>, the test statistic follows a standard normal
+        distribution centered at zero, so a value this far in the left tail would be quite
+        unusual if the drug truly had no effect.
+      </p>
+
+      <h3>Step 4 &amp; 5: Decision</h3>
+
+      <p>
+        For a left-tailed test at <span class="math-latex">\alpha = 0.05</span>, the critical
+        value is <span class="math-latex">z^* = -1.645</span>. Because
+        <span class="math-latex">-2.31 < -1.645</span>, the test statistic falls in the
+        rejection region.
+      </p>
+
+      <p>
+        <strong>Decision:</strong> <span class="ht-decision reject">Reject H<sub>0</sub></span>
+      </p>
+
+      <h3>Step 6: Conclusion in Context</h3>
+
+      <p>
+        There is sufficient evidence at the 5% significance level to conclude that the drug
+        reduces average patient recovery time below 10 days. The data are inconsistent with
+        the hypothesis of no effect, and the observed reduction is large enough — relative
+        to sampling variability — that chance variation alone is an implausible explanation.
+      </p>
+
+      <p style="color: var(--text-muted); font-size: 0.9rem;">
+        Note: this conclusion is about statistical significance. Whether the reduction is
+        clinically meaningful (was it 0.1 days or 4 days?), and whether the trial design
+        supports a causal claim, are separate questions that require subject-matter judgment
+        beyond the test itself.
+      </p>
+
+      <!-- ── PRACTICE PROBLEM ─────────────────────────────────────────────────── -->
+      <h2>Practice Problem</h2>
+
+      <details>
+        <summary>
+          A university claims its graduates earn a mean starting salary of $65,000. A student
+          group believes the actual mean is different — either higher or lower. They plan to
+          survey 45 recent graduates. Write the null and alternative hypotheses, identify
+          whether the test is one-tailed or two-tailed, and explain your reasoning.
+        </summary>
+        <div class="solution">
+          <p>
+            <strong>Population parameter:</strong> <span class="math-latex">\mu</span>,
+            the true mean starting salary for all graduates of this university.
+          </p>
+
+          <div class="math-block">
+            <span class="math-latex math-block">H_0 : \mu = 65{,}000</span>
+          </div>
+          <div class="math-block">
+            <span class="math-latex math-block">H_1 : \mu \neq 65{,}000</span>
+          </div>
+
+          <p>
+            <strong>Test type:</strong> Two-tailed test.
+          </p>
+
+          <p>
+            <strong>Reasoning:</strong> The student group believes the mean is
+            "different" — they have no prior scientific reason to expect salaries to
+            be specifically higher or specifically lower than $65,000. Both directions
+            of departure from the claimed value are of equal interest. The keyword
+            "different" is a clear signal for a two-tailed alternative. If the group
+            had instead said "we believe graduates actually earn more than $65,000,"
+            that would justify a right-tailed test — but here, either direction would
+            constitute a meaningful finding.
+          </p>
+
+          <p>
+            <strong>Common mistake to avoid:</strong> Do not write
+            <span class="math-latex">H_0 : \bar{x} = 65{,}000</span>. The sample mean
+            <span class="math-latex">\bar{x}</span> is computed from the 45 surveyed
+            graduates — it is a sample statistic, not a population parameter.
+            Hypotheses always describe the population.
+          </p>
+        </div>
+      </details>
+
+      <!-- ── NAVIGATION ───────────────────────────────────────────────────────── -->
+      <div class="nav-buttons">
+        <a href="../index.html" class="nav-btn prev">Track Home</a>
+        <a href="02-errors-alpha-pvalue.html" class="nav-btn">2. Errors and p-value &rarr;</a>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ── MODULE-SPECIFIC JAVASCRIPT ─────────────────────────────────────────── -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+      // Scenario configurations
+      var scenarios = {
+        'left': {
+          type: 'left',
+          title: 'Drug Trial',
+          h0: 'H₀: μ = 10 (drug has no effect; mean recovery time is 10 days)',
+          h1: 'H₁: μ < 10 (drug reduces recovery time; left-tailed test)',
+          zcrit: -1.645,
+          interpretation: 'The shaded coral region on the left is the rejection region. If the test statistic Z falls below −1.645, we reject H₀ and conclude there is evidence that the drug reduces recovery time. The blue-gray region is the fail-to-reject zone.'
+        },
+        'two-coin': {
+          type: 'two',
+          title: 'Coin Fairness',
+          h0: 'H₀: p = 0.5 (coin is fair; probability of heads is 50%)',
+          h1: 'H₁: p ≠ 0.5 (coin is biased in some direction; two-tailed test)',
+          zcritL: -1.96,
+          zcritR: 1.96,
+          interpretation: 'The shaded coral regions in both tails are the rejection regions. If the test statistic Z is below −1.96 or above +1.96, we reject H₀ and conclude the coin is biased. The blue-gray region is the fail-to-reject zone covering the central 95% of the distribution.'
+        },
+        'right': {
+          type: 'right',
+          title: 'Battery Quality Control',
+          h0: 'H₀: μ = 100 (batteries meet the claimed 100-hour lifetime)',
+          h1: 'H₁: μ > 100 (batteries exceed the claimed lifetime; right-tailed test)',
+          zcrit: 1.645,
+          interpretation: 'The shaded coral region on the right is the rejection region. If the test statistic Z exceeds +1.645, we reject H₀ and conclude there is evidence that the batteries last longer than claimed. The blue-gray region is the fail-to-reject zone.'
+        },
+        'two-teach': {
+          type: 'two',
+          title: 'Teaching Method',
+          h0: 'H₀: μ = 72 (new method produces the same mean test score as the old)',
+          h1: 'H₁: μ ≠ 72 (new method changes mean test score; two-tailed test)',
+          zcritL: -1.96,
+          zcritR: 1.96,
+          interpretation: 'The shaded coral regions in both tails are the rejection regions. If the test statistic Z is below −1.96 or above +1.96, we reject H₀ and conclude the new teaching method produces a significantly different mean score. The blue-gray region is the fail-to-reject zone covering the central 95%.'
+        }
+      };
+
+      // Generate x values and PDF values for the standard normal
+      function makeNormalCurve(nPoints) {
+        nPoints = nPoints || 400;
+        var xs = [];
+        var ys = [];
+        for (var i = 0; i < nPoints; i++) {
+          var x = -4 + (8 * i) / (nPoints - 1);
+          xs.push(x);
+          ys.push(normalPDF(x));
+        }
+        return { xs: xs, ys: ys };
+      }
+
+      // Build filled region traces between x bounds
+      function filledRegion(xMin, xMax, color, name, nPoints) {
+        nPoints = nPoints || 200;
+        var xs = [];
+        var ys = [];
+        // Build the fill shape: go from xMin to xMax along the curve, then back along y=0
+        for (var i = 0; i < nPoints; i++) {
+          var x = xMin + ((xMax - xMin) * i) / (nPoints - 1);
+          xs.push(x);
+          ys.push(normalPDF(x));
+        }
+        // close the polygon
+        for (var j = nPoints - 1; j >= 0; j--) {
+          var x2 = xMin + ((xMax - xMin) * j) / (nPoints - 1);
+          xs.push(x2);
+          ys.push(0);
+        }
+        return {
+          x: xs,
+          y: ys,
+          fill: 'toself',
+          fillcolor: color,
+          line: { color: 'rgba(0,0,0,0)' },
+          mode: 'lines',
+          type: 'scatter',
+          name: name,
+          hoverinfo: 'skip'
+        };
+      }
+
+      // Vertical dashed line trace
+      function vertLine(xVal, color, name) {
+        var yTop = normalPDF(0) * 1.05;
+        return {
+          x: [xVal, xVal],
+          y: [0, yTop],
+          mode: 'lines',
+          type: 'scatter',
+          line: { color: color, width: 2, dash: 'dash' },
+          name: name,
+          hoverinfo: 'skip'
+        };
+      }
+
+      function updatePlot(scenarioKey) {
+        var sc = scenarios[scenarioKey];
+        var curve = makeNormalCurve(400);
+
+        // Main bell curve trace
+        var bellTrace = {
+          x: curve.xs,
+          y: curve.ys,
+          mode: 'lines',
+          type: 'scatter',
+          line: { color: '#4b5563', width: 2 },
+          name: 'Standard Normal',
+          hoverinfo: 'skip'
+        };
+
+        var traces = [];
+        var shapes = [];
+
+        var rejectColor = 'rgba(239, 68, 68, 0.35)';
+        var failColor = 'rgba(96, 165, 250, 0.18)';
+
+        if (sc.type === 'left') {
+          // Fail to reject region: zcrit to +4
+          traces.push(filledRegion(sc.zcrit, 4, failColor, 'Fail to Reject H₀'));
+          // Rejection region: -4 to zcrit
+          traces.push(filledRegion(-4, sc.zcrit, rejectColor, 'Rejection Region (α = 0.05)'));
+          // Critical value line
+          traces.push(vertLine(sc.zcrit, '#dc2626', 'z* = ' + sc.zcrit.toFixed(3)));
+
+        } else if (sc.type === 'right') {
+          // Fail to reject region: -4 to zcrit
+          traces.push(filledRegion(-4, sc.zcrit, failColor, 'Fail to Reject H₀'));
+          // Rejection region: zcrit to +4
+          traces.push(filledRegion(sc.zcrit, 4, rejectColor, 'Rejection Region (α = 0.05)'));
+          traces.push(vertLine(sc.zcrit, '#dc2626', 'z* = +' + sc.zcrit.toFixed(3)));
+
+        } else {
+          // Two-tailed
+          // Fail to reject center: zcritL to zcritR
+          traces.push(filledRegion(sc.zcritL, sc.zcritR, failColor, 'Fail to Reject H₀'));
+          // Left rejection tail
+          traces.push(filledRegion(-4, sc.zcritL, rejectColor, 'Rejection Region (α = 0.05)'));
+          // Right rejection tail
+          traces.push(filledRegion(sc.zcritR, 4, rejectColor, 'Rejection Region'));
+          traces.push(vertLine(sc.zcritL, '#dc2626', 'z* = ' + sc.zcritL.toFixed(2)));
+          traces.push(vertLine(sc.zcritR, '#dc2626', 'z* = +' + sc.zcritR.toFixed(2)));
+        }
+
+        // Bell curve on top
+        traces.push(bellTrace);
+
+        var layout = plotlyLayout({
+          xaxis: {
+            title: { text: 'Test Statistic (Z)', font: { size: 12 } },
+            range: [-4.2, 4.2],
+            tickvals: [-4, -3, -2, -1.96, -1.645, 0, 1.645, 1.96, 2, 3, 4],
+            ticktext: ['-4', '-3', '-2', '−1.96', '−1.645', '0', '1.645', '1.96', '2', '3', '4'],
+            gridcolor: 'rgba(150,150,150,0.2)',
+            zerolinecolor: 'rgba(150,150,150,0.5)'
+          },
+          yaxis: {
+            title: { text: 'Probability Density', font: { size: 12 } },
+            range: [0, 0.44],
+            gridcolor: 'rgba(150,150,150,0.2)'
+          },
+          margin: { t: 30, r: 20, b: 60, l: 60 },
+          showlegend: true,
+          legend: { x: 0.65, y: 0.95, bgcolor: 'rgba(0,0,0,0)', borderwidth: 0, font: { size: 11 } }
+        });
+
+        Plotly.react('decision-plot', traces, layout, PLOTLY_CONFIG);
+
+        // Update description box
+        var descEl = document.getElementById('scenario-description');
+        descEl.innerHTML =
+          '<strong>' + sc.title + '</strong><br>' +
+          sc.h0 + '<br>' +
+          sc.h1;
+
+        // Update legend text
+        document.getElementById('plot-legend').textContent = sc.interpretation;
+      }
+
+      // Initialize with default scenario
+      updatePlot('left');
+
+      // Listen for dropdown change
+      document.getElementById('scenario-select').addEventListener('change', function () {
+        updatePlot(this.value);
+      });
+
+    });
+  </script>
+
+</body>
+</html>

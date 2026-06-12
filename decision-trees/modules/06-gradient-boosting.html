@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 6: Gradient Boosting</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-decision-trees-intro.html">1. Intro</a>
+    <a href="02-impurity-training.html">2. Impurity</a>
+    <a href="03-gini-splits.html">3. Gini Splits</a>
+    <a href="04-advantages-limitations.html">4. Advantages</a>
+    <a href="05-bagging-random-forests.html">5. Random Forests</a>
+    <a href="06-gradient-boosting.html" class="active">6. Gradient Boosting</a>
+    <a href="07-hyperparameter-tuning.html">7. Hyperparameters</a>
+  </nav>
+  <header>
+    <h1>Module 6: Gradient Boosting</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- SECTION 1: BIAS VS VARIANCE -->
+  <h2>Bias vs. Variance — Two Different Problems</h2>
+
+  <p>Module 5 showed that bagging and random forests reduce <strong>variance</strong>. When many high-variance trees disagree with each other, averaging their predictions cancels out individual errors and produces a stable model. This works because each tree is a low-bias, high-variance estimator: given enough depth, a single tree can fit the training data well, but its exact shape fluctuates wildly from dataset to dataset.</p>
+
+  <p>But what if the fundamental problem is <strong>bias</strong>? Consider a depth-1 decision tree — a stump. A stump makes one binary cut and assigns a constant prediction to each half. It is a drastically simplified model. No matter how many stumps you average, the resulting ensemble is still constrained by what a stump can express. If the true relationship requires more nuance than a single split, averaging stumps will not recover it. You have not reduced the systematic error; you have just averaged over it.</p>
+
+  <div class="callout note">
+    <strong>The bagging ceiling</strong>
+    For an ensemble of M identical models, the bias of the average equals the bias of a single model. Bagging can reduce variance toward zero (as M grows), but it cannot reduce bias below the single-model floor. If every base learner is systematically wrong in the same direction, their average is just as systematically wrong.
+  </div>
+
+  <p>To reduce bias, we need a different strategy: <strong>sequential learning</strong>. Rather than training many models independently and averaging, we train models one after another, where each new model specifically targets the errors made by all previous models combined. The ensemble grows additively — we sum the models rather than average them — and at each step we are actively correcting what was wrong before.</p>
+
+  <p>This is the key idea behind <strong>boosting</strong>.</p>
+
+  <div class="callout insight">
+    <strong>The student analogy</strong>
+    Imagine a student preparing for an exam. After the first attempt, she reviews every question she got wrong and studies those topics intensively. She retakes a similar exam, reviews her new mistakes, studies again, and repeats. Each iteration, the student improves specifically at her weakest areas. The final student is the accumulation of all those targeted study sessions. Boosting applies the same logic: each new model is a targeted correction of the current ensemble's weaknesses.
+  </div>
+
+  <div class="bridge">
+    <strong>From variance reduction to bias reduction.</strong> Bagging builds many models in parallel, each trained on a bootstrap sample, and averages them to smooth out variance. Boosting builds models sequentially, each trained on the errors of the previous ensemble, and adds them together to reduce bias. The next section shows exactly how this works in the simplest case: regression with mean-squared error.
+  </div>
+
+  <!-- SECTION 2: FITTING RESIDUALS -->
+  <h2>The Core Idea — Fitting Residuals</h2>
+
+  <p>Start with regression to build concrete intuition. Suppose we have training data <span class="math-latex math-inline">\{(x_i, y_i)\}_{i=1}^n</span> and we want to build a predictive model <span class="math-latex math-inline">F(x)</span> by sequentially adding simple trees.</p>
+
+  <p><strong>Step 0.</strong> Initialize with the simplest possible predictor: the mean of the targets.</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">F_0(x) = \bar{y} = \frac{1}{n}\sum_{i=1}^{n} y_i</span>
+  </div>
+
+  <p>The <strong>residuals</strong> are the errors this initial predictor makes:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">r_i = y_i - F_0(x_i)</span>
+  </div>
+
+  <p>These residuals tell us exactly what the current model is getting wrong: positive residuals mean the model is under-predicting; negative residuals mean it is over-predicting.</p>
+
+  <p><strong>Step 1.</strong> Train a tree <span class="math-latex math-inline">h_1</span> to predict the residuals <span class="math-latex math-inline">r_i</span> (not the original targets!). Then update the ensemble:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">F_1(x) = F_0(x) + \eta \cdot h_1(x)</span>
+  </div>
+
+  <p>where <span class="math-latex math-inline">\eta \in (0,1]</span> is the <strong>learning rate</strong> (also called shrinkage). Compute new residuals <span class="math-latex math-inline">r_i = y_i - F_1(x_i)</span> and repeat.</p>
+
+  <p>After M steps the final model is:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">F_M(x) = F_0(x) + \eta \sum_{m=1}^{M} h_m(x)</span>
+  </div>
+
+  <h3>Worked Example: 5 Points, 3 Iterations</h3>
+
+  <p>Consider this small dataset: <span class="math-latex math-inline">x = [1, 2, 3, 4, 5]</span>, <span class="math-latex math-inline">y = [1.2, 2.8, 3.5, 7.2, 8.1]</span>. We use <span class="math-latex math-inline">\eta = 0.5</span> and depth-1 stumps.</p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">0</div>
+      <div class="step-content">
+        <strong>Initialize: <span class="math-latex math-inline">F_0(x) = \bar{y}</span></strong>
+        <div class="step-explanation">
+          <span class="math-latex math-inline">\bar{y} = (1.2 + 2.8 + 3.5 + 7.2 + 8.1)/5 = 22.8/5 = 4.56</span>
+          <br>Residuals: <span class="math-latex math-inline">r_i = y_i - 4.56</span> = [-3.36, -1.76, -1.06, 2.64, 3.54]
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Fit <span class="math-latex math-inline">h_1</span> to residuals; update to <span class="math-latex math-inline">F_1</span></strong>
+        <div class="step-explanation">
+          Best stump splits at <span class="math-latex math-inline">x \leq 2.5</span>:
+          <br>Left leaf (<span class="math-latex math-inline">x \leq 2.5</span>): indices {1,2}, mean residual = (-3.36 + (-1.76))/2 = <strong>-2.56</strong>
+          <br>Right leaf (<span class="math-latex math-inline">x > 2.5</span>): indices {3,4,5}, mean residual = (-1.06 + 2.64 + 3.54)/3 = <strong>1.707</strong>
+          <br><br>Update: <span class="math-latex math-inline">F_1(x) = 4.56 + 0.5 \cdot h_1(x)</span>
+          <br>Predictions: [4.56 + 0.5(-2.56), 4.56 + 0.5(-2.56), 4.56 + 0.5(1.707), 4.56 + 0.5(1.707), 4.56 + 0.5(1.707)]
+          <br>= [3.28, 3.28, 5.414, 5.414, 5.414]
+          <br><br>New residuals = [-2.08, -0.48, -1.914, 1.786, 2.686]
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Fit <span class="math-latex math-inline">h_2</span> to new residuals; update to <span class="math-latex math-inline">F_2</span></strong>
+        <div class="step-explanation">
+          Best stump again splits at <span class="math-latex math-inline">x \leq 2.5</span>:
+          <br>Left leaf mean = (-2.08 + (-0.48))/2 = <strong>-1.28</strong>
+          <br>Right leaf mean = (-1.914 + 1.786 + 2.686)/3 = <strong>0.853</strong>
+          <br><br>Update: <span class="math-latex math-inline">F_2(x) = F_1(x) + 0.5 \cdot h_2(x)</span>
+          <br>Predictions: [3.28 + 0.5(-1.28), 3.28 + 0.5(-1.28), 5.414 + 0.5(0.853), 5.414 + 0.5(0.853), 5.414 + 0.5(0.853)]
+          <br>= [2.64, 2.64, 5.840, 5.840, 5.840]
+          <br><br>New residuals = [-1.44, 0.16, -2.340, 1.360, 2.260]
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p>The iteration table summarises how predictions and residuals evolve across all five data points:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Iteration m</th>
+        <th>F_m(x=1)</th>
+        <th>F_m(x=2)</th>
+        <th>F_m(x=3)</th>
+        <th>F_m(x=4)</th>
+        <th>F_m(x=5)</th>
+        <th>MSE</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0 (mean)</td>
+        <td>4.56</td>
+        <td>4.56</td>
+        <td>4.56</td>
+        <td>4.56</td>
+        <td>4.56</td>
+        <td>6.79</td>
+      </tr>
+      <tr>
+        <td>1</td>
+        <td>3.28</td>
+        <td>3.28</td>
+        <td>5.41</td>
+        <td>5.41</td>
+        <td>5.41</td>
+        <td>3.39</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>2.64</td>
+        <td>2.64</td>
+        <td>5.84</td>
+        <td>5.84</td>
+        <td>5.84</td>
+        <td>1.82</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="font-size:0.88rem;color:var(--text-muted);margin-top:-0.5rem;">Each iteration approximately halves the MSE. Predictions for x=1 and x=2 converge toward 1.2 and 2.8; predictions for x=3,4,5 converge toward 7.2 and 8.1.</p>
+
+  <div class="callout insight">
+    <strong>Why does this reduce bias?</strong>
+    The stump <span class="math-latex math-inline">h_1</span> cannot fit the full target because it only makes one split. But it can partially correct the constant predictor <span class="math-latex math-inline">F_0</span>. Then <span class="math-latex math-inline">h_2</span> corrects what <span class="math-latex math-inline">h_1</span> left over, and so on. Each tree chips away at the remaining systematic error. Bias decreases with every iteration.
+  </div>
+
+  <!-- SECTION 3: FUNCTIONAL GRADIENT DESCENT -->
+  <h2>The General Framework — Functional Gradient Descent</h2>
+
+  <p>The residual-fitting story above is a special case of a more general principle. For any differentiable loss function <span class="math-latex math-inline">L(y, F(x))</span>, gradient boosting minimizes:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\mathcal{L}(F) = \sum_{i=1}^{n} L(y_i, F(x_i))</span>
+  </div>
+
+  <p>over the space of functions <span class="math-latex math-inline">F</span>. Instead of gradient descent in parameter space (as in neural networks), we perform gradient descent in <em>function space</em>: each iteration adds a new tree that points in the direction of the negative gradient of <span class="math-latex math-inline">\mathcal{L}</span>.</p>
+
+  <p>The <strong>pseudo-residuals</strong> are the negative gradient of the loss with respect to the current predictions:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">r_{im} = -\left[\frac{\partial L(y_i, F(x_i))}{\partial F(x_i)}\right]_{F=F_{m-1}}</span>
+  </div>
+
+  <p>We fit a regression tree <span class="math-latex math-inline">h_m</span> to these pseudo-residuals, then update <span class="math-latex math-inline">F</span> along the direction they indicate. This is gradient descent where the "parameter" being updated is the function value <span class="math-latex math-inline">F(x_i)</span> at each training point.</p>
+
+  <h3>The Algorithm</h3>
+
+  <div class="algo-block">
+    <p><strong>Algorithm: Gradient Boosting</strong></p>
+    <p><strong>Input:</strong> Training data <span class="math-latex math-inline">\{(x_i, y_i)\}_{i=1}^n</span>, loss function <span class="math-latex math-inline">L</span>, number of trees <span class="math-latex math-inline">M</span>, learning rate <span class="math-latex math-inline">\eta</span></p>
+    <ol>
+      <li><strong>Initialize:</strong>
+        <span class="math-latex math-inline">F_0(x) = \arg\min_\gamma \sum_{i=1}^{n} L(y_i,\, \gamma)</span>
+        (e.g., <span class="math-latex math-inline">\bar{y}</span> for MSE; log-odds <span class="math-latex math-inline">\log\frac{\bar{p}}{1-\bar{p}}</span> for log-loss)
+      </li>
+      <li><strong>For</strong> <span class="math-latex math-inline">m = 1</span> to <span class="math-latex math-inline">M</span>:
+        <ol type="a">
+          <li>Compute pseudo-residuals: <span class="math-latex math-inline">r_{im} = -\left[\partial L(y_i, F(x_i)) / \partial F(x_i)\right]_{F=F_{m-1}}</span></li>
+          <li>Fit a regression tree <span class="math-latex math-inline">h_m</span> to the dataset <span class="math-latex math-inline">\{(x_i,\, r_{im})\}_{i=1}^n</span>, producing leaf regions <span class="math-latex math-inline">R_{jm}</span></li>
+          <li>Find optimal leaf weights: <span class="math-latex math-inline">\gamma_{jm} = \arg\min_\gamma \sum_{x_i \in R_{jm}} L(y_i,\, F_{m-1}(x_i) + \gamma)</span></li>
+          <li>Update: <span class="math-latex math-inline">F_m(x) = F_{m-1}(x) + \eta \cdot h_m(x)</span></li>
+        </ol>
+      </li>
+      <li><strong>Return</strong> <span class="math-latex math-inline">F_M</span></li>
+    </ol>
+  </div>
+
+  <h3>Case 1: MSE Loss</h3>
+
+  <p>For <span class="math-latex math-inline">L(y, F) = \tfrac{1}{2}(y - F)^2</span>, the pseudo-residuals are literally the ordinary residuals:</p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Write the gradient</strong>
+        <div class="step-explanation">
+          <span class="math-latex math-block">r_{im} = -\frac{\partial}{\partial F}\left[\frac{(y_i - F)^2}{2}\right]_{F = F_{m-1}(x_i)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Differentiate</strong>
+        <div class="step-explanation">
+          <span class="math-latex math-block">\frac{\partial}{\partial F}\left[\frac{(y_i - F)^2}{2}\right] = \frac{1}{2} \cdot 2(y_i - F)(-1) = -(y_i - F)</span>
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Apply the negative sign</strong>
+        <div class="step-explanation">
+          <span class="math-latex math-block">r_{im} = -\left[-(y_i - F_{m-1}(x_i))\right] = y_i - F_{m-1}(x_i)</span>
+          The pseudo-residuals for MSE are exactly the ordinary residuals <span class="math-latex math-inline">y_i - \hat{y}_i</span>. The residual-fitting story from Section 2 is not a heuristic — it is gradient descent on MSE loss.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Case 2: Binary Log-Loss</h3>
+
+  <p>For binary classification, with <span class="math-latex math-inline">\sigma(F) = 1/(1+e^{-F})</span> and loss:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">L(y, F) = -\left[y\ln\sigma(F) + (1-y)\ln(1-\sigma(F))\right]</span>
+  </div>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Rewrite using <span class="math-latex math-inline">\sigma(F)</span></strong>
+        <div class="step-explanation">
+          Note that <span class="math-latex math-inline">1 - \sigma(F) = \sigma(-F)</span> and <span class="math-latex math-inline">\frac{d}{dF}\sigma(F) = \sigma(F)(1-\sigma(F))</span>.
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Differentiate with respect to F</strong>
+        <div class="step-explanation">
+          <span class="math-latex math-block">\frac{\partial L}{\partial F} = -\frac{y}{\sigma(F)} \cdot \sigma(F)(1-\sigma(F)) + \frac{1-y}{1-\sigma(F)} \cdot \sigma(F)(1-\sigma(F))</span>
+          <span class="math-latex math-block">= -y(1-\sigma(F)) + (1-y)\sigma(F) = \sigma(F) - y</span>
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Negate to get pseudo-residuals</strong>
+        <div class="step-explanation">
+          <span class="math-latex math-block">r_{im} = -\left[\sigma(F_{m-1}(x_i)) - y_i\right] = y_i - \sigma(F_{m-1}(x_i)) = y_i - \hat{p}_{m-1}(x_i)</span>
+          The pseudo-residuals are the difference between the true label and the predicted probability — exactly what you would intuitively want to correct.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout insight">
+    <strong>Unified view</strong>
+    In both cases — MSE and log-loss — the pseudo-residuals are of the form <em>truth minus prediction</em>. For regression it is <span class="math-latex math-inline">y_i - \hat{y}_i</span>; for classification it is <span class="math-latex math-inline">y_i - \hat{p}_i</span>. The gradient boosting algorithm is the same regardless of the loss. Only the definition of "residual" changes.
+  </div>
+
+  <!-- SECTION 4: SHRINKAGE AND REGULARIZATION -->
+  <h2>Shrinkage and Regularization</h2>
+
+  <p>The learning rate <span class="math-latex math-inline">\eta \in (0,1]</span> scales each tree's contribution before adding it to the ensemble:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">F_m(x) = F_{m-1}(x) + \eta \cdot h_m(x)</span>
+  </div>
+
+  <p>A smaller <span class="math-latex math-inline">\eta</span> means each tree contributes less. To achieve the same training error, we therefore need more trees (larger <span class="math-latex math-inline">M</span>). This is the shrinkage trade-off:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Learning rate <span class="math-latex math-inline">\eta</span></th>
+        <th>Trees needed M</th>
+        <th>Regularization</th>
+        <th>Generalization</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Large (e.g., 1.0)</td>
+        <td>Few</td>
+        <td>Weak</td>
+        <td>Often poor (overfitting)</td>
+      </tr>
+      <tr>
+        <td>Medium (0.1 – 0.3)</td>
+        <td>Moderate</td>
+        <td>Moderate</td>
+        <td>Good balance</td>
+      </tr>
+      <tr>
+        <td>Small (0.01 – 0.05)</td>
+        <td>Many</td>
+        <td>Strong</td>
+        <td>Often best, if compute allows</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout note">
+    <strong>Empirical rule</strong>
+    Lower <span class="math-latex math-inline">\eta</span> combined with higher <span class="math-latex math-inline">M</span> typically outperforms higher <span class="math-latex math-inline">\eta</span> with fewer trees, provided the computational budget allows it. In practice, <span class="math-latex math-inline">\eta \in [0.05, 0.3]</span> with early stopping on a validation set is the standard recipe. The interaction is explored visually in the second widget below.
+  </div>
+
+  <h3>Stochastic Gradient Boosting</h3>
+
+  <p>Friedman (2002) introduced a simple but powerful regularization technique: at each iteration, draw a random subsample (fraction <span class="math-latex math-inline">\text{subsample} \in (0.5, 1]</span>) of the training data and fit <span class="math-latex math-inline">h_m</span> to that subsample only. This introduces randomness into the boosting process, analogous to the random feature selection in random forests.</p>
+
+  <p>Stochastic gradient boosting has two benefits. First, the reduced sample size speeds up each iteration. Second, the randomness acts as a regularizer, reducing the correlation between trees and often improving generalization, especially when <span class="math-latex math-inline">\text{subsample} \approx 0.5</span>.</p>
+
+  <div class="concept-box">
+    <h4>Three regularization knobs in gradient boosting</h4>
+    <ul>
+      <li><strong>Learning rate <span class="math-latex math-inline">\eta</span></strong> — shrinks each tree's contribution. Primary regularization lever.</li>
+      <li><strong>Tree depth</strong> — limits individual tree complexity. Shallow trees (depth 1–5) are common; they are weak learners that must cooperate.</li>
+      <li><strong>Subsampling fraction</strong> — introduces randomness per iteration, reducing overfitting and correlation between trees.</li>
+    </ul>
+    <p>All three are also hyperparameters that require tuning — covered in Module 7.</p>
+  </div>
+
+  <!-- SECTION 5: XGBOOST -->
+  <h2>XGBoost — Second-Order Approximation</h2>
+
+  <p>Vanilla gradient boosting uses only first-order information: the gradient (pseudo-residuals) tells us which direction to move, but not how far. XGBoost (Chen and Guestrin, 2016) incorporates second-order information — the Hessian — for a more accurate and regularized step.</p>
+
+  <p>At iteration <span class="math-latex math-inline">m</span>, XGBoost builds a Taylor expansion of the loss around the current predictions <span class="math-latex math-inline">F_{m-1}(x_i)</span>:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">L^{(m)} \approx \sum_{i=1}^{n} \left[ L(y_i,\, F_{m-1}(x_i)) + g_i \cdot f_m(x_i) + \frac{1}{2}\, h_i \cdot f_m(x_i)^2 \right] + \Omega(f_m)</span>
+  </div>
+
+  <p>where <span class="math-latex math-inline">g_i = \partial_F L\big|_{F_{m-1}}</span> is the gradient, <span class="math-latex math-inline">h_i = \partial^2_F L\big|_{F_{m-1}}</span> is the Hessian, and</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\Omega(f) = \gamma |T| + \frac{1}{2}\lambda \|w\|^2</span>
+  </div>
+
+  <p>penalizes tree complexity: <span class="math-latex math-inline">|T|</span> is the number of leaves, <span class="math-latex math-inline">w</span> are the leaf weights, <span class="math-latex math-inline">\gamma</span> is the minimum gain needed to make a split, and <span class="math-latex math-inline">\lambda</span> is L2 regularization on leaf weights.</p>
+
+  <p>Dropping the constant term and grouping by leaf <span class="math-latex math-inline">j</span> (with <span class="math-latex math-inline">I_j</span> = set of sample indices in leaf <span class="math-latex math-inline">j</span>), the objective becomes a sum of independent quadratics in each leaf weight <span class="math-latex math-inline">w_j</span>. Setting the derivative to zero yields the <strong>closed-form optimal leaf weight</strong>:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">w_j^* = -\frac{\sum_{i \in I_j} g_i}{\sum_{i \in I_j} h_i + \lambda}</span>
+  </div>
+
+  <p>Substituting back, the optimal gain for a candidate split (left set <span class="math-latex math-inline">I_L</span>, right set <span class="math-latex math-inline">I_R</span>, parent set <span class="math-latex math-inline">I</span>) is:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{Gain} = \frac{1}{2}\left[\frac{\left(\sum_{i\in I_L} g_i\right)^2}{\sum_{i\in I_L} h_i + \lambda} + \frac{\left(\sum_{i\in I_R} g_i\right)^2}{\sum_{i\in I_R} h_i + \lambda} - \frac{\left(\sum_{i\in I} g_i\right)^2}{\sum_{i\in I} h_i + \lambda}\right] - \gamma</span>
+  </div>
+
+  <p>A split is only made if Gain &gt; 0 — the <span class="math-latex math-inline">\gamma</span> term acts as a minimum-gain threshold that prunes the tree during construction.</p>
+
+  <h3>Concrete values for common losses</h3>
+
+  <div class="concept-box">
+    <h4>Gradients and Hessians by loss function</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Loss</th>
+          <th>Gradient <span class="math-latex math-inline">g_i</span></th>
+          <th>Hessian <span class="math-latex math-inline">h_i</span></th>
+          <th>Reduces to</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>MSE: <span class="math-latex math-inline">\tfrac{1}{2}(y-F)^2</span></td>
+          <td><span class="math-latex math-inline">F(x_i) - y_i</span></td>
+          <td><span class="math-latex math-inline">1</span></td>
+          <td>Standard GB (<span class="math-latex math-inline">h_i = 1</span> gives uniform curvature)</td>
+        </tr>
+        <tr>
+          <td>Log-loss</td>
+          <td><span class="math-latex math-inline">\sigma(F) - y_i</span></td>
+          <td><span class="math-latex math-inline">\sigma(F)(1-\sigma(F))</span></td>
+          <td>Adaptive step size; smaller steps near p = 0 or p = 1</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout insight">
+    <strong>Why does the Hessian help?</strong>
+    The gradient tells us the slope of the loss at the current point. The Hessian tells us the curvature — how quickly the slope is changing. A steep, highly curved region needs a smaller step to avoid overshooting the minimum; a flat region can take a larger step. The optimal leaf weight <span class="math-latex math-inline">w_j^* = -G_j / (H_j + \lambda)</span> automatically scales the step by the curvature, achieving Newton-Raphson-style efficiency. This is why XGBoost often converges faster and to a better solution than standard gradient boosting.
+  </div>
+
+  <!-- WIDGET 1: BOOSTING ITERATIONS VISUALIZER -->
+  <h2>Interactive: Watch Gradient Boosting Learn</h2>
+
+  <div class="widget-container">
+    <h4>40 samples from <span class="math-latex math-inline">y = 2\sin(x) + \varepsilon</span> on <span class="math-latex math-inline">x \in [0,4]</span>. Add depth-1 stumps one at a time with <span class="math-latex math-inline">\eta = 0.5</span>. Watch the fitted curve and the residuals evolve.</h4>
+    <div class="widget-controls">
+      <label>
+        Number of Trees:
+        <input type="range" id="boost-m-slider" min="1" max="20" step="1" value="1">
+        <span id="boost-m-val" style="font-weight:600;color:var(--accent-blue);min-width:2em;display:inline-block;">1</span>
+      </label>
+    </div>
+    <div class="stat-row">
+      <div class="stat-card">
+        <span>Training MSE</span>
+        <strong id="boost-stat-mse">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Trees M</span>
+        <strong id="boost-stat-m">—</strong>
+      </div>
+    </div>
+    <div id="boost-fit-plot" class="plot-area" style="height:320px;margin-bottom:0.75rem;"></div>
+    <div id="boost-resid-plot" class="plot-area" style="height:240px;"></div>
+  </div>
+
+  <!-- WIDGET 2: LEARNING RATE EFFECT -->
+  <h2>Interactive: Learning Rate vs. Convergence</h2>
+
+  <div class="widget-container">
+    <h4>Same dataset, four learning rates, 30 boosting iterations each. Lower learning rates converge more slowly but often reach lower final MSE.</h4>
+    <div id="boost-lr-plot" class="plot-area" style="height:380px;"></div>
+  </div>
+
+  <!-- SECTION 6: PRACTICE PROBLEMS -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: Manual Boosting Step</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>We have 4 training points: <span class="math-latex math-inline">x = [1, 2, 3, 4]</span>, <span class="math-latex math-inline">y = [3, 5, 2, 8]</span>.</p>
+      <ol type="a">
+        <li>Compute <span class="math-latex math-inline">F_0 = \bar{y}</span>.</li>
+        <li>Compute the pseudo-residuals <span class="math-latex math-inline">r_i = y_i - F_0</span> for all four points.</li>
+        <li>A depth-1 stump splits at <span class="math-latex math-inline">x \leq 2</span>. The left leaf contains points with <span class="math-latex math-inline">x \in \{1, 2\}</span> and the right leaf contains <span class="math-latex math-inline">x \in \{3, 4\}</span>. What are the leaf predictions <span class="math-latex math-inline">h_1(x)</span> (mean residuals in each leaf)?</li>
+        <li>With <span class="math-latex math-inline">\eta = 0.5</span>, compute <span class="math-latex math-inline">F_1(x_i)</span> for all four points.</li>
+      </ol>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a)</strong> <span class="math-latex math-inline">F_0 = (3+5+2+8)/4 = 18/4 = 4.5</span></p>
+        <p><strong>(b)</strong> Pseudo-residuals: <span class="math-latex math-inline">r = [3-4.5,\; 5-4.5,\; 2-4.5,\; 8-4.5] = [-1.5,\; 0.5,\; -2.5,\; 3.5]</span></p>
+        <p><strong>(c)</strong> Left leaf (<span class="math-latex math-inline">x \leq 2</span>): indices {1,2}, mean residual = (-1.5 + 0.5)/2 = <strong>-0.5</strong>.<br>
+        Right leaf (<span class="math-latex math-inline">x > 2</span>): indices {3,4}, mean residual = (-2.5 + 3.5)/2 = <strong>0.5</strong>.</p>
+        <p><strong>(d)</strong> <span class="math-latex math-inline">F_1(x_i) = F_0 + 0.5 \cdot h_1(x_i)</span>:</p>
+        <ul>
+          <li><span class="math-latex math-inline">F_1(1) = 4.5 + 0.5(-0.5) = 4.25</span></li>
+          <li><span class="math-latex math-inline">F_1(2) = 4.5 + 0.5(-0.5) = 4.25</span></li>
+          <li><span class="math-latex math-inline">F_1(3) = 4.5 + 0.5(0.5) = 4.75</span></li>
+          <li><span class="math-latex math-inline">F_1(4) = 4.5 + 0.5(0.5) = 4.75</span></li>
+        </ul>
+        <p>New residuals: <span class="math-latex math-inline">[-1.25,\; 0.75,\; -2.75,\; 3.25]</span>. The split at <span class="math-latex math-inline">x \leq 2</span> is still inadequate — <span class="math-latex math-inline">x=3</span> and <span class="math-latex math-inline">x=4</span> have very different targets (2 vs. 8) but end up in the same leaf. A better stump would split at <span class="math-latex math-inline">x \leq 3</span> to separate them.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: Binary Log-Loss Derivatives</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>For the binary log-loss <span class="math-latex math-inline">L(y, F) = -y\log\sigma(F) - (1-y)\log(1-\sigma(F))</span> where <span class="math-latex math-inline">\sigma(F) = 1/(1+e^{-F})</span>:</p>
+      <ol type="a">
+        <li>Derive the gradient: show that <span class="math-latex math-inline">g_i = \partial L/\partial F = \sigma(F) - y</span>.</li>
+        <li>Derive the Hessian: show that <span class="math-latex math-inline">h_i = \partial^2 L/\partial F^2 = \sigma(F)(1-\sigma(F))</span>.</li>
+        <li>For <span class="math-latex math-inline">F = 0</span> (so <span class="math-latex math-inline">p = 0.5</span>) and <span class="math-latex math-inline">y = 1</span>, compute <span class="math-latex math-inline">g_i</span> and <span class="math-latex math-inline">h_i</span>.</li>
+        <li>Using XGBoost's formula <span class="math-latex math-inline">w^* = -G/(H+\lambda)</span> with <span class="math-latex math-inline">\lambda = 0</span>: a leaf contains 3 positives (<span class="math-latex math-inline">y=1</span>) and 1 negative (<span class="math-latex math-inline">y=0</span>), all with <span class="math-latex math-inline">F = 0</span>. What is the optimal leaf weight?</li>
+      </ol>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Gradient:</strong> Using <span class="math-latex math-inline">d\sigma/dF = \sigma(1-\sigma)</span>:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\frac{\partial L}{\partial F} = -\frac{y}{\sigma}\cdot\sigma(1-\sigma) + \frac{1-y}{1-\sigma}\cdot\sigma(1-\sigma) = -y(1-\sigma) + (1-y)\sigma = \sigma - y</span>
+        </div>
+        <p><strong>(b) Hessian:</strong> Differentiate <span class="math-latex math-inline">\sigma(F) - y</span> with respect to <span class="math-latex math-inline">F</span>:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\frac{\partial^2 L}{\partial F^2} = \frac{d\sigma}{dF} = \sigma(F)(1-\sigma(F))</span>
+        </div>
+        <p><strong>(c)</strong> At <span class="math-latex math-inline">F=0</span>: <span class="math-latex math-inline">\sigma(0) = 0.5</span>.<br>
+        <span class="math-latex math-inline">g_i = 0.5 - 1 = -0.5</span>.<br>
+        <span class="math-latex math-inline">h_i = 0.5 \times 0.5 = 0.25</span>.</p>
+        <p><strong>(d)</strong> 3 positives: each has <span class="math-latex math-inline">g = -0.5</span>, <span class="math-latex math-inline">h = 0.25</span>. 1 negative: <span class="math-latex math-inline">g = 0.5 - 0 = 0.5</span>, <span class="math-latex math-inline">h = 0.25</span>.</p>
+        <div class="math-block">
+          <span class="math-latex math-block">G = 3(-0.5) + 1(0.5) = -1.5 + 0.5 = -1.0 \qquad H = 4(0.25) = 1.0</span>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">w^* = -\frac{-1.0}{1.0 + 0} = 1.0</span>
+        </div>
+        <p>The optimal leaf weight is <strong>1.0</strong>. Adding this to <span class="math-latex math-inline">F=0</span> gives a new log-odds of 1.0, corresponding to <span class="math-latex math-inline">\sigma(1.0) \approx 0.73</span> — a probability of 0.73 for the positive class, reflecting the 3:1 ratio of positives to negatives in this leaf.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: Complexity Growth with Number of Trees</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>Gradient boosting with MSE loss, learning rate <span class="math-latex math-inline">\eta = 1</span>, and depth-1 stumps.</p>
+      <ol type="a">
+        <li>
+          Show that after <span class="math-latex math-inline">M</span> iterations, the model <span class="math-latex math-inline">F_M</span> can have at most <span class="math-latex math-inline">M+1</span> distinct prediction values.
+          <em>Hint: each stump adds at most one new split threshold. How many regions can M thresholds create?</em>
+        </li>
+        <li>
+          Contrast this with a single depth-<span class="math-latex math-inline">M</span> decision tree, which can have up to <span class="math-latex math-inline">2^M</span> leaves and therefore up to <span class="math-latex math-inline">2^M</span> distinct predictions. What does this say about the representational efficiency of the two approaches?
+        </li>
+        <li>
+          With <span class="math-latex math-inline">\eta = 1</span> (no shrinkage), does gradient boosting still provide any regularization benefit over a deep single tree? Why or why not?
+        </li>
+      </ol>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Bound on distinct prediction values:</strong></p>
+        <p>Each depth-1 stump <span class="math-latex math-inline">h_m</span> partitions <span class="math-latex math-inline">\mathbb{R}</span> into two regions using one threshold <span class="math-latex math-inline">t_m</span>. It takes one of two values: <span class="math-latex math-inline">a_m</span> for <span class="math-latex math-inline">x \leq t_m</span> and <span class="math-latex math-inline">b_m</span> for <span class="math-latex math-inline">x > t_m</span>.</p>
+        <p>After <span class="math-latex math-inline">M</span> trees, the model is <span class="math-latex math-inline">F_M(x) = c_0 + \sum_{m=1}^M h_m(x)</span>. The function <span class="math-latex math-inline">F_M</span> changes value only at the thresholds <span class="math-latex math-inline">t_1, t_2, \ldots, t_M</span>. These <span class="math-latex math-inline">M</span> thresholds create at most <span class="math-latex math-inline">M+1</span> contiguous intervals on the real line, each receiving a constant prediction. Therefore <span class="math-latex math-inline">F_M</span> takes at most <span class="math-latex math-inline">M+1</span> distinct values.</p>
+        <p>Note: if some thresholds coincide, the actual count is fewer. So <span class="math-latex math-inline">M+1</span> is an upper bound.</p>
+        <p><strong>(b) Comparison with a depth-M tree:</strong></p>
+        <p>A single depth-<span class="math-latex math-inline">M</span> binary tree can produce up to <span class="math-latex math-inline">2^M</span> leaves, each with its own prediction. For <span class="math-latex math-inline">M=10</span>: the boosted ensemble of 10 stumps has at most 11 distinct predictions, while a depth-10 tree has up to 1024 leaves. The deep tree is exponentially more expressive.</p>
+        <p>This means gradient boosting with stumps requires many more trees (<span class="math-latex math-inline">M \gg</span>) to match the representational power of a single deep tree. However, the sequential construction means each stump is trained to correct the current error — a more targeted use of model capacity than the all-at-once greedy splitting of a deep tree.</p>
+        <p><strong>(c) Regularization benefit with <span class="math-latex math-inline">\eta = 1</span>:</strong></p>
+        <p>With <span class="math-latex math-inline">\eta = 1</span>, there is no shrinkage. However, using depth-1 stumps as base learners still provides regularization through model complexity: each tree is extremely weak, and the ensemble can only express piecewise-constant functions with at most <span class="math-latex math-inline">M+1</span> pieces. A single deep tree at the same depth <span class="math-latex math-inline">M</span> would be far more complex (up to <span class="math-latex math-inline">2^M</span> regions). So the regularization here comes from the shallow depth of the base learners, not from shrinkage. Setting <span class="math-latex math-inline">\eta = 1</span> removes one regularization lever but the others remain.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="05-bagging-random-forests.html" class="nav-btn prev">Prev: Random Forests</a>
+    <a href="07-hyperparameter-tuning.html" class="nav-btn">Next: Hyperparameters</a>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ── Seeded PRNG (Mulberry32) ────────────────────────────────────────────────
+  function makePRNG(seed) {
+    var s = seed;
+    return function () {
+      s |= 0; s = s + 0x6D2B79F5 | 0;
+      var t = Math.imul(s ^ s >>> 15, 1 | s);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  // ── Dataset: 40 points, y = 2*sin(x) + N(0, 0.3) ──────────────────────────
+  var rng = makePRNG(42);
+  var N = 40;
+  var X = [];
+  var Y = [];
+  for (var i = 0; i < N; i++) {
+    var xi = rng() * 4;
+    var noise = (rng() * 2 - 1) * 0.3 * Math.sqrt(3); // ~N(0,0.3)
+    X.push(xi);
+    Y.push(2 * Math.sin(xi) + noise);
+  }
+
+  // ── Boosting implementation ─────────────────────────────────────────────────
+  function boostingIterations(Xarr, yarr, maxM, eta) {
+    var n = Xarr.length;
+    var F = new Array(n).fill(mean(yarr));
+    var initMSE = mean(yarr.map(function (yi, i) { return (yi - F[i]) * (yi - F[i]); }));
+    var results = [{
+      F: F.slice(),
+      residuals: yarr.map(function (yi, i) { return yi - F[i]; }),
+      mse: initMSE
+    }];
+
+    for (var m = 0; m < maxM; m++) {
+      var residuals = yarr.map(function (yi, i) { return yi - F[i]; });
+
+      // find best depth-1 stump: iterate over unique X values as thresholds
+      var sortedX = Xarr.slice().sort(function (a, b) { return a - b; });
+      var bestThresh = sortedX[0];
+      var bestMSE = Infinity;
+
+      for (var ti = 0; ti < sortedX.length - 1; ti++) {
+        var thresh = (sortedX[ti] + sortedX[ti + 1]) / 2;
+        var leftIdx = [];
+        var rightIdx = [];
+        for (var k = 0; k < n; k++) {
+          if (Xarr[k] <= thresh) leftIdx.push(k);
+          else rightIdx.push(k);
+        }
+        if (leftIdx.length === 0 || rightIdx.length === 0) continue;
+        var leftMean = mean(leftIdx.map(function (idx) { return residuals[idx]; }));
+        var rightMean = mean(rightIdx.map(function (idx) { return residuals[idx]; }));
+        var stumpMSE = leftIdx.reduce(function (s, idx) { return s + Math.pow(residuals[idx] - leftMean, 2); }, 0)
+                     + rightIdx.reduce(function (s, idx) { return s + Math.pow(residuals[idx] - rightMean, 2); }, 0);
+        if (stumpMSE < bestMSE) {
+          bestMSE = stumpMSE;
+          bestThresh = thresh;
+        }
+      }
+
+      var leftIdxFinal = [];
+      var rightIdxFinal = [];
+      for (var k2 = 0; k2 < n; k2++) {
+        if (Xarr[k2] <= bestThresh) leftIdxFinal.push(k2);
+        else rightIdxFinal.push(k2);
+      }
+      var leftLeaf = leftIdxFinal.length > 0 ? mean(leftIdxFinal.map(function (idx) { return residuals[idx]; })) : 0;
+      var rightLeaf = rightIdxFinal.length > 0 ? mean(rightIdxFinal.map(function (idx) { return residuals[idx]; })) : 0;
+
+      F = F.map(function (fi, i) {
+        return fi + eta * (Xarr[i] <= bestThresh ? leftLeaf : rightLeaf);
+      });
+
+      var curMSE = mean(yarr.map(function (yi, i) { return Math.pow(yi - F[i], 2); }));
+      results.push({
+        F: F.slice(),
+        residuals: yarr.map(function (yi, i) { return yi - F[i]; }),
+        mse: curMSE
+      });
+    }
+    return results;
+  }
+
+  // ── Run boosting once for widget 1 ─────────────────────────────────────────
+  var ETA1 = 0.5;
+  var MAX_M = 20;
+  var boostResults = boostingIterations(X, Y, MAX_M, ETA1);
+
+  // Smooth x range for fitted curve
+  var xLine = linspace(0, 4, 200);
+
+  // Build predictions on the line for a given iteration's threshold set
+  // We pre-compute the thresholds used per iteration for the line predictions
+  // Simpler: re-run predictions for xLine using the stored F values
+  // Since we only have F at training points, we re-run the boosting for the line too
+  // Better: store thresholds and leaf values, then apply to xLine.
+  // We'll store stumps during boosting so we can predict on the grid.
+
+  function boostingWithStumps(Xarr, yarr, maxM, eta) {
+    var n = Xarr.length;
+    var F = new Array(n).fill(mean(yarr));
+    var initialMean = mean(yarr);
+    var stumps = []; // {thresh, leftLeaf, rightLeaf}
+    var results = [{
+      F: F.slice(),
+      residuals: yarr.map(function (yi, i) { return yi - F[i]; }),
+      mse: mean(yarr.map(function (yi, i) { return Math.pow(yi - F[i], 2); }))
+    }];
+
+    var sortedX = Xarr.slice().sort(function (a, b) { return a - b; });
+
+    for (var m = 0; m < maxM; m++) {
+      var residuals = yarr.map(function (yi, i) { return yi - F[i]; });
+      var bestThresh = sortedX[0];
+      var bestMSE = Infinity;
+
+      for (var ti = 0; ti < sortedX.length - 1; ti++) {
+        var thresh = (sortedX[ti] + sortedX[ti + 1]) / 2;
+        var leftIdx = [];
+        var rightIdx = [];
+        for (var k = 0; k < n; k++) {
+          if (Xarr[k] <= thresh) leftIdx.push(k);
+          else rightIdx.push(k);
+        }
+        if (leftIdx.length === 0 || rightIdx.length === 0) continue;
+        var lm = mean(leftIdx.map(function (idx) { return residuals[idx]; }));
+        var rm = mean(rightIdx.map(function (idx) { return residuals[idx]; }));
+        var mseVal = leftIdx.reduce(function (s, idx) { return s + Math.pow(residuals[idx] - lm, 2); }, 0)
+                   + rightIdx.reduce(function (s, idx) { return s + Math.pow(residuals[idx] - rm, 2); }, 0);
+        if (mseVal < bestMSE) {
+          bestMSE = mseVal;
+          bestThresh = thresh;
+        }
+      }
+
+      var lIdxF = [];
+      var rIdxF = [];
+      for (var k2 = 0; k2 < n; k2++) {
+        if (Xarr[k2] <= bestThresh) lIdxF.push(k2);
+        else rIdxF.push(k2);
+      }
+      var leftLeaf = lIdxF.length > 0 ? mean(lIdxF.map(function (idx) { return residuals[idx]; })) : 0;
+      var rightLeaf = rIdxF.length > 0 ? mean(rIdxF.map(function (idx) { return residuals[idx]; })) : 0;
+
+      stumps.push({ thresh: bestThresh, leftLeaf: leftLeaf, rightLeaf: rightLeaf });
+
+      F = F.map(function (fi, i) {
+        return fi + eta * (Xarr[i] <= bestThresh ? leftLeaf : rightLeaf);
+      });
+
+      var curMSE = mean(yarr.map(function (yi, i) { return Math.pow(yi - F[i], 2); }));
+      results.push({
+        F: F.slice(),
+        residuals: yarr.map(function (yi, i) { return yi - F[i]; }),
+        mse: curMSE
+      });
+    }
+
+    return { results: results, stumps: stumps, initialMean: initialMean };
+  }
+
+  var boostData = boostingWithStumps(X, Y, MAX_M, ETA1);
+  var boostResults2 = boostData.results;
+  var stumps = boostData.stumps;
+  var initialMean = boostData.initialMean;
+
+  function predictOnLine(xv, m) {
+    // Predict F_m on a single x value
+    var f = initialMean;
+    for (var s = 0; s < m; s++) {
+      var stump = stumps[s];
+      f += ETA1 * (xv <= stump.thresh ? stump.leftLeaf : stump.rightLeaf);
+    }
+    return f;
+  }
+
+  function getLinePreds(m) {
+    return xLine.map(function (xv) { return predictOnLine(xv, m); });
+  }
+
+  // ── Widget 1: initial plot ──────────────────────────────────────────────────
+  var trueY = xLine.map(function (xv) { return 2 * Math.sin(xv); });
+
+  function updateBoostPlot(m) {
+    var linePreds = getLinePreds(m);
+    var trainResiduals = boostResults2[m].residuals;
+    var trainMSE = boostResults2[m].mse;
+
+    var tracePts = {
+      x: X, y: Y,
+      mode: 'markers', type: 'scatter', name: 'Training data',
+      marker: { color: 'var(--accent-blue)', size: 6, opacity: 0.75 }
+    };
+    var traceFit = {
+      x: xLine, y: linePreds,
+      mode: 'lines', type: 'scatter', name: 'F_' + m + '(x)',
+      line: { color: '#f59e0b', width: 2.5 }
+    };
+    var traceTrue = {
+      x: xLine, y: trueY,
+      mode: 'lines', type: 'scatter', name: '2sin(x)',
+      line: { color: '#6b7280', width: 1.5, dash: 'dot' }
+    };
+
+    var layoutFit = plotlyLayout({
+      height: 320,
+      title: { text: 'Fitted Curve after M = ' + m + ' tree(s)', font: { size: 13 } },
+      xaxis: { title: 'x', range: [-0.1, 4.1] },
+      yaxis: { title: 'y', range: [-3, 3.5] },
+      legend: { orientation: 'h', y: 1.1 },
+      margin: { t: 50, r: 20, b: 50, l: 55 }
+    });
+
+    Plotly.react('boost-fit-plot', [tracePts, traceFit, traceTrue], layoutFit, PLOTLY_CONFIG);
+
+    // Residual bar chart
+    var barColors = trainResiduals.map(function (r) { return r >= 0 ? '#22c55e' : '#ef4444'; });
+    var traceResid = {
+      x: X.map(function (xv, i) { return 'i=' + i; }),
+      y: trainResiduals,
+      type: 'bar', name: 'Residuals',
+      marker: { color: barColors }
+    };
+
+    var layoutResid = plotlyLayout({
+      height: 240,
+      title: { text: 'Residuals r_i at M = ' + m, font: { size: 13 } },
+      xaxis: { title: 'Sample index', tickfont: { size: 9 } },
+      yaxis: { title: 'Residual', range: [-2.5, 2.5] },
+      margin: { t: 50, r: 20, b: 50, l: 55 },
+      showlegend: false
+    });
+
+    Plotly.react('boost-resid-plot', [traceResid], layoutResid, PLOTLY_CONFIG);
+
+    document.getElementById('boost-stat-mse').textContent = trainMSE.toFixed(4);
+    document.getElementById('boost-stat-m').textContent = m;
+  }
+
+  // Initial render
+  Plotly.newPlot('boost-fit-plot', [], plotlyLayout({ height: 320 }), PLOTLY_CONFIG);
+  Plotly.newPlot('boost-resid-plot', [], plotlyLayout({ height: 240 }), PLOTLY_CONFIG);
+  updateBoostPlot(1);
+
+  var boostSlider = document.getElementById('boost-m-slider');
+  var boostMVal = document.getElementById('boost-m-val');
+  boostSlider.addEventListener('input', function () {
+    var m = parseInt(this.value, 10);
+    boostMVal.textContent = m;
+    updateBoostPlot(m);
+  });
+
+  // ── Widget 2: Learning rate comparison (static) ─────────────────────────────
+  var etaValues = [0.05, 0.1, 0.3, 1.0];
+  var LR_M = 30;
+  var lrColors = ['#2563eb', '#16a34a', '#d97706', '#dc2626'];
+  var lrTraces = [];
+
+  etaValues.forEach(function (eta, ei) {
+    var res = boostingWithStumps(X, Y, LR_M, eta);
+    var mseArr = res.results.map(function (r) { return r.mse; });
+    lrTraces.push({
+      x: Array.from({ length: LR_M + 1 }, function (_, i) { return i; }),
+      y: mseArr,
+      mode: 'lines', type: 'scatter',
+      name: 'η = ' + eta,
+      line: { color: lrColors[ei], width: 2 }
+    });
+  });
+
+  var lrLayout = plotlyLayout({
+    height: 380,
+    title: { text: 'Training MSE vs. Iteration for Different Learning Rates', font: { size: 13 } },
+    xaxis: { title: 'Number of Trees M' },
+    yaxis: { title: 'Training MSE', rangemode: 'tozero' },
+    legend: { orientation: 'h', y: 1.1 },
+    margin: { t: 55, r: 20, b: 55, l: 60 }
+  });
+
+  Plotly.newPlot('boost-lr-plot', lrTraces, lrLayout, PLOTLY_CONFIG);
+
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PySpark Learning Modules</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <script>try{if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>PySpark and ETL Fundamentals</h1>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="theme-toggle">Dark mode</button>
+        <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+      </div>
+    </header>
+    <p>A hands-on course covering PySpark and ETL fundamentals. Each module builds on the previous one using a shared student enrollment dataset.</p>
+    <ul class="module-list">
+      <li>
+        <a href="modules/01-etl-pyspark.html">Module 1: ETL with PySpark</a>
+        <div class="module-desc">Extract, transform, and load data using PySpark pipelines.</div>
+      </li>
+      <li>
+        <a href="modules/02-in-memory-processing.html">Module 2: In-Memory Data Processing</a>
+        <div class="module-desc">Understand why Spark keeps data in memory and how it differs from disk-based processing.</div>
+      </li>
+      <li>
+        <a href="modules/03-spark-rdds.html">Module 3: Spark RDDs</a>
+        <div class="module-desc">Work with Resilient Distributed Datasets -- Spark's foundational abstraction.</div>
+      </li>
+      <li>
+        <a href="modules/04-dataframes-pyspark-vs-pandas.html">Module 4: DataFrames: PySpark vs Pandas</a>
+        <div class="module-desc">Compare the same operations in both APIs side-by-side.</div>
+      </li>
+      <li>
+        <a href="modules/05-pyspark-sql.html">Module 5: Querying with PySpark SQL</a>
+        <div class="module-desc">Register DataFrames as tables and query them with SQL syntax.</div>
+      </li>
+      <li>
+        <a href="modules/06-udfs-pyspark.html">Module 6: UDFs in PySpark</a>
+        <div class="module-desc">Write and apply User-Defined Functions for custom transformations.</div>
+      </li>
+      <li>
+        <a href="modules/07-data-cleaning.html">Module 7: Data Cleaning</a>
+        <div class="module-desc">Handle nulls, duplicates, inconsistent formats, and invalid values.</div>
+      </li>
+      <li>
+        <a href="modules/08-data-exploration.html">Module 8: Data Exploration</a>
+        <div class="module-desc">Summarize, profile, and understand your cleaned dataset.</div>
+      </li>
+      <li>
+        <a href="modules/09-transformation-operations.html">Module 9: Transformation Operations</a>
+        <div class="module-desc">Reshape, join, aggregate, and pivot data for analysis.</div>
+      </li>
+      <li>
+        <a href="modules/10-caching-broadcasting.html">Module 10: Caching and Broadcast Variables</a>
+        <div class="module-desc">Optimize your Spark pipeline with caching strategies and broadcast joins.</div>
+      </li>
+    </ul>
+    <div class="module-nav" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+      <a href="../index.html">Back to All Courses</a>
+    </div>
+  </div>
+  <script src="assets/main.js"></script>
+</body>
+</html>

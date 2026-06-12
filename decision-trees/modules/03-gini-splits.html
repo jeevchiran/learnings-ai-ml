@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 3: Gini Index Splits</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-decision-trees-intro.html">1. Intro</a>
+    <a href="02-impurity-training.html">2. Impurity</a>
+    <a href="03-gini-splits.html" class="active">3. Gini Splits</a>
+    <a href="04-advantages-limitations.html">4. Advantages</a>
+    <a href="05-bagging-random-forests.html">5. Random Forests</a>
+    <a href="06-gradient-boosting.html">6. Gradient Boosting</a>
+    <a href="07-hyperparameter-tuning.html">7. Hyperparameters</a>
+  </nav>
+  <header>
+    <h1>Module 3: Gini Index Splits &mdash; Finding the Optimal Threshold</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION 1: THE CORE PROBLEM OF SPLITTING
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <div class="bridge">
+    <strong>Building on Module 2:</strong> You now know how to <em>measure</em> node impurity using the Gini index and entropy. The next question is: given a continuous feature, how do we systematically <em>find</em> the split threshold that maximises impurity reduction?
+  </div>
+
+  <h2>1. The Core Problem of Splitting</h2>
+
+  <p>
+    For a continuous feature <span class="math-latex math-inline">X</span> with <span class="math-latex math-inline">n</span> training samples, there are up to <span class="math-latex math-inline">n - 1</span> candidate split thresholds &mdash; one midway between each pair of adjacent sorted values. The algorithm must evaluate every candidate at every feature.
+  </p>
+
+  <h3>Naive Complexity</h3>
+  <p>
+    With <span class="math-latex math-inline">p</span> features and <span class="math-latex math-inline">n</span> samples, the naive approach evaluates <span class="math-latex math-inline">O(n \cdot p)</span> candidates per node, and each evaluation scans all <span class="math-latex math-inline">n</span> samples to recompute impurity. That is <span class="math-latex math-inline">O(n^2 p)</span> per node &mdash; unacceptably slow for large datasets.
+  </p>
+
+  <h3>Efficient Approach with Sorting</h3>
+  <p>
+    Sort the samples by feature value once: <span class="math-latex math-inline">O(n \log n)</span>. Then sweep the sorted order, maintaining running class counts for left and right partitions. Each candidate threshold can be evaluated in <span class="math-latex math-inline">O(1)</span> by updating counts incrementally. Total cost per feature per node: <span class="math-latex math-inline">O(n \log n)</span> for the sort plus <span class="math-latex math-inline">O(n)</span> for the sweep.
+  </p>
+
+  <div class="concept-box">
+    <h4>Candidate Threshold Generation</h4>
+    <p>
+      Given sorted unique values <span class="math-latex math-inline">v_1 &lt; v_2 &lt; \cdots &lt; v_m</span>, the <span class="math-latex math-inline">m - 1</span> candidate thresholds are the midpoints:
+    </p>
+    <div class="math-latex math-block">
+      s_i = \frac{v_i + v_{i+1}}{2}, \quad i = 1, \ldots, m-1
+    </div>
+    <p style="margin-bottom:0;">
+      Using midpoints rather than raw values avoids ties and is invariant to the precise boundary location between classes.
+    </p>
+  </div>
+
+  <div class="callout note">
+    <strong>Why midpoints?</strong>
+    Any threshold in the open interval <span class="math-latex math-inline">(v_i, v_{i+1})</span> produces the same partition. The midpoint is simply a convenient canonical representative. sklearn uses this convention.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION 2: THE GINI SPLIT FORMULA
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <h2>2. The Gini Split Formula</h2>
+
+  <p>
+    Recall from Module 2 that the Gini impurity of a node <span class="math-latex math-inline">t</span> containing <span class="math-latex math-inline">K</span> classes with proportions <span class="math-latex math-inline">p_1, \ldots, p_K</span> is:
+  </p>
+  <div class="math-latex math-block">
+    G(t) = 1 - \sum_{k=1}^{K} p_k^2
+  </div>
+
+  <p>
+    For a candidate split on feature <span class="math-latex math-inline">j</span> at threshold <span class="math-latex math-inline">s</span>, define:
+  </p>
+  <ul>
+    <li><span class="math-latex math-inline">t_L = \{x \mid x_j \le s\}</span> &mdash; the left child node</li>
+    <li><span class="math-latex math-inline">t_R = \{x \mid x_j > s\}</span> &mdash; the right child node</li>
+    <li><span class="math-latex math-inline">n_L, n_R</span> &mdash; the sample counts in each child, with <span class="math-latex math-inline">n_L + n_R = n</span></li>
+  </ul>
+
+  <p>The <strong>Gini Gain</strong> (or reduction in weighted impurity) is:</p>
+  <div class="math-latex math-block">
+    \text{GiniGain}(j,\, s) \;=\; G(t) \;-\; \frac{n_L}{n}\,G(t_L) \;-\; \frac{n_R}{n}\,G(t_R)
+  </div>
+
+  <p>The optimal split selects the feature and threshold that maximise this gain:</p>
+  <div class="math-latex math-block">
+    (j^*,\, s^*) = \operatorname*{arg\,max}_{j,\, s}\; \text{GiniGain}(j,\, s)
+  </div>
+
+  <h3>Visualising Candidate Generation</h3>
+  <p>
+    The diagram below illustrates how sorted values map to candidate thresholds. Samples are coloured by their class label; each vertical dashed line is one candidate split.
+  </p>
+
+  <div style="overflow-x:auto;margin:1.5rem 0;">
+    <svg viewBox="0 0 700 110" width="100%" xmlns="http://www.w3.org/2000/svg" aria-label="Sorted feature values and midpoint thresholds" style="max-width:700px;display:block;">
+      <style>
+        .svg-axis { stroke: var(--border); stroke-width: 1.5; fill: none; }
+        .svg-tick { stroke: var(--border); stroke-width: 1; fill: none; }
+        .svg-label { font-family: var(--font-mono,monospace); font-size: 12px; fill: var(--text-muted); }
+        .svg-val { font-family: var(--font-mono,monospace); font-size: 11px; fill: var(--text-muted); }
+        .svg-dot-pass { fill: #2563eb; }
+        .svg-dot-fail { fill: #dc2626; }
+        .svg-cand { stroke: #d97706; stroke-width: 1.2; stroke-dasharray: 4 3; fill: none; opacity: 0.8; }
+        .svg-cand-lbl { font-family: var(--font-mono,monospace); font-size: 10px; fill: #d97706; }
+        .svg-bracket { stroke: var(--border); stroke-width: 1; fill: none; }
+        .svg-arrow { fill: var(--text-muted); }
+      </style>
+      <!-- axis -->
+      <line class="svg-axis" x1="40" y1="65" x2="660" y2="65"/>
+      <text class="svg-label" x="20" y="68" text-anchor="middle">X</text>
+
+      <!-- sorted unique values: 2,3,4,5,6,7,8,9 mapped to x coords 80,160,240,290,360,430,500,580 -->
+      <!-- value ticks & dots -->
+      <!-- v=2, x=80 -->
+      <line class="svg-tick" x1="80" y1="60" x2="80" y2="70"/>
+      <text class="svg-val" x="80" y="82" text-anchor="middle">2</text>
+      <circle class="svg-dot-fail" cx="80" cy="40" r="6"/>
+      <!-- v=3, x=160 -->
+      <line class="svg-tick" x1="160" y1="60" x2="160" y2="70"/>
+      <text class="svg-val" x="160" y="82" text-anchor="middle">3</text>
+      <circle class="svg-dot-fail" cx="160" cy="40" r="6"/>
+      <!-- v=4, x=240 -->
+      <line class="svg-tick" x1="240" y1="60" x2="240" y2="70"/>
+      <text class="svg-val" x="240" y="82" text-anchor="middle">4</text>
+      <circle class="svg-dot-fail" cx="240" cy="40" r="6"/>
+      <!-- v=5, x=295 (two samples; pass+fail) -->
+      <line class="svg-tick" x1="295" y1="60" x2="295" y2="70"/>
+      <text class="svg-val" x="295" y="82" text-anchor="middle">5</text>
+      <circle class="svg-dot-pass" cx="287" cy="40" r="6"/>
+      <circle class="svg-dot-fail" cx="303" cy="40" r="6"/>
+      <!-- v=6, x=370 (two samples; pass+pass) -->
+      <line class="svg-tick" x1="370" y1="60" x2="370" y2="70"/>
+      <text class="svg-val" x="370" y="82" text-anchor="middle">6</text>
+      <circle class="svg-dot-pass" cx="362" cy="40" r="6"/>
+      <circle class="svg-dot-pass" cx="378" cy="40" r="6"/>
+      <!-- v=7, x=440 (fail+pass) -->
+      <line class="svg-tick" x1="440" y1="60" x2="440" y2="70"/>
+      <text class="svg-val" x="440" y="82" text-anchor="middle">7</text>
+      <circle class="svg-dot-pass" cx="432" cy="40" r="6"/>
+      <circle class="svg-dot-fail" cx="448" cy="40" r="6"/>
+      <!-- v=8, x=510 (pass+pass) -->
+      <line class="svg-tick" x1="510" y1="60" x2="510" y2="70"/>
+      <text class="svg-val" x="510" y="82" text-anchor="middle">8</text>
+      <circle class="svg-dot-pass" cx="502" cy="40" r="6"/>
+      <circle class="svg-dot-pass" cx="518" cy="40" r="6"/>
+      <!-- v=9, x=580 (pass) -->
+      <line class="svg-tick" x1="580" y1="60" x2="580" y2="70"/>
+      <text class="svg-val" x="580" y="82" text-anchor="middle">9</text>
+      <circle class="svg-dot-pass" cx="580" cy="40" r="6"/>
+
+      <!-- Candidate threshold lines: midpoints -->
+      <!-- 2.5: x=120 -->
+      <line class="svg-cand" x1="120" y1="20" x2="120" y2="65"/>
+      <text class="svg-cand-lbl" x="120" y="15" text-anchor="middle">2.5</text>
+      <!-- 3.5: x=200 -->
+      <line class="svg-cand" x1="200" y1="20" x2="200" y2="65"/>
+      <text class="svg-cand-lbl" x="200" y="15" text-anchor="middle">3.5</text>
+      <!-- 4.5: x=268 -->
+      <line class="svg-cand" x1="268" y1="20" x2="268" y2="65"/>
+      <text class="svg-cand-lbl" x="268" y="15" text-anchor="middle">4.5</text>
+      <!-- 5.5: x=333 -->
+      <line class="svg-cand" x1="333" y1="20" x2="333" y2="65"/>
+      <text class="svg-cand-lbl" x="333" y="15" text-anchor="middle">5.5</text>
+      <!-- 6.5: x=405 -->
+      <line class="svg-cand" x1="405" y1="20" x2="405" y2="65"/>
+      <text class="svg-cand-lbl" x="405" y="15" text-anchor="middle">6.5</text>
+      <!-- 7.5: x=475 -->
+      <line class="svg-cand" x1="475" y1="20" x2="475" y2="65"/>
+      <text class="svg-cand-lbl" x="475" y="15" text-anchor="middle">7.5</text>
+      <!-- 8.5: x=545 -->
+      <line class="svg-cand" x1="545" y1="20" x2="545" y2="65"/>
+      <text class="svg-cand-lbl" x="545" y="15" text-anchor="middle">8.5</text>
+
+      <!-- legend -->
+      <circle class="svg-dot-pass" cx="610" cy="35" r="6"/>
+      <text class="svg-label" x="622" y="39">Pass</text>
+      <circle class="svg-dot-fail" cx="610" cy="55" r="6"/>
+      <text class="svg-label" x="622" y="59">Fail</text>
+    </svg>
+  </div>
+  <p style="font-size:0.85rem;color:var(--text-muted);margin-top:-0.5rem;">
+    Dashed orange lines are the 7 candidate thresholds. The algorithm evaluates each one in a single sorted sweep.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION 3: FULL WORKED EXAMPLE
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <h2>3. Full Worked Example &mdash; Step by Step</h2>
+
+  <p>
+    Consider 12 students described by two continuous features: <strong>Study Hours (X1)</strong> and <strong>Sleep Hours (X2)</strong>, with a binary label Pass / Fail.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Study Hours (X1)</th>
+        <th>Sleep Hours (X2)</th>
+        <th>Label</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>2</td><td>5</td><td>Fail</td></tr>
+      <tr><td>2</td><td>3</td><td>7</td><td>Fail</td></tr>
+      <tr><td>3</td><td>4</td><td>6</td><td>Fail</td></tr>
+      <tr><td>4</td><td>5</td><td>8</td><td>Pass</td></tr>
+      <tr><td>5</td><td>5</td><td>5</td><td>Fail</td></tr>
+      <tr><td>6</td><td>6</td><td>7</td><td>Pass</td></tr>
+      <tr><td>7</td><td>6</td><td>6</td><td>Pass</td></tr>
+      <tr><td>8</td><td>7</td><td>9</td><td>Pass</td></tr>
+      <tr><td>9</td><td>7</td><td>4</td><td>Fail</td></tr>
+      <tr><td>10</td><td>8</td><td>7</td><td>Pass</td></tr>
+      <tr><td>11</td><td>8</td><td>8</td><td>Pass</td></tr>
+      <tr><td>12</td><td>9</td><td>6</td><td>Pass</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    Overall: <strong>8 Pass, 4 Fail</strong>. We want to find the best first split.
+  </p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Compute parent Gini impurity</strong>
+        <div class="math-latex math-block">
+          G(\text{root}) = 1 - \left(\frac{8}{12}\right)^2 - \left(\frac{4}{12}\right)^2 = 1 - 0.4\overline{4} - 0.1\overline{1} = 0.\overline{4}
+        </div>
+        <div class="step-explanation">
+          More precisely: <span class="math-latex math-inline">G = 1 - (2/3)^2 - (1/3)^2 = 1 - 4/9 - 1/9 = 4/9 \approx 0.4444</span>.
+        </div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Enumerate candidate thresholds for X1</strong>
+        <p>
+          Sort unique X1 values: <span class="math-latex math-inline">[2, 3, 4, 5, 6, 7, 8, 9]</span>. The midpoints between adjacent values give 7 candidate thresholds:
+        </p>
+        <div class="math-latex math-block">
+          s \in \{2.5,\; 3.5,\; 4.5,\; 5.5,\; 6.5,\; 7.5,\; 8.5\}
+        </div>
+        <div class="step-explanation">
+          For X2 (unique values 4,5,6,7,8,9) the candidates are {4.5, 5.5, 6.5, 7.5, 8.5}.
+        </div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Evaluate selected thresholds for X1</strong>
+
+        <p><strong>X1 &le; 2.5:</strong> Left = {sample 1} = {0P, 1F}. Right = {samples 2&ndash;12} = {8P, 3F}.</p>
+        <div class="math-latex math-block">
+          G_L = 0,\quad G_R = 1 - \left(\frac{8}{11}\right)^2 - \left(\frac{3}{11}\right)^2 = 1 - \frac{64}{121} - \frac{9}{121} = \frac{48}{121} \approx 0.3967
+        </div>
+        <div class="math-latex math-block">
+          \text{Weighted} = \frac{1}{12}(0) + \frac{11}{12}(0.3967) \approx 0.3637
+        </div>
+        <div class="math-latex math-block">
+          \text{GiniGain}(X_1, 2.5) = 0.4444 - 0.3637 = 0.0807
+        </div>
+
+        <p><strong>X1 &le; 4.5:</strong> Left = {1,2,3} = {0P, 3F}. Right = {4&ndash;12} = {8P, 1F}.</p>
+        <div class="math-latex math-block">
+          G_L = 0,\quad G_R = 1 - \left(\frac{8}{9}\right)^2 - \left(\frac{1}{9}\right)^2 = 1 - \frac{64}{81} - \frac{1}{81} = \frac{16}{81} \approx 0.1975
+        </div>
+        <div class="math-latex math-block">
+          \text{Weighted} = \frac{3}{12}(0) + \frac{9}{12}(0.1975) = 0.1481
+        </div>
+        <div class="math-latex math-block">
+          \text{GiniGain}(X_1, 4.5) = 0.4444 - 0.1481 = 0.2963
+        </div>
+        <div class="step-explanation">
+          The left child is perfectly pure (all Fail) when we cut at 4.5 &mdash; a strong signal.
+        </div>
+      </div>
+    </div>
+
+    <div class="derivation-step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong>Full X1 threshold table and winner</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="split-calc">
+    <div class="split-calc-header">X1 (Study Hours) &mdash; All Candidate Thresholds</div>
+    <table style="margin:0;font-size:0.85rem;">
+      <thead>
+        <tr>
+          <th>Threshold</th>
+          <th>Left (P / F)</th>
+          <th>Right (P / F)</th>
+          <th>G(L)</th>
+          <th>G(R)</th>
+          <th>Weighted</th>
+          <th>Gini Gain</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="split-badge left">X1 &le; 2.5</span></td>
+          <td>0P, 1F</td><td>8P, 3F</td>
+          <td>0.0000</td><td>0.3967</td><td>0.3637</td>
+          <td>0.0807</td><td></td>
+        </tr>
+        <tr>
+          <td><span class="split-badge left">X1 &le; 3.5</span></td>
+          <td>0P, 2F</td><td>8P, 2F</td>
+          <td>0.0000</td><td>0.4000</td><td>0.3333</td>
+          <td>0.1111</td><td></td>
+        </tr>
+        <tr>
+          <td><span class="split-badge left">X1 &le; 4.5</span></td>
+          <td>0P, 3F</td><td>8P, 1F</td>
+          <td>0.0000</td><td>0.1975</td><td>0.1481</td>
+          <td><strong>0.2963</strong></td>
+          <td><span class="impurity-badge low">best X1</span></td>
+        </tr>
+        <tr>
+          <td><span class="split-badge left">X1 &le; 5.5</span></td>
+          <td>1P, 4F</td><td>7P, 0F</td>
+          <td>0.3200</td><td>0.0000</td><td>0.1333</td>
+          <td>0.3111</td>
+          <td><span class="impurity-badge low">right pure</span></td>
+        </tr>
+        <tr>
+          <td><span class="split-badge left">X1 &le; 6.5</span></td>
+          <td>3P, 4F</td><td>5P, 0F</td>
+          <td>0.4898</td><td>0.0000</td><td>0.2857</td>
+          <td>0.1587</td><td></td>
+        </tr>
+        <tr>
+          <td><span class="split-badge left">X1 &le; 7.5</span></td>
+          <td>4P, 5F</td><td>4P, 0F</td>
+          <td>0.4938</td><td>0.0000</td><td>0.3704</td>
+          <td>0.0741</td><td></td>
+        </tr>
+        <tr>
+          <td><span class="split-badge left">X1 &le; 8.5</span></td>
+          <td>6P, 5F</td><td>2P, 0F</td>
+          <td>0.4898</td><td>0.0000</td><td>0.4082</td>
+          <td>0.0362</td><td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout insight">
+    <strong>Winner on X1: threshold 5.5</strong>
+    Looking at X1 &le; 5.5: the right child (X1 &gt; 5.5) is <em>perfectly pure</em> (7P, 0F) &mdash; Gini = 0. The left child has 1P, 4F giving G_L = 0.32. Weighted = (5/12)(0.32) = 0.1333. Gain = 0.4444 &minus; 0.1333 = <strong>0.3111</strong>, which actually exceeds the X1 &le; 4.5 gain of 0.2963. The optimal X1 split is therefore <strong>X1 &le; 5.5</strong>.
+  </div>
+
+  <div class="split-calc">
+    <div class="split-calc-header">X2 (Sleep Hours) &mdash; Selected Thresholds</div>
+    <table style="margin:0;font-size:0.85rem;">
+      <thead>
+        <tr>
+          <th>Threshold</th>
+          <th>Left (P / F)</th>
+          <th>Right (P / F)</th>
+          <th>G(L)</th>
+          <th>G(R)</th>
+          <th>Weighted</th>
+          <th>Gini Gain</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="split-badge right">X2 &le; 4.5</span></td>
+          <td>0P, 1F</td><td>8P, 3F</td>
+          <td>0.0000</td><td>0.3967</td><td>0.3637</td>
+          <td>0.0807</td><td></td>
+        </tr>
+        <tr>
+          <td><span class="split-badge right">X2 &le; 5.5</span></td>
+          <td>0P, 2F</td><td>8P, 2F</td>
+          <td>0.0000</td><td>0.4000</td><td>0.3333</td>
+          <td>0.1111</td><td></td>
+        </tr>
+        <tr>
+          <td><span class="split-badge right">X2 &le; 6.5</span></td>
+          <td>2P, 3F</td><td>6P, 1F</td>
+          <td>0.4800</td><td>0.2188</td><td>0.3625</td>
+          <td>0.0819</td><td></td>
+        </tr>
+        <tr>
+          <td><span class="split-badge right">X2 &le; 7.5</span></td>
+          <td>4P, 4F</td><td>4P, 0F</td>
+          <td>0.5000</td><td>0.0000</td><td>0.3333</td>
+          <td>0.1111</td><td></td>
+        </tr>
+        <tr>
+          <td><span class="split-badge right">X2 &le; 8.5</span></td>
+          <td>6P, 4F</td><td>2P, 0F</td>
+          <td>0.4800</td><td>0.0000</td><td>0.4000</td>
+          <td>0.0444</td><td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout note">
+    <strong>Conclusion:</strong> The best X2 split achieves Gini Gain &approx; 0.1111, well below the best X1 split of <strong>0.3111</strong>. The algorithm therefore chooses <strong>X1 &le; 5.5</strong> as the root split.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION 4: CONTINUOUS VS. CATEGORICAL
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <h2>4. Continuous vs. Categorical Features</h2>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>Continuous Features</h5>
+      <p>
+        Sort the <span class="math-latex math-inline">n</span> values: <span class="math-latex math-inline">O(n \log n)</span>. Sweep once to evaluate all <span class="math-latex math-inline">n-1</span> midpoints: <span class="math-latex math-inline">O(n)</span>. Total per feature: <span class="math-latex math-inline">O(n \log n)</span>. Always tractable.
+      </p>
+    </div>
+    <div class="assumption-card">
+      <h5>Categorical Features</h5>
+      <p>
+        A feature with <span class="math-latex math-inline">K</span> categories has <span class="math-latex math-inline">2^{K-1} - 1</span> possible binary partitions into two groups. For <span class="math-latex math-inline">K = 20</span> that is already 524,287 subsets &mdash; intractable by exhaustive search.
+      </p>
+    </div>
+  </div>
+
+  <h3>The Optimal-Ordering Shortcut for Binary Classification with Gini</h3>
+
+  <p>
+    For two-class problems, there is a remarkable result: the optimal binary partition of categories under the Gini criterion can always be found by <em>sorting categories by their positive-class rate</em> and then evaluating only contiguous prefix splits.
+  </p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Setup</strong>
+        <p>
+          Let category <span class="math-latex math-inline">c_k</span> contain <span class="math-latex math-inline">n_k</span> samples, of which <span class="math-latex math-inline">n_k^+</span> are positive. Define positive rate <span class="math-latex math-inline">p_k = n_k^+ / n_k</span>. The Gini impurity of category <span class="math-latex math-inline">c_k</span> as a pure group is <span class="math-latex math-inline">p_k(1-p_k)</span>.
+        </p>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Weighted Gini of a left partition <span class="math-latex math-inline">L</span></strong>
+        <p>
+          If left child collects some subset <span class="math-latex math-inline">L \subseteq \{1,\ldots,K\}</span>, then:
+        </p>
+        <div class="math-latex math-block">
+          G(t_L) = 1 - \left(\frac{\sum_{k \in L} n_k^+}{n_L}\right)^2 - \left(\frac{\sum_{k \in L} n_k^-}{n_L}\right)^2
+        </div>
+        <div class="step-explanation">
+          The weighted total impurity across both children is what we minimise over the choice of subset <span class="math-latex math-inline">L</span>.
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Separability after sorting</strong>
+        <p>
+          Sort categories so <span class="math-latex math-inline">p_1 \le p_2 \le \cdots \le p_K</span>. It can be shown (Breiman et al., 1984 &sect;4.6) that the objective
+        </p>
+        <div class="math-latex math-block">
+          \min_{L \subsetneq [K],\, L \ne \varnothing}\;\frac{n_L}{n}\,G(t_L) + \frac{n_R}{n}\,G(t_R)
+        </div>
+        <p>
+          is achieved by a contiguous prefix <span class="math-latex math-inline">L = \{1, 2, \ldots, m\}</span> for some <span class="math-latex math-inline">1 \le m \le K-1</span>. This reduces the search from <span class="math-latex math-inline">2^{K-1}-1</span> subsets to only <span class="math-latex math-inline">K-1</span> ordered splits.
+        </p>
+        <div class="step-explanation">
+          Intuition: mixing a low-rate category with a high-rate category always produces a noisier child than keeping them separate. The optimal partition never interleaves low and high rates.
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong>Formal argument via convexity</strong>
+        <p>
+          The Gini weighted impurity of the left child can be written as a function of the left-child positive proportion <span class="math-latex math-inline">\bar{p}_L = \sum_{k \in L} n_k p_k / n_L</span>:
+        </p>
+        <div class="math-latex math-block">
+          \frac{n_L}{n}\,G(t_L) = \frac{n_L}{n} \cdot 2\bar{p}_L(1-\bar{p}_L)
+        </div>
+        <p>
+          Because <span class="math-latex math-inline">2p(1-p)</span> is <em>concave</em> in <span class="math-latex math-inline">p</span>, adding a category with <span class="math-latex math-inline">p_k</span> far from <span class="math-latex math-inline">\bar{p}_L</span> increases impurity more than adding one close to it. Keeping categories sorted and taking a prefix maintains the most extreme separation between child means &mdash; hence minimising total weighted impurity. The optimal <span class="math-latex math-inline">L</span> is always a contiguous prefix. <span class="math-latex math-inline">\square</span>
+        </p>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">5</div>
+      <div class="step-content">
+        <strong>Complexity</strong>
+        <p>
+          Sort <span class="math-latex math-inline">K</span> categories: <span class="math-latex math-inline">O(K \log K)</span>. Sweep <span class="math-latex math-inline">K-1</span> prefixes: <span class="math-latex math-inline">O(K)</span>. Total: <span class="math-latex math-inline">O(K \log K)</span> versus <span class="math-latex math-inline">O(2^K)</span> for brute force.
+        </p>
+        <div class="step-explanation">
+          This shortcut does <strong>not</strong> hold for multiclass Gini or for entropy with more than two classes &mdash; exponential enumeration or heuristics are required there.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION 5: GINI VS. ENTROPY
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <h2>5. Gini vs. Entropy &mdash; When Do They Disagree?</h2>
+
+  <p>
+    Both Gini impurity and Shannon entropy are maximised at uniform class distributions and equal 0 at pure nodes. In practice they select the same split over 98% of the time (Breiman et al., 1984). Their functional forms over the binary positive probability <span class="math-latex math-inline">p</span> are:
+  </p>
+
+  <div class="math-latex math-block">
+    G(p) = 2p(1-p), \qquad H(p) = -p\log_2 p - (1-p)\log_2(1-p)
+  </div>
+
+  <p>
+    Both are normalised to <span class="math-latex math-inline">[0,1]</span> by dividing by their maxima (1 and 1 respectively at <span class="math-latex math-inline">p=0.5</span>).
+  </p>
+
+  <div id="plot-gini-entropy" class="plot-area" style="min-height:320px;"></div>
+
+  <h3>Key Practical Differences</h3>
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>Sensitivity near pure nodes</h5>
+      <p>
+        Entropy has a steeper gradient near <span class="math-latex math-inline">p = 0</span> and <span class="math-latex math-inline">p = 1</span>: it assigns larger impurity reductions for near-pure splits. This can make it prefer a split that produces one very pure child slightly more than Gini does. The difference is numerically small but can occasionally change which feature is selected.
+      </p>
+    </div>
+    <div class="assumption-card">
+      <h5>Computational cost</h5>
+      <p>
+        Gini requires only squaring and summing &mdash; cheap arithmetic. Entropy requires a <span class="math-latex math-inline">\log</span> call per class per candidate. On large datasets with many features, Gini is measurably faster and is the default in sklearn's CART implementation.
+      </p>
+    </div>
+  </div>
+
+  <h3>Concrete Example Where They Disagree</h3>
+  <p>
+    Consider a node with 20 samples (10P, 10F) and two candidate splits:
+  </p>
+  <ul>
+    <li><strong>Split A:</strong> Left = {9P, 1F}, Right = {1P, 9F}.</li>
+    <li><strong>Split B:</strong> Left = {10P, 4F}, Right = {0P, 6F}.</li>
+  </ul>
+
+  <div class="split-calc">
+    <div class="split-calc-header">Comparing Gini and Entropy on Splits A and B</div>
+    <table style="margin:0;font-size:0.85rem;">
+      <thead>
+        <tr><th>Split</th><th>G(L)</th><th>G(R)</th><th>Gini Gain</th><th>H(L)</th><th>H(R)</th><th>Info Gain</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>A (9P,1F | 1P,9F)</td>
+          <td>0.180</td><td>0.180</td>
+          <td><strong>0.320</strong></td>
+          <td>0.469</td><td>0.469</td>
+          <td><strong>0.531</strong></td>
+        </tr>
+        <tr>
+          <td>B (10P,4F | 0P,6F)</td>
+          <td>0.347</td><td>0.000</td>
+          <td>0.299</td>
+          <td>0.943</td><td>0.000</td>
+          <td>0.529</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    Both Gini and entropy prefer Split A here. To get a genuine disagreement, the difference between the measures must outweigh the Gini-gain difference &mdash; which is rare but documented. The key takeaway: <em>when in doubt, try both; the resulting trees usually differ by fewer than two nodes at a given depth.</em>
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       WIDGET 1: INTERACTIVE THRESHOLD SLIDER
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <h2>Interactive: Optimal Split Finder</h2>
+
+  <p>
+    Explore all candidate split thresholds on the 12-sample student dataset. Move the slider or switch features to see how Gini Gain changes across the threshold landscape.
+  </p>
+
+  <div class="widget-container">
+    <h4>Adjust the split threshold and feature, then observe the Gini Gain.</h4>
+    <div class="widget-controls">
+      <label>
+        Feature:
+        <select id="split-feature">
+          <option value="x1">X1 &mdash; Study Hours</option>
+          <option value="x2">X2 &mdash; Sleep Hours</option>
+        </select>
+      </label>
+      <label>
+        Threshold: <span id="split-thresh-val">5.5</span>
+        <input type="range" id="split-thresh" min="1.5" max="9.5" step="0.5" value="5.5">
+      </label>
+    </div>
+    <div class="stat-row" id="split-stats"></div>
+    <div id="plot-split-scatter" class="plot-area" style="min-height:300px;"></div>
+    <div id="plot-gain-landscape" class="plot-area" style="min-height:240px;margin-top:0.75rem;"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       WIDGET 2: GINI GAIN CALCULATOR
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <h2>Interactive: Gini Gain Step-by-Step</h2>
+
+  <p>
+    Enter your own class counts for a parent node and a proposed left child to see every step of the Gini Gain computation.
+  </p>
+
+  <div class="widget-container">
+    <h4>Set counts; right child is derived automatically from parent minus left.</h4>
+    <div class="widget-controls">
+      <label>Parent positive: <span id="pp-val">8</span><input type="range" id="pp" min="0" max="20" step="1" value="8"></label>
+      <label>Parent negative: <span id="pn-val">4</span><input type="range" id="pn" min="0" max="20" step="1" value="4"></label>
+    </div>
+    <div class="widget-controls">
+      <label>Left positive: <span id="lp-val">0</span><input type="range" id="lp" min="0" max="20" step="1" value="0"></label>
+      <label>Left negative: <span id="ln-val">3</span><input type="range" id="ln" min="0" max="20" step="1" value="3"></label>
+    </div>
+    <div id="calc-output" style="margin-top:1rem;font-size:0.9rem;"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       PRACTICE PROBLEMS
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1 &mdash; Computing Gini Gain for a Single Split</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>
+        A node has 10 samples: 5 positive, 5 negative. A proposed split produces:
+      </p>
+      <ul>
+        <li>Left child: 3 positive, 1 negative (4 samples total)</li>
+        <li>Right child: 2 positive, 4 negative (6 samples total)</li>
+      </ul>
+      <p>Compute the Gini Gain for this split. Show all steps.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <div class="derivation">
+          <div class="derivation-step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+              <strong>Parent Gini</strong>
+              <div class="math-latex math-block">
+                G(\text{parent}) = 1 - \left(\frac{5}{10}\right)^2 - \left(\frac{5}{10}\right)^2 = 1 - 0.25 - 0.25 = 0.500
+              </div>
+            </div>
+          </div>
+          <div class="derivation-step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+              <strong>Left child Gini (3+, 1&minus;)</strong>
+              <div class="math-latex math-block">
+                G_L = 1 - \left(\frac{3}{4}\right)^2 - \left(\frac{1}{4}\right)^2 = 1 - 0.5625 - 0.0625 = 0.375
+              </div>
+            </div>
+          </div>
+          <div class="derivation-step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+              <strong>Right child Gini (2+, 4&minus;)</strong>
+              <div class="math-latex math-block">
+                G_R = 1 - \left(\frac{2}{6}\right)^2 - \left(\frac{4}{6}\right)^2 = 1 - \frac{1}{9} - \frac{4}{9} = \frac{4}{9} \approx 0.4\overline{4}
+              </div>
+            </div>
+          </div>
+          <div class="derivation-step">
+            <div class="step-number">4</div>
+            <div class="step-content">
+              <strong>Weighted child impurity</strong>
+              <div class="math-latex math-block">
+                \frac{4}{10}(0.375) + \frac{6}{10}(0.4\overline{4}) = 0.150 + 0.26\overline{6} = 0.41\overline{6}
+              </div>
+            </div>
+          </div>
+          <div class="derivation-step">
+            <div class="step-number">5</div>
+            <div class="step-content">
+              <strong>Gini Gain</strong>
+              <div class="math-latex math-block">
+                \text{GiniGain} = 0.500 - 0.41\overline{6} = 0.08\overline{3} \approx 0.083
+              </div>
+              This is a small but positive gain: the split does reduce impurity, though not by much.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2 &mdash; All Candidate Thresholds for X1</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>
+        Using the 12-sample student dataset from Section 3, compute the Gini Gain for <em>all seven</em> candidate split thresholds on X1 (2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5). Identify the optimal threshold. Show a table with every intermediate value.
+      </p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>Parent Gini = 4/9 &approx; 0.4444 (8P, 4F across 12 samples).</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Threshold</th>
+              <th>Left (P/F)</th>
+              <th>Right (P/F)</th>
+              <th>G(L)</th>
+              <th>G(R)</th>
+              <th>Weighted</th>
+              <th>Gini Gain</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>2.5</td><td>0P, 1F</td><td>8P, 3F</td><td>0.0000</td><td>0.3967</td><td>0.3637</td><td>0.0807</td></tr>
+            <tr><td>3.5</td><td>0P, 2F</td><td>8P, 2F</td><td>0.0000</td><td>0.4000</td><td>0.3333</td><td>0.1111</td></tr>
+            <tr><td>4.5</td><td>0P, 3F</td><td>8P, 1F</td><td>0.0000</td><td>0.1975</td><td>0.1481</td><td>0.2963</td></tr>
+            <tr style="background:var(--bg-secondary);"><td><strong>5.5</strong></td><td>1P, 4F</td><td>7P, 0F</td><td>0.3200</td><td>0.0000</td><td>0.1333</td><td><strong>0.3111</strong></td></tr>
+            <tr><td>6.5</td><td>3P, 4F</td><td>5P, 0F</td><td>0.4898</td><td>0.0000</td><td>0.2857</td><td>0.1587</td></tr>
+            <tr><td>7.5</td><td>4P, 5F</td><td>4P, 0F</td><td>0.4938</td><td>0.0000</td><td>0.3704</td><td>0.0741</td></tr>
+            <tr><td>8.5</td><td>6P, 5F</td><td>2P, 0F</td><td>0.4898</td><td>0.0000</td><td>0.4082</td><td>0.0362</td></tr>
+          </tbody>
+        </table>
+        <p>
+          The optimal threshold is <strong>X1 &le; 5.5</strong> with Gini Gain = 0.3111. The right child (X1 &gt; 5.5) is perfectly pure (7 Pass, 0 Fail), which drives the large gain.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3 &mdash; Proof: Optimal Categorical Split via Sorted Positive Rates</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>
+        Prove that for binary classification, the optimal split point for a categorical feature under the Gini criterion is obtained by sorting categories in increasing order of their positive class rate <span class="math-latex math-inline">p_k</span>, then trying all <span class="math-latex math-inline">K-1</span> contiguous prefix splits. Your proof should show that:
+      </p>
+      <ol>
+        <li>The Gini objective can be written as a function of the left-child positive proportion.</li>
+        <li>Any non-contiguous partition can be improved by swapping categories to make it contiguous.</li>
+        <li>The optimal partition is therefore always a contiguous prefix of the sorted sequence.</li>
+      </ol>
+      <p><em>Hint:</em> Use the fact that <span class="math-latex math-inline">2p(1-p)</span> is concave in <span class="math-latex math-inline">p</span>, and analyse what happens when you exchange a high-rate category in <span class="math-latex math-inline">L</span> with a low-rate one in <span class="math-latex math-inline">R</span>.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <div class="derivation">
+          <div class="derivation-step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+              <strong>Express Gini in terms of child means</strong>
+              <p>
+                Let categories be indexed <span class="math-latex math-inline">1,\ldots,K</span> with <span class="math-latex math-inline">n_k</span> samples and positive rate <span class="math-latex math-inline">p_k</span>. For a partition <span class="math-latex math-inline">(L, R)</span>, the left child positive proportion is:
+              </p>
+              <div class="math-latex math-block">
+                \bar{p}_L = \frac{\sum_{k \in L} n_k p_k}{\sum_{k \in L} n_k} = \frac{N_L^+}{n_L}
+              </div>
+              <p>The weighted Gini of both children is:</p>
+              <div class="math-latex math-block">
+                \Phi(L) = \frac{n_L}{n} \cdot 2\bar{p}_L(1-\bar{p}_L) + \frac{n_R}{n} \cdot 2\bar{p}_R(1-\bar{p}_R)
+              </div>
+              <p>We minimise <span class="math-latex math-inline">\Phi(L)</span> over all non-trivial subsets <span class="math-latex math-inline">L</span>.</p>
+            </div>
+          </div>
+          <div class="derivation-step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+              <strong>Sort categories: WLOG assume <span class="math-latex math-inline">p_1 \le p_2 \le \cdots \le p_K</span></strong>
+              <p>
+                Suppose for contradiction that the optimal <span class="math-latex math-inline">L^*</span> is non-contiguous: there exist indices <span class="math-latex math-inline">i &lt; j &lt; k</span> with <span class="math-latex math-inline">i, k \in L^*</span> but <span class="math-latex math-inline">j \notin L^*</span>. Consider swapping: remove <span class="math-latex math-inline">k</span> from <span class="math-latex math-inline">L^*</span> and add <span class="math-latex math-inline">j</span> to form <span class="math-latex math-inline">L'</span> (same size left child, just different membership).
+              </p>
+            </div>
+          </div>
+          <div class="derivation-step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+              <strong>Show the swap cannot increase <span class="math-latex math-inline">\Phi</span></strong>
+              <p>
+                After the swap, the left positive count changes by <span class="math-latex math-inline">n_j p_j - n_k p_k</span> and the left total count changes by <span class="math-latex math-inline">n_j - n_k</span>. Define <span class="math-latex math-inline">f(N^+, N) = 2(N^+/N)(1 - N^+/N)</span>. The objective is:
+              </p>
+              <div class="math-latex math-block">
+                \Phi = \frac{N_L}{n}\,f\!\left(\frac{N_L^+}{N_L}\right) + \frac{N_R}{n}\,f\!\left(\frac{N_R^+}{N_R}\right)
+              </div>
+              <p>
+                Because <span class="math-latex math-inline">p_j \le p_k</span> (sorting assumption), the swap moves a lower positive-rate category into <span class="math-latex math-inline">L</span> and a higher one into <span class="math-latex math-inline">R</span>. This pulls <span class="math-latex math-inline">\bar{p}_L</span> down and <span class="math-latex math-inline">\bar{p}_R</span> up, making the two child means <em>less extreme</em>. By the concavity of <span class="math-latex math-inline">2p(1-p)</span>, the weighted sum of the two concave values is maximised when the means are equal and minimised when they are as far apart as possible.
+              </p>
+              <div class="math-latex math-block">
+                \frac{n_L}{n}\,2\bar{p}_L(1-\bar{p}_L) + \frac{n_R}{n}\,2\bar{p}_R(1-\bar{p}_R)
+              </div>
+              <p>
+                Specifically, for fixed <span class="math-latex math-inline">n_L, n_R</span>: pushing <span class="math-latex math-inline">\bar{p}_L</span> toward 0 and <span class="math-latex math-inline">\bar{p}_R</span> toward 1 (or vice versa) <em>reduces</em> the weighted impurity because both concave terms decrease as their arguments move away from 0.5. Therefore keeping all low-rate categories in <span class="math-latex math-inline">L</span> is never worse than mixing.
+              </p>
+            </div>
+          </div>
+          <div class="derivation-step">
+            <div class="step-number">4</div>
+            <div class="step-content">
+              <strong>Conclusion</strong>
+              <p>
+                By a sequence of such swaps (exchange argument), any non-contiguous optimal partition can be converted to a contiguous one without increasing <span class="math-latex math-inline">\Phi</span>. Therefore there always exists an optimal partition that is a contiguous prefix of the sorted-by-<span class="math-latex math-inline">p_k</span> ordering. We need only evaluate the <span class="math-latex math-inline">K-1</span> prefix splits, reducing complexity from <span class="math-latex math-inline">O(2^K)</span> to <span class="math-latex math-inline">O(K \log K)</span>. <span class="math-latex math-inline">\blacksquare</span>
+              </p>
+              <div class="step-explanation">
+                This result holds for Gini only in the binary classification case. For entropy or multiclass settings, the argument breaks down because the objective is no longer a simple function of child means.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="02-impurity-training.html" class="nav-btn prev">Prev: Impurity</a>
+    <a href="04-advantages-limitations.html" class="nav-btn">Next: Advantages</a>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ── Dataset (fixed 12-sample student dataset) ──────────────────────────
+  var DATA = [
+    { x1: 2, x2: 5, label: 'Fail' },
+    { x1: 3, x2: 7, label: 'Fail' },
+    { x1: 4, x2: 6, label: 'Fail' },
+    { x1: 5, x2: 8, label: 'Pass' },
+    { x1: 5, x2: 5, label: 'Fail' },
+    { x1: 6, x2: 7, label: 'Pass' },
+    { x1: 6, x2: 6, label: 'Pass' },
+    { x1: 7, x2: 9, label: 'Pass' },
+    { x1: 7, x2: 4, label: 'Fail' },
+    { x1: 8, x2: 7, label: 'Pass' },
+    { x1: 8, x2: 8, label: 'Pass' },
+    { x1: 9, x2: 6, label: 'Pass' }
+  ];
+
+  var PASS_COLOR = '#2563eb';
+  var FAIL_COLOR = '#dc2626';
+  var LINE_COLOR = '#d97706';
+
+  // ── Plotly: Gini vs Entropy comparison ────────────────────────────────
+  (function () {
+    var ps = linspace(0.001, 0.999, 200);
+    var ginis = ps.map(function (p) { return 2 * p * (1 - p); });
+    var entropies = ps.map(function (p) {
+      return -p * Math.log2(p) - (1 - p) * Math.log2(1 - p);
+    });
+    // Both already in [0,1] at their natural maxima (Gini max=0.5, Entropy max=1)
+    // Normalise to [0,1] for visual overlap:
+    var giniNorm = ginis.map(function (g) { return g / 0.5; });
+    var diffAbs = ps.map(function (p, i) {
+      return Math.abs(giniNorm[i] - entropies[i]);
+    });
+
+    var layout = plotlyLayout({
+      title: { text: 'Gini (normalised) vs Entropy as functions of p', font: { size: 13 } },
+      xaxis: { title: 'p (positive class proportion)', range: [0, 1] },
+      yaxis: { title: 'Impurity (normalised to [0,1])', range: [0, 1.05] },
+      legend: { orientation: 'h', y: -0.18 }
+    });
+
+    var traces = [
+      {
+        x: ps, y: giniNorm,
+        mode: 'lines', name: 'Gini (norm.)',
+        line: { color: PASS_COLOR, width: 2.5 }
+      },
+      {
+        x: ps, y: entropies,
+        mode: 'lines', name: 'Entropy (base 2)',
+        line: { color: FAIL_COLOR, width: 2.5, dash: 'dash' }
+      },
+      {
+        x: ps, y: diffAbs,
+        mode: 'lines', name: '|Gini - Entropy|',
+        line: { color: LINE_COLOR, width: 1.5, dash: 'dot' },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(217,119,6,0.08)'
+      }
+    ];
+
+    Plotly.newPlot('plot-gini-entropy', traces, layout, PLOTLY_CONFIG);
+  }());
+
+  // ── Utility: compute candidate thresholds and gains for one feature ────
+  function computeGainLandscape(feature) {
+    var vals = DATA.map(function (d) { return feature === 'x1' ? d.x1 : d.x2; });
+    var labels = DATA.map(function (d) { return d.label; });
+    var parentCounts = [
+      labels.filter(function (l) { return l === 'Pass'; }).length,
+      labels.filter(function (l) { return l === 'Fail'; }).length
+    ];
+
+    // Unique sorted values
+    var unique = vals.slice().sort(function (a, b) { return a - b; }).filter(function (v, i, arr) {
+      return i === 0 || v !== arr[i - 1];
+    });
+
+    var candidates = [];
+    for (var i = 0; i < unique.length - 1; i++) {
+      candidates.push((unique[i] + unique[i + 1]) / 2);
+    }
+
+    var gains = candidates.map(function (thresh) {
+      var leftPass = 0, leftFail = 0, rightPass = 0, rightFail = 0;
+      for (var j = 0; j < DATA.length; j++) {
+        var v = feature === 'x1' ? DATA[j].x1 : DATA[j].x2;
+        if (v <= thresh) {
+          if (DATA[j].label === 'Pass') leftPass++; else leftFail++;
+        } else {
+          if (DATA[j].label === 'Pass') rightPass++; else rightFail++;
+        }
+      }
+      return giniGain(parentCounts, [leftPass, leftFail], [rightPass, rightFail]);
+    });
+
+    return { candidates: candidates, gains: gains };
+  }
+
+  function computeSplitStats(feature, thresh) {
+    var leftPass = 0, leftFail = 0, rightPass = 0, rightFail = 0;
+    for (var i = 0; i < DATA.length; i++) {
+      var v = feature === 'x1' ? DATA[i].x1 : DATA[i].x2;
+      if (v <= thresh) {
+        if (DATA[i].label === 'Pass') leftPass++; else leftFail++;
+      } else {
+        if (DATA[i].label === 'Pass') rightPass++; else rightFail++;
+      }
+    }
+    var parentCounts = [leftPass + rightPass, leftFail + rightFail];
+    var leftCounts  = [leftPass, leftFail];
+    var rightCounts = [rightPass, rightFail];
+    var gain = giniGain(parentCounts, leftCounts, rightCounts);
+    return {
+      leftPass: leftPass, leftFail: leftFail,
+      rightPass: rightPass, rightFail: rightFail,
+      gain: gain,
+      gL: giniImpurity(leftCounts),
+      gR: giniImpurity(rightCounts),
+      nL: leftPass + leftFail,
+      nR: rightPass + rightFail
+    };
+  }
+
+  // ── Widget 1 initial render ────────────────────────────────────────────
+  var currentFeature = 'x1';
+  var currentThresh  = 5.5;
+
+  function buildScatterTraces(feature, thresh) {
+    var passX = [], passY = [], failX = [], failY = [];
+    DATA.forEach(function (d) {
+      var px = feature === 'x1' ? d.x1 : d.x2;
+      var py = feature === 'x1' ? d.x2 : d.x1;
+      if (d.label === 'Pass') { passX.push(px); passY.push(py); }
+      else                    { failX.push(px); failY.push(py); }
+    });
+
+    var axisLabel  = feature === 'x1' ? 'Study Hours (X1)' : 'Sleep Hours (X2)';
+    var crossLabel = feature === 'x1' ? 'Sleep Hours (X2)' : 'Study Hours (X1)';
+    var axisRange  = feature === 'x1' ? [1, 10] : [3, 10];
+    var crossRange = feature === 'x1' ? [3, 10] : [1, 10];
+
+    return {
+      traces: [
+        {
+          x: passX, y: passY, mode: 'markers', name: 'Pass',
+          marker: { color: PASS_COLOR, size: 10, symbol: 'circle', line: { color: '#fff', width: 1.5 } }
+        },
+        {
+          x: failX, y: failY, mode: 'markers', name: 'Fail',
+          marker: { color: FAIL_COLOR, size: 10, symbol: 'x', line: { color: FAIL_COLOR, width: 2 } }
+        },
+        {
+          x: [thresh, thresh], y: crossRange, mode: 'lines', name: 'Threshold',
+          line: { color: LINE_COLOR, width: 2, dash: 'dashdot' },
+          showlegend: true
+        }
+      ],
+      layout: plotlyLayout({
+        xaxis: { title: axisLabel, range: axisRange },
+        yaxis: { title: crossLabel, range: crossRange },
+        legend: { orientation: 'h', y: -0.22 },
+        title: { text: 'Feature Space — Split at ' + axisLabel + ' = ' + thresh, font: { size: 12 } }
+      })
+    };
+  }
+
+  function buildLandscapeTraces(feature, thresh) {
+    var ls = computeGainLandscape(feature);
+    var highlightIdx = ls.candidates.indexOf(thresh);
+    var featureLabel = feature === 'x1' ? 'Study Hours (X1)' : 'Sleep Hours (X2)';
+
+    var traces = [
+      {
+        x: ls.candidates, y: ls.gains,
+        mode: 'lines+markers', name: 'Gini Gain',
+        line: { color: PASS_COLOR, width: 2 },
+        marker: { size: 6, color: PASS_COLOR }
+      }
+    ];
+
+    if (highlightIdx >= 0) {
+      traces.push({
+        x: [ls.candidates[highlightIdx]],
+        y: [ls.gains[highlightIdx]],
+        mode: 'markers', name: 'Selected',
+        marker: { color: LINE_COLOR, size: 13, symbol: 'diamond' }
+      });
+    }
+
+    return {
+      traces: traces,
+      layout: plotlyLayout({
+        xaxis: { title: featureLabel + ' threshold' },
+        yaxis: { title: 'Gini Gain', range: [0, 0.40] },
+        legend: { orientation: 'h', y: -0.28 },
+        title: { text: 'Gini Gain Landscape', font: { size: 12 } }
+      })
+    };
+  }
+
+  function updateSplitStats(feature, thresh) {
+    var st = computeSplitStats(feature, thresh);
+    var fLabel = feature === 'x1' ? 'Study Hours' : 'Sleep Hours';
+    var statsEl = document.getElementById('split-stats');
+    statsEl.innerHTML =
+      '<div class="stat-card"><span>Gini Gain</span><strong>' + st.gain.toFixed(4) + '</strong></div>' +
+      '<div class="stat-card"><span>Left (' + fLabel + ' &le; ' + thresh + ')</span><strong>' + st.nL + ' samples (' + st.leftPass + 'P, ' + st.leftFail + 'F)</strong></div>' +
+      '<div class="stat-card"><span>G(Left)</span><strong>' + st.gL.toFixed(4) + '</strong></div>' +
+      '<div class="stat-card"><span>Right (' + fLabel + ' &gt; ' + thresh + ')</span><strong>' + st.nR + ' samples (' + st.rightPass + 'P, ' + st.rightFail + 'F)</strong></div>' +
+      '<div class="stat-card"><span>G(Right)</span><strong>' + st.gR.toFixed(4) + '</strong></div>';
+  }
+
+  function renderWidget1() {
+    var sc = buildScatterTraces(currentFeature, currentThresh);
+    var ls = buildLandscapeTraces(currentFeature, currentThresh);
+    Plotly.newPlot('plot-split-scatter', sc.traces, sc.layout, PLOTLY_CONFIG);
+    Plotly.newPlot('plot-gain-landscape', ls.traces, ls.layout, PLOTLY_CONFIG);
+    updateSplitStats(currentFeature, currentThresh);
+  }
+
+  function updateWidget1() {
+    var sc = buildScatterTraces(currentFeature, currentThresh);
+    var ls = buildLandscapeTraces(currentFeature, currentThresh);
+    Plotly.react('plot-split-scatter', sc.traces, sc.layout, PLOTLY_CONFIG);
+    Plotly.react('plot-gain-landscape', ls.traces, ls.layout, PLOTLY_CONFIG);
+    updateSplitStats(currentFeature, currentThresh);
+  }
+
+  renderWidget1();
+
+  document.getElementById('split-feature').addEventListener('change', function () {
+    currentFeature = this.value;
+    // Reset threshold to a sensible midpoint for the chosen feature
+    var slider = document.getElementById('split-thresh');
+    if (currentFeature === 'x2') {
+      slider.min = '3.5'; slider.max = '9.5'; slider.value = '6.5';
+      document.getElementById('split-thresh-val').textContent = '6.5';
+      currentThresh = 6.5;
+    } else {
+      slider.min = '1.5'; slider.max = '9.5'; slider.value = '5.5';
+      document.getElementById('split-thresh-val').textContent = '5.5';
+      currentThresh = 5.5;
+    }
+    updateWidget1();
+  });
+
+  document.getElementById('split-thresh').addEventListener('input', function () {
+    currentThresh = parseFloat(this.value);
+    document.getElementById('split-thresh-val').textContent = currentThresh.toFixed(1);
+    updateWidget1();
+  });
+
+  // ── Widget 2: Gini Gain Step-by-Step Calculator ───────────────────────
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  function fmt(v) { return v.toFixed(4); }
+
+  function renderCalc() {
+    var pp = parseInt(document.getElementById('pp').value, 10);
+    var pn = parseInt(document.getElementById('pn').value, 10);
+    var lp = parseInt(document.getElementById('lp').value, 10);
+    var ln = parseInt(document.getElementById('ln').value, 10);
+
+    var n  = pp + pn;
+    var nL = lp + ln;
+    var rp = clamp(pp - lp, 0, pp);
+    var rn = clamp(pn - ln, 0, pn);
+    var nR = rp + rn;
+
+    // Clamp left to not exceed parent
+    lp = clamp(lp, 0, pp);
+    ln = clamp(ln, 0, pn);
+    nL = lp + ln;
+    rp = pp - lp;
+    rn = pn - ln;
+    nR = rp + rn;
+
+    var gParent = n  > 0 ? giniImpurity([pp, pn]) : 0;
+    var gL      = nL > 0 ? giniImpurity([lp, ln]) : 0;
+    var gR      = nR > 0 ? giniImpurity([rp, rn]) : 0;
+    var weighted = n  > 0 ? (nL / n) * gL + (nR / n) * gR : 0;
+    var gain     = gParent - weighted;
+
+    var pPar  = n  > 0 ? '(' + pp + '/' + n  + ')&#x00B2; + (' + pn + '/' + n  + ')&#x00B2;' : '&mdash;';
+    var pLeft = nL > 0 ? '(' + lp + '/' + nL + ')&#x00B2; + (' + ln + '/' + nL + ')&#x00B2;' : '(empty)';
+    var pRight= nR > 0 ? '(' + rp + '/' + nR + ')&#x00B2; + (' + rn + '/' + nR + ')&#x00B2;' : '(empty)';
+
+    var gainClass = gain > 0.1 ? 'low' : (gain > 0.02 ? 'medium' : 'high');
+
+    document.getElementById('calc-output').innerHTML =
+      '<div class="derivation" style="margin-top:0;">' +
+        '<div class="derivation-step"><div class="step-number">1</div><div class="step-content">' +
+          '<strong>Parent Gini</strong> &mdash; ' + pp + 'P, ' + pn + 'F, ' + n + ' total<br>' +
+          '<code>G = 1 &minus; ' + pPar + ' = ' + fmt(gParent) + '</code>' +
+        '</div></div>' +
+        '<div class="derivation-step"><div class="step-number">2</div><div class="step-content">' +
+          '<strong>Left child Gini</strong> &mdash; ' + lp + 'P, ' + ln + 'F, ' + nL + ' total<br>' +
+          '<code>G<sub>L</sub> = 1 &minus; ' + pLeft + ' = ' + fmt(gL) + '</code>' +
+        '</div></div>' +
+        '<div class="derivation-step"><div class="step-number">3</div><div class="step-content">' +
+          '<strong>Right child Gini</strong> &mdash; ' + rp + 'P, ' + rn + 'F, ' + nR + ' total<br>' +
+          '<code>G<sub>R</sub> = 1 &minus; ' + pRight + ' = ' + fmt(gR) + '</code>' +
+        '</div></div>' +
+        '<div class="derivation-step"><div class="step-number">4</div><div class="step-content">' +
+          '<strong>Weighted child impurity</strong><br>' +
+          '<code>(' + nL + '/' + n + ')&times;' + fmt(gL) + ' + (' + nR + '/' + n + ')&times;' + fmt(gR) + ' = ' + fmt(weighted) + '</code>' +
+        '</div></div>' +
+        '<div class="derivation-step"><div class="step-number">5</div><div class="step-content">' +
+          '<strong>Gini Gain</strong><br>' +
+          '<code>' + fmt(gParent) + ' &minus; ' + fmt(weighted) + ' = ' +
+          '<span class="impurity-badge ' + gainClass + '">' + fmt(gain) + '</span></code>' +
+        '</div></div>' +
+      '</div>' +
+      '<p style="font-size:0.82rem;color:var(--text-muted);margin-top:0.5rem;">' +
+        'Right child is auto-derived: ' + rp + 'P, ' + rn + 'F (' + nR + ' samples).' +
+      '</p>';
+  }
+
+  renderCalc();
+
+  ['pp','pn','lp','ln'].forEach(function (id) {
+    var el = document.getElementById(id);
+    el.addEventListener('input', function () {
+      document.getElementById(id + '-val').textContent = this.value;
+      renderCalc();
+    });
+  });
+
+});
+</script>
+</body>
+</html>

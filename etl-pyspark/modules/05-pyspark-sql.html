@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 5: Querying with PySpark SQL</title>
+  <link rel="stylesheet" href="../assets/style.css">
+<script>try{if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <p class="progress-indicator">Module 5 of 10</p>
+        <h1>Querying with PySpark SQL</h1>
+      </div>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="theme-toggle">Dark mode</button>
+        <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+      </div>
+    </header>
+    <nav class="module-nav-bar" style="display:none">
+      <a href="../index.html">Track Home</a>
+      <a href="01-etl-pyspark.html">1. ETL with PySpark</a>
+      <a href="02-in-memory-processing.html">2. In-Memory Processing</a>
+      <a href="03-spark-rdds.html">3. Spark RDDs</a>
+      <a href="04-dataframes-pyspark-vs-pandas.html">4. DataFrames</a>
+      <a href="05-pyspark-sql.html">5. PySpark SQL</a>
+      <a href="06-udfs-pyspark.html">6. UDFs</a>
+      <a href="07-data-cleaning.html">7. Data Cleaning</a>
+      <a href="08-data-exploration.html">8. Data Exploration</a>
+      <a href="09-transformation-operations.html">9. Transformations</a>
+      <a href="10-caching-broadcasting.html">10. Caching</a>
+    </nav>
+
+    <!-- 1. Where We Left Off -->
+    <details>
+      <summary>Where We Left Off</summary>
+      <p>In Module 4, we compared PySpark and Pandas DataFrame APIs. Both use method chaining for transformations. Now we'll use a third approach: writing SQL queries directly against our DataFrames.</p>
+    </details>
+
+    <!-- 2. Registering DataFrames as SQL Tables -->
+    <h2>Registering DataFrames as SQL Tables</h2>
+    <p>PySpark lets you query DataFrames using standard SQL. The first step is to register a DataFrame as a temporary view, which makes it accessible by name in SQL statements.</p>
+    <ul>
+      <li><code>df.createOrReplaceTempView("table_name")</code> creates a session-scoped SQL table. It exists only for the duration of the Spark session and is not persisted to disk.</li>
+      <li><code>spark.sql("SELECT ...")</code> executes a SQL query against registered views and returns the result as a new DataFrame.</li>
+    </ul>
+    <div class="code-block simulated" data-output="+----------+--------------+----------------+----+---+&#10;|student_id|          name|           major|year|gpa|&#10;+----------+--------------+----------------+----+---+&#10;|      1001|    Alice Chen|Computer Science|   3|3.8|&#10;|      1002|  Bob Martinez|    Data Science|   2|3.5|&#10;|      1003| Carol Johnson|     Mathematics|   4|3.9|&#10;|      1004|     David Kim|Computer Science|   1|3.2|&#10;|      1005|     Eva Patel|    Data Science|   3|3.7|&#10;+----------+--------------+----------------+----+---+">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea># Register the students DataFrame as a temp view
+df.createOrReplaceTempView("students")
+
+# Query it with SQL
+result = spark.sql("SELECT * FROM students")
+result.show()</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 3. Basic SQL Queries -->
+    <h2>Basic SQL Queries</h2>
+    <p>Once a DataFrame is registered as a view, you can use familiar SQL clauses: <code>SELECT</code> to choose columns, <code>WHERE</code> to filter rows, and <code>ORDER BY</code> to sort results.</p>
+    <div class="code-block simulated" data-output="+-------------+---+&#10;|         name|gpa|&#10;+-------------+---+&#10;|Carol Johnson|3.9|&#10;|   Alice Chen|3.8|&#10;|    Eva Patel|3.7|&#10;+-------------+---+">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>result = spark.sql("""
+    SELECT name, gpa
+    FROM students
+    WHERE gpa > 3.5
+    ORDER BY gpa DESC
+""")
+result.show()</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 4. Aggregation in SQL -->
+    <h2>Aggregation in SQL</h2>
+    <p>SQL aggregation functions like <code>COUNT</code>, <code>AVG</code>, <code>SUM</code>, and <code>MAX</code> work with <code>GROUP BY</code> to summarize data. The <code>HAVING</code> clause filters groups after aggregation (similar to how <code>WHERE</code> filters rows before aggregation).</p>
+    <div class="code-block simulated" data-output="+----------------+-------------+-------+&#10;|           major|student_count|avg_gpa|&#10;+----------------+-------------+-------+&#10;|Computer Science|            2|   3.50|&#10;|    Data Science|            2|   3.60|&#10;|     Mathematics|            1|   3.90|&#10;+----------------+-------------+-------+">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>result = spark.sql("""
+    SELECT major,
+           COUNT(*) as student_count,
+           AVG(gpa) as avg_gpa
+    FROM students
+    GROUP BY major
+    HAVING AVG(gpa) > 3.3
+""")
+result.show()</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 5. Joins in SQL -->
+    <h2>Joins in SQL</h2>
+    <p>To join data from multiple DataFrames, register each one as a temp view and then write a standard SQL JOIN. This is identical to writing joins in any relational database.</p>
+    <div class="code-block simulated" data-output="+-------------+---------------+-----+&#10;|         name|    course_name|grade|&#10;+-------------+---------------+-----+&#10;|   Alice Chen|Data Structures|   88|&#10;|   Alice Chen|    Algorithms|   92|&#10;|Carol Johnson| Linear Algebra|   91|&#10;| Bob Martinez|Machine Learning|   85|&#10;+-------------+---------------+-----+">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea># Register both DataFrames as temp views
+students_df.createOrReplaceTempView("students")
+enrollments_df.createOrReplaceTempView("enrollments")
+
+result = spark.sql("""
+    SELECT s.name, e.course_name, e.grade
+    FROM students s
+    JOIN enrollments e ON s.student_id = e.student_id
+    WHERE e.grade > 85
+""")
+result.show()</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 6. Subqueries and CTEs -->
+    <h2>Subqueries and CTEs</h2>
+    <p>For more complex logic, SQL supports subqueries (nested SELECT statements) and Common Table Expressions (CTEs using the <code>WITH</code> clause). Both let you break a query into logical steps.</p>
+
+    <h3>Subquery: students above average GPA</h3>
+    <div class="code-block simulated" data-output="+-------------+---+&#10;|         name|gpa|&#10;+-------------+---+&#10;|   Alice Chen|3.8|&#10;|Carol Johnson|3.9|&#10;|    Eva Patel|3.7|&#10;+-------------+---+">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>result = spark.sql("""
+    SELECT name, gpa
+    FROM students
+    WHERE gpa > (SELECT AVG(gpa) FROM students)
+""")
+result.show()</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <h3>CTE: same logic, more readable</h3>
+    <div class="code-block simulated" data-output="+-------------+---+----------+&#10;|         name|gpa|   avg_gpa|&#10;+-------------+---+----------+&#10;|   Alice Chen|3.8|      3.62|&#10;|Carol Johnson|3.9|      3.62|&#10;|    Eva Patel|3.7|      3.62|&#10;+-------------+---+----------+">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>result = spark.sql("""
+    WITH avg_stats AS (
+        SELECT AVG(gpa) as avg_gpa FROM students
+    )
+    SELECT s.name, s.gpa, a.avg_gpa
+    FROM students s, avg_stats a
+    WHERE s.gpa > a.avg_gpa
+""")
+result.show()</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 7. Live Demo: SQL-like Operations in Pandas -->
+    <h2>Live Demo: SQL-like Operations in Pandas</h2>
+    <p>Pandas offers methods that mirror SQL operations. The <code>.query()</code> method works like WHERE, <code>.merge()</code> works like JOIN, and <code>.groupby()</code> works like GROUP BY. The code below runs live in your browser.</p>
+    <div class="code-block live">
+      <div class="code-block-header">
+        <span>Python (runs in browser)</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>import pandas as pd
+
+students = pd.DataFrame({
+    'student_id': [1001, 1002, 1003, 1004, 1005],
+    'name': ['Alice Chen', 'Bob Martinez', 'Carol Johnson', 'David Kim', 'Eva Patel'],
+    'major': ['Computer Science', 'Data Science', 'Mathematics', 'Computer Science', 'Data Science'],
+    'gpa': [3.8, 3.5, 3.9, 3.2, 3.7]
+})
+
+enrollments = pd.DataFrame({
+    'student_id': [1001, 1001, 1002, 1003, 1005],
+    'course_name': ['Data Structures', 'Algorithms', 'Machine Learning', 'Linear Algebra', 'Big Data'],
+    'grade': [88, 92, 85, 91, 83]
+})
+
+# SQL-like: SELECT with WHERE
+print("Students with GPA > 3.5:")
+print(students.query("gpa > 3.5")[["name", "gpa"]])
+
+# SQL-like: JOIN
+print("\nJoined data:")
+joined = students.merge(enrollments, on="student_id")
+print(joined[["name", "course_name", "grade"]])
+
+# SQL-like: GROUP BY with aggregation
+print("\nAverage grade per student:")
+avg_grades = joined.groupby("name")["grade"].mean().reset_index()
+print(avg_grades)</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 8. Checkpoint -->
+    <div class="checkpoint" data-correct="b">
+      <p class="checkpoint-question">What does <code>createOrReplaceTempView</code> do?</p>
+      <label><input type="radio" name="cp1" value="a"> (a) Saves data to disk</label>
+      <label><input type="radio" name="cp1" value="b"> (b) Registers the DataFrame as a queryable SQL table in the Spark session</label>
+      <label><input type="radio" name="cp1" value="c"> (c) Creates a persistent database table</label>
+      <label><input type="radio" name="cp1" value="d"> (d) Converts DataFrame to RDD</label>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- 9. Practice Problems -->
+    <div class="practice-section">
+      <h2>Practice Problems</h2>
+
+      <!-- Problem 1 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Recall</span> — Problem 1</p>
+        <p>Register the enrollments DataFrame as a temp view and write a SQL query to SELECT all rows WHERE grade &gt; 85.</p>
+        <div class="code-block simulated" data-output="+----------+---------------+-----+&#10;|student_id|    course_name|grade|&#10;+----------+---------------+-----+&#10;|      1001|Data Structures|   88|&#10;|      1001|     Algorithms|   92|&#10;|      1003| Linear Algebra|   91|&#10;+----------+---------------+-----+">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea># Register the enrollments DataFrame as a temp view
+enrollments_df.createOrReplaceTempView("enrollments")
+
+# Write a SQL query to get rows where grade > 85
+result = spark.sql("""
+    SELECT student_id, course_name, grade
+    FROM enrollments
+    WHERE grade > 85
+""")
+result.show()</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+
+      <!-- Problem 2 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Apply</span> — Problem 2</p>
+        <p>JOIN students and enrollments on student_id, and SELECT name, course_name, grade. Order by grade descending.</p>
+        <div class="code-block simulated" data-output="+-------------+---------------+-----+&#10;|         name|    course_name|grade|&#10;+-------------+---------------+-----+&#10;|   Alice Chen|     Algorithms|   92|&#10;|Carol Johnson| Linear Algebra|   91|&#10;|   Alice Chen|Data Structures|   88|&#10;| Bob Martinez|Machine Learning|   85|&#10;|    Eva Patel|      Big Data|   83|&#10;+-------------+---------------+-----+">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea>students_df.createOrReplaceTempView("students")
+enrollments_df.createOrReplaceTempView("enrollments")
+
+result = spark.sql("""
+    SELECT s.name, e.course_name, e.grade
+    FROM students s
+    JOIN enrollments e ON s.student_id = e.student_id
+    ORDER BY e.grade DESC
+""")
+result.show()</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+
+      <!-- Problem 3 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Stretch</span> — Problem 3</p>
+        <p>Write a CTE that computes each student's average grade across all courses, then SELECT only students with average grade &gt; 80.</p>
+        <div class="code-block simulated" data-output="+-------------+---------+&#10;|         name|avg_grade|&#10;+-------------+---------+&#10;|   Alice Chen|     90.0|&#10;|Carol Johnson|     91.0|&#10;| Bob Martinez|     85.0|&#10;|    Eva Patel|     83.0|&#10;+-------------+---------+">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea>students_df.createOrReplaceTempView("students")
+enrollments_df.createOrReplaceTempView("enrollments")
+
+result = spark.sql("""
+    WITH student_averages AS (
+        SELECT s.name, AVG(e.grade) as avg_grade
+        FROM students s
+        JOIN enrollments e ON s.student_id = e.student_id
+        GROUP BY s.name
+    )
+    SELECT name, avg_grade
+    FROM student_averages
+    WHERE avg_grade > 80
+""")
+result.show()</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10. Bridge -->
+    <h2>Up Next</h2>
+    <p>SQL and the DataFrame API cover most data operations. But sometimes you need custom logic — a calculation or classification that doesn't exist as a built-in function. That's where User-Defined Functions come in.</p>
+
+    <!-- Navigation -->
+    <nav class="module-nav">
+      <a href="04-dataframes-pyspark-vs-pandas.html">&larr; Module 4: DataFrames: PySpark vs Pandas</a>
+      <a href="06-udfs-pyspark.html">Module 6: UDFs in PySpark &rarr;</a>
+    </nav>
+  </div>
+
+  <script src="../assets/pyodide-loader.js"></script>
+  <script src="../assets/main.js"></script>
+</body>
+</html>

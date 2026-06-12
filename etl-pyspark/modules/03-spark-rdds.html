@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 3: Spark RDDs</title>
+  <link rel="stylesheet" href="../assets/style.css">
+<script>try{if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <p class="progress-indicator">Module 3 of 10</p>
+        <h1>Spark RDDs</h1>
+      </div>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="theme-toggle">Dark mode</button>
+        <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+      </div>
+    </header>
+    <nav class="module-nav-bar" style="display:none">
+      <a href="../index.html">Track Home</a>
+      <a href="01-etl-pyspark.html">1. ETL with PySpark</a>
+      <a href="02-in-memory-processing.html">2. In-Memory Processing</a>
+      <a href="03-spark-rdds.html">3. Spark RDDs</a>
+      <a href="04-dataframes-pyspark-vs-pandas.html">4. DataFrames</a>
+      <a href="05-pyspark-sql.html">5. PySpark SQL</a>
+      <a href="06-udfs-pyspark.html">6. UDFs</a>
+      <a href="07-data-cleaning.html">7. Data Cleaning</a>
+      <a href="08-data-exploration.html">8. Data Exploration</a>
+      <a href="09-transformation-operations.html">9. Transformations</a>
+      <a href="10-caching-broadcasting.html">10. Caching</a>
+    </nav>
+
+    <!-- 1. Where We Left Off -->
+    <details>
+      <summary>Where We Left Off</summary>
+      <p>In Module 2, we saw how Spark keeps data in memory and uses lazy evaluation with DAGs. Now we'll look at the data structure that makes this possible: the RDD.</p>
+    </details>
+
+    <!-- 2. What is an RDD? -->
+    <h2>What is an RDD?</h2>
+    <p>RDD stands for <strong>Resilient Distributed Dataset</strong>. Each word captures a key property of the abstraction:</p>
+    <ul>
+      <li><strong>Resilient</strong> — If a partition is lost (say a node crashes), Spark can reconstruct it by replaying the sequence of transformations that produced it. This chain of operations is called the <em>lineage</em>.</li>
+      <li><strong>Distributed</strong> — The data is split into partitions spread across the nodes of a cluster. Each node works on its own slice in parallel.</li>
+      <li><strong>Dataset</strong> — At the end of the day, it is simply a collection of elements: rows, tuples, numbers, strings, or any Python object.</li>
+    </ul>
+    <p>One more property is critical: RDDs are <strong>immutable</strong>. You never modify an RDD in place. Every transformation (like <code>map</code> or <code>filter</code>) produces a brand-new RDD, leaving the original unchanged. This immutability is what makes lineage-based recovery possible: Spark can always rebuild from the original source by re-applying the recorded steps.</p>
+    <p>Think of an RDD like a read-only list that lives across multiple machines. You describe what you want to do to it, and Spark figures out how to do it efficiently across the cluster.</p>
+
+    <!-- 3. Creating RDDs -->
+    <h2>Creating RDDs</h2>
+    <p>There are two primary ways to create an RDD in PySpark:</p>
+
+    <h3>From a Python collection</h3>
+    <p>Use <code>sc.parallelize()</code> to distribute a local list across the cluster:</p>
+    <div class="code-block simulated" data-output="ParallelCollectionRDD[0] at parallelize&#10;Number of partitions: 4&#10;First 3 elements: [(1001, 'Alice Chen', 'Computer Science', 3, 3.8), (1002, 'Bob Martinez', 'Data Science', 2, 3.5), (1003, 'Carol Johnson', 'Mathematics', 4, 3.9)]">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>students = [
+    (1001, 'Alice Chen', 'Computer Science', 3, 3.8),
+    (1002, 'Bob Martinez', 'Data Science', 2, 3.5),
+    (1003, 'Carol Johnson', 'Mathematics', 4, 3.9),
+    (1004, 'David Kim', 'Computer Science', 1, 3.2),
+    (1005, 'Eva Patel', 'Data Science', 3, 3.7),
+]
+
+rdd = sc.parallelize(students, numSlices=4)
+print(rdd)
+print(f"Number of partitions: {rdd.getNumPartitions()}")
+print(f"First 3 elements: {rdd.take(3)}")</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <h3>From an external file</h3>
+    <p>Use <code>sc.textFile()</code> to read a file (local or HDFS) into an RDD of strings, one per line:</p>
+    <div class="code-block simulated" data-output="First 3 lines:&#10;student_id,name,major,year,gpa&#10;1001,Alice Chen,Computer Science,3,3.8&#10;1002,Bob Martinez,Data Science,2,3.5&#10;&#10;Total lines: 9 (1 header + 8 students)">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>lines_rdd = sc.textFile("students.csv")
+print("First 3 lines:")
+for line in lines_rdd.take(3):
+    print(line)
+print(f"\nTotal lines: {lines_rdd.count()} (1 header + 8 students)")</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 4. Transformations vs Actions -->
+    <h2>Transformations vs Actions</h2>
+    <p>Every operation on an RDD falls into one of two categories:</p>
+
+    <h3>Transformations (lazy)</h3>
+    <p>Transformations describe a computation but do not execute it immediately. They return a new RDD and are only computed when an action triggers them.</p>
+    <ul>
+      <li><code>map(func)</code> — apply a function to each element</li>
+      <li><code>filter(func)</code> — keep elements where the function returns True</li>
+      <li><code>flatMap(func)</code> — like map, but each input can produce zero or more outputs</li>
+      <li><code>reduceByKey(func)</code> — merge values for each key using a reduce function</li>
+      <li><code>groupByKey()</code> — group values by key into iterables</li>
+    </ul>
+
+    <h3>Actions (trigger execution)</h3>
+    <p>Actions force Spark to execute the chain of transformations and return a result to the driver program.</p>
+    <ul>
+      <li><code>collect()</code> — return all elements as a Python list</li>
+      <li><code>count()</code> — return the number of elements</li>
+      <li><code>reduce(func)</code> — aggregate all elements using a function</li>
+      <li><code>take(n)</code> — return the first n elements</li>
+      <li><code>first()</code> — return the first element (same as take(1)[0])</li>
+    </ul>
+
+    <h3>Putting it together</h3>
+    <div class="code-block simulated" data-output="Names: ['Alice Chen', 'Bob Martinez', 'Carol Johnson', 'David Kim', 'Eva Patel', 'Frank Wilson', 'Grace Lee', 'Henry Brown']">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>students = [
+    (1001, 'Alice Chen', 'Computer Science', 3, 3.8),
+    (1002, 'Bob Martinez', 'Data Science', 2, 3.5),
+    (1003, 'Carol Johnson', 'Mathematics', 4, 3.9),
+    (1004, 'David Kim', 'Computer Science', 1, 3.2),
+    (1005, 'Eva Patel', 'Data Science', 3, 3.7),
+    (1006, 'Frank Wilson', 'Statistics', 2, 3.4),
+    (1007, 'Grace Lee', 'Computer Science', 4, 3.6),
+    (1008, 'Henry Brown', 'Mathematics', 1, 2.9),
+]
+
+rdd = sc.parallelize(students)
+
+# Transformation: extract just names
+names_rdd = rdd.map(lambda x: x[1])
+
+# Action: collect results
+names = names_rdd.collect()
+print(f"Names: {names}")</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <div class="code-block simulated" data-output="Students with GPA > 3.5:&#10;  Alice Chen (3.8)&#10;  Carol Johnson (3.9)&#10;  Eva Patel (3.7)&#10;  Grace Lee (3.6)">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>rdd = sc.parallelize(students)
+
+# Transformation: filter by GPA > 3.5
+high_gpa_rdd = rdd.filter(lambda x: x[4] > 3.5)
+
+# Action: collect and display
+results = high_gpa_rdd.collect()
+print("Students with GPA > 3.5:")
+for s in results:
+    print(f"  {s[1]} ({s[4]})")</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <div class="code-block simulated" data-output="Students per major:&#10;  Computer Science: 3&#10;  Data Science: 2&#10;  Mathematics: 2&#10;  Statistics: 1">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>rdd = sc.parallelize(students)
+
+# Map each student to (major, 1) then reduce by key to count
+major_counts = rdd.map(lambda x: (x[2], 1)) \
+                  .reduceByKey(lambda a, b: a + b) \
+                  .collect()
+
+print("Students per major:")
+for major, count in major_counts:
+    print(f"  {major}: {count}")</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 5. Live Demo: Python Analogues -->
+    <h2>Live Demo: Python Analogues</h2>
+    <p>RDD operations like <code>map</code>, <code>filter</code>, and grouping have direct equivalents in plain Python. The code below runs live in your browser so you can experiment with the same logic locally.</p>
+    <div class="code-block live">
+      <div class="code-block-header">
+        <span>Python (runs in browser)</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea># Python list operations mirror RDD transformations
+students = [
+    (1001, 'Alice Chen', 'Computer Science', 3, 3.8),
+    (1002, 'Bob Martinez', 'Data Science', 2, 3.5),
+    (1003, 'Carol Johnson', 'Mathematics', 4, 3.9),
+    (1004, 'David Kim', 'Computer Science', 1, 3.2),
+    (1005, 'Eva Patel', 'Data Science', 3, 3.7),
+    (1006, 'Frank Wilson', 'Statistics', 2, 3.4),
+    (1007, 'Grace Lee', 'Computer Science', 4, 3.6),
+    (1008, 'Henry Brown', 'Mathematics', 1, 2.9),
+]
+
+# map: extract names (like rdd.map(lambda x: x[1]))
+names = list(map(lambda s: s[1], students))
+print("Names:", names)
+
+# filter: GPA > 3.5 (like rdd.filter(lambda x: x[4] > 3.5))
+high_gpa = list(filter(lambda s: s[4] > 3.5, students))
+print(f"\nStudents with GPA > 3.5: {len(high_gpa)}")
+for s in high_gpa:
+    print(f"  {s[1]} ({s[4]})")
+
+# reduce: group by major and count
+from collections import Counter
+major_counts = Counter(s[2] for s in students)
+print(f"\nStudents per major:")
+for major, count in major_counts.items():
+    print(f"  {major}: {count}")</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 6. Checkpoint -->
+    <div class="checkpoint" data-correct="b">
+      <p class="checkpoint-question">Which of these is a transformation, not an action?</p>
+      <label><input type="radio" name="cp1" value="a"> (a) collect</label>
+      <label><input type="radio" name="cp1" value="b"> (b) filter</label>
+      <label><input type="radio" name="cp1" value="c"> (c) count</label>
+      <label><input type="radio" name="cp1" value="d"> (d) take</label>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- 7. Practice Problems -->
+    <div class="practice-section">
+      <h2>Practice Problems</h2>
+
+      <!-- Problem 1 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Recall</span> — Problem 1</p>
+        <p>Create an RDD from a list of <code>(student_id, name, gpa)</code> tuples and use <code>.count()</code> to find how many elements it contains.</p>
+        <div class="code-block simulated" data-output="Number of students: 5">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea>data = [
+    (1001, 'Alice Chen', 3.8),
+    (1002, 'Bob Martinez', 3.5),
+    (1003, 'Carol Johnson', 3.9),
+    (1004, 'David Kim', 3.2),
+    (1005, 'Eva Patel', 3.7),
+]
+
+rdd = sc.parallelize(data)
+print(f"Number of students: {rdd.count()}")</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+
+      <!-- Problem 2 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Apply</span> — Problem 2</p>
+        <p>Using <code>map</code> and <code>filter</code> on an RDD of student tuples, extract the names of students with GPA &gt; 3.5.</p>
+        <div class="code-block simulated" data-output="High-GPA student names: ['Alice Chen', 'Carol Johnson', 'Eva Patel']">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea>data = [
+    (1001, 'Alice Chen', 3.8),
+    (1002, 'Bob Martinez', 3.5),
+    (1003, 'Carol Johnson', 3.9),
+    (1004, 'David Kim', 3.2),
+    (1005, 'Eva Patel', 3.7),
+]
+
+rdd = sc.parallelize(data)
+
+# Filter students with GPA > 3.5, then map to extract names
+result = rdd.filter(lambda x: x[2] > 3.5) \
+            .map(lambda x: x[1]) \
+            .collect()
+
+print(f"High-GPA student names: {result}")</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+
+      <!-- Problem 3 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Stretch</span> — Problem 3</p>
+        <p>Use <code>reduceByKey</code> to compute the average GPA per major from an RDD of <code>(major, gpa)</code> pairs. Hint: map each pair to <code>(major, (gpa, 1))</code>, reduce to sum GPAs and counts, then divide.</p>
+        <div class="code-block simulated" data-output="Average GPA per major:&#10;  Computer Science: 3.53&#10;  Data Science: 3.60&#10;  Mathematics: 3.40&#10;  Statistics: 3.40">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea>data = [
+    ('Computer Science', 3.8),
+    ('Data Science', 3.5),
+    ('Mathematics', 3.9),
+    ('Computer Science', 3.2),
+    ('Data Science', 3.7),
+    ('Statistics', 3.4),
+    ('Computer Science', 3.6),
+    ('Mathematics', 2.9),
+]
+
+rdd = sc.parallelize(data)
+
+# Step 1: Map to (major, (gpa, 1))
+# Step 2: reduceByKey to sum GPAs and counts
+# Step 3: Map to compute average
+avg_gpa = rdd.map(lambda x: (x[0], (x[1], 1))) \
+             .reduceByKey(lambda a, b: (a[0] + b[0], a[1] + b[1])) \
+             .map(lambda x: (x[0], round(x[1][0] / x[1][1], 2))) \
+             .collect()
+
+print("Average GPA per major:")
+for major, avg in avg_gpa:
+    print(f"  {major}: {avg:.2f}")</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. Bridge -->
+    <h2>Up Next</h2>
+    <p>RDDs are powerful but low-level — you work with raw tuples and lambdas. Spark introduced DataFrames to give you a higher-level, schema-aware API with built-in optimizations. Next, we'll compare DataFrames in PySpark and Pandas.</p>
+
+    <!-- Navigation -->
+    <nav class="module-nav">
+      <a href="02-in-memory-processing.html">&larr; Module 2: In-Memory Data Processing</a>
+      <a href="04-dataframes-pyspark-vs-pandas.html">Module 4: DataFrames: PySpark vs Pandas &rarr;</a>
+    </nav>
+  </div>
+
+  <script src="../assets/pyodide-loader.js"></script>
+  <script src="../assets/main.js"></script>
+</body>
+</html>

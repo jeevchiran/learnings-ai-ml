@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>K-Means Clustering — Learning Modules</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script>try{if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <script src="js/common.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <a href="../index.html" style="font-weight:600;color:var(--text);text-decoration:none;font-size:0.9rem;">All Courses</a>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="theme-toggle">Dark mode</button>
+        <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+      </div>
+    </header>
+
+    <h1>K-Means Clustering</h1>
+    <p>A rigorous, interactive path through unsupervised learning with K-means. Starting from why clustering is needed, building up the mathematics of distance and centroids, then deriving the algorithm and its evaluation metrics. Each module follows a <strong>Why &rarr; What &rarr; How</strong> arc with interactive widgets and practice problems.</p>
+
+    <h2>Learning Path</h2>
+
+    <ul class="module-list">
+      <li>
+        <a href="modules/01-clustering-intro.html">Module 1: Why Clustering? Intuition and the K-Means Idea</a>
+        <div class="module-desc">The unsupervised learning setting, what clustering formalises, real-world applications, and a first look at K-means as a partitioning algorithm. Interactive animated K-means demo.</div>
+      </li>
+      <li>
+        <a href="modules/02-distance-centroids.html">Module 2: Distance, Means, and Centroids</a>
+        <div class="module-desc">Euclidean distance derived from Pythagoras, Manhattan and cosine similarity, the centroid as the point minimising squared distances, and why Euclidean distance + arithmetic mean are mathematically inseparable in K-means.</div>
+      </li>
+      <li>
+        <a href="modules/03-inertia-wcss.html">Module 3: Inertia (WCSS) and the Elbow Method</a>
+        <div class="module-desc">Within-Cluster Sum of Squares derived as the K-means objective, monotone decrease with K, the Elbow Method, K-means as coordinate descent on WCSS, and the gap statistic.</div>
+      </li>
+      <li>
+        <a href="modules/04-silhouette-metrics.html">Module 4: Silhouette Score and Evaluation Metrics</a>
+        <div class="module-desc">Silhouette score derived from intra- and inter-cluster distances, the [-1,+1] range interpretation, silhouette plots, Davies-Bouldin index, Calinski-Harabasz index, and a practical guide to choosing K.</div>
+      </li>
+    </ul>
+
+    <h2>Prerequisites</h2>
+    <table>
+      <tr><th>Topic</th><th>What You Should Know</th></tr>
+      <tr><td>Vectors</td><td>Points in 2D/3D space, coordinate notation, basic vector arithmetic</td></tr>
+      <tr><td>Calculus</td><td>Minimising a sum via derivative = 0 (Module 3 derivation); rest is algebra</td></tr>
+      <tr><td>Statistics</td><td>Mean (arithmetic average), variance conceptually</td></tr>
+      <tr><td>Optional</td><td>Having seen supervised learning first (Regression or Decision Trees) helps contextualise the unsupervised setting</td></tr>
+    </table>
+
+    <div class="nav-buttons">
+      <a href="../index.html" class="nav-btn prev">Back to All Courses</a>
+      <a href="modules/01-clustering-intro.html" class="nav-btn">Start: Module 1</a>
+    </div>
+  </div>
+</body>
+</html>

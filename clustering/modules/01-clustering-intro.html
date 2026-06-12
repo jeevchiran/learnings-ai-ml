@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 1: Why Clustering? Intuition and the K-Means Idea</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-clustering-intro.html" class="active">1. Intro</a>
+    <a href="02-distance-centroids.html">2. Distance &amp; Centroids</a>
+    <a href="03-inertia-wcss.html">3. Inertia (WCSS)</a>
+    <a href="04-silhouette-metrics.html">4. Silhouette &amp; Metrics</a>
+  </nav>
+  <header>
+    <h1>Module 1: Why Clustering? Intuition and the K-Means Idea</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- SECTION 1: WHY CLUSTERING -->
+  <h2>Why Do We Need Clustering?</h2>
+
+  <p>In supervised learning, every training example comes with a label. A spam filter knows which emails are spam; a tumour detector knows which scans are malignant. The label guides the model. But in the real world, labels are expensive. Annotating one million customer transactions as "fraudulent" or "legitimate" requires human reviewers, legal review, and days of labour. What if we could discover structure in the data <em>without any labels at all</em>?</p>
+
+  <p>This is the promise of <strong>unsupervised learning</strong>, and clustering is its most widely used technique. Instead of predicting a target, we ask a simpler question: which data points are similar to one another? Group similar things together and keep dissimilar things apart — and structure often emerges that no human thought to label in advance.</p>
+
+  <div class="callout note">
+    <strong>Supervised vs. unsupervised</strong>
+    In supervised learning you optimise a loss between predictions and known labels. In unsupervised clustering there are no labels: the algorithm must define and optimise a notion of "good grouping" from the data alone. This makes evaluation harder — but it also means clustering can discover patterns humans never anticipated.
+  </div>
+
+  <p>The range of domains where clustering delivers genuine value is broad:</p>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>Customer segmentation</h5>
+      <p>A retailer has 50,000 customers. Without knowing which "type" each customer is, K-means automatically finds groups — high-value loyalists, bargain hunters, seasonal shoppers — enabling targeted marketing campaigns.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Image compression</h5>
+      <p>Each pixel is a point in RGB space. Replacing 16 million possible colours with K = 256 cluster centroids reduces file size dramatically. JPEG and PNG both exploit variants of this idea.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Document grouping</h5>
+      <p>News articles and research papers can be clustered by topic — politics, sport, science — without any pre-labeled categories. Search engines use this to surface related content.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Anomaly detection</h5>
+      <p>Normal behaviour clusters tightly around a centroid. Anomalies — network intrusions, manufacturing defects, sensor faults — sit far from every cluster centre and are flagged automatically.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Gene expression analysis</h5>
+      <p>Biologists cluster genes by expression patterns across experimental conditions to identify co-regulated pathways. This has revealed entire signalling cascades that no single experiment targeted.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>City planning</h5>
+      <p>Grouping neighbourhoods by demographic features — income, age distribution, commute patterns — helps governments allocate schools, clinics, and public transport where they are actually needed.</p>
+    </div>
+  </div>
+
+  <div class="bridge">
+    <strong>From intuition to algorithm.</strong> Every example above asks the same underlying question: which things are similar? K-means answers it by formalising similarity as distance in a vector space, then finding group representatives (centroids) that minimise total distance. Before we can understand the algorithm, we need a precise definition of what a clustering is.
+  </div>
+
+  <!-- SECTION 2: FORMAL DEFINITION -->
+  <h2>What Is Clustering, Formally?</h2>
+
+  <p>Let us be precise. We have <span class="math-inline math-latex">n</span> data points</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\mathbf{x}_1, \mathbf{x}_2, \ldots, \mathbf{x}_n \in \mathbb{R}^p</span>
+  </div>
+
+  <p>where each point has <span class="math-inline math-latex">p</span> numerical features. A <strong>clustering with K clusters</strong> is a partition of the index set <span class="math-inline math-latex">\{1, 2, \ldots, n\}</span> into K disjoint, non-empty subsets:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">C_1, C_2, \ldots, C_K \quad \text{where} \quad C_k \cap C_j = \emptyset \text{ for } k \neq j \quad \text{and} \quad \bigcup_{k=1}^{K} C_k = \{1, \ldots, n\}</span>
+  </div>
+
+  <p>The requirement is that points within the same cluster are "similar" and points in different clusters are "dissimilar". This immediately raises four questions that define the field:</p>
+
+  <div class="concept-box">
+    <h4>Four Fundamental Questions</h4>
+    <ol>
+      <li><strong>What does "similar" mean?</strong> We need a distance or dissimilarity measure between points. The most common is Euclidean distance. Module 2 covers this in detail.</li>
+      <li><strong>How good is a particular clustering?</strong> We need an objective function that scores how well-separated the clusters are. Module 3 introduces Within-Cluster Sum of Squares (WCSS/inertia).</li>
+      <li><strong>How do we find the best clustering?</strong> Finding the provably optimal partition is NP-hard. K-means uses a fast iterative approximation. That is the subject of <em>this module</em>.</li>
+      <li><strong>How do we evaluate the result?</strong> When we have no labels, how do we know if K=3 is better than K=5? Module 4 introduces the silhouette coefficient and the elbow method.</li>
+    </ol>
+  </div>
+
+  <div class="bridge">
+    <strong>Connecting to K-means.</strong> K-means is one specific answer to questions 2 and 3. It defines "good" as minimising the total squared distance from each point to its cluster's mean (centroid), and it finds an approximate solution with a remarkably simple iterative procedure. We build that procedure step by step next.
+  </div>
+
+  <!-- SECTION 3: THE ALGORITHM -->
+  <h2>The K-Means Algorithm — Intuition First</h2>
+
+  <p>Before any mathematics, here is the algorithm as a human story.</p>
+
+  <p>Imagine you walk into a room with 100 people and need to form 3 discussion groups. You have no information about who belongs together — you just need to partition the room. Here is what you do:</p>
+
+  <ol>
+    <li>Randomly tap 3 people on the shoulder. They become the initial "group leaders" — the <em>centroids</em>.</li>
+    <li>Everyone else walks to the leader they are physically closest to. Each person now has a group — the <em>assignment step</em>.</li>
+    <li>Each leader looks around at their group and moves to stand in the geographic centre of their members. The leader has moved to the <em>mean</em> of their group — the <em>update step</em>.</li>
+    <li>Now some people are closer to a different leader. They walk over. Repeat from step 3.</li>
+    <li>When nobody wants to move, the process has <em>converged</em>.</li>
+  </ol>
+
+  <p>This is K-means, exactly. The leaders are centroids. "Closest" is Euclidean distance. "Geographic centre" is the arithmetic mean of coordinates. Here is the formal algorithm:</p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">0</div>
+      <div class="step-content">
+        <strong>Choose K</strong>
+        <div class="step-explanation">Decide upfront how many clusters you want. K is a hyperparameter — the algorithm does not choose it for you. Module 3 and 4 cover methods for selecting K from data.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Initialise K centroids</strong>
+        <div class="step-explanation">Select initial centroids <span class="math-inline math-latex">\boldsymbol{\mu}_1, \ldots, \boldsymbol{\mu}_K \in \mathbb{R}^p</span>. The simplest approach picks K data points at random. K-means++ (Section 5) is a smarter choice that spreads the initial centroids.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Assignment step</strong>
+        <div class="step-explanation">Assign each point to its nearest centroid. For point <span class="math-inline math-latex">\mathbf{x}_i</span>:</div>
+        <div class="math-block" style="margin-top:0.5rem;">
+          <span class="math-latex math-block">c_i = \underset{k \in \{1,\ldots,K\}}{\arg\min} \;\|\mathbf{x}_i - \boldsymbol{\mu}_k\|^2</span>
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Update step</strong>
+        <div class="step-explanation">Recompute each centroid as the mean of all points currently assigned to it:</div>
+        <div class="math-block" style="margin-top:0.5rem;">
+          <span class="math-latex math-block">\boldsymbol{\mu}_k = \frac{1}{|C_k|} \sum_{i:\, c_i = k} \mathbf{x}_i</span>
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong>Check convergence</strong>
+        <div class="step-explanation">If the centroids moved (i.e. any <span class="math-inline math-latex">\boldsymbol{\mu}_k</span> changed), return to Step 2. If no centroid moved, the algorithm has converged and we stop. In practice a small tolerance or a maximum iteration count is also used.</div>
+      </div>
+    </div>
+  </div>
+
+  <p>The algorithm alternates between two steps: holding centroids fixed and optimising assignments, then holding assignments fixed and optimising centroids. Each step can only decrease or maintain the total cost — never increase it. This guarantee is why the algorithm always terminates.</p>
+
+  <!-- SECTION 4: CONVERGENCE -->
+  <h2>Convergence and Termination</h2>
+
+  <p>Why does K-means always stop? The argument has three parts.</p>
+
+  <p><strong>1. Each step never increases the objective.</strong> The objective we are minimising is the Within-Cluster Sum of Squares (WCSS):</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{WCSS} = \sum_{k=1}^{K} \sum_{i:\, c_i = k} \|\mathbf{x}_i - \boldsymbol{\mu}_k\|^2</span>
+  </div>
+
+  <ul>
+    <li>The <strong>assignment step</strong> reassigns each point to its nearest centroid. If a point moves to a different cluster, it is because that cluster's centroid is strictly closer. WCSS decreases or stays the same.</li>
+    <li>The <strong>update step</strong> sets each centroid to the mean of its points. The mean minimises total squared distance within a set — any other position gives a higher WCSS. So this step also decreases or maintains WCSS.</li>
+  </ul>
+
+  <p><strong>2. The number of possible states is finite.</strong> There are at most <span class="math-inline math-latex">K^n</span> possible assignment vectors (each of <span class="math-inline math-latex">n</span> points assigned to one of K clusters). This is an astronomically large number, but it is finite.</p>
+
+  <p><strong>3. Therefore the algorithm terminates.</strong> WCSS is non-increasing and the number of distinct states is finite — the algorithm cannot cycle endlessly. It must reach a state where WCSS can decrease no further, which is exactly when no point wants to switch clusters, i.e., convergence.</p>
+
+  <div class="callout warning">
+    <strong>Local minimum, not global minimum</strong>
+    K-means is guaranteed to converge, but NOT to the best possible clustering. It finds a <em>local</em> minimum of WCSS that depends on the starting centroids. A bad initialisation can trap the algorithm in a partition with high WCSS. The practical remedy: run K-means multiple times with different random seeds and keep the solution with the lowest WCSS. The <code>n_init</code> parameter in scikit-learn does exactly this (default: 10 runs).
+  </div>
+
+  <div class="callout insight">
+    <strong>Time complexity</strong>
+    Each iteration costs <span class="math-inline math-latex">O(nKp)</span> — computing the distance from each of the <span class="math-inline math-latex">n</span> points to each of the K centroids in <span class="math-inline math-latex">p</span> dimensions. The number of iterations until convergence is typically small (10–100) in practice, so K-means scales well to millions of points when K and p are modest.
+  </div>
+
+  <!-- SECTION 5: K-MEANS++ -->
+  <h2>K-Means++ Initialisation</h2>
+
+  <p>Random initialisation picks K data points uniformly at random as starting centroids. This is simple but can produce poorly spread initial centroids — for example, two centroids might land in the same dense region while another cluster has no representative at all. The result is that the algorithm converges to a poor local minimum.</p>
+
+  <p><strong>K-means++</strong> (Arthur &amp; Vassilvitskii, 2007) is a smarter initialisation strategy that spreads the initial centroids probabilistically:</p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>First centroid: uniform random</strong>
+        <div class="step-explanation">Choose the first centroid <span class="math-inline math-latex">\boldsymbol{\mu}_1</span> uniformly at random from the data points. No preference — every point is equally likely.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Subsequent centroids: D²-proportional sampling</strong>
+        <div class="step-explanation">For each remaining centroid, compute <span class="math-inline math-latex">D(\mathbf{x}_i)^2</span> = squared distance from point <span class="math-inline math-latex">\mathbf{x}_i</span> to the nearest already-chosen centroid. Sample the next centroid with probability proportional to <span class="math-inline math-latex">D(\mathbf{x}_i)^2</span>:</div>
+        <div class="math-block" style="margin-top:0.5rem;">
+          <span class="math-latex math-block">P(\text{choose } \mathbf{x}_i) = \frac{D(\mathbf{x}_i)^2}{\displaystyle\sum_{j=1}^{n} D(\mathbf{x}_j)^2}</span>
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Repeat until K centroids chosen</strong>
+        <div class="step-explanation">After choosing the second centroid, recompute <span class="math-inline math-latex">D(\mathbf{x}_i)^2</span> as the distance to the nearest of the two chosen centroids, and sample again. Continue until all K centroids are selected, then run standard K-means from these initial positions.</div>
+      </div>
+    </div>
+  </div>
+
+  <p><strong>Why does this work?</strong> Points far from all existing centroids get a large <span class="math-inline math-latex">D(\mathbf{x})^2</span> and are therefore more likely to be chosen next. This naturally "spreads out" the initial centroids across the data, reducing the chance that two centroids compete over the same dense region. A cluster that has no representative is more likely to contribute the next centroid.</p>
+
+  <div class="concept-box">
+    <h4>Theoretical Guarantee</h4>
+    <p>Arthur &amp; Vassilvitskii proved that K-means++ initialisation produces an expected WCSS that is at most <span class="math-inline math-latex">O(\log K)</span> times the optimal WCSS — a result impossible to state for random initialisation. In practice the improvement over random init is usually much larger than the theoretical bound suggests.</p>
+    <p>All major machine learning libraries default to K-means++ initialisation. In scikit-learn: <code>KMeans(init='k-means++')</code> (the default).</p>
+  </div>
+
+  <!-- WIDGET 1: ANIMATED K-MEANS VISUALIZER -->
+  <h2>Interactive: Watch K-Means Converge</h2>
+
+  <div class="widget-container">
+    <h4>80 points generated from 3 Gaussian blobs (fixed seed). Use the controls to step through iterations one at a time or run to convergence. Observe how centroids move and cluster colours change. The WCSS (inertia) decreases monotonically.</h4>
+    <div class="widget-controls">
+      <label>
+        K (clusters):
+        <input type="range" id="kmeans-k-slider" min="1" max="6" step="1" value="3">
+        <span id="kmeans-k-val" style="font-weight:600;color:var(--accent-blue);min-width:1.2em;display:inline-block;">3</span>
+      </label>
+      <label>
+        <input type="checkbox" id="kmeans-plusplus-chk" checked>
+        Use K-means++ init
+      </label>
+      <button id="kmeans-reset-btn">Reset &amp; Reinitialise</button>
+      <button id="kmeans-step-btn">Step</button>
+      <button id="kmeans-run-btn">Run to convergence</button>
+    </div>
+    <div id="kmeans-plot" class="plot-area" style="height:450px;"></div>
+    <div class="stat-row" style="margin-top:0.75rem;">
+      <div class="stat-card">
+        <span>Iteration</span>
+        <strong id="stat-iter">0</strong>
+      </div>
+      <div class="stat-card">
+        <span>WCSS (Inertia)</span>
+        <strong id="stat-wcss">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Converged?</span>
+        <strong id="stat-converged">No</strong>
+      </div>
+      <div class="stat-card">
+        <span>K</span>
+        <strong id="stat-k">3</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- WIDGET 2: K COMPARISON GRID -->
+  <h2>Interactive: How K Affects the Partition</h2>
+
+  <div class="widget-container">
+    <h4>The same 80-point dataset partitioned with K = 2, 3, 4, and 5. Each panel runs K-means to convergence. Notice how the WCSS decreases as K grows — but so does the complexity of the partition. This trade-off is the subject of Module 3.</h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div>
+        <div id="kgrid-k2" style="height:250px;"></div>
+        <div class="stat-row" style="margin-top:0.25rem;">
+          <div class="stat-card" style="flex:1;">
+            <span>K = 2 &nbsp;|&nbsp; WCSS</span>
+            <strong id="kgrid-wcss-2">—</strong>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div id="kgrid-k3" style="height:250px;"></div>
+        <div class="stat-row" style="margin-top:0.25rem;">
+          <div class="stat-card" style="flex:1;">
+            <span>K = 3 &nbsp;|&nbsp; WCSS</span>
+            <strong id="kgrid-wcss-3">—</strong>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div id="kgrid-k4" style="height:250px;"></div>
+        <div class="stat-row" style="margin-top:0.25rem;">
+          <div class="stat-card" style="flex:1;">
+            <span>K = 4 &nbsp;|&nbsp; WCSS</span>
+            <strong id="kgrid-wcss-4">—</strong>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div id="kgrid-k5" style="height:250px;"></div>
+        <div class="stat-row" style="margin-top:0.25rem;">
+          <div class="stat-card" style="flex:1;">
+            <span>K = 5 &nbsp;|&nbsp; WCSS</span>
+            <strong id="kgrid-wcss-5">—</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRACTICE PROBLEMS -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: Assignment Step by Hand</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>You run K-means with K = 3 on a 2D dataset. After initialisation the centroids are at <span class="math-inline math-latex">\boldsymbol{\mu}_1 = (1,1)</span>, <span class="math-inline math-latex">\boldsymbol{\mu}_2 = (5,5)</span>, and <span class="math-inline math-latex">\boldsymbol{\mu}_3 = (9,9)</span>.</p>
+      <p>Point <span class="math-inline math-latex">\mathbf{x} = (4,5)</span> is to be assigned. To which cluster is it assigned? Show the three distance calculations explicitly.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>We compute squared Euclidean distance from <span class="math-inline math-latex">(4,5)</span> to each centroid:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">d_1 = \sqrt{(4-1)^2 + (5-1)^2} = \sqrt{9+16} = \sqrt{25} = 5</span>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">d_2 = \sqrt{(4-5)^2 + (5-5)^2} = \sqrt{1+0} = \sqrt{1} = 1</span>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">d_3 = \sqrt{(4-9)^2 + (5-9)^2} = \sqrt{25+16} = \sqrt{41} \approx 6.4</span>
+        </div>
+        <p>The minimum distance is <span class="math-inline math-latex">d_2 = 1</span>. The point is assigned to <strong>Cluster 2</strong> (centroid at <span class="math-inline math-latex">(5,5)</span>).</p>
+        <p>Note: K-means uses squared distances in the argmin, but ranking is identical since <span class="math-inline math-latex">\sqrt{\cdot}</span> is monotone. Here <span class="math-inline math-latex">d_1^2 = 25</span>, <span class="math-inline math-latex">d_2^2 = 1</span>, <span class="math-inline math-latex">d_3^2 = 41</span>, confirming Cluster 2.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: Update Step and Reassignment</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>After an assignment step, Cluster 1 contains exactly three points: <span class="math-inline math-latex">(2,3)</span>, <span class="math-inline math-latex">(4,1)</span>, and <span class="math-inline math-latex">(3,5)</span>.</p>
+      <p><strong>Part A:</strong> Compute the new centroid for Cluster 1 after the update step.</p>
+      <p><strong>Part B:</strong> Point <span class="math-inline math-latex">(3.4, 2.8)</span> was previously assigned to Cluster 2 with centroid at <span class="math-inline math-latex">(1,1)</span>. After the update step, Cluster 2's centroid is still <span class="math-inline math-latex">(1,1)</span> and Cluster 1's new centroid is the value you computed in Part A. Should the point be reassigned? Compute both distances and state the result.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>Part A — New centroid for Cluster 1:</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">\boldsymbol{\mu}_1^{\text{new}} = \frac{1}{3}\bigl((2,3)+(4,1)+(3,5)\bigr) = \left(\frac{2+4+3}{3},\,\frac{3+1+5}{3}\right) = (3,\,3)</span>
+        </div>
+        <p><strong>Part B — Should <span class="math-inline math-latex">(3.4, 2.8)</span> be reassigned?</strong></p>
+        <p>Distance to Cluster 1 centroid <span class="math-inline math-latex">(3,3)</span>:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">d_1 = \sqrt{(3.4-3)^2+(2.8-3)^2} = \sqrt{0.16+0.04} = \sqrt{0.20} \approx 0.447</span>
+        </div>
+        <p>Distance to Cluster 2 centroid <span class="math-inline math-latex">(1,1)</span>:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">d_2 = \sqrt{(3.4-1)^2+(2.8-1)^2} = \sqrt{5.76+3.24} = \sqrt{9.00} = 3.0</span>
+        </div>
+        <p>Since <span class="math-inline math-latex">d_1 = 0.447 &lt; d_2 = 3.0</span>, the point <strong>should be reassigned to Cluster 1</strong>. This illustrates why the assignment step must be repeated after each centroid update.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: K-Means++ Sampling Probabilities</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>K-means++ has selected its first centroid at point <span class="math-inline math-latex">A = (2,2)</span>. The dataset has four remaining candidate points:</p>
+      <table style="width:auto;margin:0.75rem 0;">
+        <thead><tr><th>Point</th><th>Coordinates</th></tr></thead>
+        <tbody>
+          <tr><td>B</td><td>(2, 3)</td></tr>
+          <tr><td>C</td><td>(8, 8)</td></tr>
+          <tr><td>D</td><td>(9, 7)</td></tr>
+          <tr><td>E</td><td>(8, 9)</td></tr>
+        </tbody>
+      </table>
+      <p><strong>(a)</strong> Compute <span class="math-inline math-latex">D(\mathbf{x})^2</span> (squared distance to the nearest already-chosen centroid <span class="math-inline math-latex">A</span>) for each of B, C, D, E.</p>
+      <p><strong>(b)</strong> Compute the K-means++ sampling probability for each point.</p>
+      <p><strong>(c)</strong> Which point is most likely to be chosen as the second centroid?</p>
+      <p><strong>(d)</strong> Explain intuitively why K-means++ leads to better initialisation than uniform random selection in this case.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Squared distances to A = (2,2):</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">D(B)^2 = (2-2)^2+(3-2)^2 = 0+1 = 1</span>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">D(C)^2 = (8-2)^2+(8-2)^2 = 36+36 = 72</span>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">D(D)^2 = (9-2)^2+(7-2)^2 = 49+25 = 74</span>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">D(E)^2 = (8-2)^2+(9-2)^2 = 36+49 = 85</span>
+        </div>
+        <p><strong>(b) Sampling probabilities:</strong> Total = <span class="math-inline math-latex">1 + 72 + 74 + 85 = 232</span></p>
+        <div class="math-block">
+          <span class="math-latex math-block">P(B) = \tfrac{1}{232} \approx 0.43\%, \quad P(C) = \tfrac{72}{232} \approx 31.0\%, \quad P(D) = \tfrac{74}{232} \approx 31.9\%, \quad P(E) = \tfrac{85}{232} \approx 36.6\%</span>
+        </div>
+        <p><strong>(c) Most likely second centroid:</strong> Point <strong>E = (8,9)</strong>, with probability approximately 36.6%.</p>
+        <p><strong>(d) Intuitive explanation:</strong> The dataset appears to have two natural groups: one around <span class="math-inline math-latex">A</span> and <span class="math-inline math-latex">B</span> near (2,2)-(2,3), and another around C, D, E near (8,8)-(9,9). Uniform random selection might accidentally pick two centroids from the same dense region — e.g., both <span class="math-inline math-latex">A</span> and <span class="math-inline math-latex">B</span> — leaving the far cluster entirely unrepresented. K-means++ avoids this by making C, D, E collectively overwhelmingly more probable (99.5% combined) than the nearby B (0.5%). The algorithm will almost certainly send the second centroid to the far cluster, giving K-means a far better starting position and greatly reducing the chance of a bad local minimum.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="../index.html" class="nav-btn prev">Track Home</a>
+    <a href="02-distance-centroids.html" class="nav-btn">Next: Distance &amp; Centroids</a>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Shared dataset (fixed seed for reproducibility across both widgets)
+  // ═══════════════════════════════════════════════════════════════════════════
+  var blobData = generateBlobs(80, 3, 1.2, 42);
+  var ALL_POINTS = blobData.points;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WIDGET 1 — Animated K-Means Visualizer
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Helper: random init (pick K distinct points from dataset)
+  function randomInit(points, K) {
+    var idxs = [];
+    var pool = points.map(function (_, i) { return i; });
+    // Fisher-Yates shuffle (first K elements)
+    for (var i = 0; i < K; i++) {
+      var j = i + Math.floor(Math.random() * (pool.length - i));
+      var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+    }
+    var result = [];
+    for (var i = 0; i < K; i++) result.push(points[pool[i]].slice());
+    return result;
+  }
+
+  var state = {
+    points: [],
+    centroids: [],
+    labels: [],
+    iter: 0,
+    converged: false
+  };
+
+  function initializeKMeans(K, usePlusPlus) {
+    state.points = ALL_POINTS;
+    state.centroids = usePlusPlus
+      ? kMeansPlusPlusInit(state.points, K)
+      : randomInit(state.points, K);
+    state.labels = assignClusters(state.points, state.centroids);
+    state.iter = 0;
+    state.converged = false;
+  }
+
+  function stepKMeans() {
+    if (state.converged) return;
+    var K = state.centroids.length;
+    var newCentroids = updateCentroids(state.points, state.labels, K);
+    var newLabels = assignClusters(state.points, newCentroids);
+    var moved = newCentroids.some(function (c, k) {
+      return euclidean(c, state.centroids[k]) > 1e-8;
+    });
+    state.centroids = newCentroids;
+    state.labels = newLabels;
+    state.iter++;
+    if (!moved) state.converged = true;
+  }
+
+  function buildKMeansTraces(pts, labels, centroids) {
+    var K = centroids.length;
+    var traces = [];
+    // One scatter trace per cluster (data points)
+    for (var k = 0; k < K; k++) {
+      var clusterX = [], clusterY = [];
+      for (var i = 0; i < pts.length; i++) {
+        if (labels[i] === k) {
+          clusterX.push(pts[i][0]);
+          clusterY.push(pts[i][1]);
+        }
+      }
+      traces.push({
+        type: 'scatter',
+        mode: 'markers',
+        x: clusterX,
+        y: clusterY,
+        name: 'Cluster ' + (k + 1),
+        marker: {
+          color: CLUSTER_COLORS[k],
+          size: 7,
+          opacity: 0.8,
+          line: { color: CLUSTER_COLORS[k], width: 1 }
+        },
+        showlegend: true
+      });
+    }
+    // Centroid trace
+    var cxArr = centroids.map(function (c) { return c[0]; });
+    var cyArr = centroids.map(function (c) { return c[1]; });
+    var cColors = centroids.map(function (_, k) { return CLUSTER_COLORS[k]; });
+    traces.push({
+      type: 'scatter',
+      mode: 'markers',
+      x: cxArr,
+      y: cyArr,
+      name: 'Centroids',
+      marker: {
+        symbol: 'star',
+        size: 16,
+        color: cColors,
+        line: { color: '#ffffff', width: 2 }
+      },
+      showlegend: true
+    });
+    return traces;
+  }
+
+  function getKMeansLayout(iter, converged) {
+    var titleText = 'Iteration ' + iter + (converged ? ' — Converged' : '');
+    return plotlyLayout({
+      height: 450,
+      title: { text: titleText, font: { size: 13 } },
+      xaxis: { title: 'Feature 1', range: [-1, 11] },
+      yaxis: { title: 'Feature 2', range: [-1, 11] },
+      legend: { orientation: 'h', y: -0.12 },
+      margin: { t: 50, r: 20, b: 80, l: 55 }
+    });
+  }
+
+  function updateKMeansStats() {
+    var currentWcss = wcss(state.points, state.labels, state.centroids);
+    document.getElementById('stat-iter').textContent = state.iter;
+    document.getElementById('stat-wcss').textContent = currentWcss.toFixed(1);
+    document.getElementById('stat-converged').textContent = state.converged ? 'Yes' : 'No';
+    document.getElementById('stat-k').textContent = state.centroids.length;
+  }
+
+  function renderKMeans() {
+    var traces = buildKMeansTraces(state.points, state.labels, state.centroids);
+    Plotly.react('kmeans-plot', traces, getKMeansLayout(state.iter, state.converged), PLOTLY_CONFIG);
+    updateKMeansStats();
+  }
+
+  function getSelectedK() {
+    return parseInt(document.getElementById('kmeans-k-slider').value, 10);
+  }
+
+  function getUsePlusPlus() {
+    return document.getElementById('kmeans-plusplus-chk').checked;
+  }
+
+  // Initial render
+  initializeKMeans(3, true);
+  Plotly.newPlot('kmeans-plot',
+    buildKMeansTraces(state.points, state.labels, state.centroids),
+    getKMeansLayout(0, false),
+    PLOTLY_CONFIG
+  );
+  updateKMeansStats();
+
+  // K slider
+  document.getElementById('kmeans-k-slider').addEventListener('input', function () {
+    var k = parseInt(this.value, 10);
+    document.getElementById('kmeans-k-val').textContent = k;
+    initializeKMeans(k, getUsePlusPlus());
+    renderKMeans();
+  });
+
+  // Reset button
+  document.getElementById('kmeans-reset-btn').addEventListener('click', function () {
+    initializeKMeans(getSelectedK(), getUsePlusPlus());
+    renderKMeans();
+  });
+
+  // Step button
+  document.getElementById('kmeans-step-btn').addEventListener('click', function () {
+    if (!state.converged) {
+      stepKMeans();
+      renderKMeans();
+    }
+  });
+
+  // Run to convergence button
+  document.getElementById('kmeans-run-btn').addEventListener('click', function () {
+    var safetyLimit = 200;
+    var count = 0;
+    while (!state.converged && count < safetyLimit) {
+      stepKMeans();
+      count++;
+    }
+    renderKMeans();
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WIDGET 2 — K Comparison Grid
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  function buildKGridTraces(pts, labels, K) {
+    var traces = [];
+    for (var k = 0; k < K; k++) {
+      var xs = [], ys = [];
+      for (var i = 0; i < pts.length; i++) {
+        if (labels[i] === k) {
+          xs.push(pts[i][0]);
+          ys.push(pts[i][1]);
+        }
+      }
+      traces.push({
+        type: 'scatter',
+        mode: 'markers',
+        x: xs,
+        y: ys,
+        name: 'C' + (k + 1),
+        marker: { color: CLUSTER_COLORS[k], size: 6, opacity: 0.85 },
+        showlegend: false
+      });
+    }
+    return traces;
+  }
+
+  function buildKGridLayout(K) {
+    return plotlyLayout({
+      height: 250,
+      title: { text: 'K = ' + K, font: { size: 12 } },
+      xaxis: { title: '', range: [-1, 11], showticklabels: false },
+      yaxis: { title: '', range: [-1, 11], showticklabels: false },
+      margin: { t: 35, r: 10, b: 20, l: 20 },
+      showlegend: false
+    });
+  }
+
+  [2, 3, 4, 5].forEach(function (K) {
+    var initCentroids = kMeansPlusPlusInit(ALL_POINTS, K);
+    var result = kMeans(ALL_POINTS, K, 100, initCentroids);
+    var traces = buildKGridTraces(ALL_POINTS, result.labels, K);
+    var divId = 'kgrid-k' + K;
+    Plotly.newPlot(divId, traces, buildKGridLayout(K), PLOTLY_CONFIG);
+    var wcssEl = document.getElementById('kgrid-wcss-' + K);
+    if (wcssEl) wcssEl.textContent = result.inertia.toFixed(1);
+  });
+
+});
+</script>
+</body>
+</html>
