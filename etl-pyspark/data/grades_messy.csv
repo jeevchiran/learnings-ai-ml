@@ -1,0 +1,41 @@
+enrollment_id,student_id,course_id,course_name,semester,grade
+E001,S001,CS301,Data Structures,Fall 2024,82
+E002,S001,CS302,Algorithms,Fall 2024,78
+E003,S002,DS201,Intro to Data Science,Fall 2024,85
+E004,S002,DS202,machine learning basics,Spring 2025,79
+E005,S003,MA401,Abstract Algebra,fall 2024,91
+E006,S003,MA402,Real Analysis,Spring 2025,88
+E007,S004,ST101,Intro to Statistics,Fall 2024,74
+E008,S004,ST102, Probability Theory ,spring 2025,71
+E009,S005,CS201,Programming Fundamentals,Fall 2024,83
+E010,S005,CS202, Object-Oriented Design,Spring 2025,80
+E011,S006,DS301, big data analytics ,Fall 2024,76
+E012,S006,DS302,data visualization,SPRING 2025,81
+E013,S007,MA101,Calculus I,Fall 2024,68
+E014,S007,MA102,calculus ii,Spring 2025,72
+E015,S008,ST401,Bayesian Statistics,FALL 2024,87
+E016,,ST402,Time Series Analysis,Spring 2025,84
+E017,,CS101,Intro to Programming,Fall 2024,77
+E018,,CS102,Discrete Mathematics,Spring 2025,73
+E019,S010,DS401,Deep Learning,Fall 2024,90
+E020,S010,DS402, Natural Language Processing ,Spring 2025,
+E021,S011,MA201,Linear Algebra,Fall 2024,
+E022,S011,MA202,Differential Equations,Spring 2025,
+E023,S012,ST301,Regression Analysis,fall 2024,82
+E024,S012,ST302, experimental design ,SPRING 2025,78
+E025,S013,CS401,operating systems,Fall 2024,-15
+E026,S013,CS402,Distributed Systems,Spring 2025,105
+E027,S014,DS101,Data Literacy,Fall 2024,65
+E028,S014,DS102,python for data science,Spring 2025,70
+E029,S015,MA301, Number Theory,fall 2024,84
+E030,S015,MA302,topology,Spring 2025,80
+E031,S016,ST201,Statistical Methods,FALL 2024,73
+E032,S016,ST202,survey sampling,spring 2025,69
+E033,S017,CS201,PROGRAMMING FUNDAMENTALS,Fall 2024,81
+E034,S017,CS202,object-oriented design,Spring 2025,77
+E035,S018,DS301,Big Data Analytics,Fall 2024,85
+E036,S018,DS302, Data Visualization ,spring 2025,82
+E037,S019,MA401,abstract algebra,FALL 2024,92
+E001,S001,CS301,Data Structures,Fall 2024,82
+E003,S002,DS201,Intro to Data Science,Fall 2024,85
+E007,S004,ST101,Intro to Statistics,Fall 2024,74

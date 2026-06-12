@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 7: Hyperparameter Tuning</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-decision-trees-intro.html">1. Intro</a>
+    <a href="02-impurity-training.html">2. Impurity</a>
+    <a href="03-gini-splits.html">3. Gini Splits</a>
+    <a href="04-advantages-limitations.html">4. Advantages</a>
+    <a href="05-bagging-random-forests.html">5. Random Forests</a>
+    <a href="06-gradient-boosting.html">6. Gradient Boosting</a>
+    <a href="07-hyperparameter-tuning.html" class="active">7. Hyperparameters</a>
+  </nav>
+  <header>
+    <h1>Module 7: Hyperparameter Tuning</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- SECTION 1: THE TUNING MINDSET -->
+  <h2>The Tuning Mindset</h2>
+
+  <p>Hyperparameter tuning is not a matter of randomly turning knobs until validation accuracy improves. Every hyperparameter exists for a reason that is grounded in the bias-variance framework, and understanding that reason is what separates principled tuning from trial-and-error. Before adjusting any hyperparameter, ask yourself a single question: "Am I trying to reduce bias, reduce variance, or reduce computation?"</p>
+
+  <div class="callout insight">
+    <strong>The organizing principle of hyperparameter tuning</strong>
+    Hyperparameters that control model complexity control the bias-variance tradeoff. Hyperparameters that control randomness reduce variance. Hyperparameters that control computation are secondary — they affect training cost, not the fundamental quality of the model.
+  </div>
+
+  <p>This distinction immediately organizes the landscape. When your model underfits (high train error, high test error), you need to reduce bias — reach for parameters that increase model complexity. When your model overfits (low train error, high test error), you need to reduce variance — reach for regularization, sampling, or depth controls. When your model is too slow to train, reach for computational shortcuts.</p>
+
+  <p>The modules preceding this one established the mathematical foundation: decision trees define piecewise-constant functions on axis-aligned partitions; random forests reduce variance by averaging decorrelated trees; gradient boosting reduces bias iteratively through additive fitting of residuals. Each algorithm's hyperparameters map directly onto these mechanisms. Understanding the mechanism is the prerequisite for principled tuning.</p>
+
+  <div class="bridge">
+    <strong>From algorithms to parameters.</strong> Modules 5 and 6 derived the Random Forest variance formula <span class="math-latex math-inline">\text{Var}(F) = \rho\sigma^2 + \frac{(1-\rho)\sigma^2}{B}</span> and the GB update rule <span class="math-latex math-inline">F_m = F_{m-1} + \eta h_m</span>. Every major hyperparameter in both algorithms corresponds directly to a term in one of these formulas. This module makes those correspondences explicit and translates them into practical tuning recipes.
+  </div>
+
+  <!-- SECTION 2: RANDOM FOREST HYPERPARAMETERS -->
+  <h2>Random Forest Hyperparameters</h2>
+
+  <p>Random forests have a relatively small set of important hyperparameters. Because the ensemble mechanism (bagging + feature randomness) is the primary tool for variance reduction, individual trees are allowed to grow without aggressive regularization. This makes RF more forgiving to misconfiguration than gradient boosting.</p>
+
+  <h3>Reference Table</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Default (sklearn)</th>
+        <th>Controls</th>
+        <th>Increase &rarr;</th>
+        <th>Decrease &rarr;</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>n_estimators</code></td>
+        <td>100</td>
+        <td>Ensemble size</td>
+        <td>More stable, diminishing returns</td>
+        <td>Higher variance</td>
+      </tr>
+      <tr>
+        <td><code>max_depth</code></td>
+        <td>None (full)</td>
+        <td>Tree complexity</td>
+        <td>Lower bias, higher variance</td>
+        <td>Higher bias, lower variance</td>
+      </tr>
+      <tr>
+        <td><code>max_features</code></td>
+        <td>"sqrt"</td>
+        <td>Feature randomness</td>
+        <td>Higher correlation, lower bias</td>
+        <td>Lower correlation, lower variance</td>
+      </tr>
+      <tr>
+        <td><code>min_samples_leaf</code></td>
+        <td>1</td>
+        <td>Leaf size</td>
+        <td>Lower variance, higher bias</td>
+        <td>Lower bias, higher variance</td>
+      </tr>
+      <tr>
+        <td><code>min_samples_split</code></td>
+        <td>2</td>
+        <td>Node splitting</td>
+        <td>Similar to min_samples_leaf</td>
+        <td>More splits, higher variance</td>
+      </tr>
+      <tr>
+        <td><code>bootstrap</code></td>
+        <td>True</td>
+        <td>OOB + decorrelation</td>
+        <td>Enables OOB error estimate</td>
+        <td>No bootstrap, can help with small datasets</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>n_estimators (B): The Ensemble Size</h3>
+
+  <p>The variance formula from Module 5 is the direct justification for this parameter. For an ensemble of <span class="math-latex math-inline">B</span> trees each with variance <span class="math-latex math-inline">\sigma^2</span> and pairwise correlation <span class="math-latex math-inline">\rho</span>:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{Var}(F_B) = \rho\sigma^2 + \frac{(1-\rho)\sigma^2}{B}</span>
+  </div>
+
+  <p>Increasing <span class="math-latex math-inline">B</span> reduces the second term <span class="math-latex math-inline">\frac{(1-\rho)\sigma^2}{B}</span>, which represents the variance reducible by averaging. The first term <span class="math-latex math-inline">\rho\sigma^2</span> is the irreducible correlation floor — no amount of additional trees eliminates it. This is why returns diminish after roughly 100-200 trees: the second term becomes negligible relative to the first.</p>
+
+  <p>Practical guidance: use OOB error to diagnose convergence. If OOB error is still decreasing at B=100, add more trees. The recommended starting point is 100-500. Computational cost scales linearly with <span class="math-latex math-inline">B</span>, so there is no benefit to overshooting. A common efficient protocol: start at B=200, plot OOB error vs B, stop at the elbow.</p>
+
+  <h3>max_features (m_try): The Correlation Dial</h3>
+
+  <p><code>max_features</code> is the primary dial for controlling tree correlation <span class="math-latex math-inline">\rho</span>. At each split, only a random subset of <span class="math-latex math-inline">m</span> out of <span class="math-latex math-inline">p</span> features is considered. Smaller <span class="math-latex math-inline">m</span> means the trees are forced to use different features, reducing correlation but also increasing individual tree bias. The ensemble variance formula shows the tension: lower <span class="math-latex math-inline">\rho</span> is always good, but lower <span class="math-latex math-inline">m</span> also raises <span class="math-latex math-inline">\sigma^2</span> (individual tree variance increases because some trees use suboptimal features).</p>
+
+  <p>For classification, <span class="math-latex math-inline">\sqrt{p}</span> is the empirically validated default. For regression, <span class="math-latex math-inline">p/3</span>. If your features are highly correlated (e.g., many redundant or collinear inputs), use smaller <span class="math-latex math-inline">m</span> to force diversification. Cross-validate over the set <span class="math-latex math-inline">\{\lfloor\sqrt{p}/2\rfloor,\, \lfloor\sqrt{p}\rfloor,\, \lfloor 2\sqrt{p}\rfloor\}</span>. This is usually the single most impactful hyperparameter to tune in a random forest.</p>
+
+  <h3>max_depth: Tree Depth Control</h3>
+
+  <p>In random forests, it is common practice to grow full trees (max_depth=None) because averaging across many trees controls the ensemble variance even when individual trees are deep. Limiting depth adds bias to individual trees, and since the ensemble's bias equals the average tree bias, this directly hurts performance. The exception arises when <span class="math-latex math-inline">n</span> is very large and full trees become computationally expensive. Common cross-validation values: {None, 5, 10, 20}. For most datasets, None is the best choice.</p>
+
+  <h3>min_samples_leaf: Smooth Regularization</h3>
+
+  <p><code>min_samples_leaf</code> controls tree depth more gracefully than <code>max_depth</code> by preventing splits when either resulting leaf would have fewer than the specified number of samples. With the default of 1, trees can create single-sample leaves that perfectly memorize individual training points. Increasing <code>min_samples_leaf</code> forces leaves to represent broader regions of the feature space, yielding smoother predictions. The effect is analogous to kernel smoothing: larger leaf size averages more training points, reducing variance at the cost of resolution. Try values {1, 5, 10, 20}. Larger values are beneficial when the dataset is noisy or when features are measured with error.</p>
+
+  <!-- SECTION 3: GRADIENT BOOSTING HYPERPARAMETERS -->
+  <h2>Gradient Boosting Hyperparameters</h2>
+
+  <p>Gradient boosting is substantially more sensitive to hyperparameter choices than random forests. The additive construction means overfitting compounds across iterations — one misconfigured hyperparameter can lead to severe overfitting. The flip side is that GB is also capable of higher peak performance when tuned correctly.</p>
+
+  <h3>The Critical Interaction: learning_rate x n_estimators</h3>
+
+  <p>The GB ensemble is:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">F_M(\mathbf{x}) = \sum_{m=1}^{M} \eta \cdot h_m(\mathbf{x})</span>
+  </div>
+
+  <p>The learning rate <span class="math-latex math-inline">\eta</span> shrinks each tree's contribution. The total "capacity" of the model to fit the data is proportional to the product:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{Total contribution} \approx \eta \cdot M \cdot \bar{h}</span>
+  </div>
+
+  <p>where <span class="math-latex math-inline">\bar{h}</span> is the average tree magnitude. If you halve <span class="math-latex math-inline">\eta</span> from 0.1 to 0.05, you need roughly double <span class="math-latex math-inline">M</span> to reach the same fitting level. This creates a fundamental trade-off: small <span class="math-latex math-inline">\eta</span> with large <span class="math-latex math-inline">M</span> generally generalizes better (the model corrects errors in smaller, more careful steps) but requires more computation. The practical recipe is to fix the "budget" <span class="math-latex math-inline">\eta \times M</span> first, then tune other parameters, then optionally reduce <span class="math-latex math-inline">\eta</span> and scale <span class="math-latex math-inline">M</span> proportionally for a final accuracy boost.</p>
+
+  <div class="callout warning">
+    <strong>Common mistake: tuning learning_rate and n_estimators independently</strong>
+    Never treat these as separate parameters. Their product determines effective model capacity. Setting a small learning_rate without increasing n_estimators produces an underfitted model. Setting a large learning_rate without decreasing n_estimators produces an overfitted one. Always adjust them together.
+  </div>
+
+  <h3>n_estimators (M): Iterations with Early Stopping</h3>
+
+  <p>Unlike random forests where more trees always helps, more gradient boosting iterations eventually causes overfitting. The model progressively memorizes training noise. The correct approach is not to grid-search M directly, but to use early stopping: train for M_max iterations and stop when validation loss stops improving. This effectively treats M as a result of the optimization process rather than a hyperparameter. Practical range: 100-2000. With a small learning rate and early stopping, using a large M_max (e.g., 2000) is safe.</p>
+
+  <h3>max_depth: Keep Trees Shallow</h3>
+
+  <p>Unlike random forests where full trees are standard, gradient boosting works best with shallow trees (depth 2-6). The reason is that in GB, trees accumulate — deeper trees fit high-order interaction effects early, leaving less structured signal for subsequent trees and accelerating overfitting. Shallow trees (also called "stumps" at depth 1-2, or "weak learners" at depth 2-4) force the ensemble to build up complexity gradually across iterations. This creates a more regularized, interpretable model. The interaction with n_estimators: shallower trees need more iterations to achieve the same fit. Typical cross-validation range: {2, 3, 4, 5, 6}.</p>
+
+  <h3>subsample: Row Sampling per Iteration</h3>
+
+  <p>At each boosting iteration, use a random fraction <span class="math-latex math-inline">s \in (0, 1]</span> of training samples (without replacement) to fit the current tree. This is the "stochastic" in stochastic gradient boosting. Lower subsample introduces randomness analogous to bagging, reducing the variance of each update and the tendency to overfit. Values below 0.5 tend to introduce too much noise. The sweet spot is typically 0.6-0.8. Note: unlike random forests, subsample without replacement is used here, so the theory is slightly different from bootstrap sampling.</p>
+
+  <h3>colsample_bytree / max_features: Column Sampling</h3>
+
+  <p>At each iteration (XGBoost) or at each split (sklearn), sample a random fraction of features. This is the gradient boosting analog of <code>max_features</code> in random forests. It serves the same variance-reducing role: forcing different trees to use different feature subsets, reducing correlation. In XGBoost, <code>colsample_bytree</code> controls sampling at the tree level, <code>colsample_bylevel</code> at the depth level, and <code>colsample_bynode</code> at the split level. Start with <code>colsample_bytree</code> in {0.5, 0.8, 1.0}.</p>
+
+  <h3>min_child_weight / min_samples_leaf</h3>
+
+  <p>The minimum sum of instance weights (or equivalently, number of samples) required in a leaf. This controls the minimum support needed before a region is considered stable enough to split further. Larger values prevent splits that are based on too few samples, providing regularization. In XGBoost, <code>min_child_weight</code> also accounts for the Hessian sum, making it more principled than a simple sample count. Try values {1, 3, 5, 10, 20}.</p>
+
+  <h3>L1/L2 Regularization: reg_alpha and reg_lambda</h3>
+
+  <p>XGBoost adds L1 (Lasso) and L2 (Ridge) penalties on the leaf weight magnitudes to the split criterion. The modified leaf weight optimization becomes:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">w_j^* = -\frac{\sum_{i \in I_j} g_i}{\sum_{i \in I_j} h_i + \lambda}, \quad \text{Gain} = \frac{1}{2}\left[\frac{(\sum g_i)^2}{\sum h_i + \lambda} + \cdots\right] - \gamma</span>
+  </div>
+
+  <p>where <span class="math-latex math-inline">\lambda</span> is the L2 regularization weight and <span class="math-latex math-inline">\gamma</span> is the minimum gain required for a split. The default <span class="math-latex math-inline">\lambda = 1</span> already provides meaningful regularization. Start with <span class="math-latex math-inline">\alpha = 0</span> (no L1) and tune <span class="math-latex math-inline">\lambda</span> in {0.1, 1, 10, 100}. Add L1 only when you want sparse trees (fewer splits used).</p>
+
+  <h3>GB Reference Table</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>sklearn / XGBoost default</th>
+        <th>Bias effect</th>
+        <th>Variance effect</th>
+        <th>Tune range</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>n_estimators</code> (M)</td>
+        <td>100 / 100</td>
+        <td>bias &darr;</td>
+        <td>variance &uarr; (without early stopping)</td>
+        <td>100-2000</td>
+      </tr>
+      <tr>
+        <td><code>learning_rate</code> (&eta;)</td>
+        <td>0.1 / 0.3</td>
+        <td>&mdash;</td>
+        <td>variance &darr;</td>
+        <td>0.01-0.3</td>
+      </tr>
+      <tr>
+        <td><code>max_depth</code></td>
+        <td>3 / 6</td>
+        <td>bias &darr;</td>
+        <td>variance &uarr;</td>
+        <td>2-8</td>
+      </tr>
+      <tr>
+        <td><code>subsample</code></td>
+        <td>1.0 / 1.0</td>
+        <td>slight &uarr;</td>
+        <td>variance &darr;</td>
+        <td>0.5-1.0</td>
+      </tr>
+      <tr>
+        <td><code>colsample_bytree</code></td>
+        <td>&mdash; / 1.0</td>
+        <td>slight &uarr;</td>
+        <td>variance &darr;</td>
+        <td>0.5-1.0</td>
+      </tr>
+      <tr>
+        <td><code>min_samples_leaf</code> / <code>min_child_weight</code></td>
+        <td>1 / 1</td>
+        <td>bias &uarr;</td>
+        <td>variance &darr;</td>
+        <td>1-20</td>
+      </tr>
+      <tr>
+        <td><code>reg_lambda</code></td>
+        <td>&mdash; / 1</td>
+        <td>bias &uarr;</td>
+        <td>variance &darr;</td>
+        <td>0.1-100</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SECTION 4: PRACTICAL TUNING STRATEGY -->
+  <h2>Practical Tuning Strategy</h2>
+
+  <p>A principled tuning workflow starts from a reasonable baseline, checks for the most impactful parameters first, and uses validation evidence at each step rather than blind grid search. The following recipes have been validated across many competition datasets and real-world applications.</p>
+
+  <h3>For Random Forests</h3>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Establish a baseline</strong>
+        <div class="step-explanation">Start with: n_estimators=200, max_features='sqrt', max_depth=None, min_samples_leaf=1. This is a strong default for most datasets. Compute OOB error and test error to characterize the bias-variance situation.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Diagnose n_estimators via OOB curve</strong>
+        <div class="step-explanation">Plot OOB error as a function of B from 10 to 300. Stop adding trees at the elbow where improvement becomes marginal (typically &lt;0.1% per 50 additional trees). This is more reliable than a fixed default.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Grid search max_features</strong>
+        <div class="step-explanation">With p features, search over: {max(1, floor(&radic;p/2)), floor(&radic;p), floor(2&radic;p)}. For regression also try p/3. This is usually the single most impactful change. Use cross-validation or OOB error.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong>Grid search min_samples_leaf</strong>
+        <div class="step-explanation">Try {1, 5, 10, 20}. If OOB error improves with min_samples_leaf &gt; 1, the data is noisy or the features have measurement error. Larger values also speed up training by preventing very deep trees.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">5</div>
+      <div class="step-content">
+        <strong>Optionally tune max_depth</strong>
+        <div class="step-explanation">Try {None, 10, 20} only if full trees are computationally prohibitive or if OOB error suggests variance is still the dominant problem. For most problems, max_depth=None with proper min_samples_leaf is sufficient.</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>For Gradient Boosting</h3>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Set robust regularization defaults</strong>
+        <div class="step-explanation">Start with: subsample=0.8, colsample_bytree=0.8, max_depth=4, learning_rate=0.1. These provide a moderate level of regularization that prevents severe overfitting across most datasets.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Find n_estimators via early stopping</strong>
+        <div class="step-explanation">For the fixed learning_rate=0.1, use early stopping on a held-out 15-20% validation set (or cross-validate). Run up to M_max=1000 iterations. Record the optimal M* at the validation loss minimum.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Test the budget equivalence with lower learning_rate</strong>
+        <div class="step-explanation">Try learning_rate=0.05 with approximately 2 &times; M* iterations. Compare validation performance. Smaller learning rates often generalize better at the cost of computation. This is the highest-leverage single change for competition settings.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong>Grid search max_depth</strong>
+        <div class="step-explanation">Search {2, 3, 4, 5, 6} with early stopping re-run for each value. Shallower trees often win on tabular data. Depth 3-4 is the most common optimum.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">5</div>
+      <div class="step-content">
+        <strong>Fine-tune regularization parameters last</strong>
+        <div class="step-explanation">Only after max_depth and the learning_rate/n_estimators budget are settled, fine-tune min_child_weight, subsample, colsample_bytree, and reg_lambda. Their marginal impact is smaller than the structural choices above, but cumulatively significant.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout warning">
+    <strong>Never tune n_estimators and learning_rate independently</strong>
+    Their interaction is what matters. A small learning_rate with the original n_estimators is an underfitted model. A large learning_rate with large n_estimators is an overfitted one. Always use early stopping to find the right M for any given learning_rate, or adjust them proportionally.
+  </div>
+
+  <!-- SECTION 5: EARLY STOPPING -->
+  <h2>Early Stopping</h2>
+
+  <p>Early stopping is the most practical tool for preventing overfitting in gradient boosting. It avoids the computational cost of an exhaustive grid search over n_estimators by training the model only as long as it continues to improve on held-out data.</p>
+
+  <p>The algorithm is:</p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Partition the data</strong>
+        <div class="step-explanation">Reserve 10-20% of training data as a validation set. This data is not used for fitting the trees — only for monitoring generalization.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Train iteratively and monitor</strong>
+        <div class="step-explanation">Train for up to M_max boosting iterations. After each iteration m, compute validation loss L_val(m). Track the running minimum and record which iteration achieved it.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Apply the patience criterion</strong>
+        <div class="step-explanation">Stop when validation loss has not improved for n_rounds consecutive iterations (the "patience"). A larger patience allows temporary plateaus and local fluctuations before declaring convergence.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong>Restore the best model</strong>
+        <div class="step-explanation">Use the model from iteration m* that achieved the minimum validation loss — not the final model at the stopping iteration. This is the critical step that many practitioners miss.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">5</div>
+      <div class="step-content">
+        <strong>Report the optimal iteration</strong>
+        <div class="step-explanation">Record M* as the hyperparameter for final retraining on the full dataset (if desired). This makes the early stopping a form of model selection rather than just regularization.</div>
+      </div>
+    </div>
+  </div>
+
+  <p>Formally, let <span class="math-latex math-inline">L_\text{val}(m)</span> be the validation loss at iteration <span class="math-latex math-inline">m</span>. Early stopping identifies:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">m^* = \arg\min_{m \in \{1,\ldots,M_\text{max}\}} L_\text{val}(m)</span>
+  </div>
+
+  <p>The training loss <span class="math-latex math-inline">L_\text{train}(m)</span> is monotonically non-increasing by construction (each tree is fit to reduce the current residuals). The validation loss follows a U-shape: it decreases as the model learns genuine structure, reaches a minimum at <span class="math-latex math-inline">m^*</span>, then increases as the model begins to memorize training noise. Early stopping finds and uses this minimum.</p>
+
+  <p>A typical validation curve from a gradient boosting model looks like the visualization below. The training loss (blue) decreases monotonically. The validation loss (red) initially decreases, reaches a minimum, then rises. The dashed vertical line marks the optimal stopping point.</p>
+
+  <!-- Widget 3 static validation curve (rendered in JS) -->
+  <div class="widget-container" id="section-early-stopping">
+    <h4>Validation curve: training loss (blue) decreases monotonically; validation loss (red) forms a U-shape. The dashed line marks the early stopping point under the selected patience.</h4>
+    <div id="early-stop-plot" class="plot-area" style="height:320px;"></div>
+  </div>
+
+  <!-- WIDGET 1: RF HYPERPARAMETER SIMULATOR -->
+  <h2>Interactive: Random Forest Tuning</h2>
+
+  <p>The simulator below generates synthetic classification data and shows how changing Random Forest hyperparameters affects estimated train error, OOB error, and the bias-variance decomposition. All curves use mathematical approximations based on the RF variance formula.</p>
+
+  <div class="widget-container">
+    <h4>Adjust hyperparameters and observe their effect on OOB error and the bias/variance decomposition. The simulation uses the RF variance formula directly.</h4>
+    <div class="widget-controls">
+      <label>
+        n_estimators:
+        <input type="range" id="rf-n-trees" min="10" max="300" step="10" value="100">
+        <span id="rf-n-trees-val" style="font-weight:600;color:var(--accent-blue);min-width:2.5em;display:inline-block;">100</span>
+      </label>
+      <label>
+        max_features (m):
+        <input type="range" id="rf-max-feat" min="1" max="10" step="1" value="3">
+        <span id="rf-max-feat-val" style="font-weight:600;color:var(--accent-blue);min-width:1.5em;display:inline-block;">3</span>
+        <span style="color:var(--text-muted);font-size:0.78rem;">(p=10)</span>
+      </label>
+      <label>
+        max_depth:
+        <input type="range" id="rf-max-depth" min="2" max="21" step="1" value="21">
+        <span id="rf-max-depth-val" style="font-weight:600;color:var(--accent-blue);min-width:2em;display:inline-block;">None</span>
+      </label>
+      <label>
+        min_samples_leaf:
+        <input type="range" id="rf-min-leaf" min="1" max="20" step="1" value="1">
+        <span id="rf-min-leaf-val" style="font-weight:600;color:var(--accent-blue);min-width:1.5em;display:inline-block;">1</span>
+      </label>
+    </div>
+    <div class="stat-row">
+      <div class="stat-card">
+        <span>Train Error</span>
+        <strong id="rf-stat-train">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>OOB Error</span>
+        <strong id="rf-stat-oob">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Bias Component</span>
+        <strong id="rf-stat-bias">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Variance Component</span>
+        <strong id="rf-stat-var">—</strong>
+      </div>
+    </div>
+    <div id="rf-oob-curve" class="plot-area" style="height:280px;margin-bottom:0.5rem;"></div>
+    <div id="rf-feat-curve" class="plot-area" style="height:280px;"></div>
+  </div>
+
+  <!-- WIDGET 2: GB LEARNING RATE HEATMAP -->
+  <h2>Interactive: The Learning Rate Trade-off</h2>
+
+  <p>The heatmap below shows simulated validation MSE across all combinations of learning_rate and n_estimators. The key pattern: the anti-diagonal (low <span class="math-latex math-inline">\eta</span> + high <span class="math-latex math-inline">M</span>, or high <span class="math-latex math-inline">\eta</span> + low <span class="math-latex math-inline">M</span>) achieves similar performance because the "budget" <span class="math-latex math-inline">\eta \times M</span> is comparable. Off-diagonal combinations with mismatched budgets perform worse.</p>
+
+  <div class="widget-container">
+    <h4>Simulated validation MSE (lower = better, green). Anti-diagonal entries share similar effective budget &eta;&times;M and achieve comparable performance. Red cells indicate budget mismatch or overfitting.</h4>
+    <div id="gb-heatmap" class="plot-area" style="height:420px;"></div>
+  </div>
+
+  <!-- WIDGET 3: EARLY STOPPING VISUALIZER -->
+  <h2>Interactive: Early Stopping Visualizer</h2>
+
+  <p>Adjust the patience parameter to see how it affects where training stops. Smaller patience stops earlier (less overfitting, possibly not reaching the true minimum). Larger patience allows the model to wait through temporary plateaus.</p>
+
+  <div class="widget-container">
+    <h4>Training MSE (blue) decreases monotonically. Validation MSE (red) forms a U-shape due to overfitting. The dashed vertical line marks where early stopping fires given the selected patience.</h4>
+    <div class="widget-controls">
+      <label>
+        Patience (rounds without improvement):
+        <input type="range" id="es-patience" min="5" max="30" step="1" value="10">
+        <span id="es-patience-val" style="font-weight:600;color:var(--accent-blue);min-width:2em;display:inline-block;">10</span>
+      </label>
+    </div>
+    <div class="stat-row">
+      <div class="stat-card">
+        <span>Optimal M*</span>
+        <strong id="es-stat-mstar">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Val MSE at M*</span>
+        <strong id="es-stat-mstar-loss">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Stop at M</span>
+        <strong id="es-stat-mstop">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Val MSE at stop</span>
+        <strong id="es-stat-stop-loss">—</strong>
+      </div>
+    </div>
+    <div id="es-plot" class="plot-area" style="height:320px;"></div>
+  </div>
+
+  <!-- PRACTICE PROBLEMS -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: Diagnosing Random Forest Overfitting</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>You train a random forest with n_estimators=50, max_features='sqrt' (p=100 features so m=10), max_depth=None, and observe: train accuracy=99%, OOB accuracy=72%, test accuracy=70%.</p>
+      <p>(a) What is the likely diagnosis based on the bias-variance framework?</p>
+      <p>(b) List two specific hyperparameter changes you would make and explain the expected effect on bias and variance for each change.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Diagnosis:</strong> The large gap between train accuracy (99%) and OOB/test accuracy (72%) indicates high variance / overfitting. The model fits training data nearly perfectly but generalizes poorly. The bias is low (the model has sufficient capacity), but variance is the dominant problem. This is a classic overfit signature.</p>
+        <p><strong>(b) Two interventions:</strong></p>
+        <p><strong>Change 1: Increase n_estimators from 50 to 200-500.</strong> From the RF variance formula <span class="math-latex math-inline">\text{Var}(F_B) = \rho\sigma^2 + (1-\rho)\sigma^2/B</span>, increasing B directly reduces the second term. At B=50 the ensemble variance is still substantially higher than the <span class="math-latex math-inline">\rho\sigma^2</span> floor. Effect: lower variance, train accuracy may decrease slightly as the ensemble stops memorizing, OOB and test accuracy should improve.</p>
+        <p><strong>Change 2: Increase min_samples_leaf from 1 to 5 or 10.</strong> With the default min_samples_leaf=1, trees can form single-sample leaves that perfectly memorize individual training points. Forcing leaves to contain at least 5-10 samples creates smoother, less overfit predictions. Effect: lower variance (leaves represent broader regions), slightly higher bias (cannot represent fine-grained structure), net improvement in OOB/test error expected.</p>
+        <p>Either of these changes targets variance specifically, which is the diagnosed problem. Changing max_depth or max_features could also help, but the above two are the most direct levers for this symptom pattern.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: The Budget Theory in Practice</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>A gradient boosting model uses learning_rate=0.1 and n_estimators=500. The validation MSE is 0.12 at the early stopping point (iteration 320). A colleague suggests switching to learning_rate=0.01 and n_estimators=5000.</p>
+      <p>(a) According to the budget theory <span class="math-latex math-inline">\eta \times M</span>, should these two configurations produce similar results?</p>
+      <p>(b) What additional hyperparameter(s) might need adjustment alongside the colleague's suggestion?</p>
+      <p>(c) What is the main practical disadvantage of the colleague's suggestion?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Budget comparison:</strong></p>
+        <p>Original budget: <span class="math-latex math-inline">\eta \times M = 0.1 \times 320 = 32</span> (at early stopping point).</p>
+        <p>Colleague's budget: <span class="math-latex math-inline">\eta \times M = 0.01 \times 5000 = 50</span>.</p>
+        <p>These are not equal. The colleague's configuration actually has a larger effective budget, which might produce slightly better results — or it might overfit if M_max=5000 without early stopping. However, if we apply early stopping to the 0.01/5000 configuration, the model would likely stop around iteration 3200 (to match the original budget of 32), and performance should be comparable or slightly better. So yes, the budget theory predicts similar results if early stopping is properly applied.</p>
+        <p><strong>(b) Required companion adjustment: early stopping patience.</strong> With learning_rate=0.01, the validation curve changes much more slowly per iteration. A patience of (for example) 10 iterations that worked for learning_rate=0.1 would need to be increased to roughly 100 iterations to cover the same "effective progress." The patience parameter must scale inversely with the learning rate to detect the same amount of improvement.</p>
+        <p><strong>(c) Practical disadvantage: computational cost.</strong> Training 5000 trees versus 320 trees requires approximately 15x more computation (assuming the early stopping properly fires at ~3200 for 0.01 rate). For large datasets this can be prohibitive. Additionally, storing and serializing a 3200+ tree model requires significantly more memory. Unless there is a measurable accuracy improvement, the original configuration with 320 trees at learning_rate=0.1 is more efficient.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: Variance Bound Under Subsampling</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>For a stochastic gradient boosting model with subsample rate <span class="math-latex math-inline">s</span> and <span class="math-latex math-inline">M</span> iterations:</p>
+      <p><strong>(a)</strong> Derive qualitatively that the variance of ensemble predictions is bounded by:</p>
+      <div class="math-block">
+        <span class="math-latex math-block">\text{Var}(F_M) \leq \frac{\sigma^2}{M} + C\frac{1-s}{s}</span>
+      </div>
+      <p>for some constant <span class="math-latex math-inline">C</span> depending on the training data. (Hint: use the independence introduced by subsampling to decompose the variance.)</p>
+      <p><strong>(b)</strong> Why does subsampling introduce an approximate unbiasedness guarantee even though each individual tree is fit on a biased (partial) sample?</p>
+      <p><strong>(c)</strong> Given the bound in (a), find the value of <span class="math-latex math-inline">s</span> that minimizes total expected error if bias<span class="math-latex math-inline">^2 \propto 1/M</span> and variance <span class="math-latex math-inline">\propto (1-s)/s + 1/M</span>. (Treat <span class="math-latex math-inline">M</span> as fixed.)</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Qualitative derivation:</strong></p>
+        <p>At each iteration <span class="math-latex math-inline">m</span>, the tree <span class="math-latex math-inline">h_m</span> is fit on a subsample <span class="math-latex math-inline">S_m</span> of size <span class="math-latex math-inline">\lfloor sn \rfloor</span>, drawn without replacement. The key observation: because different iterations use different random subsamples, <span class="math-latex math-inline">h_m</span> and <span class="math-latex math-inline">h_{m'}</span> are (approximately) uncorrelated when <span class="math-latex math-inline">m \neq m'</span>, subject to the correlation from shared training data.</p>
+        <p>Write <span class="math-latex math-inline">F_M = \sum_{m=1}^M \eta h_m</span>. If we treat the <span class="math-latex math-inline">h_m</span> as approximately independent (valid when subsamples have low overlap):</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{Var}(F_M) \approx M\eta^2 \text{Var}(h_m) = M\eta^2 \left[\text{Var}(\bar{h}) + \text{Var}(h_m - \bar{h})\right]</span>
+        </div>
+        <p>The first term <span class="math-latex math-inline">\text{Var}(\bar{h})</span> is the variance of the expected tree (systematic component), which is <span class="math-latex math-inline">O(1/M)</span> by averaging. The second term represents the sampling variance introduced by using only a fraction <span class="math-latex math-inline">s</span> of data. By finite population sampling theory, the variance of a subsample estimate scales as <span class="math-latex math-inline">(1-s)/s</span> (the finite population correction factor). Putting these together:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{Var}(F_M) \leq \frac{\sigma^2}{M} + C\frac{1-s}{s}</span>
+        </div>
+        <p>where the first term captures the benefit of averaging <span class="math-latex math-inline">M</span> estimates and the second captures the cost of using partial data at each step. The constant <span class="math-latex math-inline">C</span> depends on the variability of training labels and tree structure.</p>
+        <p><strong>(b) Approximate unbiasedness by symmetry:</strong></p>
+        <p>Even though each tree <span class="math-latex math-inline">h_m</span> is fit on a biased subsample (it only sees a fraction of the data), the bias is not directional. Each training point <span class="math-latex math-inline">i</span> is included in any given subsample with probability approximately <span class="math-latex math-inline">s</span>, and across the <span class="math-latex math-inline">M</span> iterations, each training point is expected to appear in approximately <span class="math-latex math-inline">sM</span> iterations. For large <span class="math-latex math-inline">M</span>, the ensemble effectively "sees" each training point multiple times with roughly equal representation. The expected contribution of each point to the final model is therefore proportional to its weight in the full dataset: <span class="math-latex math-inline">\mathbb{E}\left[\sum_m \mathbf{1}[i \in S_m]\right] = sM</span>, which is uniform across all <span class="math-latex math-inline">i</span>. This uniform coverage in expectation is the source of approximate unbiasedness.</p>
+        <p><strong>(c) Optimal subsample rate:</strong></p>
+        <p>The total expected error (holding M fixed) is proportional to:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">E(s) = \underbrace{\frac{a}{M}}_{\text{bias}^2} + \underbrace{\frac{b(1-s)}{s} + \frac{c}{M}}_{\text{variance}}</span>
+        </div>
+        <p>where <span class="math-latex math-inline">a, b, c</span> are positive constants. Differentiating with respect to <span class="math-latex math-inline">s</span>:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\frac{dE}{ds} = b\frac{d}{ds}\left(\frac{1-s}{s}\right) = b\cdot\frac{-s - (1-s)}{s^2} = -\frac{b}{s^2} &lt; 0</span>
+        </div>
+        <p>The derivative is strictly negative for all <span class="math-latex math-inline">s \in (0,1)</span>. This means the total error is a strictly decreasing function of <span class="math-latex math-inline">s</span> — the minimum is achieved at <span class="math-latex math-inline">s = 1</span> (no subsampling). However, this is the theoretical minimum under the assumption that the bias does not depend on <span class="math-latex math-inline">s</span>. In practice, subsampling introduces decorrelation between trees that reduces the effective correlation term (analogous to <span class="math-latex math-inline">\rho</span> in the RF formula), which the bound does not capture. The practical optimum is therefore an interior solution, empirically found around <span class="math-latex math-inline">s = 0.6</span>-<span class="math-latex math-inline">0.8</span>, where the decorrelation benefit outweighs the sampling cost.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONGRATULATIONS / TRACK COMPLETION -->
+  <div class="callout insight" style="margin-top:3rem;">
+    <strong>Track complete: Decision Trees and Ensemble Methods</strong>
+    You have completed all seven modules of the Decision Trees and Ensemble Methods track. You have built the theory from first principles — starting with the recursive partitioning algorithm, deriving the Gini and entropy splitting criteria, proving the bias-variance decomposition for random forests, deriving the gradient boosting update rule, and concluding with principled hyperparameter tuning grounded in those derivations. The next step is to apply these tools to real data: start with a random forest baseline, compare to gradient boosting with early stopping, and use the tuning recipes from this module to push performance further.
+  </div>
+
+  <div style="text-align:center;margin:2rem 0 1rem 0;">
+    <a href="../index.html" class="nav-btn" style="margin:0.5rem;">Back to Track Index</a>
+    <a href="../../index.html" class="nav-btn" style="margin:0.5rem;">Back to Learning Hub</a>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="06-gradient-boosting.html" class="nav-btn prev">Prev: Gradient Boosting</a>
+    <a href="../index.html" class="nav-btn">Track Home</a>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ─── Utility: seeded PRNG (Mulberry32) ──────────────────────────────────────
+  function makePrng(seed) {
+    var s = seed >>> 0;
+    return function () {
+      s = (s + 0x6D2B79F5) >>> 0;
+      var t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // ─── RF Simulation: Mathematical model ──────────────────────────────────────
+  // For p=10 features, sqrt(p) ~ 3.16, so default m=3
+  var RF_P = 10;
+  var RF_BASE_ERROR = 0.10;  // irreducible error floor
+  var RF_SIGMA2 = 0.18;      // individual tree variance
+
+  // Correlation as a function of max_features m (out of p)
+  // More features => higher correlation between trees
+  function rfCorrelation(m, p) {
+    // Correlation increases as m/p increases
+    // At m=p, rho ~ 0.85; at m=1, rho ~ 0.15
+    return 0.15 + 0.70 * (m / p);
+  }
+
+  // Individual tree sigma^2 as a function of m and depth/leaf parameters
+  function rfSigma2(m, p, maxDepthVal, minLeaf) {
+    // More features => lower individual tree variance (better splits available)
+    var featFactor = 0.8 + 0.4 * (1 - m / p);
+    // Shallower depth => higher bias, lower variance for individual trees
+    var depthFactor = maxDepthVal >= 20 ? 1.0 : (0.5 + 0.5 * (maxDepthVal / 20));
+    // Larger min leaf => less variance
+    var leafFactor = 1.0 - 0.4 * Math.min(1, (minLeaf - 1) / 19);
+    return RF_SIGMA2 * featFactor * depthFactor * leafFactor;
+  }
+
+  // Bias as a function of m, depth, and min_leaf
+  function rfBias2(m, p, maxDepthVal, minLeaf) {
+    // More features => lower bias (can make better splits)
+    var featBias = 0.02 + 0.04 * (1 - m / p) * (1 - m / p);
+    // Shallower trees => higher bias
+    var depthBias = maxDepthVal >= 20 ? 0.0 : (0.04 * (1 - maxDepthVal / 20));
+    // Larger min leaf => higher bias
+    var leafBias = 0.01 * Math.min(1, (minLeaf - 1) / 10);
+    return RF_BASE_ERROR + featBias + depthBias + leafBias;
+  }
+
+  function simulateRFOOBError(B, rho, sigma2) {
+    var varianceComponent = rho * sigma2 + (1 - rho) * sigma2 / B;
+    return varianceComponent;
+  }
+
+  function simulateRFTrainError(B, bias2, rho, sigma2) {
+    // Train error is lower: approximated by base minus ensemble variance benefit
+    var ensembleVar = rho * sigma2 + (1 - rho) * sigma2 / B;
+    // Train error is roughly bias + small residual (overfitting on train)
+    var overfit = 0.06 * Math.exp(-B / 50);
+    return Math.max(0.01, bias2 * 0.4 + overfit);
+  }
+
+  // ─── RF Widget ───────────────────────────────────────────────────────────────
+  var rfNTrees = document.getElementById('rf-n-trees');
+  var rfNTreesVal = document.getElementById('rf-n-trees-val');
+  var rfMaxFeat = document.getElementById('rf-max-feat');
+  var rfMaxFeatVal = document.getElementById('rf-max-feat-val');
+  var rfMaxDepth = document.getElementById('rf-max-depth');
+  var rfMaxDepthVal = document.getElementById('rf-max-depth-val');
+  var rfMinLeaf = document.getElementById('rf-min-leaf');
+  var rfMinLeafVal = document.getElementById('rf-min-leaf-val');
+
+  function getRFParams() {
+    var B = parseInt(rfNTrees.value, 10);
+    var m = parseInt(rfMaxFeat.value, 10);
+    var depthRaw = parseInt(rfMaxDepth.value, 10);
+    var maxDepthVal = depthRaw >= 21 ? 20 : depthRaw;
+    var isNone = depthRaw >= 21;
+    var minLeaf = parseInt(rfMinLeaf.value, 10);
+    return { B: B, m: m, maxDepthVal: isNone ? 20 : maxDepthVal, isNone: isNone, minLeaf: minLeaf };
+  }
+
+  function buildRFOOBCurve(m, maxDepthVal, minLeaf) {
+    var Bvals = [];
+    var oobVals = [];
+    var rho = rfCorrelation(m, RF_P);
+    var sigma2 = rfSigma2(m, RF_P, maxDepthVal, minLeaf);
+    var bias2 = rfBias2(m, RF_P, maxDepthVal, minLeaf);
+    for (var b = 10; b <= 300; b += 10) {
+      Bvals.push(b);
+      var varComp = simulateRFOOBError(b, rho, sigma2);
+      oobVals.push(bias2 + varComp);
+    }
+    return { x: Bvals, y: oobVals };
+  }
+
+  function buildRFFeatureCurve(B, maxDepthVal, minLeaf) {
+    var mVals = [];
+    var oobVals = [];
+    for (var m = 1; m <= RF_P; m++) {
+      mVals.push(m);
+      var rho = rfCorrelation(m, RF_P);
+      var sigma2 = rfSigma2(m, RF_P, maxDepthVal, minLeaf);
+      var bias2 = rfBias2(m, RF_P, maxDepthVal, minLeaf);
+      var varComp = simulateRFOOBError(B, rho, sigma2);
+      oobVals.push(bias2 + varComp);
+    }
+    return { x: mVals, y: oobVals };
+  }
+
+  function updateRFWidget() {
+    var p = getRFParams();
+    rfNTreesVal.textContent = p.B;
+    rfMaxFeatVal.textContent = p.m;
+    rfMaxDepthVal.textContent = p.isNone ? 'None' : p.maxDepthVal;
+    rfMinLeafVal.textContent = p.minLeaf;
+
+    var rho = rfCorrelation(p.m, RF_P);
+    var sigma2 = rfSigma2(p.m, RF_P, p.maxDepthVal, p.minLeaf);
+    var bias2 = rfBias2(p.m, RF_P, p.maxDepthVal, p.minLeaf);
+    var varComp = simulateRFOOBError(p.B, rho, sigma2);
+    var oobErr = bias2 + varComp;
+    var trainErr = simulateRFTrainError(p.B, bias2, rho, sigma2);
+
+    document.getElementById('rf-stat-train').textContent = (trainErr * 100).toFixed(1) + '%';
+    document.getElementById('rf-stat-oob').textContent = (oobErr * 100).toFixed(1) + '%';
+    document.getElementById('rf-stat-bias').textContent = (bias2 * 100).toFixed(1) + '%';
+    document.getElementById('rf-stat-var').textContent = (varComp * 100).toFixed(1) + '%';
+
+    // OOB vs n_estimators curve
+    var oobCurve = buildRFOOBCurve(p.m, p.maxDepthVal, p.minLeaf);
+    var oobTraces = [
+      {
+        x: oobCurve.x,
+        y: oobCurve.y,
+        type: 'scatter',
+        mode: 'lines',
+        name: 'OOB Error',
+        line: { color: '#dc2626', width: 2 }
+      },
+      {
+        x: [p.B],
+        y: [oobErr],
+        type: 'scatter',
+        mode: 'markers',
+        name: 'Current B',
+        marker: { color: '#2563eb', size: 10, symbol: 'circle' },
+        showlegend: true
+      }
+    ];
+    Plotly.react('rf-oob-curve', oobTraces, plotlyLayout({
+      title: { text: 'OOB Error vs n_estimators', font: { size: 13 } },
+      xaxis: { title: 'n_estimators (B)' },
+      yaxis: { title: 'OOB Error', tickformat: '.0%' },
+      legend: { orientation: 'h', y: 1.08 },
+      margin: { t: 40, r: 20, b: 50, l: 60 }
+    }), PLOTLY_CONFIG);
+
+    // OOB vs max_features curve
+    var featCurve = buildRFFeatureCurve(p.B, p.maxDepthVal, p.minLeaf);
+    var sqrtMark = Math.round(Math.sqrt(RF_P));
+    var featTraces = [
+      {
+        x: featCurve.x,
+        y: featCurve.y,
+        type: 'scatter',
+        mode: 'lines',
+        name: 'OOB Error',
+        line: { color: '#dc2626', width: 2 }
+      },
+      {
+        x: [p.m],
+        y: [featCurve.y[p.m - 1]],
+        type: 'scatter',
+        mode: 'markers',
+        name: 'Current m',
+        marker: { color: '#2563eb', size: 10, symbol: 'circle' },
+        showlegend: true
+      },
+      {
+        x: [sqrtMark],
+        y: [featCurve.y[sqrtMark - 1]],
+        type: 'scatter',
+        mode: 'markers',
+        name: 'sqrt(p) default',
+        marker: { color: '#16a34a', size: 8, symbol: 'diamond' },
+        showlegend: true
+      }
+    ];
+    Plotly.react('rf-feat-curve', featTraces, plotlyLayout({
+      title: { text: 'OOB Error vs max_features (m)', font: { size: 13 } },
+      xaxis: { title: 'max_features (m)', dtick: 1 },
+      yaxis: { title: 'OOB Error', tickformat: '.0%' },
+      legend: { orientation: 'h', y: 1.08 },
+      margin: { t: 40, r: 20, b: 50, l: 60 }
+    }), PLOTLY_CONFIG);
+  }
+
+  rfNTrees.addEventListener('input', updateRFWidget);
+  rfMaxFeat.addEventListener('input', updateRFWidget);
+  rfMaxDepth.addEventListener('input', updateRFWidget);
+  rfMinLeaf.addEventListener('input', updateRFWidget);
+
+  // Initial plots
+  Plotly.newPlot('rf-oob-curve', [], plotlyLayout({ margin: { t: 40, r: 20, b: 50, l: 60 } }), PLOTLY_CONFIG);
+  Plotly.newPlot('rf-feat-curve', [], plotlyLayout({ margin: { t: 40, r: 20, b: 50, l: 60 } }), PLOTLY_CONFIG);
+  updateRFWidget();
+
+  // ─── GB Heatmap (static) ─────────────────────────────────────────────────────
+  var GB_OPT_BUDGET = 30;  // optimal eta*M product
+  var GB_ETA_VALS   = [0.01, 0.05, 0.1, 0.2, 0.5, 1.0];
+  var GB_M_VALS     = [10, 25, 50, 100, 200, 500];
+
+  function simulateGBError(eta, M, optBudget) {
+    var budget = eta * M;
+    var distFromOpt = Math.abs(budget - optBudget) / optBudget;
+    var overfitPenalty = eta > 0.3 ? (M / 500) * 0.04 : 0;
+    // U-shaped in budget distance
+    return 0.08 + 0.10 * distFromOpt * distFromOpt + overfitPenalty;
+  }
+
+  var heatZ = [];
+  var heatText = [];
+  for (var ei = 0; ei < GB_ETA_VALS.length; ei++) {
+    var zRow = [];
+    var textRow = [];
+    for (var mi = 0; mi < GB_M_VALS.length; mi++) {
+      var err = simulateGBError(GB_ETA_VALS[ei], GB_M_VALS[mi], GB_OPT_BUDGET);
+      zRow.push(err);
+      textRow.push(err.toFixed(3));
+    }
+    heatZ.push(zRow);
+    heatText.push(textRow);
+  }
+
+  var heatTrace = {
+    type: 'heatmap',
+    x: GB_M_VALS.map(String),
+    y: GB_ETA_VALS.map(function (v) { return v.toString(); }),
+    z: heatZ,
+    text: heatText,
+    texttemplate: '%{text}',
+    colorscale: 'RdYlGn',
+    reversescale: true,
+    showscale: true,
+    colorbar: { title: 'Val MSE', thickness: 14, len: 0.8 },
+    zmin: 0.07,
+    zmax: 0.25,
+    hovertemplate: 'n_estimators=%{x}<br>learning_rate=%{y}<br>Val MSE=%{z:.3f}<extra></extra>'
+  };
+
+  Plotly.newPlot('gb-heatmap', [heatTrace], plotlyLayout({
+    title: { text: 'Simulated Validation MSE: learning_rate × n_estimators', font: { size: 13 } },
+    xaxis: { title: 'n_estimators (M)', type: 'category' },
+    yaxis: { title: 'learning_rate (η)', type: 'category' },
+    margin: { t: 50, r: 100, b: 60, l: 80 },
+    annotations: [{
+      x: '100',
+      y: '0.1',
+      text: 'Optimal region',
+      showarrow: true,
+      arrowhead: 2,
+      arrowcolor: '#1a1a1a',
+      ax: 40,
+      ay: -40,
+      font: { size: 11, color: '#1a1a1a' }
+    }]
+  }), PLOTLY_CONFIG);
+
+  // ─── Early Stopping Visualizer ───────────────────────────────────────────────
+  var ES_M_MAX = 200;
+  var ES_RATE  = 0.03;
+  var ES_OVERFIT = 0.0006;
+
+  function trainMSE(m) {
+    return 0.02 + 0.30 * Math.exp(-ES_RATE * m);
+  }
+
+  function valMSE(m) {
+    return 0.08 + 0.25 * Math.exp(-ES_RATE * m) + ES_OVERFIT * Math.pow(m / 200, 1.5) * m;
+  }
+
+  function findEarlyStopping(patience) {
+    var bestLoss = Infinity;
+    var bestM = 1;
+    var noImproveCount = 0;
+    var stopM = ES_M_MAX;
+
+    for (var m = 1; m <= ES_M_MAX; m++) {
+      var loss = valMSE(m);
+      if (loss < bestLoss - 1e-6) {
+        bestLoss = loss;
+        bestM = m;
+        noImproveCount = 0;
+      } else {
+        noImproveCount++;
+      }
+      if (noImproveCount >= patience) {
+        stopM = m;
+        break;
+      }
+    }
+    return { mStar: bestM, mStop: stopM, bestLoss: bestLoss, stopLoss: valMSE(stopM) };
+  }
+
+  function buildEsData() {
+    var ms = linspace(1, ES_M_MAX, ES_M_MAX);
+    var trainY = ms.map(trainMSE);
+    var valY = ms.map(valMSE);
+    return { ms: ms, trainY: trainY, valY: valY };
+  }
+
+  var esData = buildEsData();
+
+  // Find global optimum for early-stop section static chart
+  var esResult10 = findEarlyStopping(10);
+
+  var esTrainTrace = {
+    x: esData.ms,
+    y: esData.trainY,
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Training MSE',
+    line: { color: '#2563eb', width: 2 }
+  };
+  var esValTrace = {
+    x: esData.ms,
+    y: esData.valY,
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Validation MSE',
+    line: { color: '#dc2626', width: 2 }
+  };
+  var esOptMarker = {
+    x: [esResult10.mStar],
+    y: [esResult10.bestLoss],
+    type: 'scatter',
+    mode: 'markers',
+    name: 'Optimal M*',
+    marker: { color: '#16a34a', size: 10, symbol: 'star' }
+  };
+
+  var esStaticLayout = plotlyLayout({
+    title: { text: 'Training vs Validation Loss Curve', font: { size: 13 } },
+    xaxis: { title: 'Boosting Iteration (m)' },
+    yaxis: { title: 'MSE' },
+    legend: { orientation: 'h', y: 1.12 },
+    shapes: [{
+      type: 'line',
+      x0: esResult10.mStar, x1: esResult10.mStar,
+      y0: 0, y1: 0.35,
+      line: { color: '#16a34a', width: 2, dash: 'dash' }
+    }],
+    margin: { t: 50, r: 20, b: 50, l: 60 }
+  });
+
+  Plotly.newPlot('early-stop-plot', [esTrainTrace, esValTrace, esOptMarker], esStaticLayout, PLOTLY_CONFIG);
+
+  // ─── Interactive Early Stopping Widget ──────────────────────────────────────
+  var esPatience = document.getElementById('es-patience');
+  var esPatienceVal = document.getElementById('es-patience-val');
+
+  function updateESWidget() {
+    var patience = parseInt(esPatience.value, 10);
+    esPatienceVal.textContent = patience;
+
+    var result = findEarlyStopping(patience);
+
+    document.getElementById('es-stat-mstar').textContent = result.mStar;
+    document.getElementById('es-stat-mstar-loss').textContent = result.bestLoss.toFixed(4);
+    document.getElementById('es-stat-mstop').textContent = result.mStop;
+    document.getElementById('es-stat-stop-loss').textContent = result.stopLoss.toFixed(4);
+
+    var trainTrace = {
+      x: esData.ms,
+      y: esData.trainY,
+      type: 'scatter',
+      mode: 'lines',
+      name: 'Training MSE',
+      line: { color: '#2563eb', width: 2 }
+    };
+    var valTrace = {
+      x: esData.ms,
+      y: esData.valY,
+      type: 'scatter',
+      mode: 'lines',
+      name: 'Validation MSE',
+      line: { color: '#dc2626', width: 2 }
+    };
+    var optMarker = {
+      x: [result.mStar],
+      y: [result.bestLoss],
+      type: 'scatter',
+      mode: 'markers',
+      name: 'Optimal M*',
+      marker: { color: '#16a34a', size: 11, symbol: 'star' }
+    };
+    var stopMarker = {
+      x: [result.mStop],
+      y: [result.stopLoss],
+      type: 'scatter',
+      mode: 'markers',
+      name: 'Early stop point',
+      marker: { color: '#d97706', size: 9, symbol: 'x' }
+    };
+
+    var layout = plotlyLayout({
+      title: { text: 'Early Stopping: patience = ' + patience, font: { size: 13 } },
+      xaxis: { title: 'Boosting Iteration (m)' },
+      yaxis: { title: 'MSE' },
+      legend: { orientation: 'h', y: 1.12 },
+      shapes: [
+        {
+          type: 'line',
+          x0: result.mStar, x1: result.mStar,
+          y0: 0, y1: 0.35,
+          line: { color: '#16a34a', width: 2, dash: 'dash' }
+        },
+        {
+          type: 'line',
+          x0: result.mStop, x1: result.mStop,
+          y0: 0, y1: 0.35,
+          line: { color: '#d97706', width: 1.5, dash: 'dot' }
+        }
+      ],
+      margin: { t: 50, r: 20, b: 50, l: 60 }
+    });
+
+    Plotly.react('es-plot', [trainTrace, valTrace, optMarker, stopMarker], layout, PLOTLY_CONFIG);
+  }
+
+  esPatience.addEventListener('input', updateESWidget);
+  Plotly.newPlot('es-plot', [], plotlyLayout({ margin: { t: 50, r: 20, b: 50, l: 60 } }), PLOTLY_CONFIG);
+  updateESWidget();
+
+});
+</script>
+</body>
+</html>

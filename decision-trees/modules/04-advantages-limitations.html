@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 4: Advantages, Limitations, and Pruning</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+  <style>
+    /* ── Pruning tree widget ── */
+    .prune-tree-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      margin: 1rem 0;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+    }
+    .prune-level {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      position: relative;
+      width: 100%;
+      margin-bottom: 0.25rem;
+    }
+    .prune-node {
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem 0.85rem;
+      background: var(--bg-secondary);
+      text-align: center;
+      min-width: 110px;
+      transition: opacity 0.3s, border-color 0.3s, background 0.3s;
+      position: relative;
+    }
+    .prune-node.internal { border-left: 3px solid var(--accent-blue); }
+    .prune-node.leaf     { border-left: 3px solid var(--success); }
+    .prune-node.pruned   {
+      opacity: 0.35;
+      border-color: var(--border);
+      border-left-color: var(--border);
+      background: var(--bg);
+    }
+    .prune-node .node-label  { font-weight: 600; font-size: 0.8rem; color: var(--text); }
+    .prune-node .node-alpha  { font-size: 0.72rem; color: var(--accent-blue); margin-top: 0.2rem; }
+    .prune-node.pruned .node-label,
+    .prune-node.pruned .node-alpha { color: var(--text-muted); }
+    .prune-connector {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      width: 100%;
+      margin: 0;
+      line-height: 0.9;
+      color: var(--border);
+      font-size: 1.1rem;
+      letter-spacing: 0.15rem;
+      user-select: none;
+    }
+    .prune-alpha-table {
+      width: 100%;
+      margin-top: 1rem;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    .prune-alpha-table th,
+    .prune-alpha-table td {
+      padding: 0.45rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+    .prune-alpha-table th { background: var(--bg-secondary); font-size: 0.82rem; }
+    .prune-alpha-table tr.row-pruned td { color: var(--text-muted); }
+    .prune-alpha-table .alpha-val { font-family: var(--font-mono); color: var(--accent-blue); }
+    .prune-stats {
+      display: flex;
+      gap: 1.5rem;
+      margin-top: 0.75rem;
+      font-size: 0.88rem;
+    }
+    .prune-stats span { color: var(--text-muted); }
+    .prune-stats strong { font-family: var(--font-mono); color: var(--accent-blue); }
+  </style>
+</head>
+<body>
+<div class="container">
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-decision-trees-intro.html">1. Intro</a>
+    <a href="02-impurity-training.html">2. Impurity</a>
+    <a href="03-gini-splits.html">3. Gini Splits</a>
+    <a href="04-advantages-limitations.html" class="active">4. Advantages</a>
+    <a href="05-bagging-random-forests.html">5. Random Forests</a>
+    <a href="06-gradient-boosting.html">6. Gradient Boosting</a>
+    <a href="07-hyperparameter-tuning.html">7. Hyperparameters</a>
+  </nav>
+
+  <header>
+    <h1>Module 4: Advantages, Limitations, and Pruning</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- ── Section 1: Why This Matters ── -->
+  <h2>Why Does This Matter?</h2>
+  <p>
+    In Module 3 we built a working tree: we can choose splits, compute Gini gains, and grow a tree
+    from root to leaf. The natural next question is whether we <em>should</em> grow the tree all the
+    way. The answer is almost always no — and understanding why is the conceptual foundation for
+    everything that follows, including ensembles.
+  </p>
+  <div class="bridge">
+    <strong>Doctor analogy.</strong> A doctor who asks twenty questions before making a diagnosis
+    may memorize every patient they have ever seen, giving perfect accuracy on past cases. But
+    facing a new patient with a slightly different presentation, they fail — they are reciting
+    memorized rules rather than reasoning. Conversely, a doctor who asks only two questions misses
+    crucial nuance. The right number of questions is somewhere in between: enough to capture the
+    real signal, not so many that noise gets memorized. Tree depth plays exactly the same role.
+  </div>
+  <p>
+    This module formalizes that intuition. We survey the genuine strengths of decision trees, then
+    catalog their structural limitations, derive the bias-variance decomposition in the tree
+    setting, and develop two principled strategies — pre-pruning and cost-complexity post-pruning —
+    for finding a depth that generalizes.
+  </p>
+
+  <!-- ── Section 2: Advantages ── -->
+  <h2>Advantages</h2>
+  <div class="pros-cons" style="grid-template-columns:1fr;">
+    <div class="pros-cons-col pros">
+      <h4>Advantages of Decision Trees</h4>
+      <ul>
+        <li>
+          <strong>Interpretability.</strong> A tree can be visualized and explained to a non-expert.
+          The path from the root to any leaf is a conjunction of human-readable rules:
+          "Income &gt; 50 000 AND Education = Graduate AND Age &lt; 35 → Approve." Neural networks
+          have no analogous representation; their decisions emerge from millions of interacting
+          weights that resist any concise summary.
+        </li>
+        <li>
+          <strong>No feature scaling required.</strong> Trees split on thresholds, not distances.
+          A feature with range [0, 1 000 000] receives identical treatment to one with range [0, 1]
+          because the algorithm only asks "is the value above or below a threshold?" — it never
+          computes a Euclidean distance or a dot product. Standardization and normalization are
+          unnecessary preprocessing steps.
+        </li>
+        <li>
+          <strong>Handles mixed data types natively.</strong> Continuous features use threshold
+          splits; categorical features use subset splits. Both can appear in the same tree. As
+          shown in Module 3, the impurity calculation is identical in both cases — only the
+          candidate split generation differs.
+        </li>
+        <li>
+          <strong>Captures feature interactions automatically.</strong> The condition
+          "Income &gt; 50 000 <em>and</em> Age &lt; 30" is encoded by the path through two
+          consecutive internal nodes. A linear model would require the analyst to manually add an
+          Income × Age interaction term; the tree discovers it during training without any
+          specification.
+        </li>
+        <li>
+          <strong>Robust to irrelevant features.</strong> If feature <em>j</em> carries no
+          discriminative signal, it will never appear in any split, and its presence in the
+          feature matrix causes no degradation. This stands in contrast to regularized linear
+          models, which must explicitly shrink irrelevant coefficients toward zero.
+        </li>
+        <li>
+          <strong>Fast inference.</strong> Classifying a single sample requires traversing one
+          root-to-leaf path: O(depth). For a balanced tree trained on <em>n</em> samples, the
+          maximum depth is O(log <em>n</em>), giving O(log <em>n</em>) prediction time regardless
+          of the number of features.
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ── Section 3: Limitations ── -->
+  <h2>Limitations</h2>
+  <div class="pros-cons" style="grid-template-columns:1fr;">
+    <div class="pros-cons-col cons">
+      <h4>Limitations of Decision Trees</h4>
+      <ul>
+        <li>
+          <strong>High variance.</strong> Small perturbations in the training data can produce
+          drastically different tree structures. Because the greedy algorithm commits to a split at
+          each node without reconsidering earlier decisions, a different ordering of tied splits, or
+          a single mislabeled point near a decision boundary, can flip the entire tree topology. Two
+          training sets that differ by one point can yield trees with no split in common.
+        </li>
+        <li>
+          <strong>Overfitting.</strong> A fully grown tree can assign a distinct leaf to every
+          training sample, driving training error to zero. A depth-<em>d</em> binary tree has at
+          most
+          <span class="math-latex math-inline">2^d</span> leaves. Setting
+          <span class="math-latex math-inline">d = \lceil \log_2 n \rceil</span> gives at least
+          <em>n</em> leaves, enough for one sample each. The result is a lookup table, not a
+          generalizing model.
+        </li>
+        <li>
+          <strong>Greedy algorithm with no global optimality guarantee.</strong> CART finds the
+          locally optimal split at each node in polynomial time. Finding the globally optimal tree
+          (minimum misclassification on the training set, over all possible trees of a given size)
+          is NP-hard. The greedy choice can be suboptimal: a slightly impure first split might
+          unlock a perfectly pure second-level partition, whereas the greedy "best" first split
+          forecloses that possibility.
+        </li>
+        <li>
+          <strong>Axis-aligned decision boundaries only.</strong> Every split is of the form
+          "feature <em>j</em> ≤ threshold," which is a hyperplane parallel to the
+          <em>j</em>-th axis. If the true decision boundary is diagonal — for example,
+          <span class="math-latex math-inline">x_1 + x_2 &gt; 5</span> — the tree requires
+          exponentially many axis-aligned cuts to approximate it. The number of splits needed to
+          achieve the same accuracy as a single oblique hyperplane grows as
+          <span class="math-latex math-inline">O(\epsilon^{-1})</span> for margin
+          <span class="math-latex math-inline">\epsilon</span>.
+        </li>
+        <li>
+          <strong>Bias toward high-cardinality features.</strong> Features with many unique values
+          have more candidate split points and therefore a higher chance of appearing optimal by
+          chance. This bias is especially pronounced with information gain, where numerical
+          attributes with many distinct values tend to score highest. Gini impurity partially
+          mitigates this; the gain ratio correction in C4.5 addresses it more directly.
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ── Section 4: Bias-Variance Tradeoff ── -->
+  <h2>The Bias-Variance Tradeoff in Trees</h2>
+  <p>
+    For a model <span class="math-latex math-inline">\hat{f}</span> trained to approximate a true
+    function <span class="math-latex math-inline">f^*</span>, the expected squared prediction error
+    at a point <span class="math-latex math-inline">x</span> decomposes as:
+  </p>
+  <div class="math-latex math-block">
+    \text{MSE}\!\left(\hat{f}(x)\right)
+    \;=\;
+    \underbrace{\!\left(\mathbb{E}\!\left[\hat{f}(x)\right] - f^*(x)\right)^{\!2}}_{\text{bias}^2}
+    \;+\;
+    \underbrace{\operatorname{Var}\!\left(\hat{f}(x)\right)}_{\text{variance}}
+    \;+\;
+    \sigma^2
+  </div>
+  <p>
+    The irreducible noise <span class="math-latex math-inline">\sigma^2</span> cannot be reduced
+    regardless of model complexity. The bias and variance terms trade off against each other as
+    tree depth changes:
+  </p>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>Shallow tree (depth near 0)</h5>
+      <p>High bias: the model is too constrained to capture the true structure. A single-split
+      stump approximates any function with at most two distinct predicted values. Variance is
+      low because the model has few degrees of freedom and changes little across training sets.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Deep tree (depth near n)</h5>
+      <p>Low bias on the training set: the model can memorize every label. Variance is high
+      because tiny changes in the training data restructure the entire tree. The model is
+      essentially interpolating noise.</p>
+    </div>
+  </div>
+
+  <div class="callout insight">
+    <strong>Key insight</strong>
+    A fully grown tree has zero training error but high variance. A stump has low variance but
+    high bias. The right depth balances both — and that is precisely what pruning is designed
+    to find.
+  </div>
+
+  <p>
+    In the tree setting, bias decreases monotonically with depth (more splits can always reproduce
+    the training labels exactly), while variance increases monotonically (more splits means more
+    sensitivity to individual training points). The optimal depth minimizes their sum at test time.
+    Since neither the bias nor the variance is directly observable, we use held-out data or
+    cross-validation as a proxy.
+  </p>
+
+  <!-- ── Section 5: Pre-Pruning ── -->
+  <h2>Pre-Pruning</h2>
+  <p>
+    Pre-pruning strategies stop the tree from growing before it reaches maximum depth. Each
+    strategy imposes a constraint that prevents a split from occurring unless it meets a minimum
+    benefit or minimum data threshold. The four standard strategies in scikit-learn are:
+  </p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong><code>max_depth</code></strong>
+        <div class="step-explanation">
+          Limits the length of any root-to-leaf path. Simple and widely used. The limitation is
+          that it applies uniformly: a shallow branch that has already found pure leaves is stopped
+          at the same depth as a branch that still has substantial impurity. It can terminate a
+          beneficial split early in one part of the tree while allowing useless splits in another.
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong><code>min_samples_split</code></strong>
+        <div class="step-explanation">
+          Requires that a node contain at least <em>m</em> samples before it is eligible to be
+          split. The default in scikit-learn is 2, which effectively disables this constraint.
+          Setting <em>m</em> = 20 or 50 prevents the tree from creating splits based on small,
+          possibly noisy subsets. It does not directly control the size of the resulting leaves.
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong><code>min_samples_leaf</code></strong>
+        <div class="step-explanation">
+          Requires that every leaf produced by a split contain at least <em>m</em> samples.
+          Unlike <code>min_samples_split</code>, this controls the output size directly: a split
+          is rejected if either of its children would have fewer than <em>m</em> samples.
+          This is often more meaningful in practice because it prevents predictions from being
+          based on single or very few observations.
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong><code>min_impurity_decrease</code></strong>
+        <div class="step-explanation">
+          Only performs a split if the weighted Gini (or entropy) gain is at least
+          <span class="math-latex math-inline">\delta</span>. Formally, a split is accepted when:
+          <div class="math-latex math-block" style="margin:0.6rem 0;">
+            \frac{N_t}{N}\,G(t) - \frac{N_L}{N}\,G(t_L) - \frac{N_R}{N}\,G(t_R) \;\geq\; \delta
+          </div>
+          where <span class="math-latex math-inline">N_t, N_L, N_R</span> are the sample counts at
+          the node and its children and <span class="math-latex math-inline">G</span> denotes the
+          impurity measure. This is the most semantically direct pre-pruning criterion: it directly
+          says "the split must earn its keep."
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout note">
+    <strong>Trade-off of pre-pruning</strong>
+    Pre-pruning is computationally efficient — the tree never builds the nodes that would be
+    pruned — but it can be myopic. A split that looks unpromising at depth <em>k</em> might
+    unlock highly discriminative splits at depth <em>k</em>+1. Post-pruning, which grows the full
+    tree first and then removes subtrees, sidesteps this problem at the cost of extra computation.
+  </div>
+
+  <!-- ── Section 6: Cost-Complexity Post-Pruning ── -->
+  <h2>Cost-Complexity Post-Pruning</h2>
+  <p>
+    Grow the full tree <span class="math-latex math-inline">T_0</span> first, then prune subtrees
+    to minimize a regularized error objective. The cost-complexity criterion for a subtree
+    <span class="math-latex math-inline">T</span> is:
+  </p>
+  <div class="math-latex math-block">
+    R_\alpha(T) \;=\; R(T) + \alpha\,|T|
+  </div>
+  <p>
+    where <span class="math-latex math-inline">R(T)</span> is the training misclassification rate
+    (or residual MSE for regression),
+    <span class="math-latex math-inline">|T|</span> is the number of leaves in
+    <span class="math-latex math-inline">T</span>, and
+    <span class="math-latex math-inline">\alpha \geq 0</span> is the complexity penalty per leaf.
+    When <span class="math-latex math-inline">\alpha = 0</span> the full tree is optimal; as
+    <span class="math-latex math-inline">\alpha</span> grows, smaller trees become preferred.
+  </p>
+
+  <h3>The Effective Alpha and Pruning Order</h3>
+  <p>
+    For each internal node <span class="math-latex math-inline">t</span>, define the
+    <em>effective alpha</em> at which pruning
+    <span class="math-latex math-inline">t</span> (collapsing its entire subtree
+    <span class="math-latex math-inline">T_t</span> to a single leaf) first becomes at least as
+    good as keeping the subtree:
+  </p>
+  <div class="math-latex math-block">
+    \alpha_t \;=\; \frac{R(t) - R(T_t)}{|T_t| - 1}
+  </div>
+  <p>
+    Here <span class="math-latex math-inline">R(t)</span> is the impurity of node
+    <span class="math-latex math-inline">t</span> treated as a leaf (using its class distribution
+    directly), and <span class="math-latex math-inline">R(T_t)</span> is the sum of leaf impurities
+    in the subtree rooted at <span class="math-latex math-inline">t</span>. The denominator
+    <span class="math-latex math-inline">|T_t| - 1</span> is the number of leaves saved by
+    collapsing.
+  </p>
+  <p>
+    The pruning algorithm processes nodes in order of increasing
+    <span class="math-latex math-inline">\alpha_t</span>: the node with the smallest effective
+    alpha is pruned first (it requires the least regularization to justify removal). This generates
+    a nested sequence of trees:
+  </p>
+  <div class="math-latex math-block">
+    T_0 \;\supset\; T_1 \;\supset\; \cdots \;\supset\; T_{\text{root}}
+  </div>
+  <p>
+    Each <span class="math-latex math-inline">T_{k+1}</span> is obtained from
+    <span class="math-latex math-inline">T_k</span> by pruning the node with the current smallest
+    effective alpha. Cross-validation is then used to select the best
+    <span class="math-latex math-inline">\alpha</span> from this sequence.
+  </p>
+
+  <h3>Worked Example: Three-Level Tree</h3>
+  <p>
+    Consider the following tree with 3 internal nodes
+    (<span class="math-latex math-inline">t_0, t_1, t_2</span>) and 4 leaves. The numbers below
+    are training-set misclassification rates.
+  </p>
+
+  <div class="concept-box">
+    <h4>Tree structure and impurity values</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Node</th>
+          <th>R(t) as leaf</th>
+          <th>R(T_t) as subtree</th>
+          <th>|T_t| leaves</th>
+          <th>Effective alpha</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="math-latex math-inline">t_0</span> (root)</td>
+          <td>0.35</td>
+          <td>0.12</td>
+          <td>4</td>
+          <td>
+            <span class="math-latex math-inline">\frac{0.35 - 0.12}{4 - 1} = \frac{0.23}{3} \approx 0.077</span>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="math-latex math-inline">t_1</span> (left child of root)</td>
+          <td>0.28</td>
+          <td>0.18</td>
+          <td>2</td>
+          <td>
+            <span class="math-latex math-inline">\frac{0.28 - 0.18}{2 - 1} = \frac{0.10}{1} = 0.10</span>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="math-latex math-inline">t_2</span> (right child of root)</td>
+          <td>0.14</td>
+          <td>0.09</td>
+          <td>2</td>
+          <td>
+            <span class="math-latex math-inline">\frac{0.14 - 0.09}{2 - 1} = \frac{0.05}{1} = 0.05</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:0;">
+      Pruning order as <span class="math-latex math-inline">\alpha</span> increases from 0:
+      <strong>t<sub>2</sub> first</strong> (alpha = 0.05), then
+      <strong>t<sub>1</sub></strong> (alpha = 0.10), then
+      <strong>t<sub>0</sub></strong> (alpha = 0.077, re-evaluated after t<sub>1</sub> and t<sub>2</sub>
+      are pruned).
+    </p>
+  </div>
+  <p>
+    At <span class="math-latex math-inline">\alpha = 0</span> we keep the full 4-leaf tree.
+    At <span class="math-latex math-inline">\alpha = 0.05^+</span> we prune
+    <span class="math-latex math-inline">t_2</span>, leaving 3 leaves.
+    At <span class="math-latex math-inline">\alpha = 0.10^+</span> we prune
+    <span class="math-latex math-inline">t_1</span>, leaving 2 leaves (a stump).
+    Cross-validation on a held-out fold selects the value of
+    <span class="math-latex math-inline">\alpha</span> that minimizes validation error.
+  </p>
+
+  <!-- ── Widget 1: Overfitting Visualizer ── -->
+  <h2>Interactive: Depth vs. Error</h2>
+  <p>
+    The widget below trains a 1-D regression tree on 40 noisy samples from
+    <span class="math-latex math-inline">y = \sin(2\pi x) + \varepsilon</span>,
+    <span class="math-latex math-inline">\varepsilon \sim \mathcal{N}(0, 0.1)</span>,
+    and evaluates it on 20 held-out test samples. Adjust the slider to see how training MSE
+    (blue) and test MSE (red) respond as depth increases.
+  </p>
+
+  <div class="widget-container">
+    <h4>1-D regression tree — depth vs. MSE</h4>
+    <div class="widget-controls">
+      <label>
+        Max Depth: <strong id="depth-label">3</strong>
+        <input type="range" id="depth-slider" min="1" max="12" value="3">
+      </label>
+      <button id="resample-btn">Resample data</button>
+    </div>
+    <div class="stat-row" style="margin-bottom:0.75rem;">
+      <div class="stat-card">
+        <span>Train MSE</span>
+        <strong id="stat-train-mse">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Test MSE</span>
+        <strong id="stat-test-mse">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Leaves</span>
+        <strong id="stat-leaves">—</strong>
+      </div>
+    </div>
+    <div id="plot-error-curve" class="plot-area" style="min-height:280px;"></div>
+    <div id="plot-fit" class="plot-area" style="min-height:280px;margin-top:0.5rem;"></div>
+  </div>
+
+  <!-- ── Widget 2: Pruning Alpha Explorer ── -->
+  <h2>Interactive: Cost-Complexity Pruning</h2>
+  <p>
+    The tree below has 3 internal nodes and 4 leaves. Drag the
+    <span class="math-latex math-inline">\alpha</span> slider to watch nodes get pruned as
+    the complexity penalty increases. Gray nodes have been collapsed to leaves.
+  </p>
+
+  <div class="widget-container">
+    <h4>Cost-complexity pruning explorer</h4>
+    <div class="widget-controls">
+      <label>
+        &alpha;:&nbsp;<strong id="alpha-label">0.00</strong>
+        <input type="range" id="alpha-slider" min="0" max="50" value="0" step="1">
+      </label>
+    </div>
+
+    <!-- Tree diagram -->
+    <div class="prune-tree-wrap" id="prune-tree">
+      <!-- Level 0: root -->
+      <div class="prune-level">
+        <div class="prune-node internal" id="pnode-t0">
+          <div class="node-label">t<sub>0</sub> (root)</div>
+          <div class="node-alpha" id="palpha-t0">&alpha;<sub>eff</sub> = 0.077</div>
+        </div>
+      </div>
+      <!-- connector -->
+      <div class="prune-connector" style="gap:5rem;">
+        <span>&#9135;</span>
+        <span>&#9135;</span>
+      </div>
+      <!-- Level 1: t1 and t2 -->
+      <div class="prune-level">
+        <div class="prune-node internal" id="pnode-t1">
+          <div class="node-label">t<sub>1</sub></div>
+          <div class="node-alpha" id="palpha-t1">&alpha;<sub>eff</sub> = 0.100</div>
+        </div>
+        <div class="prune-node internal" id="pnode-t2">
+          <div class="node-label">t<sub>2</sub></div>
+          <div class="node-alpha" id="palpha-t2">&alpha;<sub>eff</sub> = 0.050</div>
+        </div>
+      </div>
+      <!-- connector row 2 -->
+      <div class="prune-connector" style="gap:0.3rem;">
+        <span>&#9135;</span>
+        <span>&#9135;</span>
+        <span>&#9135;</span>
+        <span>&#9135;</span>
+      </div>
+      <!-- Level 2: 4 leaves -->
+      <div class="prune-level">
+        <div class="prune-node leaf" id="pnode-l1">
+          <div class="node-label">Leaf A</div>
+          <div class="node-alpha" style="color:var(--success);">R = 0.04</div>
+        </div>
+        <div class="prune-node leaf" id="pnode-l2">
+          <div class="node-label">Leaf B</div>
+          <div class="node-alpha" style="color:var(--success);">R = 0.14</div>
+        </div>
+        <div class="prune-node leaf" id="pnode-l3">
+          <div class="node-label">Leaf C</div>
+          <div class="node-alpha" style="color:var(--success);">R = 0.05</div>
+        </div>
+        <div class="prune-node leaf" id="pnode-l4">
+          <div class="node-label">Leaf D</div>
+          <div class="node-alpha" style="color:var(--success);">R = 0.04</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alpha table -->
+    <table class="prune-alpha-table" id="prune-alpha-table">
+      <thead>
+        <tr>
+          <th>Node</th>
+          <th>R(t) as leaf</th>
+          <th>R(T<sub>t</sub>) subtree</th>
+          <th>|T<sub>t</sub>|</th>
+          <th class="alpha-val">&alpha;<sub>eff</sub></th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr id="ptrow-t2">
+          <td>t<sub>2</sub></td>
+          <td>0.14</td>
+          <td>0.09</td>
+          <td>2</td>
+          <td class="alpha-val">0.050</td>
+          <td id="ptstatus-t2">Active</td>
+        </tr>
+        <tr id="ptrow-t0">
+          <td>t<sub>0</sub> (root)</td>
+          <td>0.35</td>
+          <td>0.12</td>
+          <td>4</td>
+          <td class="alpha-val">0.077</td>
+          <td id="ptstatus-t0">Active</td>
+        </tr>
+        <tr id="ptrow-t1">
+          <td>t<sub>1</sub></td>
+          <td>0.28</td>
+          <td>0.18</td>
+          <td>2</td>
+          <td class="alpha-val">0.100</td>
+          <td id="ptstatus-t1">Active</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="prune-stats">
+      <div><span>Leaves |T|:</span> <strong id="prune-leaves">4</strong></div>
+      <div><span>Subtree error R(T):</span> <strong id="prune-error">0.27</strong></div>
+      <div><span>Cost R<sub>&alpha;</sub>(T):</span> <strong id="prune-cost">0.27</strong></div>
+    </div>
+  </div>
+
+  <!-- ── Practice Problems ── -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1 — Pre-pruning strategies for overfitting</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>
+        A decision tree achieves 98% training accuracy but only 67% test accuracy. The gap
+        indicates substantial overfitting. Name three pre-pruning strategies you would apply,
+        explain what each parameter controls, and identify the likely structural cause of the gap.
+      </p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>
+          <strong>Likely cause:</strong> The tree has grown too deep, creating leaves that
+          memorize individual or very small groups of training points. The 31-point gap between
+          training and test accuracy is a classic signature of high variance from excessive depth.
+        </p>
+        <p><strong>Three pre-pruning strategies:</strong></p>
+        <ol>
+          <li>
+            <strong><code>max_depth</code></strong>: caps the longest root-to-leaf path.
+            Setting <code>max_depth=5</code> or <code>max_depth=10</code> (search via
+            cross-validation) prevents the tree from encoding per-sample rules. This is the most
+            direct lever for high-variance trees.
+          </li>
+          <li>
+            <strong><code>min_samples_leaf</code></strong>: requires every leaf to hold at least
+            <em>m</em> training samples. A leaf with <em>m</em>=20 represents a local average over
+            at least 20 observations rather than a single point, directly reducing variance without
+            imposing a hard depth limit.
+          </li>
+          <li>
+            <strong><code>min_impurity_decrease</code></strong>: accepts a split only if the
+            weighted impurity gain exceeds a threshold <span class="math-latex math-inline">\delta</span>.
+            This prunes splits that contribute negligibly to purity but add complexity, targeting
+            near-pure nodes that subdivide for statistical noise rather than true signal.
+          </li>
+        </ol>
+        <p>
+          In practice, use cross-validation to tune all three jointly. Start with
+          <code>max_depth</code> first as it is the most interpretable; refine with
+          <code>min_samples_leaf</code> once a reasonable depth range is identified.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2 — Computing effective alpha</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>
+        A tree has 3 internal nodes and 4 leaves. The root node
+        <span class="math-latex math-inline">t_0</span> has misclassification rate
+        <span class="math-latex math-inline">R(t_0) = 0.35</span> if converted to a leaf, and
+        its subtree has
+        <span class="math-latex math-inline">R(T_{t_0}) = 0.12</span> with
+        <span class="math-latex math-inline">|T_{t_0}| = 4</span> leaves.
+        Another internal node <span class="math-latex math-inline">t_1</span> has
+        <span class="math-latex math-inline">R(t_1) = 0.28</span>,
+        <span class="math-latex math-inline">R(T_{t_1}) = 0.18</span>,
+        <span class="math-latex math-inline">|T_{t_1}| = 2</span>. Compute
+        <span class="math-latex math-inline">\alpha_{t_0}</span> and
+        <span class="math-latex math-inline">\alpha_{t_1}</span>. Which node is pruned first
+        as <span class="math-latex math-inline">\alpha</span> increases from 0?
+      </p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>Computing <span class="math-latex math-inline">\alpha_{t_0}</span>:</strong></p>
+        <div class="math-latex math-block">
+          \alpha_{t_0} = \frac{R(t_0) - R(T_{t_0})}{|T_{t_0}| - 1}
+          = \frac{0.35 - 0.12}{4 - 1}
+          = \frac{0.23}{3}
+          \approx 0.0767
+        </div>
+        <p><strong>Computing <span class="math-latex math-inline">\alpha_{t_1}</span>:</strong></p>
+        <div class="math-latex math-block">
+          \alpha_{t_1} = \frac{R(t_1) - R(T_{t_1})}{|T_{t_1}| - 1}
+          = \frac{0.28 - 0.18}{2 - 1}
+          = \frac{0.10}{1}
+          = 0.10
+        </div>
+        <p>
+          Since <span class="math-latex math-inline">\alpha_{t_0} \approx 0.077 &lt; \alpha_{t_1} = 0.10</span>,
+          node <strong><span class="math-latex math-inline">t_0</span> would be pruned first</strong>
+          in the naive comparison. However, note that <span class="math-latex math-inline">t_0</span> is
+          the root and its subtree contains <span class="math-latex math-inline">t_1</span>. In
+          practice, the algorithm prunes bottom-up: leaf-adjacent nodes first. After pruning
+          <span class="math-latex math-inline">t_1</span>'s sibling (if it also has a small
+          effective alpha), <span class="math-latex math-inline">t_0</span>'s subtree shrinks
+          and its effective alpha is recomputed. The key result: <em>the node with the smallest
+          effective alpha among currently active internal nodes is pruned at each step.</em>
+          Here, if both nodes are leaf-adjacent, <span class="math-latex math-inline">t_0</span>
+          is pruned first (alpha 0.077 &lt; 0.10).
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3 — Proving alpha_t &ge; 0</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>
+        Prove that for any internal node <span class="math-latex math-inline">t</span> in a
+        decision tree,
+        <span class="math-latex math-inline">\alpha_t = (R(t) - R(T_t)) / (|T_t| - 1) \geq 0</span>.
+        Start by showing that
+        <span class="math-latex math-inline">R(T_t) \leq R(t)</span> always holds (splitting can
+        only reduce training error or keep it the same). Then explain why
+        <span class="math-latex math-inline">\alpha_t = 0</span> is possible and what it means
+        about the split.
+      </p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>Step 1: Show <span class="math-latex math-inline">R(T_t) \leq R(t)</span>.</strong></p>
+        <p>
+          Let node <span class="math-latex math-inline">t</span> contain
+          <span class="math-latex math-inline">n_t</span> training samples with class distribution
+          <span class="math-latex math-inline">\{n_k\}</span>. If treated as a leaf, the predicted
+          class is the plurality class, so the training misclassification rate is
+          <span class="math-latex math-inline">R(t) = 1 - \max_k (n_k / n_t)</span>.
+        </p>
+        <p>
+          After any binary split of <span class="math-latex math-inline">t</span> into children
+          <span class="math-latex math-inline">t_L</span> and <span class="math-latex math-inline">t_R</span>,
+          each child is also predicted by its plurality class:
+        </p>
+        <div class="math-latex math-block">
+          R(T_t) = \frac{n_L}{n_t}\,R(t_L) + \frac{n_R}{n_t}\,R(t_R)
+          = \frac{n_L}{n_t}\!\left(1 - \max_k \frac{n_{L,k}}{n_L}\right)
+          + \frac{n_R}{n_t}\!\left(1 - \max_k \frac{n_{R,k}}{n_R}\right)
+        </div>
+        <p>
+          We need to show this is at most <span class="math-latex math-inline">R(t)</span>. By
+          the definition of plurality prediction, any assignment of samples to two groups and
+          predicting the majority within each group achieves at most as many errors as predicting
+          the global majority. Formally, for any partition into
+          <span class="math-latex math-inline">L \cup R = \{1,\dots,n_t\}</span>:
+        </p>
+        <div class="math-latex math-block">
+          n_L \max_k n_{L,k} + n_R \max_k n_{R,k}
+          \;\geq\;
+          \max_k\!\left(n_{L,k} + n_{R,k}\right)
+          = \max_k n_k
+        </div>
+        <p>
+          Dividing both sides by <span class="math-latex math-inline">n_t</span> and subtracting
+          from 1 reverses the inequality:
+          <span class="math-latex math-inline">R(T_t) \leq R(t)</span>. Equality holds when the
+          split does not separate any class more cleanly than the parent — for example, when both
+          children have the same majority class in the same proportion as the parent.
+        </p>
+
+        <p><strong>Step 2: Conclude <span class="math-latex math-inline">\alpha_t \geq 0</span>.</strong></p>
+        <p>
+          Since <span class="math-latex math-inline">R(T_t) \leq R(t)</span>, the numerator
+          <span class="math-latex math-inline">R(t) - R(T_t) \geq 0</span>. The denominator
+          <span class="math-latex math-inline">|T_t| - 1 \geq 1</span> because
+          <span class="math-latex math-inline">t</span> is an internal node with at least 2
+          leaves. Therefore
+          <span class="math-latex math-inline">\alpha_t = (R(t) - R(T_t)) / (|T_t| - 1) \geq 0</span>.
+        </p>
+
+        <p><strong>Step 3: When is <span class="math-latex math-inline">\alpha_t = 0</span>?</strong></p>
+        <p>
+          <span class="math-latex math-inline">\alpha_t = 0</span> iff
+          <span class="math-latex math-inline">R(t) = R(T_t)</span>, meaning the subtree achieves
+          exactly the same training error as the leaf would. This happens when the split provides
+          zero reduction in misclassification — both children predict the same class as the parent,
+          or the split perfectly mirrors the parent distribution. In this case the subtree is
+          useless from a training-error standpoint and should be pruned immediately (at
+          <span class="math-latex math-inline">\alpha = 0^+</span>), because any positive
+          complexity penalty, however small, makes the leaf strictly cheaper. This is called a
+          <em>degenerate split</em> — it adds nodes without reducing error, representing pure
+          overfitting to noise.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="03-gini-splits.html" class="nav-btn prev">Prev: Gini Splits</a>
+    <a href="05-bagging-random-forests.html" class="nav-btn">Next: Random Forests</a>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ════════════════════════════════════════════════════════════════
+  // Shared dataset (regenerated on "Resample")
+  // ════════════════════════════════════════════════════════════════
+  var N_TRAIN = 40;
+  var N_TEST  = 20;
+  var trainX, trainY, testX, testY;
+
+  function generateData() {
+    trainX = linspace(0, 1, N_TRAIN).map(function (x) {
+      return x + (Math.random() - 0.5) * 0.015;
+    });
+    trainY = trainX.map(function (x) {
+      return Math.sin(2 * Math.PI * x) + randn() * 0.1;
+    });
+    testX = linspace(0, 1, N_TEST).map(function (x) {
+      return x + (Math.random() - 0.5) * 0.02;
+    });
+    testY = testX.map(function (x) {
+      return Math.sin(2 * Math.PI * x) + randn() * 0.1;
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // 1-D regression tree (CART, MSE criterion)
+  // ════════════════════════════════════════════════════════════════
+  function mse(yArr) {
+    if (yArr.length === 0) return 0;
+    var m = yArr.reduce(function (a, b) { return a + b; }, 0) / yArr.length;
+    return yArr.reduce(function (s, v) { return s + (v - m) * (v - m); }, 0) / yArr.length;
+  }
+
+  function buildTree(indices, X, Y, depth, maxDepth) {
+    var yVals = indices.map(function (i) { return Y[i]; });
+    var predVal = yVals.reduce(function (a, b) { return a + b; }, 0) / yVals.length;
+
+    if (depth >= maxDepth || indices.length <= 1) {
+      return { leaf: true, value: predVal, n: indices.length };
+    }
+
+    // collect and sort unique thresholds
+    var xVals = indices.map(function (i) { return X[i]; });
+    var sorted = xVals.slice().sort(function (a, b) { return a - b; });
+    var thresholds = [];
+    for (var k = 0; k < sorted.length - 1; k++) {
+      thresholds.push((sorted[k] + sorted[k + 1]) / 2);
+    }
+
+    var bestGain = -Infinity;
+    var bestThresh = null;
+
+    var parentMSE = mse(yVals);
+
+    for (var ti = 0; ti < thresholds.length; ti++) {
+      var thr = thresholds[ti];
+      var leftY  = [];
+      var rightY = [];
+      for (var ii = 0; ii < indices.length; ii++) {
+        if (X[indices[ii]] <= thr) leftY.push(Y[indices[ii]]);
+        else rightY.push(Y[indices[ii]]);
+      }
+      if (leftY.length === 0 || rightY.length === 0) continue;
+      var gain = parentMSE
+        - (leftY.length / yVals.length) * mse(leftY)
+        - (rightY.length / yVals.length) * mse(rightY);
+      if (gain > bestGain) {
+        bestGain   = gain;
+        bestThresh = thr;
+      }
+    }
+
+    if (bestThresh === null) {
+      return { leaf: true, value: predVal, n: indices.length };
+    }
+
+    var leftIdx  = indices.filter(function (i) { return X[i] <= bestThresh; });
+    var rightIdx = indices.filter(function (i) { return X[i] >  bestThresh; });
+
+    return {
+      leaf:      false,
+      threshold: bestThresh,
+      value:     predVal,
+      n:         indices.length,
+      left:      buildTree(leftIdx,  X, Y, depth + 1, maxDepth),
+      right:     buildTree(rightIdx, X, Y, depth + 1, maxDepth)
+    };
+  }
+
+  function predictTree(node, x) {
+    if (node.leaf) return node.value;
+    return x <= node.threshold
+      ? predictTree(node.left,  x)
+      : predictTree(node.right, x);
+  }
+
+  function countLeaves(node) {
+    if (node.leaf) return 1;
+    return countLeaves(node.left) + countLeaves(node.right);
+  }
+
+  function computeMSE(node, X, Y) {
+    var total = 0;
+    for (var i = 0; i < X.length; i++) {
+      var diff = predictTree(node, X[i]) - Y[i];
+      total += diff * diff;
+    }
+    return total / X.length;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // Build MSE curves for all depths 1..12
+  // ════════════════════════════════════════════════════════════════
+  var allDepthMSE = { train: [], test: [] };
+
+  function buildAllDepths() {
+    allDepthMSE.train = [];
+    allDepthMSE.test  = [];
+    var allIdx = trainX.map(function (_, i) { return i; });
+    for (var d = 1; d <= 12; d++) {
+      var tree = buildTree(allIdx, trainX, trainY, 0, d);
+      allDepthMSE.train.push(computeMSE(tree, trainX, trainY));
+      allDepthMSE.test.push(computeMSE(tree, testX, testY));
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // Plot: error curve (Plotly)
+  // ════════════════════════════════════════════════════════════════
+  function renderErrorCurve(selectedDepth) {
+    var depths = linspace(1, 12, 12);
+    var trainTrace = {
+      x: depths,
+      y: allDepthMSE.train,
+      mode: 'lines+markers',
+      name: 'Train MSE',
+      line: { color: '#2563eb', width: 2 },
+      marker: { size: 6 }
+    };
+    var testTrace = {
+      x: depths,
+      y: allDepthMSE.test,
+      mode: 'lines+markers',
+      name: 'Test MSE',
+      line: { color: '#dc2626', width: 2 },
+      marker: { size: 6 }
+    };
+    var vlineShape = {
+      type: 'line',
+      x0: selectedDepth, x1: selectedDepth,
+      y0: 0, y1: 1,
+      yref: 'paper',
+      line: { color: '#d97706', width: 1.5, dash: 'dash' }
+    };
+    var layout = plotlyLayout({
+      title: { text: 'MSE vs. Max Depth', font: { size: 13 } },
+      xaxis: { title: 'Max Depth', dtick: 1 },
+      yaxis: { title: 'MSE' },
+      shapes: [vlineShape],
+      legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: 1.12 }
+    });
+    Plotly.react('plot-error-curve', [trainTrace, testTrace], layout, PLOTLY_CONFIG);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // Plot: fitted function (Plotly)
+  // ════════════════════════════════════════════════════════════════
+  function renderFit(depth) {
+    var allIdx = trainX.map(function (_, i) { return i; });
+    var tree   = buildTree(allIdx, trainX, trainY, 0, depth);
+
+    var fineX  = linspace(0, 1, 300);
+    var fineY  = fineX.map(function (x) { return predictTree(tree, x); });
+    var trueY  = fineX.map(function (x) { return Math.sin(2 * Math.PI * x); });
+
+    var scatterTrain = {
+      x: trainX, y: trainY,
+      mode: 'markers', name: 'Train',
+      marker: { color: '#2563eb', size: 5, opacity: 0.7 }
+    };
+    var scatterTest = {
+      x: testX, y: testY,
+      mode: 'markers', name: 'Test',
+      marker: { color: '#dc2626', size: 5, opacity: 0.7, symbol: 'x' }
+    };
+    var fitLine = {
+      x: fineX, y: fineY,
+      mode: 'lines', name: 'Tree fit (depth ' + depth + ')',
+      line: { color: '#d97706', width: 2 }
+    };
+    var trueLine = {
+      x: fineX, y: trueY,
+      mode: 'lines', name: 'True f(x)',
+      line: { color: '#6b7280', width: 1, dash: 'dot' }
+    };
+
+    var layout = plotlyLayout({
+      title: { text: 'Fitted Piecewise Function', font: { size: 13 } },
+      xaxis: { title: 'x', range: [-0.02, 1.02] },
+      yaxis: { title: 'y' },
+      legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: 1.12 }
+    });
+    Plotly.react('plot-fit', [scatterTrain, scatterTest, fitLine, trueLine], layout, PLOTLY_CONFIG);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // Update stat cards
+  // ════════════════════════════════════════════════════════════════
+  function updateStats(depth) {
+    var allIdx = trainX.map(function (_, i) { return i; });
+    var tree   = buildTree(allIdx, trainX, trainY, 0, depth);
+    var tMSE   = allDepthMSE.train[depth - 1];
+    var vMSE   = allDepthMSE.test[depth  - 1];
+    var leaves = countLeaves(tree);
+
+    document.getElementById('stat-train-mse').textContent = tMSE.toFixed(4);
+    document.getElementById('stat-test-mse').textContent  = vMSE.toFixed(4);
+    document.getElementById('stat-leaves').textContent    = leaves;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // Full refresh for widget 1
+  // ════════════════════════════════════════════════════════════════
+  function refreshWidget1() {
+    var depth = parseInt(document.getElementById('depth-slider').value, 10);
+    document.getElementById('depth-label').textContent = depth;
+    buildAllDepths();
+    renderErrorCurve(depth);
+    renderFit(depth);
+    updateStats(depth);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // Widget 1 event wiring
+  // ════════════════════════════════════════════════════════════════
+  document.getElementById('depth-slider').addEventListener('input', function () {
+    var depth = parseInt(this.value, 10);
+    document.getElementById('depth-label').textContent = depth;
+    renderErrorCurve(depth);
+    renderFit(depth);
+    updateStats(depth);
+  });
+
+  document.getElementById('resample-btn').addEventListener('click', function () {
+    generateData();
+    refreshWidget1();
+  });
+
+  // ════════════════════════════════════════════════════════════════
+  // Widget 2: Pruning alpha explorer
+  // ════════════════════════════════════════════════════════════════
+
+  // Internal nodes sorted by effective alpha
+  var PRUNE_NODES = [
+    { id: 't2', alpha: 0.050, leaves: 2, leafIds: ['l3', 'l4'], leafNodes: ['pnode-l3', 'pnode-l4'], subtreeError: 0.09 },
+    { id: 't0', alpha: 0.077, leaves: 4, leafIds: ['l1', 'l2', 'l3', 'l4'], leafNodes: ['pnode-l1', 'pnode-l2', 'pnode-l3', 'pnode-l4'], subtreeError: 0.12 },
+    { id: 't1', alpha: 0.100, leaves: 2, leafIds: ['l1', 'l2'], leafNodes: ['pnode-l1', 'pnode-l2'], subtreeError: 0.18 }
+  ];
+
+  // Full-tree values
+  var FULL_R   = 0.27; // sum of leaf R values: 0.04+0.14+0.05+0.04
+  var FULL_LEAVES = 4;
+
+  // Node impurities (as single leaf)
+  var NODE_R = { t0: 0.35, t1: 0.28, t2: 0.14 };
+
+  function updatePruningWidget(alphaRaw) {
+    // alpha slider goes 0..50, representing 0.000..0.500 (divide by 100 later mapped to 0..0.500)
+    // We use integer ticks: 0=0.000, 1–5=0.001–0.005..., map slider 0..50 -> 0.00..0.50
+    var alpha = alphaRaw / 100;
+    document.getElementById('alpha-label').textContent = alpha.toFixed(3);
+
+    // Determine which nodes are pruned (alpha > node.alpha means pruned)
+    // We prune bottom-up: if a child is pruned, parent's subtree shrinks
+    // For simplicity use the static effective alphas
+
+    var t2Pruned = alpha > PRUNE_NODES[0].alpha; // alpha > 0.050
+    var t1Pruned = alpha > PRUNE_NODES[2].alpha; // alpha > 0.100
+    // t0 only gets pruned when it is the last node (alpha > 0.077 after t1,t2 pruned is stump)
+    // In the simple 3-node tree, after t1 and t2 are pruned, t0 is the stump.
+    var t0Pruned = alpha > PRUNE_NODES[1].alpha; // alpha > 0.077
+
+    // Visual prune state
+    function setNodePruned(nodeId, pruned) {
+      var el = document.getElementById('pnode-' + nodeId);
+      if (!el) return;
+      if (pruned) el.classList.add('pruned');
+      else el.classList.remove('pruned');
+    }
+
+    setNodePruned('t0', t0Pruned);
+    setNodePruned('t1', t1Pruned);
+    setNodePruned('t2', t2Pruned);
+
+    // Leaf pruning: if parent internal node is pruned, its leaves become "merged"
+    // l1+l2 belong to t1, l3+l4 belong to t2
+    setNodePruned('l1', t1Pruned);
+    setNodePruned('l2', t1Pruned);
+    setNodePruned('l3', t2Pruned);
+    setNodePruned('l4', t2Pruned);
+
+    // Table status
+    function setRowStatus(nodeId, pruned) {
+      var row = document.getElementById('ptrow-' + nodeId);
+      var statusEl = document.getElementById('ptstatus-' + nodeId);
+      if (!row || !statusEl) return;
+      if (pruned) {
+        row.classList.add('row-pruned');
+        statusEl.textContent = 'Pruned';
+      } else {
+        row.classList.remove('row-pruned');
+        statusEl.textContent = 'Active';
+      }
+    }
+    setRowStatus('t0', t0Pruned);
+    setRowStatus('t1', t1Pruned);
+    setRowStatus('t2', t2Pruned);
+
+    // Compute current |T| and R(T)
+    // Starting from 4 leaves, each pruned internal node collapses 1 leaf net
+    // t2 prune: 4->3 leaves, R changes from 0.27 to (0.04+0.14+0.14)=0.32 (leaf C+D -> t2 leaf R=0.14)
+    // t1 prune (after t2): 3->2 leaves, R changes to (0.28+0.14)=0.42 (leaf A+B -> t1 leaf R=0.28)
+    // t0 prune: 2->1 leaf, R=0.35
+
+    var numLeaves, currentR;
+    if (t0Pruned) {
+      numLeaves = 1;
+      currentR  = NODE_R.t0;
+    } else if (t1Pruned && t2Pruned) {
+      numLeaves = 2;
+      // leaves are t1 (R=0.28) and t2 (R=0.14)
+      currentR = 0.28 + 0.14;
+    } else if (t2Pruned) {
+      numLeaves = 3;
+      // leaves are A (0.04), B (0.14), t2-collapsed (0.14)
+      currentR = 0.04 + 0.14 + 0.14;
+    } else if (t1Pruned) {
+      numLeaves = 3;
+      // leaves are t1-collapsed (0.28), C (0.05), D (0.04)
+      currentR = 0.28 + 0.05 + 0.04;
+    } else {
+      numLeaves = 4;
+      currentR  = FULL_R;
+    }
+
+    var cost = currentR + alpha * numLeaves;
+
+    document.getElementById('prune-leaves').textContent = numLeaves;
+    document.getElementById('prune-error').textContent  = currentR.toFixed(3);
+    document.getElementById('prune-cost').textContent   = cost.toFixed(3);
+  }
+
+  document.getElementById('alpha-slider').addEventListener('input', function () {
+    updatePruningWidget(parseInt(this.value, 10));
+  });
+
+  // ════════════════════════════════════════════════════════════════
+  // Initial render
+  // ════════════════════════════════════════════════════════════════
+  generateData();
+  refreshWidget1();
+  updatePruningWidget(0);
+
+});
+</script>
+</body>
+</html>

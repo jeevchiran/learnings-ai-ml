@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 3: One-Sample Z-Test</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+  <div class="container">
+
+    <header>
+      <h1>Module 3 &mdash; One-Sample Z-Test</h1>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="theme-toggle">Dark mode</button>
+        <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+      </div>
+    </header>
+
+    <nav class="module-nav-bar">
+      <a href="../index.html">Track Home</a>
+      <a href="01-ht-foundations.html">1. Foundations</a>
+      <a href="02-errors-alpha-pvalue.html">2. Errors and p-value</a>
+      <a href="03-one-sample-z.html" class="active">3. One-Sample Z-Test</a>
+      <a href="04-two-sample-tests.html">4. Two-Sample Tests</a>
+      <a href="05-paired-t.html">5. Paired t-Test</a>
+    </nav>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         WHY — Real-world bridge
+    ══════════════════════════════════════════════════════════════════ -->
+    <div class="bridge">
+      <strong>Factory quality control.</strong> A cereal manufacturer programs its filling machines to deliver exactly 500 g per box. The production manager knows from years of historical data that the filling process has a population standard deviation of &sigma; = 8 g — a quantity so well-established it can be treated as known. After a recent maintenance shutdown, she wants to verify the machine is still calibrated correctly. She randomly samples 40 boxes and finds a sample mean of <em>x&#773;</em> = 497 g. Is this 3 g shortfall just random variation, or is the machine systematically underfilling? To answer this formally &mdash; with a controlled risk of being wrong &mdash; she needs the <strong>one-sample Z-test</strong>.
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SECTION 1: When to Use
+    ══════════════════════════════════════════════════════════════════ -->
+    <h2>1. When to Use the One-Sample Z-Test</h2>
+
+    <p>The one-sample Z-test is the appropriate procedure whenever you are comparing a single observed sample mean against a specific claimed or target value for the population mean. Before applying any statistical test, you must verify that the conditions for its validity are satisfied. For the Z-test, four conditions must hold simultaneously.</p>
+
+    <div class="assumptions-grid">
+      <div class="assumption-card">
+        <h5>Condition 1 &mdash; Single sample vs. claimed value</h5>
+        <p>You have one sample and one claimed population mean <em>&mu;</em><sub>0</sub>. You are not comparing two groups; you are asking whether a single group's mean equals a specific target.</p>
+      </div>
+      <div class="assumption-card">
+        <h5>Condition 2 &mdash; Known population standard deviation</h5>
+        <p>The population standard deviation &sigma; must be known from prior study or long-run process data. When &sigma; is unknown and must be estimated from the sample, the t-test applies instead.</p>
+      </div>
+      <div class="assumption-card">
+        <h5>Condition 3 &mdash; Random and independent observations</h5>
+        <p>The sample must be drawn randomly from the population. Each observation must be independent of the others &mdash; knowing one value gives no information about any other value.</p>
+      </div>
+      <div class="assumption-card">
+        <h5>Condition 4 &mdash; Approximate normality of <em>x&#773;</em></h5>
+        <p>Either the population itself is normally distributed, or the sample size is at least 30. The Central Limit Theorem then guarantees that <em>x&#773;</em> is approximately normal regardless of the population's shape.</p>
+      </div>
+    </div>
+
+    <div class="concept-box">
+      <h4>The Central Limit Theorem guarantee</h4>
+      <p>For large <em>n</em> (&ge; 30), regardless of the underlying population shape &mdash; whether it is skewed, bimodal, or heavy-tailed &mdash; the sampling distribution of <em>x&#773;</em> converges to a normal distribution with mean <em>&mu;</em> and standard error <em>&sigma;</em>/&radic;<em>n</em>. This is what makes the Z-test so broadly applicable. In the factory example, there is no requirement that individual box weights be perfectly normally distributed; 40 boxes is sufficient for the CLT to take effect. The population standard deviation &sigma; = 8 g is known from long-run process records, so all four conditions are satisfied.</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SECTION 2: Sampling Distribution of the Mean
+    ══════════════════════════════════════════════════════════════════ -->
+    <h2>2. The Sampling Distribution of the Mean</h2>
+
+    <p>Before deriving the Z-test statistic, it is essential to understand the object it is built from: the <strong>sampling distribution of the sample mean</strong>. This distribution describes not the data itself, but the behaviour of <em>x&#773;</em> across all possible samples of size <em>n</em> drawn from the same population.</p>
+
+    <p>If the population random variable <em>X</em> is normally distributed with mean <em>&mu;</em> and variance <em>&sigma;</em><sup>2</sup>, then the sample mean <em>x&#773;</em> computed from <em>n</em> independent observations is itself normally distributed:</p>
+
+    <div class="math-block">
+      <span class="math-latex math-block">\bar{X} \sim N\!\left(\mu,\, \frac{\sigma^2}{n}\right)</span>
+    </div>
+
+    <p>The standard deviation of this sampling distribution &mdash; called the <strong>standard error of the mean</strong> &mdash; is:</p>
+
+    <div class="math-block">
+      <span class="math-latex math-block">\text{SE}(\bar{X}) = \frac{\sigma}{\sqrt{n}}</span>
+    </div>
+
+    <p>The standard error is the single most important quantity in sampling theory. It captures how much the sample mean <em>x&#773;</em> typically varies from one sample to the next, purely due to chance. Two features deserve emphasis. First, the standard error shrinks as <em>n</em> increases &mdash; larger samples produce more precise estimates of <em>&mu;</em>, so deviations from H<sub>0</sub> become easier to detect. Second, the standard error is smaller than the population standard deviation <em>&sigma;</em> by a factor of <span class="math-latex">1/\sqrt{n}</span>. A single box weight might vary by 8 g, but the mean of 40 boxes varies by only <span class="math-latex">8/\sqrt{40} \approx 1.265</span> g. This narrowing of variability is why averages are far more informative than individual measurements.</p>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SECTION 3: Deriving the Z Statistic
+    ══════════════════════════════════════════════════════════════════ -->
+    <h2>3. Deriving the Z Test Statistic</h2>
+
+    <p>The Z statistic is constructed by a single principle: if we assume H<sub>0</sub> is true, what would the sampling distribution of <em>x&#773;</em> look like, and how unusual is our observed value within that distribution? We derive it step by step.</p>
+
+    <div class="derivation">
+
+      <div class="derivation-step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <strong>State the null distribution.</strong> Under H<sub>0</sub> (that is, assuming <em>&mu;</em> = <em>&mu;</em><sub>0</sub> is true), the sampling distribution of <em>x&#773;</em> is:
+          <div class="math-block">
+            <span class="math-latex math-block">\bar{X} \sim N\!\left(\mu_0,\, \frac{\sigma^2}{n}\right)</span>
+          </div>
+          <div class="step-explanation">This is the distribution we would expect to see if the null hypothesis were correct. All subsequent probability calculations are made relative to this distribution.</div>
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <strong>Standardize.</strong> To convert any normal distribution to the standard normal N(0, 1), subtract the mean and divide by the standard deviation. Applying this to <em>x&#773;</em> under H<sub>0</sub>:
+          <div class="math-block">
+            <span class="math-latex math-block">Z = \frac{\bar{X} - \mu_0}{\sigma / \sqrt{n}}</span>
+          </div>
+          <div class="step-explanation">This is the Z test statistic. Its construction is a direct application of the standardization formula you have seen with individual observations, but here applied to the sample mean.</div>
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <strong>Identify the null distribution of Z.</strong> Since we subtracted the null mean and divided by the null standard error, the resulting quantity follows a standard normal distribution exactly (when the population is normal) or approximately (by the Central Limit Theorem for large <em>n</em>):
+          <div class="math-block">
+            <span class="math-latex math-block">Z \;\sim\; N(0,\,1) \quad \text{under } H_0</span>
+          </div>
+          <div class="step-explanation">This is the key step that makes the Z-test tractable. We now have a single universal reference distribution — the standard normal — whose probabilities are fully tabulated and implemented in every statistical package.</div>
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <strong>Interpret the magnitude of Z.</strong> A large positive Z means <em>x&#773;</em> is far above <em>&mu;</em><sub>0</sub>; a large negative Z means <em>x&#773;</em> is far below. A large <em>|Z|</em> in either direction means our observed sample mean would be very unlikely if H<sub>0</sub> were true.
+          <div class="step-explanation">The Z statistic is measured in standard-error units. A value of Z = 2 means the sample mean is exactly 2 standard errors away from the null hypothesis value — an event that occurs only about 4.6% of the time under H<sub>0</sub>.</div>
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">5</div>
+        <div class="step-content">
+          <strong>Connect Z to the p-value.</strong> The further <em>|Z|</em> is from 0, the smaller the p-value, and the stronger the evidence against H<sub>0</sub>. The p-value is simply the probability, computed under H<sub>0</sub>, of observing a Z as extreme as — or more extreme than — the one we computed from our data.
+          <div class="step-explanation">This connection means that rejecting H<sub>0</sub> is equivalent to declaring that our observed Z is too far into the tail(s) of N(0,1) to be explained by chance alone.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <h3>Understanding the components</h3>
+    <p>Every part of the Z statistic carries a distinct meaning. The <strong>numerator</strong>, <span class="math-latex">\bar{x} - \mu_0</span>, is the raw difference between what we observed and what H<sub>0</sub> predicted. In the factory example this is 497 &minus; 500 = &minus;3 g. A difference of 3 g sounds small, but whether it is statistically significant depends entirely on how much variability we expect in <em>x&#773;</em>. The <strong>denominator</strong>, <span class="math-latex">\sigma/\sqrt{n}</span>, is that measure of variability &mdash; it tells us how much <em>x&#773;</em> typically moves around from sample to sample when H<sub>0</sub> is true. The <strong>ratio</strong> therefore expresses the observed gap in units of natural sampling variation: how many standard errors away from the null is our result?</p>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SECTION 4: Full Testing Procedure
+    ══════════════════════════════════════════════════════════════════ -->
+    <h2>4. The Full Step-by-Step Testing Procedure</h2>
+
+    <p>A rigorous hypothesis test follows a fixed six-step protocol that must be completed in order. The sequence matters: the significance level &alpha; must be chosen before computing the test statistic, not after seeing the data.</p>
+
+    <div class="derivation">
+
+      <div class="derivation-step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <strong>State the hypotheses.</strong> The null hypothesis always specifies an exact value:
+          <div class="math-block">
+            <span class="math-latex math-block">H_0: \mu = \mu_0</span>
+          </div>
+          The alternative hypothesis specifies the direction of the departure you want to detect. There are three options: two-tailed (<span class="math-latex">H_1: \mu \neq \mu_0</span>), left-tailed (<span class="math-latex">H_1: \mu < \mu_0</span>), or right-tailed (<span class="math-latex">H_1: \mu > \mu_0</span>). The choice must be made based on the research question, not after looking at the data.
+          <div class="step-explanation">The factory manager suspects the machine may be filling incorrectly in either direction after maintenance, so a two-tailed test is appropriate.</div>
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <strong>Choose &alpha; and verify assumptions.</strong> Select the significance level (commonly 0.05 or 0.01) before computing any statistics. Verify that all four conditions for the Z-test are satisfied: known &sigma;, random sample, independence, and approximate normality of <em>x&#773;</em>.
+          <div class="step-explanation">Checking assumptions is not a formality — applying the Z-test when &sigma; is unknown or n is small and the population is skewed leads to invalid p-values.</div>
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <strong>Compute the Z test statistic.</strong>
+          <div class="math-block">
+            <span class="math-latex math-block">z_{\text{obs}} = \frac{\bar{x} - \mu_0}{\sigma / \sqrt{n}}</span>
+          </div>
+          This is a single number computed directly from your sample data.
+          <div class="step-explanation">All numerical arithmetic should be shown explicitly in practice, as we will do in the worked example. Rounding intermediate steps can introduce errors.</div>
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <strong>Compute the p-value (Method A) or critical value (Method B) &mdash; both methods always give the same decision.</strong>
+
+          <p><em>Method A &mdash; p-value approach:</em> Compute the probability of observing a Z at least as extreme as <em>z</em><sub>obs</sub> under H<sub>0</sub>.</p>
+          <ul>
+            <li>Left-tailed: <span class="math-latex">p = P(Z < z_{\text{obs}}) = \Phi(z_{\text{obs}})</span></li>
+            <li>Right-tailed: <span class="math-latex">p = P(Z > z_{\text{obs}}) = 1 - \Phi(z_{\text{obs}})</span></li>
+            <li>Two-tailed: <span class="math-latex">p = 2 \times P(Z < -|z_{\text{obs}}|) = 2\,\Phi(-|z_{\text{obs}}|)</span></li>
+          </ul>
+          Reject H<sub>0</sub> if <em>p</em> &lt; &alpha;.
+
+          <p><em>Method B &mdash; Critical value approach:</em> Find the critical value <em>z*</em> that cuts off exactly &alpha; (or &alpha;/2 for two-tailed) in the tail(s).</p>
+          <ul>
+            <li>Two-tailed: reject if <span class="math-latex">|z_{\text{obs}}| > z_{\alpha/2}</span></li>
+            <li>Left-tailed: reject if <span class="math-latex">z_{\text{obs}} < -z_{\alpha}</span></li>
+            <li>Right-tailed: reject if <span class="math-latex">z_{\text{obs}} > z_{\alpha}</span></li>
+          </ul>
+          <div class="step-explanation">At &alpha; = 0.05 two-tailed, the critical values are &plusmn;1.96. At &alpha; = 0.01 two-tailed, they are &plusmn;2.576. These values are fixed by the standard normal distribution and do not depend on the data.</div>
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">5</div>
+        <div class="step-content">
+          <strong>State the decision.</strong> Based on the comparison above, either:
+          <ul>
+            <li><strong>Reject H<sub>0</sub></strong> &mdash; the data provide sufficient evidence against the null hypothesis at the chosen significance level.</li>
+            <li><strong>Fail to Reject H<sub>0</sub></strong> &mdash; the data do not provide sufficient evidence against the null hypothesis. This is <em>not</em> the same as proving H<sub>0</sub> is true.</li>
+          </ul>
+          <div class="step-explanation">Never say "accept H<sub>0</sub>." Failing to reject is a statement about insufficient evidence, not about truth. The absence of statistical significance does not imply equivalence to the null value.</div>
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">6</div>
+        <div class="step-content">
+          <strong>Write a plain-English conclusion in context.</strong> Translate the statistical decision back into the language of the original problem. Your conclusion should mention the significance level, the direction of the effect, and the practical implication for the decision-maker.
+          <div class="step-explanation">A conclusion like "Reject H<sub>0</sub>" is meaningless to a production manager. She needs to know what the test implies about her machine. Every hypothesis test must end with a sentence that a non-statistician can act on.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         SECTION 5: Confidence Intervals and the Duality
+    ══════════════════════════════════════════════════════════════════ -->
+    <h2>5. Confidence Intervals and the Hypothesis Test Duality</h2>
+
+    <p>A profound and practically useful connection exists between two-tailed hypothesis tests and confidence intervals: they are two sides of the same coin. A two-tailed Z-test at significance level &alpha; rejects H<sub>0</sub>: <em>&mu;</em> = <em>&mu;</em><sub>0</sub> if and only if <em>&mu;</em><sub>0</sub> falls <em>outside</em> the corresponding (1 &minus; &alpha;) &times; 100% confidence interval for <em>&mu;</em>.</p>
+
+    <p>The (1 &minus; &alpha;) &times; 100% confidence interval for <em>&mu;</em> when &sigma; is known is:</p>
+
+    <div class="math-block">
+      <span class="math-latex math-block">\bar{X} \;\pm\; z_{\alpha/2} \cdot \frac{\sigma}{\sqrt{n}}</span>
+    </div>
+
+    <p>Applied to the factory scenario with <em>x&#773;</em> = 497, &sigma; = 8, <em>n</em> = 40, and <em>z</em><sub>0.025</sub> = 1.96:</p>
+
+    <div class="math-block">
+      <span class="math-latex math-block">497 \;\pm\; 1.96 \times \frac{8}{\sqrt{40}} \;=\; 497 \;\pm\; 2.48 \;=\; [494.52,\; 499.48]</span>
+    </div>
+
+    <p>Since the hypothesized value <em>&mu;</em><sub>0</sub> = 500 does not fall within the interval [494.52, 499.48], we reject H<sub>0</sub> at the 5% significance level &mdash; fully consistent with the p-value calculation. The confidence interval additionally tells us <em>which</em> values of the population mean are plausible: they lie between roughly 494.5 g and 499.5 g. This is more informative than a simple reject/fail-to-reject decision, because it shows the <em>direction</em> and <em>magnitude</em> of the suspected discrepancy.</p>
+
+    <p>This duality is not a coincidence. Both the Z-test and the confidence interval are derived from the same sampling distribution of <em>x&#773;</em> and the same standardization. The confidence interval inverts the hypothesis test: instead of asking "is this particular <em>&mu;</em><sub>0</sub> plausible?", it identifies the entire set of null hypotheses that would not be rejected at the given &alpha;.</p>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         WIDGET 1: Z-Test Simulator
+    ══════════════════════════════════════════════════════════════════ -->
+    <h2>6. Interactive Widget: Z-Test Simulator</h2>
+
+    <div class="widget-container">
+      <h4>Adjust the parameters and see the test statistic, p-value, and decision update in real time.</h4>
+
+      <div class="widget-controls">
+        <label>
+          Hypothesized mean (&mu;&#8320;)
+          <input type="range" id="w1-mu0" min="490" max="510" step="1" value="500">
+          <strong id="w1-mu0-val">500</strong>
+        </label>
+        <label>
+          Sample mean (<em>x&#773;</em>)
+          <input type="range" id="w1-xbar" min="485" max="515" step="0.5" value="497">
+          <strong id="w1-xbar-val">497</strong>
+        </label>
+        <label>
+          Population std dev (&sigma;)
+          <input type="range" id="w1-sigma" min="4" max="20" step="0.5" value="8">
+          <strong id="w1-sigma-val">8</strong>
+        </label>
+        <label>
+          Sample size (<em>n</em>)
+          <input type="range" id="w1-n" min="10" max="100" step="5" value="40">
+          <strong id="w1-n-val">40</strong>
+        </label>
+        <label>
+          Test type
+          <select id="w1-tails">
+            <option value="2">Two-tailed</option>
+            <option value="1L">Left-tailed</option>
+            <option value="1R">Right-tailed</option>
+          </select>
+        </label>
+        <label>
+          &alpha;
+          <select id="w1-alpha">
+            <option value="0.01">0.01</option>
+            <option value="0.05" selected>0.05</option>
+            <option value="0.10">0.10</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="ht-stat-row" id="w1-stats">
+        <div class="ht-stat">
+          <span>Z statistic</span>
+          <strong id="w1-z">—</strong>
+        </div>
+        <div class="ht-stat">
+          <span>Standard error</span>
+          <strong id="w1-se">—</strong>
+        </div>
+        <div class="ht-stat">
+          <span>p-value</span>
+          <strong id="w1-p">—</strong>
+        </div>
+        <div class="ht-stat">
+          <span>Critical value z*</span>
+          <strong id="w1-zstar">—</strong>
+        </div>
+      </div>
+      <div id="w1-decision"></div>
+
+      <div class="plot-area" id="w1-plot"></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         WORKED EXAMPLE
+    ══════════════════════════════════════════════════════════════════ -->
+    <h2>7. Worked Example: The Factory Scenario</h2>
+
+    <p>We now apply the six-step procedure to the cereal factory problem in full detail.</p>
+
+    <p><strong>Given:</strong> <em>&mu;</em><sub>0</sub> = 500 g, <em>x&#773;</em> = 497 g, &sigma; = 8 g, <em>n</em> = 40, two-tailed test at &alpha; = 0.05.</p>
+
+    <div class="derivation">
+
+      <div class="derivation-step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <strong>Hypotheses.</strong>
+          <div class="math-block">
+            <span class="math-latex math-block">H_0: \mu = 500 \qquad H_1: \mu \neq 500</span>
+          </div>
+          <div class="step-explanation">We use a two-tailed test because the manager is concerned about the machine being off in either direction after maintenance &mdash; both overfilling and underfilling are problems.</div>
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <strong>Significance level and assumptions.</strong> &alpha; = 0.05. Checking: &sigma; = 8 g is known from long-run process records (yes). Sample size <em>n</em> = 40 &ge; 30 (CLT applies, yes). The 40 boxes were randomly selected (yes). All four conditions are satisfied.
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <strong>Compute the test statistic.</strong>
+          <div class="math-block">
+            <span class="math-latex math-block">
+              \text{SE} = \frac{\sigma}{\sqrt{n}} = \frac{8}{\sqrt{40}} = \frac{8}{6.3246} \approx 1.265 \text{ g}
+            </span>
+          </div>
+          <div class="math-block">
+            <span class="math-latex math-block">
+              z_{\text{obs}} = \frac{\bar{x} - \mu_0}{\text{SE}} = \frac{497 - 500}{1.265} = \frac{-3}{1.265} \approx -2.372
+            </span>
+          </div>
+          <div class="step-explanation">The sample mean is approximately 2.37 standard errors below the null hypothesis value. Whether this constitutes strong evidence against H<sub>0</sub> will be determined by the p-value and critical value comparisons.</div>
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <strong>p-value and critical value.</strong>
+
+          <p><em>p-value method:</em> For a two-tailed test, <span class="math-latex">p = 2 \times \Phi(-|z_{\text{obs}}|) = 2 \times \Phi(-2.372)</span>. From standard normal tables, <span class="math-latex">\Phi(-2.372) \approx 0.0088</span>, giving:</p>
+          <div class="math-block">
+            <span class="math-latex math-block">p = 2 \times 0.0088 = 0.0176</span>
+          </div>
+          Since 0.0176 &lt; 0.05 = &alpha;, we reject H<sub>0</sub>.
+
+          <p><em>Critical value method:</em> At &alpha; = 0.05 two-tailed, <em>z*</em> = <em>z</em><sub>0.025</sub> = 1.96. Since <span class="math-latex">|z_{\text{obs}}| = 2.372 > 1.96 = z^*</span>, the test statistic falls in the rejection region. We reject H<sub>0</sub>.</p>
+
+          <div class="step-explanation">Both methods yield the same decision, as they always must. The p-value of 0.0176 means that, if the machine were correctly calibrated at 500 g, we would observe a sample mean at least 3 g away from 500 g in a sample of 40 boxes about 1.76% of the time &mdash; well below our 5% threshold.</div>
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">5</div>
+        <div class="step-content">
+          <strong>Decision.</strong> <span class="ht-decision reject">Reject H<sub>0</sub> at &alpha; = 0.05</span>
+        </div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-number">6</div>
+        <div class="step-content">
+          <strong>Conclusion in context.</strong> At the 5% significance level, there is sufficient statistical evidence that the filling machine's mean output differs from 500 g. The sample mean of 497 g represents a statistically significant departure from the target. The 95% confidence interval [494.52 g, 499.48 g] does not contain 500 g, confirming the conclusion. The production manager should halt production and recalibrate the machine before resuming operations.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         WIDGET 2: Sample Size vs Power
+    ══════════════════════════════════════════════════════════════════ -->
+    <h2>8. Interactive Widget: Sample Size and Statistical Power</h2>
+
+    <div class="widget-container">
+      <h4>See how increasing sample size raises statistical power for a fixed true effect. Fixed values: &mu;&#8320; = 500, &sigma; = 8, &alpha; = 0.05, two-tailed.</h4>
+
+      <div class="widget-controls">
+        <label>
+          True mean (&mu;<sub>true</sub>)
+          <input type="range" id="w2-mu" min="490" max="510" step="0.5" value="497">
+          <strong id="w2-mu-val">497</strong>
+        </label>
+        <label>
+          Sample size (<em>n</em>)
+          <input type="range" id="w2-n" min="10" max="200" step="5" value="40">
+          <strong id="w2-n-val">40</strong>
+        </label>
+      </div>
+
+      <div class="ht-stat-row">
+        <div class="ht-stat">
+          <span>Statistical Power</span>
+          <strong id="w2-power" style="font-size:1.4rem;">—</strong>
+        </div>
+        <div class="ht-stat">
+          <span>True effect (&mu;<sub>true</sub> &minus; &mu;&#8320;)</span>
+          <strong id="w2-effect">—</strong>
+        </div>
+        <div class="ht-stat">
+          <span>Non-centrality</span>
+          <strong id="w2-ncp">—</strong>
+        </div>
+      </div>
+
+      <div class="plot-area" id="w2-plot"></div>
+    </div>
+
+    <p>Statistical power is the probability of correctly rejecting a false null hypothesis &mdash; it is <span class="math-latex">1 - \beta</span> where <span class="math-latex">\beta</span> is the Type II error rate. The widget above illustrates a central principle of study design: for a fixed true effect size (the distance between <em>&mu;</em><sub>true</sub> and <em>&mu;</em><sub>0</sub>), power increases monotonically with sample size. This is the quantitative justification for why researchers conduct power analyses <em>before</em> collecting data. A study designed with insufficient sample size may fail to detect a real and important effect, wasting resources and potentially reaching incorrect conclusions. Conventionally, studies aim for power of at least 0.80, meaning a maximum Type II error rate of 20%.</p>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         PRACTICE PROBLEM
+    ══════════════════════════════════════════════════════════════════ -->
+    <h2>9. Practice Problem</h2>
+
+    <p>A city traffic department claims that the average commute time on a major highway is 25 minutes. A concerned residents' group times 64 randomly selected commute trips and finds a sample mean of 27.4 minutes. Historical records show the standard deviation is &sigma; = 9.6 minutes. Test at &alpha; = 0.01 whether the commute time differs from the claimed 25 minutes. Use both the p-value method and the critical value method.</p>
+
+    <details>
+      <summary>Show full worked solution</summary>
+      <div class="solution">
+        <p><strong>Step 1 &mdash; Hypotheses.</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">H_0: \mu = 25 \qquad H_1: \mu \neq 25 \quad \text{(two-tailed)}</span>
+        </div>
+
+        <p><strong>Step 2 &mdash; Assumptions and &alpha;.</strong> &alpha; = 0.01. Population &sigma; = 9.6 min is known (given). Sample size <em>n</em> = 64 &ge; 30. Random sample stated. All conditions satisfied.</p>
+
+        <p><strong>Step 3 &mdash; Test statistic.</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{SE} = \frac{9.6}{\sqrt{64}} = \frac{9.6}{8} = 1.2 \text{ min}</span>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">z_{\text{obs}} = \frac{27.4 - 25}{1.2} = \frac{2.4}{1.2} = 2.00</span>
+        </div>
+
+        <p><strong>Step 4A &mdash; p-value method.</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">p = 2 \times P(Z > 2.00) = 2 \times (1 - \Phi(2.00)) = 2 \times 0.0228 = 0.0456</span>
+        </div>
+        <p>Since <em>p</em> = 0.0456 &gt; &alpha; = 0.01, we <strong>fail to reject H<sub>0</sub></strong>.</p>
+
+        <p><strong>Step 4B &mdash; Critical value method.</strong> At &alpha; = 0.01 two-tailed:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">z^* = z_{0.005} = 2.576</span>
+        </div>
+        <p>Since <span class="math-latex">|z_{\text{obs}}| = 2.00 < 2.576 = z^*</span>, the test statistic does not fall in the rejection region. <strong>Fail to reject H<sub>0</sub></strong>. Both methods agree.</p>
+
+        <p><strong>Step 5 &mdash; Decision.</strong> <span class="ht-decision fail">Fail to Reject H<sub>0</sub> at &alpha; = 0.01</span></p>
+
+        <p><strong>Step 6 &mdash; Conclusion in context.</strong> At the 1% significance level, there is insufficient statistical evidence that the mean commute time on this highway differs from the claimed 25 minutes.</p>
+
+        <p><em>Important note on &alpha;:</em> If we had used &alpha; = 0.05, we would have rejected H<sub>0</sub> (since <em>p</em> = 0.0456 &lt; 0.05). This example vividly illustrates why &alpha; must be chosen before data collection. Raising &alpha; after seeing the data to achieve a significant result is a form of p-hacking that inflates the true Type I error rate far above the nominal level. The threshold for what counts as "sufficient evidence" must be decided in advance based on the consequences of being wrong.</p>
+      </div>
+    </details>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         Navigation
+    ══════════════════════════════════════════════════════════════════ -->
+    <div class="nav-buttons">
+      <a href="02-errors-alpha-pvalue.html" class="nav-btn prev">&larr; Module 2: Errors and p-value</a>
+      <a href="04-two-sample-tests.html" class="nav-btn">Module 4: Two-Sample Tests &rarr;</a>
+    </div>
+
+  </div><!-- /.container -->
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       ALL PLOTLY CODE IN ONE DOMContentLoaded LISTENER
+  ══════════════════════════════════════════════════════════════════ -->
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    function computeW1() {
+      var mu0   = parseFloat(document.getElementById('w1-mu0').value);
+      var xbar  = parseFloat(document.getElementById('w1-xbar').value);
+      var sigma = parseFloat(document.getElementById('w1-sigma').value);
+      var n     = parseInt(document.getElementById('w1-n').value, 10);
+      var tails = document.getElementById('w1-tails').value;
+      var alpha = parseFloat(document.getElementById('w1-alpha').value);
+
+      var se   = sigma / Math.sqrt(n);
+      var zobs = (xbar - mu0) / se;
+
+      var pval, zstar;
+      if (tails === '2') {
+        pval  = 2 * normalCDF(-Math.abs(zobs));
+        zstar = zCritical(alpha, 2);
+      } else if (tails === '1L') {
+        pval  = normalCDF(zobs);
+        zstar = -zCritical(alpha, 1);
+      } else {
+        pval  = 1 - normalCDF(zobs);
+        zstar = zCritical(alpha, 1);
+      }
+
+      return { mu0: mu0, xbar: xbar, sigma: sigma, n: n,
+               tails: tails, alpha: alpha,
+               se: se, zobs: zobs, pval: pval, zstar: zstar };
+    }
+
+    function updateW1Stats(d) {
+      document.getElementById('w1-z').textContent     = d.zobs.toFixed(3);
+      document.getElementById('w1-se').textContent    = d.se.toFixed(2);
+      document.getElementById('w1-p').textContent     = d.pval.toFixed(4);
+      document.getElementById('w1-zstar').textContent = Math.abs(d.zstar).toFixed(3);
+
+      var rejected;
+      if (d.tails === '2') {
+        rejected = Math.abs(d.zobs) > Math.abs(d.zstar);
+      } else if (d.tails === '1L') {
+        rejected = d.zobs < d.zstar;
+      } else {
+        rejected = d.zobs > d.zstar;
+      }
+
+      var decEl = document.getElementById('w1-decision');
+      if (rejected) {
+        decEl.innerHTML = '<span class="ht-decision reject">Reject H<sub>0</sub></span>';
+      } else {
+        decEl.innerHTML = '<span class="ht-decision fail">Fail to Reject H<sub>0</sub></span>';
+      }
+      return rejected;
+    }
+
+    function buildW1Traces(d) {
+      var xs = linspace(-4, 4, 300);
+      var ys = xs.map(normalPDF);
+
+      // Shade rejection region(s)
+      var rejXLeft = [], rejYLeft = [];
+      var rejXRight = [], rejYRight = [];
+
+      if (d.tails === '2') {
+        var zs = Math.abs(d.zstar);
+        rejXLeft  = linspace(-4, -zs, 80);
+        rejYLeft  = rejXLeft.map(normalPDF);
+        rejXRight = linspace(zs, 4, 80);
+        rejYRight = rejXRight.map(normalPDF);
+      } else if (d.tails === '1L') {
+        rejXLeft  = linspace(-4, d.zstar, 80);
+        rejYLeft  = rejXLeft.map(normalPDF);
+      } else {
+        rejXRight = linspace(d.zstar, 4, 80);
+        rejYRight = rejXRight.map(normalPDF);
+      }
+
+      // Shade p-value area
+      var pvXLeft = [], pvYLeft = [];
+      var pvXRight = [], pvYRight = [];
+
+      if (d.tails === '2') {
+        var cut = Math.abs(d.zobs);
+        if (cut <= 4) {
+          pvXLeft  = linspace(-4, -cut, 80);
+          pvYLeft  = pvXLeft.map(normalPDF);
+          pvXRight = linspace(cut, 4, 80);
+          pvYRight = pvXRight.map(normalPDF);
+        }
+      } else if (d.tails === '1L') {
+        var cut = Math.min(d.zobs, 4);
+        pvXLeft  = linspace(-4, cut, 80);
+        pvYLeft  = pvXLeft.map(normalPDF);
+      } else {
+        var cut = Math.max(d.zobs, -4);
+        pvXRight = linspace(cut, 4, 80);
+        pvYRight = pvXRight.map(normalPDF);
+      }
+
+      function fillTrace(xArr, yArr, color, name, opacity) {
+        var xFill = xArr.concat([xArr[xArr.length - 1], xArr[0]]);
+        var yFill = yArr.concat([0, 0]);
+        return {
+          x: xFill, y: yFill,
+          fill: 'toself', fillcolor: color,
+          line: { width: 0 },
+          mode: 'lines', type: 'scatter',
+          name: name, showlegend: true,
+          opacity: opacity
+        };
+      }
+
+      var traces = [];
+
+      // Rejection region shading
+      if (rejXLeft.length > 1) {
+        traces.push(fillTrace(rejXLeft, rejYLeft, '#fee2e2', 'Rejection region', 0.85));
+      }
+      if (rejXRight.length > 1) {
+        var t = fillTrace(rejXRight, rejYRight, '#fee2e2', 'Rejection region', 0.85);
+        if (rejXLeft.length > 1) t.showlegend = false;
+        traces.push(t);
+      }
+
+      // p-value shading
+      if (pvXLeft.length > 1) {
+        traces.push(fillTrace(pvXLeft, pvYLeft, '#ef4444', 'p-value area', 0.5));
+      }
+      if (pvXRight.length > 1) {
+        var t = fillTrace(pvXRight, pvYRight, '#ef4444', 'p-value area', 0.5);
+        if (pvXLeft.length > 1) t.showlegend = false;
+        traces.push(t);
+      }
+
+      // Normal curve
+      traces.push({
+        x: xs, y: ys,
+        mode: 'lines', type: 'scatter',
+        line: { color: '#2563eb', width: 2 },
+        name: 'N(0,1)', showlegend: true
+      });
+
+      // Vertical line at z_obs
+      var zClamp = Math.max(-4, Math.min(4, d.zobs));
+      traces.push({
+        x: [zClamp, zClamp], y: [0, normalPDF(0) * 1.05],
+        mode: 'lines', type: 'scatter',
+        line: { color: '#dc2626', width: 2, dash: 'dash' },
+        name: 'z₀bs = ' + d.zobs.toFixed(3)
+      });
+
+      return traces;
+    }
+
+    function renderW1() {
+      var d = computeW1();
+      updateW1Stats(d);
+      var traces = buildW1Traces(d);
+      var layout = plotlyLayout({
+        title: 'Standard Normal — Test of μ₀ = ' + d.mu0,
+        xaxis: { title: 'Z', range: [-4.2, 4.2] },
+        yaxis: { title: 'Density', range: [0, 0.42] }
+      });
+      Plotly.react('w1-plot', traces, layout, PLOTLY_CONFIG);
+    }
+
+    // Wire up Widget 1 sliders/selects
+    ['w1-mu0','w1-xbar','w1-sigma','w1-n'].forEach(function (id) {
+      var el = document.getElementById(id);
+      el.addEventListener('input', function () {
+        document.getElementById(id + '-val').textContent = el.value;
+        renderW1();
+      });
+    });
+    ['w1-tails','w1-alpha'].forEach(function (id) {
+      document.getElementById(id).addEventListener('change', renderW1);
+    });
+
+    renderW1();
+
+    // ─── Widget 2: Sample Size vs Power ────────────────────────────────────────
+
+    var W2_MU0   = 500;
+    var W2_SIGMA = 8;
+    var W2_ALPHA = 0.05;
+
+    function computePower(muTrue, n) {
+      var se    = W2_SIGMA / Math.sqrt(n);
+      var zstar = zCritical(W2_ALPHA, 2);
+      var delta = (muTrue - W2_MU0) / se;
+      // Two-tailed power
+      var power = normalCDF(-zstar - delta) + (1 - normalCDF(zstar - delta));
+      return Math.max(0, Math.min(1, power));
+    }
+
+    function renderW2() {
+      var muTrue = parseFloat(document.getElementById('w2-mu').value);
+      var n      = parseInt(document.getElementById('w2-n').value, 10);
+
+      var power  = computePower(muTrue, n);
+      var effect = (muTrue - W2_MU0).toFixed(1);
+      var se     = W2_SIGMA / Math.sqrt(n);
+      var ncp    = ((muTrue - W2_MU0) / se).toFixed(3);
+
+      document.getElementById('w2-power').textContent  = (power * 100).toFixed(1) + '%';
+      document.getElementById('w2-effect').textContent = (muTrue > W2_MU0 ? '+' : '') + effect + ' g';
+      document.getElementById('w2-ncp').textContent    = ncp;
+
+      // Build power curve over n
+      var ns     = linspace(10, 200, 191).map(Math.round);
+      var powers = ns.map(function (ni) { return computePower(muTrue, ni); });
+
+      // Current n vertical line
+      var curPow = power;
+
+      var traces = [
+        {
+          x: ns, y: powers,
+          mode: 'lines', type: 'scatter',
+          line: { color: '#2563eb', width: 2 },
+          name: 'Power(μₜᵣᵤᵉ₀ = ' + muTrue + ')',
+          fill: 'tozeroy', fillcolor: 'rgba(37,99,235,0.08)'
+        },
+        {
+          x: [n, n], y: [0, 1],
+          mode: 'lines', type: 'scatter',
+          line: { color: '#dc2626', width: 2, dash: 'dash' },
+          name: 'Current n = ' + n + ' (Power = ' + (curPow * 100).toFixed(1) + '%)'
+        },
+        {
+          x: [10, 200], y: [0.8, 0.8],
+          mode: 'lines', type: 'scatter',
+          line: { color: '#16a34a', width: 1, dash: 'dot' },
+          name: '0.80 target',
+          showlegend: true
+        }
+      ];
+
+      var layout = plotlyLayout({
+        title: 'Statistical Power vs Sample Size (μₜᵣᵤᵉ = ' + muTrue + ', μ₀ = 500)',
+        xaxis: { title: 'Sample size n', range: [10, 200] },
+        yaxis: { title: 'Power (1 − β)', range: [0, 1.05] }
+      });
+
+      Plotly.react('w2-plot', traces, layout, PLOTLY_CONFIG);
+    }
+
+    document.getElementById('w2-mu').addEventListener('input', function () {
+      document.getElementById('w2-mu-val').textContent = this.value;
+      renderW2();
+    });
+    document.getElementById('w2-n').addEventListener('input', function () {
+      document.getElementById('w2-n-val').textContent = this.value;
+      renderW2();
+    });
+
+    renderW2();
+
+  }); // end DOMContentLoaded
+  </script>
+
+</body>
+</html>

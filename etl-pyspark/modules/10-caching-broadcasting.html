@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 10: Caching and Broadcast Variables</title>
+  <link rel="stylesheet" href="../assets/style.css">
+<script>try{if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <p class="progress-indicator">Module 10 of 10</p>
+        <h1>Caching and Broadcast Variables</h1>
+      </div>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="theme-toggle">Dark mode</button>
+        <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+      </div>
+    </header>
+    <nav class="module-nav-bar" style="display:none">
+      <a href="../index.html">Track Home</a>
+      <a href="01-etl-pyspark.html">1. ETL with PySpark</a>
+      <a href="02-in-memory-processing.html">2. In-Memory Processing</a>
+      <a href="03-spark-rdds.html">3. Spark RDDs</a>
+      <a href="04-dataframes-pyspark-vs-pandas.html">4. DataFrames</a>
+      <a href="05-pyspark-sql.html">5. PySpark SQL</a>
+      <a href="06-udfs-pyspark.html">6. UDFs</a>
+      <a href="07-data-cleaning.html">7. Data Cleaning</a>
+      <a href="08-data-exploration.html">8. Data Exploration</a>
+      <a href="09-transformation-operations.html">9. Transformations</a>
+      <a href="10-caching-broadcasting.html">10. Caching</a>
+    </nav>
+
+    <!-- 1. Where We Left Off -->
+    <details>
+      <summary>Where We Left Off</summary>
+      <p>In Module 9, we built complex transformations — joins, aggregations, pivots, and window functions. These pipelines can be expensive. This final module covers how to make them fast using caching and broadcast variables.</p>
+    </details>
+
+    <!-- 2. When to Cache -->
+    <h2>When to Cache</h2>
+    <p>Spark's lazy evaluation means that every time you call an action on a DataFrame, Spark re-executes the entire lineage of transformations from the source data. This is usually fine for one-off computations, but becomes wasteful when the same DataFrame is used in multiple subsequent operations. Caching tells Spark to store the computed result in memory (or disk) so that subsequent actions can skip the recomputation.</p>
+    <p>Cache when you have reused DataFrames — the same DataFrame feeding into multiple downstream operations. Iterative algorithms like ML training loops are a classic case: each iteration reads the same training data, so caching it avoids redundant I/O and computation. Expensive intermediate results — the output of a heavy join, complex aggregation, or multi-step cleaning pipeline — are also prime candidates.</p>
+    <p>The rule is simple: if a DataFrame is used more than once after an expensive computation, cache it. If it's used exactly once, caching wastes memory without providing any benefit. The cost of caching is the memory (or disk space) used to store the result, so only cache DataFrames that justify that cost through repeated reuse.</p>
+
+    <!-- 3. cache() vs persist() -->
+    <h2>cache() vs persist()</h2>
+    <p>PySpark provides two methods for caching DataFrames. The <code>cache()</code> method is a shorthand for <code>persist(StorageLevel.MEMORY_ONLY)</code> — it stores the entire DataFrame in memory as deserialized Java objects. The <code>persist()</code> method gives you control over the storage level.</p>
+    <p>Available storage levels:</p>
+    <ul>
+      <li><strong>MEMORY_ONLY</strong> — fastest access, but the operation fails if the data doesn't fit in available memory. Partitions that don't fit are recomputed on the fly.</li>
+      <li><strong>MEMORY_AND_DISK</strong> — the safe default. Partitions that don't fit in memory spill to local disk. Slightly slower for spilled partitions, but never loses data.</li>
+      <li><strong>DISK_ONLY</strong> — slowest, stores everything on disk. Useful when you need to preserve memory for other operations but still want to avoid recomputation.</li>
+      <li><strong>MEMORY_ONLY_SER</strong> — stores serialized bytes in memory. Uses less memory than MEMORY_ONLY but requires CPU to deserialize on each read.</li>
+    </ul>
+
+    <div class="code-block simulated" data-output="Count: 1500&#10;&#10;+----------+------+-----+-----------+--------+-----+&#10;|student_id|  name|major|course_name|semester|grade|&#10;+----------+------+-----+-----------+--------+-----+&#10;|      1001| Alice|   CS|Data Struct|Fall 24 |   92|&#10;|      1001| Alice|   CS| Algorithms|Spr 25  |   95|&#10;|      1003| Carol| Math|Lin Algebra|Fall 24 |   91|&#10;|      1004| David|   CS|   Intro CS|Spr 25  |   88|&#10;|      1005|   Eva|   DS|    ML Intro|Fall 24 |   87|&#10;+----------+------+-----+-----------+--------+-----+&#10;only showing top 5 rows&#10;&#10;+-----+---------+&#10;|major|avg_grade|&#10;+-----+---------+&#10;|   CS|     89.2|&#10;|   DS|     86.5|&#10;| Math|     91.0|&#10;+-----+---------+">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>from pyspark import StorageLevel
+
+# Cache after expensive join
+joined_df = students_df.join(enrollments_df, "student_id")
+joined_df.cache()  # or: joined_df.persist(StorageLevel.MEMORY_AND_DISK)
+
+# First action materializes the cache
+joined_df.count()  # Slow: computes join + caches result
+
+# Subsequent actions use cache
+joined_df.filter(col("grade") > 85).show(5)  # Fast: reads from cache
+joined_df.groupBy("major").avg("grade").show()  # Fast: reads from cache</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 4. Unpersisting -->
+    <h2>Unpersisting</h2>
+    <p>When you're done with a cached DataFrame, call <code>unpersist()</code> to free the memory. This is important for long-running applications (Spark Streaming, notebook sessions, iterative jobs) where cached data can accumulate and starve other operations of resources.</p>
+
+    <div class="code-block simulated" data-output="joined_df unpersisted — memory freed.">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea># Free memory when done with the cached DataFrame
+joined_df.unpersist()
+
+# The DataFrame still exists, but subsequent actions will
+# recompute from the lineage instead of reading from cache
+print("joined_df unpersisted — memory freed.")</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 5. Broadcast Variables -->
+    <h2>Broadcast Variables</h2>
+    <p>When you join a large DataFrame with a small one, Spark's default strategy shuffles data across the network — partitions from both sides get redistributed so that matching keys land on the same node. This is expensive for large datasets. Broadcast joins solve this: the small table is sent (broadcast) to every worker node, so each partition of the large table can do a local lookup without any shuffle.</p>
+    <p>Use <code>broadcast()</code> from <code>pyspark.sql.functions</code> to hint that a DataFrame is small enough to broadcast. Good candidates include lookup tables, dimension tables, configuration mappings, and any DataFrame under approximately 100MB.</p>
+
+    <div class="code-block simulated" data-output="+----------+---------+----------+----------------+-------+&#10;|student_id|course_id|  semester|      department|credits|&#10;+----------+---------+----------+----------------+-------+&#10;|      1001|    CS101|   Fall 24|Computer Science|      3|&#10;|      1001|    DS101|   Spr 25 |    Data Science|      3|&#10;|      1002|    DS101|   Fall 24|    Data Science|      3|&#10;|      1003|    MA101|   Fall 24|     Mathematics|      4|&#10;|      1004|    CS101|   Fall 24|Computer Science|      3|&#10;+----------+---------+----------+----------------+-------+&#10;only showing top 5 rows">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>from pyspark.sql.functions import broadcast
+
+# Course info lookup (small table)
+courses = spark.createDataFrame([
+    ("CS101", "Computer Science", 3),
+    ("DS101", "Data Science", 3),
+    ("MA101", "Mathematics", 4),
+    ("ST101", "Statistics", 3)
+], ["course_id", "department", "credits"])
+
+# Broadcast join: small table sent to all workers
+enriched = enrollments_df.join(broadcast(courses), "course_id")
+enriched.show(5)</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 6. Accumulator Variables -->
+    <h2>Accumulator Variables</h2>
+    <p>Accumulators let you aggregate values across worker nodes — counting events, summing metrics, or tracking errors during distributed processing. The driver creates an accumulator, workers add to it during transformations, and only the driver can read the final value.</p>
+    <p>Key rules: workers can only <code>add()</code> to an accumulator (they cannot read it). The driver reads the value after an action completes. Accumulators inside transformations may be updated more than once if tasks are retried, so use them for debugging and monitoring rather than critical logic.</p>
+
+    <div class="code-block simulated" data-output="Processing complete.&#10;Total records processed: 1500&#10;Invalid records found: 23&#10;Invalid record rate: 1.5%">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea># Create accumulators on the driver
+invalid_count = sc.accumulator(0)
+total_count = sc.accumulator(0)
+
+def process_record(row):
+    total_count.add(1)
+    if row["grade"] is None or row["grade"] < 0:
+        invalid_count.add(1)
+    return row
+
+# Apply during processing (accumulators update on workers)
+enrollments_df.foreach(process_record)
+
+# Only the driver can read the final values
+print("Processing complete.")
+print(f"Total records processed: {total_count.value}")
+print(f"Invalid records found: {invalid_count.value}")
+print(f"Invalid record rate: {invalid_count.value / total_count.value * 100:.1f}%")</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 7. Live Demo: Memoization Analogy -->
+    <h2>Live Demo: Memoization Analogy</h2>
+    <p>Spark's caching is analogous to memoization in regular Python — compute an expensive result once, then reuse it. This live demo shows the principle in action:</p>
+
+    <div class="code-block live">
+      <div class="code-block-header">
+        <span>Python (runs in browser)</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>import time
+
+# Simulating expensive computation
+def expensive_computation(data):
+    time.sleep(0.01)  # Simulate work
+    return sum(x ** 2 for x in data)
+
+data = list(range(100))
+
+# Without caching: recompute every time
+start = time.time()
+for _ in range(10):
+    result = expensive_computation(data)
+no_cache_time = time.time() - start
+
+# With caching (memoization): compute once, reuse
+cache = {}
+def cached_computation(data):
+    key = id(data)
+    if key not in cache:
+        time.sleep(0.01)
+        cache[key] = sum(x ** 2 for x in data)
+    return cache[key]
+
+start = time.time()
+for _ in range(10):
+    result = cached_computation(data)
+cache_time = time.time() - start
+
+print(f"Without cache: {no_cache_time:.3f}s (10 computations)")
+print(f"With cache:    {cache_time:.3f}s (1 computation + 9 cache hits)")
+print(f"Speedup:       {no_cache_time / cache_time:.1f}x")
+print(f"\nThis is the same principle as Spark's df.cache()")</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 8. Checkpoint -->
+    <div class="checkpoint" data-correct="a">
+      <p class="checkpoint-question">When should you NOT cache a DataFrame?</p>
+      <label><input type="radio" name="cp1" value="a"> (a) It's used once then discarded</label>
+      <label><input type="radio" name="cp1" value="b"> (b) It's used in 5 subsequent operations</label>
+      <label><input type="radio" name="cp1" value="c"> (c) It's the result of an expensive join</label>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- 9. Practice Problems -->
+    <div class="practice-section">
+      <h2>Practice Problems</h2>
+
+      <!-- Problem 1 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Recall</span> — Problem 1</p>
+        <p>Cache the students DataFrame and run <code>.count()</code> twice. Explain (in code comments) what happens differently on the first vs second call.</p>
+        <div class="code-block simulated" data-output="First count: 500 (computed from source + cached)&#10;Second count: 500 (read directly from cache)">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea># Cache the students DataFrame
+students_df.cache()
+
+# First .count() — triggers full computation of the lineage
+# (reads source data, applies transformations, stores result in memory)
+first = students_df.count()
+print(f"First count: {first} (computed from source + cached)")
+
+# Second .count() — reads directly from the in-memory cache
+# (no recomputation, no disk I/O, nearly instant)
+second = students_df.count()
+print(f"Second count: {second} (read directly from cache)")</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+
+      <!-- Problem 2 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Apply</span> — Problem 2</p>
+        <p>Create a small course lookup DataFrame, broadcast it, and use it in a join with the enrollments DataFrame to add department and credits columns.</p>
+        <div class="code-block simulated" data-output="+----------+---------+----------+----------------+-------+-----+&#10;|student_id|course_id|  semester|      department|credits|grade|&#10;+----------+---------+----------+----------------+-------+-----+&#10;|      1001|    CS101|   Fall 24|Computer Science|      3|   88|&#10;|      1002|    DS101|   Fall 24|    Data Science|      3|   85|&#10;|      1003|    MA101|   Fall 24|     Mathematics|      4|   91|&#10;|      1004|    ST101|   Fall 24|      Statistics|      3|   78|&#10;|      1005|    CS101|   Spr 25 |Computer Science|      3|   87|&#10;+----------+---------+----------+----------------+-------+-----+&#10;only showing top 5 rows">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea>from pyspark.sql.functions import broadcast
+
+# Create a small lookup table
+course_lookup = spark.createDataFrame([
+    ("CS101", "Computer Science", 3),
+    ("DS101", "Data Science", 3),
+    ("MA101", "Mathematics", 4),
+    ("ST101", "Statistics", 3)
+], ["course_id", "department", "credits"])
+
+# Broadcast the small table and join with enrollments
+enriched = enrollments_df.join(broadcast(course_lookup), "course_id")
+enriched.show(5)</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+
+      <!-- Problem 3 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Stretch</span> — Problem 3</p>
+        <p>Build a pipeline: read students, join with enrollments, clean the result, cache it, then run three different aggregations (avg grade by major, count by semester, top 5 students by grade) on the cached DataFrame.</p>
+        <div class="code-block simulated" data-output="=== Average grade by major ===&#10;+-----+---------+&#10;|major|avg_grade|&#10;+-----+---------+&#10;|   CS|     89.2|&#10;|   DS|     86.5|&#10;| Math|     91.0|&#10;| Stat|     84.3|&#10;+-----+---------+&#10;&#10;=== Enrollment count by semester ===&#10;+----------+-----+&#10;|  semester|count|&#10;+----------+-----+&#10;|   Fall 24|  800|&#10;|   Spr 25 |  700|&#10;+----------+-----+&#10;&#10;=== Top 5 students by grade ===&#10;+----------+------+-----+&#10;|student_id|  name|grade|&#10;+----------+------+-----+&#10;|      1003| Carol|   99|&#10;|      1001| Alice|   97|&#10;|      1042|   Kim|   96|&#10;|      1017|  Nora|   95|&#10;|      1005|   Eva|   95|&#10;+----------+------+-----+">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea>from pyspark.sql.functions import col, avg, count, desc
+from pyspark import StorageLevel
+
+# Step 1: Join students with enrollments
+pipeline_df = students_df.join(enrollments_df, "student_id")
+
+# Step 2: Clean — drop nulls, filter valid grades
+pipeline_df = pipeline_df.filter(col("grade").isNotNull()) \
+    .filter(col("grade") >= 0)
+
+# Step 3: Cache the cleaned result (used 3 times below)
+pipeline_df.persist(StorageLevel.MEMORY_AND_DISK)
+pipeline_df.count()  # Materialize the cache
+
+# Aggregation 1: Average grade by major
+print("=== Average grade by major ===")
+pipeline_df.groupBy("major").agg(avg("grade").alias("avg_grade")).show()
+
+# Aggregation 2: Count by semester
+print("=== Enrollment count by semester ===")
+pipeline_df.groupBy("semester").agg(count("*").alias("count")).show()
+
+# Aggregation 3: Top 5 students by grade
+print("=== Top 5 students by grade ===")
+pipeline_df.select("student_id", "name", "grade") \
+    .orderBy(desc("grade")).show(5)
+
+# Clean up
+pipeline_df.unpersist()</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+
+      <!-- Problem 4 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Stretch</span> — Problem 4</p>
+        <p>For each scenario, choose the appropriate storage level and explain why:</p>
+        <p><strong>(a)</strong> A DataFrame used 10 times that fits comfortably in memory.</p>
+        <p><strong>MEMORY_ONLY</strong> — since it fits in memory, use the fastest option. No need to spill to disk or serialize. Ten reuses means the memory cost is easily justified by the computation savings.</p>
+        <p><strong>(b)</strong> A large DataFrame used 3 times that doesn't fit entirely in memory.</p>
+        <p><strong>MEMORY_AND_DISK</strong> — the partitions that fit in memory get fast access, while the overflow spills to local disk rather than being recomputed. Three reuses justify the disk I/O overhead for spilled partitions.</p>
+        <p><strong>(c)</strong> A DataFrame used twice where memory is scarce and needed for other operations.</p>
+        <p><strong>DISK_ONLY</strong> — preserves memory for the other operations that need it. Two reuses still save time compared to full recomputation, and disk reads are faster than rerunning an expensive pipeline from scratch.</p>
+      </div>
+    </div>
+
+    <!-- 10. Closing -->
+    <h2>Course Complete</h2>
+    <p>You've built a complete PySpark pipeline from raw CSV files to optimized, cached results — covering ETL, in-memory processing, RDDs, DataFrames, SQL, UDFs, cleaning, exploration, transformations, and performance optimization. The companion notebooks let you run everything on real Spark infrastructure.</p>
+    <p>To continue learning, explore Spark Structured Streaming for real-time data, MLlib for machine learning pipelines, and Delta Lake for reliable data lakes.</p>
+
+    <!-- Navigation -->
+    <nav class="module-nav">
+      <a href="09-transformation-operations.html">&larr; Module 9: Transformation Operations</a>
+    </nav>
+  </div>
+
+  <script src="../assets/pyodide-loader.js"></script>
+  <script src="../assets/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 5: Bagging and Random Forests</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-decision-trees-intro.html">1. Intro</a>
+    <a href="02-impurity-training.html">2. Impurity</a>
+    <a href="03-gini-splits.html">3. Gini Splits</a>
+    <a href="04-advantages-limitations.html">4. Advantages</a>
+    <a href="05-bagging-random-forests.html" class="active">5. Random Forests</a>
+    <a href="06-gradient-boosting.html">6. Gradient Boosting</a>
+    <a href="07-hyperparameter-tuning.html">7. Hyperparameters</a>
+  </nav>
+  <header>
+    <h1>Module 5: Bagging and Random Forests</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- SECTION 1: THE PROBLEM ENSEMBLES SOLVE -->
+  <h2>The Problem Ensembles Solve</h2>
+
+  <p>Module 4 identified a core tension in decision trees: a fully grown tree memorizes training data (high variance, low bias), while an aggressively pruned tree underfits (low variance, high bias). Pruning helps, but even a well-tuned single tree suffers from <strong>instability</strong>.</p>
+
+  <p>Instability means that small changes to the training data produce very different trees. Retrain on a dataset where one point is replaced by another drawn from the same distribution, and the greedy split at the root may change entirely — because a different feature suddenly offers the best Gini gain. Every subsequent split inherits this perturbation, and the final tree looks completely different. This is the consequence of greedy, top-down learning: the algorithm is sensitive to small changes in the data at the root, and that sensitivity cascades downward.</p>
+
+  <div class="callout note">
+    <strong>Contrast with k-nearest neighbors</strong>
+    KNN is a stable learner. If you perturb one training point, only predictions for query points near that point change, and only slightly. A decision tree can have its entire structure reorganized by a single training point that happens to tip a split decision at the root. Instability is a structural property of greedy recursive partitioning, not a defect that better pruning can fully eliminate.
+  </div>
+
+  <h3>The Averaging Idea</h3>
+
+  <p>The mathematical motivation for ensembles is simple. Suppose we have <span class="math-latex math-inline">B</span> <em>independent, identically distributed</em> random variables <span class="math-latex math-inline">T_1, T_2, \ldots, T_B</span>, each with variance <span class="math-latex math-inline">\sigma^2</span>. Their average has variance:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{Var}\!\left(\frac{1}{B}\sum_{b=1}^{B} T_b\right) = \frac{\sigma^2}{B} \xrightarrow{B \to \infty} 0</span>
+  </div>
+
+  <p>If we could train <span class="math-latex math-inline">B</span> independent trees and average their predictions, variance would vanish as <span class="math-latex math-inline">B \to \infty</span>. But there are two obstacles:</p>
+
+  <ul>
+    <li><strong>Not independent.</strong> All trees are trained on the same dataset, so they share structure and their predictions are correlated.</li>
+    <li><strong>Not identically distributed.</strong> Different bootstrap samples produce trees with different distributions over the feature space.</li>
+  </ul>
+
+  <p>Bagging and random forests address both obstacles — bagging introduces diversity through resampling, and random forests further decorrelate trees by randomizing feature selection at each split.</p>
+
+  <div class="bridge">
+    <strong>From instability to ensemble design.</strong> The insight is that variance can be reduced by averaging, but only if the things being averaged are not perfectly correlated. The entire engineering challenge of ensemble methods is reducing that correlation — making the base learners diverse enough that their errors cancel out when aggregated.
+  </div>
+
+  <!-- SECTION 2: BOOTSTRAP SAMPLING -->
+  <h2>Bootstrap Sampling</h2>
+
+  <p>A <strong>bootstrap sample</strong> of <span class="math-latex math-inline">n</span> observations is formed by drawing <span class="math-latex math-inline">n</span> times <em>uniformly with replacement</em> from the original <span class="math-latex math-inline">n</span> observations. Each draw is independent; any observation can be selected multiple times or not at all.</p>
+
+  <h3>Expected Coverage: the 63.2% Rule</h3>
+
+  <p>What fraction of the original training points appear in a typical bootstrap sample? For any single training point <span class="math-latex math-inline">i</span>, the probability it is <em>not</em> selected on a single draw is <span class="math-latex math-inline">(1 - 1/n)</span>. Since there are <span class="math-latex math-inline">n</span> independent draws:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">P(\text{point } i \text{ not selected}) = \left(1 - \frac{1}{n}\right)^n \xrightarrow{n \to \infty} e^{-1} \approx 0.368</span>
+  </div>
+
+  <p>Therefore, the probability that point <span class="math-latex math-inline">i</span> <em>is</em> included is approximately <span class="math-latex math-inline">1 - e^{-1} \approx 0.632</span>. The expected number of unique training points in a bootstrap sample is:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">E[\text{unique points}] = n \cdot P(\text{point included}) = n\left(1 - \left(1-\frac{1}{n}\right)^n\right) \approx n(1 - e^{-1}) \approx 0.632n</span>
+  </div>
+
+  <p>The remaining <span class="math-latex math-inline">\approx 36.8\%</span> of training points are called <strong>out-of-bag (OOB)</strong> observations for that bootstrap sample — they were never selected and therefore never influenced the tree trained on that sample.</p>
+
+  <div class="concept-box">
+    <h4>Worked Example: n = 5 points {A, B, C, D, E}</h4>
+    <p>Three independent bootstrap samples drawn from the same five points:</p>
+    <table style="width:auto;margin:0.5rem 0;">
+      <thead>
+        <tr>
+          <th>Sample</th>
+          <th>Bootstrap Draw (size 5)</th>
+          <th>Unique in-bag</th>
+          <th>OOB</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>D<sub>1</sub></td>
+          <td>A, A, C, D, A</td>
+          <td>A, C, D (3 unique)</td>
+          <td>B, E</td>
+        </tr>
+        <tr>
+          <td>D<sub>2</sub></td>
+          <td>B, C, C, E, B</td>
+          <td>B, C, E (3 unique)</td>
+          <td>A, D</td>
+        </tr>
+        <tr>
+          <td>D<sub>3</sub></td>
+          <td>A, B, D, D, E</td>
+          <td>A, B, D, E (4 unique)</td>
+          <td>C</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-bottom:0;font-size:0.9rem;color:var(--text-muted);">Each sample produces a different effective training set, and each has a different OOB set. Trees trained on D<sub>1</sub>, D<sub>2</sub>, D<sub>3</sub> will differ in structure because they see different subsets of the data.</p>
+  </div>
+
+  <!-- SECTION 3: BAGGING -->
+  <h2>Bagging — Bootstrap Aggregating</h2>
+
+  <p>Leo Breiman introduced <strong>bagging</strong> (Bootstrap AGGregating) in 1996 as a general procedure for stabilizing any high-variance learner. Applied to decision trees, the algorithm is:</p>
+
+  <div class="algo-block">For b = 1 to B:
+  a. Draw bootstrap sample D_b of size n from training data D
+     (sample with replacement)
+  b. Train decision tree T_b on D_b
+     (grow to full depth — no pruning)
+
+Predict for new point x:
+  Classification:  majority vote of { T_1(x), T_2(x), ..., T_B(x) }
+  Regression:      mean of { T_1(x), T_2(x), ..., T_B(x) }</div>
+
+  <p>The ensemble prediction for regression is:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\hat{f}_{\text{bag}}(x) = \frac{1}{B} \sum_{b=1}^{B} T_b(x)</span>
+  </div>
+
+  <p>Trees are grown to full depth (maximum variance, minimum bias). The variance is controlled by averaging — not by pruning any individual tree.</p>
+
+  <h3>Variance Reduction: the Derivation</h3>
+
+  <p>Let each tree <span class="math-latex math-inline">T_b</span> have variance <span class="math-latex math-inline">\sigma^2</span> and let any two trees <span class="math-latex math-inline">T_i, T_j</span> have correlation <span class="math-latex math-inline">\rho</span> (so <span class="math-latex math-inline">\text{Cov}(T_i, T_j) = \rho\sigma^2</span>). Then:</p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Expand the variance of the average</strong>
+        <div class="math-block" style="margin:0.5rem 0;">
+          <span class="math-latex math-block">\text{Var}\!\left(\frac{1}{B}\sum_{b=1}^{B} T_b\right) = \frac{1}{B^2}\left(B\,\text{Var}(T_b) + B(B-1)\,\text{Cov}(T_i,T_j)\right)</span>
+        </div>
+        <div class="step-explanation">There are B diagonal terms (each contributing Var(T_b) = &sigma;&sup2;) and B(B&minus;1) off-diagonal covariance terms.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Substitute Cov(T<sub>i</sub>, T<sub>j</sub>) = &rho;&sigma;&sup2;</strong>
+        <div class="math-block" style="margin:0.5rem 0;">
+          <span class="math-latex math-block">= \frac{1}{B^2}\left(B\sigma^2 + B(B-1)\rho\sigma^2\right) = \frac{\sigma^2}{B} + \frac{(B-1)}{B}\rho\sigma^2</span>
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Rearrange to the canonical form</strong>
+        <div class="math-block" style="margin:0.5rem 0;">
+          <span class="math-latex math-block">\text{Var}\!\left(\frac{1}{B}\sum_b T_b\right) = \rho\sigma^2 + \frac{1-\rho}{B}\sigma^2</span>
+        </div>
+        <div class="step-explanation">The first term is the <em>variance floor</em>: it does not shrink as B grows. The second term vanishes as B &rarr; &infin;.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout insight">
+    <strong>The correlation floor is the fundamental limit</strong>
+    As <span class="math-latex math-inline">B \to \infty</span>, the ensemble variance approaches <span class="math-latex math-inline">\rho\sigma^2</span>. More trees cannot reduce variance below this floor. The floor is set by how correlated the trees are — which is set by the data and the learning procedure, not by <span class="math-latex math-inline">B</span>. This is why random forests introduce additional randomness to reduce <span class="math-latex math-inline">\rho</span>.
+  </div>
+
+  <h3>Out-of-Bag Error Estimation</h3>
+
+  <p>Bagging provides a free cross-validation estimate. For each training point <span class="math-latex math-inline">x_i</span>, roughly 36.8% of the <span class="math-latex math-inline">B</span> trees were trained on bootstrap samples that did <em>not</em> include <span class="math-latex math-inline">x_i</span>. Let <span class="math-latex math-inline">\mathcal{B}_i = \{b : x_i \notin D_b\}</span> denote the set of trees for which <span class="math-latex math-inline">x_i</span> is OOB. The OOB prediction for <span class="math-latex math-inline">x_i</span> is:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\hat{f}_{\text{OOB}}(x_i) = \frac{1}{|\mathcal{B}_i|} \sum_{b \in \mathcal{B}_i} T_b(x_i)</span>
+  </div>
+
+  <p>The OOB error is then computed by comparing <span class="math-latex math-inline">\hat{f}_{\text{OOB}}(x_i)</span> to the true label <span class="math-latex math-inline">y_i</span> across all training points. This estimate is nearly unbiased for generalization error and eliminates the need for a held-out validation set — a significant practical advantage when data are scarce.</p>
+
+  <!-- SECTION 4: RANDOM FORESTS -->
+  <h2>Random Forests — Decorrelating the Trees</h2>
+
+  <p>Breiman (2001) refined bagging into <strong>random forests</strong> with one key modification: at each split, only a random subset of <span class="math-latex math-inline">m_{\text{try}}</span> features (out of the full <span class="math-latex math-inline">p</span>) is considered as candidates for the split. The best split is found among these <span class="math-latex math-inline">m_{\text{try}}</span> features only.</p>
+
+  <h3>Why Feature Subsampling Reduces Correlation</h3>
+
+  <p>In a bagged forest, all trees see the same overall feature distribution. If one feature is strongly predictive (say, feature X1 accounts for most of the class separation), nearly every tree will place X1 at or near the root. This makes the trees highly correlated — they all exploit X1 first, producing similar decision boundaries and prediction errors. The variance floor <span class="math-latex math-inline">\rho\sigma^2</span> remains high.</p>
+
+  <p>By forcing each split to consider only <span class="math-latex math-inline">m_{\text{try}} &lt; p</span> randomly chosen features, we ensure that sometimes the dominant feature is excluded from contention. Other features must be used in its place. Different trees end up relying on different features, discovering different aspects of the data. Their predictions become less correlated — <span class="math-latex math-inline">\rho</span> decreases — and the ensemble variance floor drops.</p>
+
+  <h3>Choosing m<sub>try</sub></h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Task</th>
+        <th>Breiman's default</th>
+        <th>Practical advice</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Classification</td>
+        <td><span class="math-latex math-inline">m_{\text{try}} = \lfloor\sqrt{p}\rfloor</span></td>
+        <td>Often works well out of the box; tune via cross-validation</td>
+      </tr>
+      <tr>
+        <td>Regression</td>
+        <td><span class="math-latex math-inline">m_{\text{try}} = \lfloor p/3 \rfloor</span></td>
+        <td>Try a range: p/10, p/5, p/3, p/2</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>With <span class="math-latex math-inline">m_{\text{try}} = p</span>, random forests reduce to bagging (all features considered at every split). With <span class="math-latex math-inline">m_{\text{try}} = 1</span>, each split is entirely random — maximum decorrelation but too much bias. The sweet spot is usually around <span class="math-latex math-inline">\sqrt{p}</span> for classification tasks.</p>
+
+  <h3>The Full Random Forest Algorithm</h3>
+
+  <div class="algo-block">Input: training data D = {(x_i, y_i)}, B trees, m_try features per split
+
+For b = 1 to B:
+  1. Draw bootstrap sample D_b (size n, with replacement from D)
+  2. Grow tree T_b from D_b:
+       At each node with data subset S:
+         a. Draw m_try features uniformly at random (without replacement)
+         b. Find the best split among those m_try features only
+            (using Gini impurity for classification, MSE for regression)
+         c. Split S into left and right children
+         d. Recurse on each child — no depth limit, no pruning
+  3. Store T_b
+
+Predict for new point x:
+  Classification:  y_hat = mode{ T_1(x), T_2(x), ..., T_B(x) }
+  Regression:      y_hat = (1/B) * sum{ T_b(x) }
+
+Optional: compute OOB error for free model validation</div>
+
+  <h3>The Bias-Variance Tradeoff at the Ensemble Level</h3>
+
+  <p>Restricting features at each split introduces a small amount of bias: we may occasionally miss the globally best split because the optimal feature was not in the randomly selected <span class="math-latex math-inline">m_{\text{try}}</span>. This is a real cost. But the variance reduction from decorrelation is typically much larger than the bias increase. The net effect on test error is almost universally positive — this is why random forests consistently outperform single decision trees across a wide range of datasets without careful hyperparameter tuning.</p>
+
+  <div class="callout note">
+    <strong>Random forests vs. bagging — when does decorrelation matter most?</strong>
+    When one feature dominates (e.g., a feature with very high predictive power), bagging trees will be highly correlated and the variance floor will be high. Feature subsampling provides the largest benefit here. When features are roughly equally informative, the trees are already somewhat decorrelated by bootstrap sampling, and the gain from m_try is smaller.
+  </div>
+
+  <!-- SECTION 5: FEATURE IMPORTANCE -->
+  <h2>Feature Importance</h2>
+
+  <p>A useful byproduct of training a random forest is a ranking of feature importance. Two standard measures are used in practice.</p>
+
+  <h3>Mean Decrease in Impurity (MDI)</h3>
+
+  <p>For each feature <span class="math-latex math-inline">j</span>, sum the total impurity reduction (Gini gain) across every split on feature <span class="math-latex math-inline">j</span> across all trees, weighted by the fraction of training samples reaching that split:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{FI}(j) = \frac{1}{B} \sum_{b=1}^{B} \sum_{\substack{t \in T_b \\ \text{split on } j}} \frac{n_t}{n} \cdot \Delta G(t)</span>
+  </div>
+
+  <p>where <span class="math-latex math-inline">n_t</span> is the number of samples at node <span class="math-latex math-inline">t</span> and <span class="math-latex math-inline">\Delta G(t)</span> is the Gini gain at that split. Importances are normalized to sum to 1. A high <span class="math-latex math-inline">\text{FI}(j)</span> means feature <span class="math-latex math-inline">j</span> is used frequently and produces large purity gains.</p>
+
+  <div class="callout warning">
+    <strong>MDI is biased toward high-cardinality features</strong>
+    A feature with many distinct values (e.g., a continuous variable measured to many decimal places) has more candidate thresholds than a binary feature. More candidate thresholds means more chances to produce a winning split, inflating MDI even when the feature is not genuinely more informative. Permutation importance is less susceptible to this bias.
+  </div>
+
+  <h3>Permutation Importance</h3>
+
+  <p>After training, for each feature <span class="math-latex math-inline">j</span>: randomly permute the values of feature <span class="math-latex math-inline">j</span> in the held-out (OOB or test) set, and measure the increase in prediction error. If shuffling feature <span class="math-latex math-inline">j</span> causes a large accuracy drop, the feature is important — the model depended on the real ordering of its values.</p>
+
+  <p>Formally, let <span class="math-latex math-inline">\text{err}_{\text{OOB}}</span> be the baseline OOB error, and <span class="math-latex math-inline">\text{err}_{\text{OOB}}^{(j)}</span> be the OOB error after permuting feature <span class="math-latex math-inline">j</span>. Then:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{PI}(j) = \text{err}_{\text{OOB}}^{(j)} - \text{err}_{\text{OOB}}</span>
+  </div>
+
+  <p>A large positive <span class="math-latex math-inline">\text{PI}(j)</span> means feature <span class="math-latex math-inline">j</span> matters. Permutation importance requires an extra pass through the OOB data for each feature, making it more expensive than MDI, but it is generally considered more reliable for feature selection.</p>
+
+  <div class="pros-cons">
+    <div class="pros-cons-col pros">
+      <h4>MDI Advantages</h4>
+      <ul>
+        <li>Free — computed during training</li>
+        <li>No extra data pass needed</li>
+        <li>Consistent across runs</li>
+      </ul>
+    </div>
+    <div class="pros-cons-col cons">
+      <h4>MDI Limitations</h4>
+      <ul>
+        <li>Biased toward high-cardinality features</li>
+        <li>Biased toward correlated features</li>
+        <li>Measures training-set importance</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- WIDGET 1: BOOTSTRAP SAMPLING DEMO -->
+  <h2>Interactive: Bootstrap in Action</h2>
+
+  <div class="widget-container">
+    <h4>15 training points (numbered 1&ndash;15). Click "Draw Bootstrap Sample" to sample 15 with replacement. Highlighted badges are in-bag; grayed badges are out-of-bag (OOB). Each click draws a new independent sample.</h4>
+    <div class="widget-controls">
+      <button id="btn-bootstrap">Draw Bootstrap Sample</button>
+      <button id="btn-reset-bootstrap" style="background:none;border:1px solid var(--border);color:var(--text);">Reset</button>
+    </div>
+    <div id="bootstrap-points" style="display:flex;flex-wrap:wrap;gap:0.4rem;margin:1rem 0;min-height:2.5rem;"></div>
+    <div id="bootstrap-counts" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;min-height:1.2em;"></div>
+    <div class="stat-row">
+      <div class="stat-card">
+        <span>Samples drawn</span>
+        <strong id="bs-stat-draws">0</strong>
+      </div>
+      <div class="stat-card">
+        <span>Unique in-bag</span>
+        <strong id="bs-stat-unique">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>OOB count</span>
+        <strong id="bs-stat-oob">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Running avg OOB rate</span>
+        <strong id="bs-stat-avg-oob">—</strong>
+      </div>
+    </div>
+    <div id="bootstrap-history" style="margin-top:0.75rem;font-size:0.82rem;color:var(--text-muted);"></div>
+  </div>
+
+  <!-- WIDGET 2: VARIANCE REDUCTION SIMULATOR -->
+  <h2>Interactive: How Many Trees Do We Need?</h2>
+
+  <div class="widget-container">
+    <h4>Plot shows ensemble variance as a function of B (number of trees) under two scenarios: uncorrelated trees (&rho; = 0) and correlated trees (your chosen &rho;). The dashed line shows the variance floor &rho;&sigma;&sup2; that persists as B &rarr; &infin;.</h4>
+    <div class="widget-controls">
+      <label>
+        &sigma;&sup2; (individual tree variance):
+        <input type="range" id="slider-sigma2" min="0.1" max="1.0" step="0.1" value="0.5">
+        <span id="val-sigma2" style="font-weight:600;color:var(--accent-blue);min-width:2.5em;display:inline-block;">0.5</span>
+      </label>
+      <label>
+        &rho; (pairwise correlation):
+        <input type="range" id="slider-rho" min="0" max="0.9" step="0.1" value="0.5">
+        <span id="val-rho" style="font-weight:600;color:var(--accent-blue);min-width:2.5em;display:inline-block;">0.5</span>
+      </label>
+    </div>
+    <div class="stat-row">
+      <div class="stat-card">
+        <span>Var at B = 1</span>
+        <strong id="vr-stat-b1">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Var at B = 10</span>
+        <strong id="vr-stat-b10">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Var at B = 100</span>
+        <strong id="vr-stat-b100">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Variance floor (&rho;&sigma;&sup2;)</span>
+        <strong id="vr-stat-floor">—</strong>
+      </div>
+    </div>
+    <div id="variance-plot" class="plot-area" style="height:360px;"></div>
+  </div>
+
+  <!-- WIDGET 3: FEATURE IMPORTANCE BAR CHART -->
+  <h2>Interactive: Feature Importance</h2>
+
+  <div class="widget-container">
+    <h4>Simulated random forest (20 trees, depth-2 CART, bootstrap samples) on a synthetic 5-feature dataset. X1 and X2 drive the label; X3 and X4 are pure noise; X5 is redundant with X1. Bar heights show mean decrease in impurity (MDI), normalized to sum to 1.</h4>
+    <div class="widget-controls">
+      <button id="btn-reseed">Reseed</button>
+    </div>
+    <div id="fi-plot" class="plot-area" style="height:320px;"></div>
+  </div>
+
+  <!-- PRACTICE PROBLEMS -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: Out-of-Bag Probability Calculation</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>A random forest is trained with <span class="math-latex math-inline">n = 1000</span> training samples and <span class="math-latex math-inline">B = 500</span> trees. Approximately how many of the 500 trees will <strong>not</strong> have seen training sample #42 in their bootstrap sample? Show the calculation using the <span class="math-latex math-inline">e^{-1}</span> approximation.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>The probability that a single bootstrap sample of size <span class="math-latex math-inline">n = 1000</span> does <em>not</em> include point #42 is:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">P(\text{point not selected}) = \left(1 - \frac{1}{1000}\right)^{1000} \approx e^{-1} \approx 0.368</span>
+        </div>
+        <p>Each of the <span class="math-latex math-inline">B = 500</span> trees has this probability independently. The expected number of trees that did <em>not</em> see point #42 is:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">E[\text{trees without point 42}] = 500 \times 0.368 \approx 184 \text{ trees}</span>
+        </div>
+        <p>These ~184 trees form the OOB committee for point #42. Their aggregate prediction is the OOB estimate for that point, computed without ever including it in training.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: Variance Floor and Correlation</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>A random forest has trees with individual variance <span class="math-latex math-inline">\sigma^2 = 0.16</span> and pairwise correlation <span class="math-latex math-inline">\rho = 0.4</span>.</p>
+      <p><strong>(a)</strong> What is the ensemble variance at <span class="math-latex math-inline">B = 10</span> trees?</p>
+      <p><strong>(b)</strong> What is the variance floor as <span class="math-latex math-inline">B \to \infty</span>?</p>
+      <p><strong>(c)</strong> To halve the variance floor, you need to halve <span class="math-latex math-inline">\rho</span> from 0.4 to 0.2. Suggest one mechanism from random forest design that would reduce <span class="math-latex math-inline">\rho</span>, and explain why it works.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Ensemble variance at B = 10:</strong></p>
+        <p>Using the formula <span class="math-latex math-inline">\text{Var} = \rho\sigma^2 + \frac{1-\rho}{B}\sigma^2</span>:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{Var}_{B=10} = (0.4)(0.16) + \frac{(1-0.4)}{10}(0.16) = 0.064 + \frac{0.6 \times 0.16}{10} = 0.064 + 0.0096 = 0.0736</span>
+        </div>
+        <p><strong>(b) Variance floor:</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">\lim_{B \to \infty} \text{Var} = \rho\sigma^2 = (0.4)(0.16) = 0.064</span>
+        </div>
+        <p>Even with infinitely many trees, variance cannot drop below 0.064.</p>
+        <p><strong>(c) Reducing &rho; via feature subsampling:</strong></p>
+        <p>Decreasing <span class="math-latex math-inline">m_{\text{try}}</span> (the number of features considered at each split) forces different trees to use different features as their primary splits. The dominant feature is excluded from some trees' consideration, so those trees must rely on other features — producing structurally different trees whose predictions correlate less. Reducing <span class="math-latex math-inline">m_{\text{try}}</span> from <span class="math-latex math-inline">p</span> (pure bagging) toward <span class="math-latex math-inline">\sqrt{p}</span> (standard random forest) is the primary lever for reducing <span class="math-latex math-inline">\rho</span>.</p>
+        <p>Halving the variance floor: <span class="math-latex math-inline">(0.2)(0.16) = 0.032</span>, which is indeed half of 0.064.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: Full Variance Derivation and Limiting Cases</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>Starting from:</p>
+      <div class="math-block">
+        <span class="math-latex math-block">\text{Var}\!\left(\frac{1}{B}\sum_{b=1}^{B} T_b\right) = \frac{1}{B^2}\!\left[B\sigma^2 + B(B-1)\rho\sigma^2\right]</span>
+      </div>
+      <p><strong>(a)</strong> Derive the formula <span class="math-latex math-inline">\rho\sigma^2 + \frac{1-\rho}{B}\sigma^2</span> algebraically.</p>
+      <p><strong>(b)</strong> Show that for <span class="math-latex math-inline">\rho = 0</span> (independent trees), this equals <span class="math-latex math-inline">\sigma^2/B</span>.</p>
+      <p><strong>(c)</strong> Show that for <span class="math-latex math-inline">\rho = 1</span> (perfectly correlated trees), this equals <span class="math-latex math-inline">\sigma^2</span> regardless of <span class="math-latex math-inline">B</span>, and interpret this result.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Derivation:</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">\frac{1}{B^2}\!\left[B\sigma^2 + B(B-1)\rho\sigma^2\right] = \frac{\sigma^2}{B} + \frac{(B-1)\rho\sigma^2}{B}</span>
+        </div>
+        <p>Factor <span class="math-latex math-inline">\sigma^2</span> and write <span class="math-latex math-inline">\frac{B-1}{B} = 1 - \frac{1}{B}</span>:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">= \frac{\sigma^2}{B} + \left(1 - \frac{1}{B}\right)\rho\sigma^2 = \rho\sigma^2 + \frac{\sigma^2}{B} - \frac{\rho\sigma^2}{B} = \rho\sigma^2 + \frac{(1-\rho)\sigma^2}{B}</span>
+        </div>
+        <p>This is the canonical form. <span class="math-latex math-inline">\checkmark</span></p>
+        <p><strong>(b) Case &rho; = 0 (independent trees):</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">(0)\sigma^2 + \frac{(1-0)}{B}\sigma^2 = \frac{\sigma^2}{B}</span>
+        </div>
+        <p>With zero correlation, averaging <span class="math-latex math-inline">B</span> trees reduces variance by exactly a factor of <span class="math-latex math-inline">B</span> — the classic result for independent random variables.</p>
+        <p><strong>(c) Case &rho; = 1 (perfectly correlated trees):</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">(1)\sigma^2 + \frac{(1-1)}{B}\sigma^2 = \sigma^2 + 0 = \sigma^2</span>
+        </div>
+        <p>The ensemble variance equals the individual tree variance regardless of <span class="math-latex math-inline">B</span>. This makes intuitive sense: if all trees are identical (perfectly correlated), averaging them produces the same prediction as a single tree — you are not gaining any new information. Growing more copies of the same tree achieves nothing. This is why decorrelation (the core contribution of random forests) is essential: high <span class="math-latex math-inline">\rho</span> makes the "ensemble" no better than a single model.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="04-advantages-limitations.html" class="nav-btn prev">Prev: Limitations</a>
+    <a href="06-gradient-boosting.html" class="nav-btn">Next: Gradient Boosting</a>
+  </div>
+</div>
+
+<!-- ALL JAVASCRIPT IN ONE DOMContentLoaded -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // WIDGET 1: Bootstrap Sampling Demo
+  // ═══════════════════════════════════════════════════════════════════════
+
+  var N_POINTS = 15;
+  var bsDrawCount = 0;
+  var bsOobHistory = [];
+
+  function renderBootstrapPoints(counts) {
+    var container = document.getElementById('bootstrap-points');
+    container.innerHTML = '';
+    for (var i = 1; i <= N_POINTS; i++) {
+      var badge = document.createElement('span');
+      var cnt = counts ? counts[i] || 0 : 0;
+      var isOob = counts && cnt === 0;
+      badge.textContent = i;
+      badge.style.cssText = [
+        'display:inline-flex',
+        'align-items:center',
+        'justify-content:center',
+        'width:2.1rem',
+        'height:2.1rem',
+        'border-radius:50%',
+        'font-size:0.8rem',
+        'font-weight:600',
+        'font-family:var(--font-mono)',
+        'border:2px solid ' + (counts === null ? 'var(--border)' : (isOob ? 'var(--border)' : 'var(--accent-blue)')),
+        'background:' + (counts === null ? 'var(--bg-secondary)' : (isOob ? 'var(--bg-secondary)' : 'rgba(37,99,235,0.12)')),
+        'color:' + (counts === null ? 'var(--text-muted)' : (isOob ? 'var(--text-muted)' : 'var(--accent-blue)')),
+        'opacity:' + (isOob ? '0.45' : '1'),
+        'position:relative',
+        'transition:all 0.2s'
+      ].join(';');
+
+      if (counts && cnt > 1) {
+        var sup = document.createElement('span');
+        sup.textContent = 'x' + cnt;
+        sup.style.cssText = 'position:absolute;top:-4px;right:-6px;font-size:0.6rem;background:var(--accent-blue);color:#fff;border-radius:8px;padding:0 3px;line-height:1.4;';
+        badge.appendChild(sup);
+      }
+      container.appendChild(badge);
+    }
+  }
+
+  function drawBootstrap() {
+    var counts = {};
+    for (var i = 1; i <= N_POINTS; i++) counts[i] = 0;
+    var sample = [];
+    for (var j = 0; j < N_POINTS; j++) {
+      var pick = Math.floor(Math.random() * N_POINTS) + 1;
+      counts[pick]++;
+      sample.push(pick);
+    }
+
+    renderBootstrapPoints(counts);
+
+    var unique = Object.keys(counts).filter(function (k) { return counts[k] > 0; }).length;
+    var oob = N_POINTS - unique;
+    var oobRate = oob / N_POINTS;
+
+    bsDrawCount++;
+    bsOobHistory.push(oobRate);
+    var avgOob = bsOobHistory.reduce(function (a, b) { return a + b; }, 0) / bsOobHistory.length;
+
+    document.getElementById('bs-stat-draws').textContent = bsDrawCount;
+    document.getElementById('bs-stat-unique').textContent = unique;
+    document.getElementById('bs-stat-oob').textContent = oob;
+    document.getElementById('bs-stat-avg-oob').textContent = (avgOob * 100).toFixed(1) + '%';
+
+    var countDesc = [];
+    for (var k = 1; k <= N_POINTS; k++) {
+      if (counts[k] > 1) countDesc.push(k + ' x' + counts[k]);
+    }
+    var countStr = countDesc.length ? 'Repeated: ' + countDesc.join(', ') : 'No repeats';
+    var oobStr = [];
+    for (var k2 = 1; k2 <= N_POINTS; k2++) {
+      if (counts[k2] === 0) oobStr.push(k2);
+    }
+    document.getElementById('bootstrap-counts').textContent = countStr + ' | OOB: {' + oobStr.join(', ') + '}';
+
+    var histDiv = document.getElementById('bootstrap-history');
+    var row = document.createElement('div');
+    row.style.cssText = 'margin-top:0.3rem;';
+    row.textContent = 'Sample ' + bsDrawCount + ': ' + unique + ' unique in-bag, ' + oob + ' OOB (' + (oobRate * 100).toFixed(0) + '%)';
+    histDiv.insertBefore(row, histDiv.firstChild);
+    if (histDiv.children.length > 5) histDiv.removeChild(histDiv.lastChild);
+  }
+
+  function resetBootstrap() {
+    bsDrawCount = 0;
+    bsOobHistory = [];
+    renderBootstrapPoints(null);
+    document.getElementById('bootstrap-counts').textContent = '';
+    document.getElementById('bs-stat-draws').textContent = '0';
+    document.getElementById('bs-stat-unique').textContent = '—';
+    document.getElementById('bs-stat-oob').textContent = '—';
+    document.getElementById('bs-stat-avg-oob').textContent = '—';
+    document.getElementById('bootstrap-history').innerHTML = '';
+  }
+
+  renderBootstrapPoints(null);
+  document.getElementById('btn-bootstrap').addEventListener('click', drawBootstrap);
+  document.getElementById('btn-reset-bootstrap').addEventListener('click', resetBootstrap);
+
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // WIDGET 2: Variance Reduction Simulator
+  // ═══════════════════════════════════════════════════════════════════════
+
+  var BValues = linspace(1, 100, 100).map(function (v) { return Math.round(v); });
+
+  function ensembleVar(B, rho, sigma2) {
+    return rho * sigma2 + ((1 - rho) / B) * sigma2;
+  }
+
+  function updateVariancePlot() {
+    var sigma2 = parseFloat(document.getElementById('slider-sigma2').value);
+    var rho = parseFloat(document.getElementById('slider-rho').value);
+
+    document.getElementById('val-sigma2').textContent = sigma2.toFixed(1);
+    document.getElementById('val-rho').textContent = rho.toFixed(1);
+
+    var varUncorr = BValues.map(function (B) { return ensembleVar(B, 0, sigma2); });
+    var varCorr = BValues.map(function (B) { return ensembleVar(B, rho, sigma2); });
+    var floor = rho * sigma2;
+
+    document.getElementById('vr-stat-b1').textContent = sigma2.toFixed(4);
+    document.getElementById('vr-stat-b10').textContent = ensembleVar(10, rho, sigma2).toFixed(4);
+    document.getElementById('vr-stat-b100').textContent = ensembleVar(100, rho, sigma2).toFixed(4);
+    document.getElementById('vr-stat-floor').textContent = floor.toFixed(4);
+
+    var traceUncorr = {
+      x: BValues,
+      y: varUncorr,
+      type: 'scatter',
+      mode: 'lines',
+      name: '&rho; = 0 (uncorrelated)',
+      line: { color: '#2563eb', width: 2 }
+    };
+
+    var traceCorr = {
+      x: BValues,
+      y: varCorr,
+      type: 'scatter',
+      mode: 'lines',
+      name: '&rho; = ' + rho.toFixed(1) + ' (correlated)',
+      line: { color: '#dc2626', width: 2 }
+    };
+
+    var traceFloor = {
+      x: [BValues[0], BValues[BValues.length - 1]],
+      y: [floor, floor],
+      type: 'scatter',
+      mode: 'lines',
+      name: 'Variance floor (&rho;&sigma;&sup2; = ' + floor.toFixed(4) + ')',
+      line: { color: '#d97706', width: 1.5, dash: 'dash' }
+    };
+
+    var layout = plotlyLayout({
+      height: 360,
+      xaxis: { title: 'Number of trees (B)', range: [1, 100] },
+      yaxis: { title: 'Ensemble variance', rangemode: 'tozero' },
+      legend: { orientation: 'h', y: 1.08, font: { size: 11 } }
+    });
+
+    Plotly.react('variance-plot', [traceUncorr, traceCorr, traceFloor], layout, PLOTLY_CONFIG);
+  }
+
+  document.getElementById('slider-sigma2').addEventListener('input', updateVariancePlot);
+  document.getElementById('slider-rho').addEventListener('input', updateVariancePlot);
+
+  // Initial render
+  var vrLayout = plotlyLayout({
+    height: 360,
+    xaxis: { title: 'Number of trees (B)', range: [1, 100] },
+    yaxis: { title: 'Ensemble variance', rangemode: 'tozero' },
+    legend: { orientation: 'h', y: 1.08, font: { size: 11 } }
+  });
+  Plotly.newPlot('variance-plot', [], vrLayout, PLOTLY_CONFIG);
+  updateVariancePlot();
+
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // WIDGET 3: Feature Importance Bar Chart
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // Seeded PRNG
+  function makePrng(seed) {
+    var s = seed >>> 0;
+    return function () {
+      s = (s + 0x6D2B79F5) >>> 0;
+      var t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  var fiSeed = 42;
+
+  function generateDataset(prng, n) {
+    var data = [];
+    for (var i = 0; i < n; i++) {
+      var x1 = prng() * 4 - 2;
+      var x2 = prng() * 4 - 2;
+      var x3 = prng() * 4 - 2;
+      var x4 = prng() * 4 - 2;
+      var x5 = x1 + (prng() - 0.5) * 0.5; // redundant with x1
+      var noise = (prng() - 0.5) * 0.4;
+      var label = (x1 + x2 + noise > 0) ? 1 : 0;
+      data.push([x1, x2, x3, x4, x5, label]);
+    }
+    return data;
+  }
+
+  function giniImpurityLocal(counts) {
+    var total = counts[0] + counts[1];
+    if (total === 0) return 0;
+    var p = counts[1] / total;
+    return 1 - p * p - (1 - p) * (1 - p);
+  }
+
+  function findBestSplitFI(subset, featureIdx) {
+    var vals = subset.map(function (row) { return row[featureIdx]; });
+    var sorted = vals.slice().sort(function (a, b) { return a - b; });
+    var unique = [];
+    for (var i = 0; i < sorted.length - 1; i++) {
+      if (sorted[i] !== sorted[i + 1]) {
+        unique.push((sorted[i] + sorted[i + 1]) / 2);
+      }
+    }
+
+    var parentCounts = [0, 0];
+    subset.forEach(function (row) { parentCounts[row[5]]++; });
+    var parentGini = giniImpurityLocal(parentCounts);
+    var n = subset.length;
+    var bestGain = -Infinity;
+    var bestThresh = null;
+
+    for (var j = 0; j < unique.length; j++) {
+      var t = unique[j];
+      var lc = [0, 0], rc = [0, 0];
+      subset.forEach(function (row) {
+        if (row[featureIdx] <= t) lc[row[5]]++;
+        else rc[row[5]]++;
+      });
+      var nL = lc[0] + lc[1], nR = rc[0] + rc[1];
+      if (nL === 0 || nR === 0) continue;
+      var wg = (nL / n) * giniImpurityLocal(lc) + (nR / n) * giniImpurityLocal(rc);
+      var gain = parentGini - wg;
+      if (gain > bestGain) {
+        bestGain = gain;
+        bestThresh = t;
+      }
+    }
+    return { gain: Math.max(0, bestGain), thresh: bestThresh };
+  }
+
+  function buildDepth2Tree(subset, mTry, prng) {
+    // Returns accumulated feature importances from this tree
+    var fi = [0, 0, 0, 0, 0];
+    if (subset.length < 2) return fi;
+    var n = subset.length;
+
+    // Choose m_try features for root
+    var allFeats = [0, 1, 2, 3, 4];
+    var rootFeats = [];
+    var shuffled = allFeats.slice();
+    for (var i = shuffled.length - 1; i > 0; i--) {
+      var j = Math.floor(prng() * (i + 1));
+      var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
+    }
+    rootFeats = shuffled.slice(0, mTry);
+
+    var bestRootGain = -Infinity;
+    var bestRootFeat = null;
+    var bestRootThresh = null;
+
+    for (var f = 0; f < rootFeats.length; f++) {
+      var res = findBestSplitFI(subset, rootFeats[f]);
+      if (res.gain > bestRootGain) {
+        bestRootGain = res.gain;
+        bestRootFeat = rootFeats[f];
+        bestRootThresh = res.thresh;
+      }
+    }
+
+    if (bestRootFeat === null || bestRootThresh === null) return fi;
+
+    fi[bestRootFeat] += (n / n) * bestRootGain;
+
+    var left = subset.filter(function (row) { return row[bestRootFeat] <= bestRootThresh; });
+    var right = subset.filter(function (row) { return row[bestRootFeat] > bestRootThresh; });
+
+    // Level 2 splits on left child
+    if (left.length >= 2) {
+      var lFeats = shuffled.slice(); // re-shuffle for child
+      for (var li = lFeats.length - 1; li > 0; li--) {
+        var lj = Math.floor(prng() * (li + 1));
+        var lt = lFeats[li]; lFeats[li] = lFeats[lj]; lFeats[lj] = lt;
+      }
+      lFeats = lFeats.slice(0, mTry);
+      var bestLGain = -Infinity, bestLFeat = null, bestLThresh = null;
+      for (var lf = 0; lf < lFeats.length; lf++) {
+        var lres = findBestSplitFI(left, lFeats[lf]);
+        if (lres.gain > bestLGain) {
+          bestLGain = lres.gain; bestLFeat = lFeats[lf]; bestLThresh = lres.thresh;
+        }
+      }
+      if (bestLFeat !== null && bestLThresh !== null) {
+        fi[bestLFeat] += (left.length / n) * bestLGain;
+      }
+    }
+
+    // Level 2 splits on right child
+    if (right.length >= 2) {
+      var rFeats = shuffled.slice();
+      for (var ri = rFeats.length - 1; ri > 0; ri--) {
+        var rj = Math.floor(prng() * (ri + 1));
+        var rt = rFeats[ri]; rFeats[ri] = rFeats[rj]; rFeats[rj] = rt;
+      }
+      rFeats = rFeats.slice(0, mTry);
+      var bestRGain = -Infinity, bestRFeat = null, bestRThresh = null;
+      for (var rf = 0; rf < rFeats.length; rf++) {
+        var rres = findBestSplitFI(right, rFeats[rf]);
+        if (rres.gain > bestRGain) {
+          bestRGain = rres.gain; bestRFeat = rFeats[rf]; bestRThresh = rres.thresh;
+        }
+      }
+      if (bestRFeat !== null && bestRThresh !== null) {
+        fi[bestRFeat] += (right.length / n) * bestRGain;
+      }
+    }
+
+    return fi;
+  }
+
+  function computeFeatureImportance(seed) {
+    var prng = makePrng(seed);
+    var data = generateDataset(prng, 200);
+    var n = data.length;
+    var mTry = 2; // sqrt(5) ~ 2
+    var B = 20;
+    var totalFI = [0, 0, 0, 0, 0];
+
+    for (var b = 0; b < B; b++) {
+      // Bootstrap sample
+      var bootstrap = [];
+      for (var i = 0; i < n; i++) {
+        bootstrap.push(data[Math.floor(prng() * n)]);
+      }
+      var treeFI = buildDepth2Tree(bootstrap, mTry, prng);
+      for (var f = 0; f < 5; f++) {
+        totalFI[f] += treeFI[f] / B;
+      }
+    }
+
+    // Normalize
+    var total = totalFI.reduce(function (a, b) { return a + b; }, 0);
+    if (total > 0) {
+      for (var f2 = 0; f2 < 5; f2++) totalFI[f2] /= total;
+    }
+    return totalFI;
+  }
+
+  function renderFeatureImportance(seed) {
+    var fi = computeFeatureImportance(seed);
+    var featureNames = ['X1 (useful)', 'X2 (useful)', 'X3 (noisy)', 'X4 (noisy)', 'X5 (redundant)'];
+    var colors = fi.map(function (_, i) {
+      if (i < 2) return '#2563eb';
+      if (i < 4) return '#dc2626';
+      return '#d97706';
+    });
+
+    // Sort by importance descending
+    var indices = [0, 1, 2, 3, 4].sort(function (a, b) { return fi[a] - fi[b]; });
+
+    var trace = {
+      x: indices.map(function (i) { return fi[i]; }),
+      y: indices.map(function (i) { return featureNames[i]; }),
+      type: 'bar',
+      orientation: 'h',
+      marker: { color: indices.map(function (i) { return colors[i]; }) },
+      text: indices.map(function (i) { return (fi[i] * 100).toFixed(1) + '%'; }),
+      textposition: 'outside',
+      hovertemplate: '%{y}: %{x:.4f}<extra></extra>'
+    };
+
+    var layout = plotlyLayout({
+      height: 320,
+      xaxis: { title: 'Normalized importance (MDI)', range: [0, Math.max.apply(null, fi) * 1.25] },
+      yaxis: { title: '' },
+      margin: { t: 20, r: 60, b: 50, l: 120 },
+      showlegend: false
+    });
+
+    Plotly.react('fi-plot', [trace], layout, PLOTLY_CONFIG);
+  }
+
+  // Initial render
+  var fiLayout = plotlyLayout({
+    height: 320,
+    xaxis: { title: 'Normalized importance (MDI)' },
+    yaxis: { title: '' },
+    margin: { t: 20, r: 60, b: 50, l: 120 },
+    showlegend: false
+  });
+  Plotly.newPlot('fi-plot', [], fiLayout, PLOTLY_CONFIG);
+  renderFeatureImportance(fiSeed);
+
+  document.getElementById('btn-reseed').addEventListener('click', function () {
+    fiSeed = Math.floor(Math.random() * 100000);
+    renderFeatureImportance(fiSeed);
+  });
+
+});
+</script>
+</body>
+</html>

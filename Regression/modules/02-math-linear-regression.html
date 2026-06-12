@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 2: Mathematics of Linear Regression</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <a href="../index.html" style="font-weight:600;color:var(--text);text-decoration:none;font-size:0.9rem;">Regression</a>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="theme-toggle">Dark mode</button>
+        <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+      </div>
+    </header>
+    <nav class="module-nav-bar">
+      <a href="01-linear-regression.html">1. Linear Regression</a>
+      <a href="02-math-linear-regression.html" class="active">2. Math of LR</a>
+      <a href="03-logistic-regression.html">3. Logistic Regression</a>
+      <a href="04-math-logistic-regression.html">4. Math of LogR</a>
+    </nav>
+    <main>
+      <h1>Module 2: Mathematics of Linear Regression</h1>
+
+      <div class="bridge">
+        <strong>Bridge from Module 1:</strong> In Module 1, we fit a line by minimizing the sum of squared residuals. We stated the result; now we derive it from first principles. Why does OLS work? How do we compute the optimal parameters analytically and iteratively? What guarantees does the solution carry?
+      </div>
+
+      <!-- COST FUNCTION -->
+      <h2>The Cost Function</h2>
+      <p>We seek parameters <span class="math-latex">\boldsymbol{\beta} \in \mathbb{R}^{p+1}</span> that minimize the mean squared error. In scalar form:</p>
+      <div class="math-block">
+        <span class="math-latex math-block">J(\boldsymbol{\beta}) = \frac{1}{2n} \sum_{i=1}^{n} \left( y_i - \mathbf{x}_i^T \boldsymbol{\beta} \right)^2</span>
+      </div>
+      <p>In matrix notation, let <span class="math-latex">\mathbf{X} \in \mathbb{R}^{n \times (p+1)}</span> be the design matrix (with a column of ones for the intercept), and <span class="math-latex">\mathbf{y} \in \mathbb{R}^n</span> the response vector:</p>
+      <div class="math-block">
+        <span class="math-latex math-block">J(\boldsymbol{\beta}) = \frac{1}{2n} (\mathbf{y} - \mathbf{X}\boldsymbol{\beta})^T (\mathbf{y} - \mathbf{X}\boldsymbol{\beta})</span>
+      </div>
+
+      <div class="concept-box">
+        <h4>Why Squared Errors?</h4>
+        <p>If we assume the errors are i.i.d. Gaussian, <span class="math-latex">\varepsilon_i \sim \mathcal{N}(0, \sigma^2)</span>, then maximizing the likelihood of the observed data is equivalent to minimizing the sum of squared residuals. The MLE and OLS solutions coincide under Gaussian noise.</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\log L(\boldsymbol{\beta}) = -\frac{n}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma^2}\sum_{i=1}^n(y_i - \mathbf{x}_i^T\boldsymbol{\beta})^2</span>
+        </div>
+        <p>Maximizing this with respect to <span class="math-latex">\boldsymbol{\beta}</span> is equivalent to minimizing <span class="math-latex">\sum(y_i - \mathbf{x}_i^T\boldsymbol{\beta})^2</span>.</p>
+      </div>
+
+      <!-- NORMAL EQUATION -->
+      <h2>The Normal Equation (Analytical Solution)</h2>
+      <p>We derive the closed-form solution by setting the gradient of <span class="math-latex">J</span> to zero.</p>
+
+      <div class="derivation">
+        <div class="derivation-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <div class="math-block"><span class="math-latex math-block">J(\boldsymbol{\beta}) = \frac{1}{2n}(\mathbf{y} - \mathbf{X}\boldsymbol{\beta})^T(\mathbf{y} - \mathbf{X}\boldsymbol{\beta})</span></div>
+            <div class="step-explanation">Expand the quadratic form.</div>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <div class="math-block"><span class="math-latex math-block">= \frac{1}{2n}\left(\mathbf{y}^T\mathbf{y} - 2\boldsymbol{\beta}^T\mathbf{X}^T\mathbf{y} + \boldsymbol{\beta}^T\mathbf{X}^T\mathbf{X}\boldsymbol{\beta}\right)</span></div>
+            <div class="step-explanation">Using <span class="math-latex">(\mathbf{X}\boldsymbol{\beta})^T = \boldsymbol{\beta}^T\mathbf{X}^T</span> and the symmetry of the scalar <span class="math-latex">\boldsymbol{\beta}^T\mathbf{X}^T\mathbf{y} = \mathbf{y}^T\mathbf{X}\boldsymbol{\beta}</span>.</div>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <div class="math-block"><span class="math-latex math-block">\nabla_{\boldsymbol{\beta}} J = \frac{1}{2n}\left(-2\mathbf{X}^T\mathbf{y} + 2\mathbf{X}^T\mathbf{X}\boldsymbol{\beta}\right) = \frac{1}{n}\left(\mathbf{X}^T\mathbf{X}\boldsymbol{\beta} - \mathbf{X}^T\mathbf{y}\right)</span></div>
+            <div class="step-explanation">Differentiate using matrix calculus rules: <span class="math-latex">\frac{\partial}{\partial \mathbf{a}}(\mathbf{a}^T\mathbf{b}) = \mathbf{b}</span> and <span class="math-latex">\frac{\partial}{\partial \mathbf{a}}(\mathbf{a}^T\mathbf{A}\mathbf{a}) = 2\mathbf{A}\mathbf{a}</span> for symmetric <span class="math-latex">\mathbf{A}</span>.</div>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <div class="math-block"><span class="math-latex math-block">\nabla_{\boldsymbol{\beta}} J = 0 \implies \mathbf{X}^T\mathbf{X}\boldsymbol{\beta} = \mathbf{X}^T\mathbf{y}</span></div>
+            <div class="step-explanation">Set gradient to zero. These are the <strong>normal equations</strong>.</div>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">5</div>
+          <div class="step-content">
+            <div class="math-block"><span class="math-latex math-block">\hat{\boldsymbol{\beta}} = (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}</span></div>
+            <div class="step-explanation">Multiply both sides by <span class="math-latex">(\mathbf{X}^T\mathbf{X})^{-1}</span>, which exists when <span class="math-latex">\mathbf{X}</span> has full column rank (no perfect multicollinearity).</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="concept-box">
+        <h4>Geometric Interpretation: Projection</h4>
+        <p>The fitted values <span class="math-latex">\hat{\mathbf{y}} = \mathbf{X}\hat{\boldsymbol{\beta}} = \mathbf{X}(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}</span> are the orthogonal projection of <span class="math-latex">\mathbf{y}</span> onto the column space of <span class="math-latex">\mathbf{X}</span>. The matrix <span class="math-latex">\mathbf{H} = \mathbf{X}(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T</span> is the "hat matrix" -- it puts the hat on <span class="math-latex">\mathbf{y}</span>.</p>
+        <p>The residual vector <span class="math-latex">\mathbf{e} = \mathbf{y} - \hat{\mathbf{y}}</span> is perpendicular to the column space: <span class="math-latex">\mathbf{X}^T\mathbf{e} = 0</span>. This is exactly what the normal equations state.</p>
+      </div>
+
+      <!-- INTERACTIVE WIDGET: Projection Visualizer -->
+      <h2>Interactive: Geometric Projection</h2>
+      <div class="widget-container">
+        <h4>The response vector y (blue), its projection onto the column space of X (red), and the residual vector (green, perpendicular to the plane).</h4>
+        <div id="projection-plot" class="plot-area" style="min-height:400px;"></div>
+      </div>
+
+      <!-- GRADIENT DESCENT -->
+      <h2>Gradient Descent</h2>
+      <p>When <span class="math-latex">\mathbf{X}^T\mathbf{X}</span> is very large or ill-conditioned, we use an iterative approach instead of computing the inverse directly.</p>
+
+      <h3>The Algorithm</h3>
+      <div class="derivation">
+        <div class="derivation-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <p>Initialize <span class="math-latex">\boldsymbol{\beta}^{(0)}</span> (often zeros).</p>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <p>Compute gradient: <span class="math-latex">\nabla J = \frac{1}{n}\mathbf{X}^T(\mathbf{X}\boldsymbol{\beta}^{(t)} - \mathbf{y})</span></p>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <p>Update: <span class="math-latex">\boldsymbol{\beta}^{(t+1)} = \boldsymbol{\beta}^{(t)} - \alpha \nabla J</span></p>
+            <div class="step-explanation">where <span class="math-latex">\alpha > 0</span> is the learning rate (step size).</div>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <p>Repeat until <span class="math-latex">\|\nabla J\| < \epsilon</span> (convergence).</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>Why It Works: Convexity</h3>
+      <p><span class="math-latex">J(\boldsymbol{\beta})</span> is a convex function (the Hessian <span class="math-latex">\frac{1}{n}\mathbf{X}^T\mathbf{X}</span> is positive semi-definite). Any local minimum is the global minimum. Gradient descent with a sufficiently small step size is guaranteed to converge.</p>
+
+      <h3>Learning Rate Effects</h3>
+      <table>
+        <tr><th>Learning Rate</th><th>Behavior</th></tr>
+        <tr><td>Too small (<span class="math-latex">\alpha \ll 1</span>)</td><td>Converges but extremely slowly -- thousands of iterations needed</td></tr>
+        <tr><td>Just right</td><td>Smooth convergence in tens to hundreds of iterations</td></tr>
+        <tr><td>Too large (<span class="math-latex">\alpha > \frac{2}{\lambda_{\max}}</span>)</td><td>Diverges -- parameters oscillate or explode to infinity</td></tr>
+      </table>
+
+      <!-- INTERACTIVE WIDGET: Gradient Descent -->
+      <h2>Interactive: Gradient Descent on Loss Landscape</h2>
+      <div class="widget-container">
+        <h4>Watch gradient descent navigate the loss surface. Adjust learning rate to see convergence vs. divergence.</h4>
+        <div class="widget-controls">
+          <label>Learning rate: <input type="range" id="lr-slider" min="-3" max="0" step="0.1" value="-1.5"> <span id="lr-val">0.032</span></label>
+          <button id="gd-step-btn">Step</button>
+          <button id="gd-run-btn">Run</button>
+          <button id="gd-reset-btn">Reset</button>
+        </div>
+        <div>
+          <span style="font-family: sans-serif; font-size: 0.85rem;">
+            Iteration: <strong id="gd-iter">0</strong> |
+            Loss: <strong id="gd-loss">--</strong> |
+            <span class="math-latex">\beta_0</span> = <strong id="gd-b0">--</strong>,
+            <span class="math-latex">\beta_1</span> = <strong id="gd-b1">--</strong>
+          </span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div id="gd-contour" class="plot-area" style="min-height:350px;"></div>
+          <div id="gd-surface" class="plot-area" style="min-height:350px;"></div>
+        </div>
+      </div>
+
+      <!-- REAL WORLD APPLICATION -->
+      <h2>Application: Advertising Budget Optimization</h2>
+      <div class="concept-box">
+        <h4>Problem</h4>
+        <p>A company spends on TV and online advertising. We model revenue as:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{Revenue} = \beta_0 + \beta_1 \cdot \text{TV} + \beta_2 \cdot \text{Online}</span>
+        </div>
+        <p>Given 20 observations, compute <span class="math-latex">\hat{\boldsymbol{\beta}}</span> via the normal equation.</p>
+      </div>
+
+      <h3>Working Through the Normal Equation</h3>
+      <div class="derivation">
+        <div class="derivation-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <p>Form the design matrix <span class="math-latex">\mathbf{X} \in \mathbb{R}^{20 \times 3}</span> (ones column, TV, Online) and response <span class="math-latex">\mathbf{y} \in \mathbb{R}^{20}</span>.</p>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <p>Compute <span class="math-latex">\mathbf{X}^T\mathbf{X}</span> (a <span class="math-latex">3 \times 3</span> symmetric matrix) and <span class="math-latex">\mathbf{X}^T\mathbf{y}</span> (a <span class="math-latex">3 \times 1</span> vector).</p>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <p>Solve: <span class="math-latex">\hat{\boldsymbol{\beta}} = (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y} = \begin{pmatrix} 3.2 \\ 0.045 \\ 0.18 \end{pmatrix}</span></p>
+            <div class="step-explanation">Interpretation: baseline revenue is $3.2M, each $1K on TV adds $45 in revenue, each $1K online adds $180.</div>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <p>Optimization: with $100K budget, allocate to maximize <span class="math-latex">0.045 \cdot \text{TV} + 0.18 \cdot \text{Online}</span>. Since online ROI is 4x that of TV, allocate the full budget to online (in this simplified model). In practice, diminishing returns would require a nonlinear model.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- GAUSS-MARKOV -->
+      <h2>Properties of the OLS Estimator</h2>
+
+      <h3>The Gauss-Markov Theorem</h3>
+      <p>Under assumptions 1-5 (linearity, independence, homoscedasticity, no multicollinearity, exogeneity -- normality is NOT required), the OLS estimator is <strong>BLUE</strong>: Best Linear Unbiased Estimator.</p>
+
+      <div class="derivation">
+        <div class="derivation-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <p><strong>Linear:</strong> <span class="math-latex">\hat{\boldsymbol{\beta}}</span> is a linear function of <span class="math-latex">\mathbf{y}</span>: <span class="math-latex">\hat{\boldsymbol{\beta}} = \mathbf{C}\mathbf{y}</span> where <span class="math-latex">\mathbf{C} = (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T</span>.</p>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <p><strong>Unbiased:</strong> <span class="math-latex">E[\hat{\boldsymbol{\beta}}] = E[(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}] = (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{X}\boldsymbol{\beta} = \boldsymbol{\beta}</span>.</p>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <p><strong>Best (Minimum Variance):</strong> <span class="math-latex">\text{Var}(\hat{\boldsymbol{\beta}}) = \sigma^2(\mathbf{X}^T\mathbf{X})^{-1}</span>. For any other linear unbiased estimator <span class="math-latex">\tilde{\boldsymbol{\beta}}</span>, the matrix <span class="math-latex">\text{Var}(\tilde{\boldsymbol{\beta}}) - \text{Var}(\hat{\boldsymbol{\beta}})</span> is positive semi-definite.</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>Climate Trend Application</h3>
+      <p>Fitting a linear trend to global temperature anomalies (1880-present): <span class="math-latex">\text{Anomaly} = \beta_0 + \beta_1 \cdot \text{Year}</span>. The OLS estimate <span class="math-latex">\hat{\beta}_1 \approx 0.008</span> degrees C per year is the BLUE -- no other linear unbiased procedure produces a tighter confidence interval for the warming trend.</p>
+
+      <!-- NAVIGATION -->
+      <div class="nav-buttons">
+        <a href="01-linear-regression.html" class="nav-btn prev">Previous: Linear Regression</a>
+        <a href="03-logistic-regression.html" class="nav-btn">Next: Logistic Regression</a>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Widget 1: 3D Projection Visualizer
+    (function() {
+      // Simple 3D example: y in R^3, X has 2 columns (so col space is a plane)
+      const y = [3, 5, 2];
+      const col1 = [1, 0, 0]; // x1 direction
+      const col2 = [0, 1, 0]; // x2 direction
+      // Projection onto span{col1, col2} = (y[0], y[1], 0)
+      const yhat = [3, 5, 0];
+      const residual = [0, 0, 2];
+
+      // Create plane mesh
+      const planeSize = 6;
+      const planeX = [[-planeSize, planeSize, planeSize, -planeSize]];
+      const planeY = [[-planeSize, -planeSize, planeSize, planeSize]];
+      const planeZ = [[0, 0, 0, 0]];
+
+      Plotly.newPlot('projection-plot', [
+        // Column space plane
+        { type: 'mesh3d',
+          x: [-planeSize, planeSize, planeSize, -planeSize],
+          y: [-planeSize, -planeSize, planeSize, planeSize],
+          z: [0, 0, 0, 0],
+          i: [0, 0], j: [1, 2], k: [2, 3],
+          opacity: 0.2, color: '#e2e8f0', name: 'Col(X)'
+        },
+        // y vector
+        { type: 'scatter3d', mode: 'lines+markers',
+          x: [0, y[0]], y: [0, y[1]], z: [0, y[2]],
+          line: { color: '#3182ce', width: 6 },
+          marker: { size: [0, 6], color: '#3182ce' },
+          name: 'y (observed)'
+        },
+        // y-hat vector (projection)
+        { type: 'scatter3d', mode: 'lines+markers',
+          x: [0, yhat[0]], y: [0, yhat[1]], z: [0, yhat[2]],
+          line: { color: '#e53e3e', width: 6 },
+          marker: { size: [0, 6], color: '#e53e3e' },
+          name: 'y-hat (projection)'
+        },
+        // Residual vector
+        { type: 'scatter3d', mode: 'lines+markers',
+          x: [yhat[0], y[0]], y: [yhat[1], y[1]], z: [yhat[2], y[2]],
+          line: { color: '#38a169', width: 4, dash: 'dash' },
+          marker: { size: [0, 5], color: '#38a169' },
+          name: 'e = y - y-hat (residual)'
+        },
+        // Right angle indicator
+        { type: 'scatter3d', mode: 'lines',
+          x: [yhat[0], yhat[0]+0.3, yhat[0]+0.3],
+          y: [yhat[1], yhat[1], yhat[1]+0.3],
+          z: [0.3, 0.3, 0],
+          line: { color: '#666', width: 2 },
+          showlegend: false
+        }
+      ], {
+        scene: {
+          xaxis: { title: 'x1', range: [-1, 6] },
+          yaxis: { title: 'x2', range: [-1, 6] },
+          zaxis: { title: 'x3', range: [-1, 4] },
+          camera: { eye: { x: 1.5, y: 1.5, z: 1.2 } },
+          annotations: [
+            { x: y[0], y: y[1], z: y[2], text: 'y', showarrow: false, font: { size: 14, color: '#3182ce' } },
+            { x: yhat[0], y: yhat[1], z: yhat[2], text: 'y-hat', showarrow: false, font: { size: 14, color: '#e53e3e' } }
+          ]
+        },
+        margin: { t: 20, b: 20 },
+        legend: { x: 0, y: 1 }
+      }, { responsive: true });
+    })();
+
+    // Widget 2: Gradient Descent Animator
+    (function() {
+      // Generate fixed data
+      const data = generateRegressionData(25, 3, 2, 2.5);
+      let beta = [8, -2]; // start far from optimum
+      let path = [[beta[0]], [beta[1]]];
+      let iter = 0;
+      let running = false;
+
+      function computeLoss(b0, b1) {
+        let loss = 0;
+        for (let i = 0; i < data.x.length; i++) {
+          const err = data.y[i] - (b0 + b1 * data.x[i]);
+          loss += err * err;
+        }
+        return loss / (2 * data.x.length);
+      }
+
+      function computeGradient(b0, b1) {
+        let g0 = 0, g1 = 0;
+        const n = data.x.length;
+        for (let i = 0; i < n; i++) {
+          const err = (b0 + b1 * data.x[i]) - data.y[i];
+          g0 += err;
+          g1 += err * data.x[i];
+        }
+        return [g0 / n, g1 / n];
+      }
+
+      function getLR() {
+        return Math.pow(10, parseFloat(document.getElementById('lr-slider').value));
+      }
+
+      function step() {
+        const lr = getLR();
+        const g = computeGradient(beta[0], beta[1]);
+        beta[0] -= lr * g[0];
+        beta[1] -= lr * g[1];
+        path[0].push(beta[0]);
+        path[1].push(beta[1]);
+        iter++;
+        updateDisplay();
+      }
+
+      function updateDisplay() {
+        document.getElementById('gd-iter').textContent = iter;
+        document.getElementById('gd-loss').textContent = computeLoss(beta[0], beta[1]).toFixed(4);
+        document.getElementById('gd-b0').textContent = beta[0].toFixed(3);
+        document.getElementById('gd-b1').textContent = beta[1].toFixed(3);
+        plotContour();
+        plotSurface();
+      }
+
+      function plotContour() {
+        // Create contour data
+        const b0Range = linspace(-5, 12, 40);
+        const b1Range = linspace(-3, 8, 40);
+        const z = [];
+        for (let i = 0; i < b1Range.length; i++) {
+          const row = [];
+          for (let j = 0; j < b0Range.length; j++) {
+            row.push(computeLoss(b0Range[j], b1Range[i]));
+          }
+          z.push(row);
+        }
+
+        Plotly.react('gd-contour', [
+          { type: 'contour', x: b0Range, y: b1Range, z: z,
+            colorscale: 'Blues', ncontours: 20, showscale: false,
+            contours: { coloring: 'heatmap' }
+          },
+          { x: path[0], y: path[1], mode: 'lines+markers', type: 'scatter',
+            marker: { size: 4, color: '#e53e3e' },
+            line: { color: '#e53e3e', width: 2 },
+            name: 'GD Path'
+          }
+        ], {
+          xaxis: { title: 'beta_0', range: [-5, 12] },
+          yaxis: { title: 'beta_1', range: [-3, 8] },
+          title: { text: 'Contour Plot (Loss Landscape)', font: { size: 13 } },
+          margin: { t: 40, r: 10 },
+          showlegend: false
+        }, { responsive: true });
+      }
+
+      function plotSurface() {
+        const b0Range = linspace(-5, 12, 30);
+        const b1Range = linspace(-3, 8, 30);
+        const z = [];
+        for (let i = 0; i < b1Range.length; i++) {
+          const row = [];
+          for (let j = 0; j < b0Range.length; j++) {
+            row.push(computeLoss(b0Range[j], b1Range[i]));
+          }
+          z.push(row);
+        }
+
+        const pathZ = [];
+        for (let i = 0; i < path[0].length; i++) {
+          pathZ.push(computeLoss(path[0][i], path[1][i]));
+        }
+
+        Plotly.react('gd-surface', [
+          { type: 'surface', x: b0Range, y: b1Range, z: z,
+            colorscale: 'Blues', opacity: 0.8, showscale: false
+          },
+          { type: 'scatter3d', x: path[0], y: path[1], z: pathZ,
+            mode: 'lines+markers',
+            marker: { size: 3, color: '#e53e3e' },
+            line: { color: '#e53e3e', width: 3 },
+            name: 'GD Path'
+          }
+        ], {
+          scene: {
+            xaxis: { title: 'beta_0' },
+            yaxis: { title: 'beta_1' },
+            zaxis: { title: 'Loss' },
+            camera: { eye: { x: 1.8, y: 1.8, z: 1.2 } }
+          },
+          title: { text: '3D Loss Surface', font: { size: 13 } },
+          margin: { t: 40, r: 10 },
+          showlegend: false
+        }, { responsive: true });
+      }
+
+      document.getElementById('lr-slider').addEventListener('input', () => {
+        document.getElementById('lr-val').textContent = getLR().toFixed(4);
+      });
+
+      document.getElementById('gd-step-btn').addEventListener('click', step);
+
+      document.getElementById('gd-run-btn').addEventListener('click', () => {
+        if (running) return;
+        running = true;
+        const interval = setInterval(() => {
+          step();
+          if (iter > 200 || computeLoss(beta[0], beta[1]) > 1e6) {
+            clearInterval(interval);
+            running = false;
+          }
+        }, 80);
+      });
+
+      document.getElementById('gd-reset-btn').addEventListener('click', () => {
+        beta = [8, -2];
+        path = [[8], [-2]];
+        iter = 0;
+        running = false;
+        updateDisplay();
+      });
+
+      updateDisplay();
+    })();
+  </script>
+</body>
+</html>

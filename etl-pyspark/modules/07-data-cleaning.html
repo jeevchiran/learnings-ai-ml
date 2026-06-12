@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 7: Data Cleaning</title>
+  <link rel="stylesheet" href="../assets/style.css">
+<script>try{if(localStorage.getItem('theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <p class="progress-indicator">Module 7 of 10</p>
+        <h1>Data Cleaning</h1>
+      </div>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="theme-toggle">Dark mode</button>
+        <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+      </div>
+    </header>
+    <nav class="module-nav-bar" style="display:none">
+      <a href="../index.html">Track Home</a>
+      <a href="01-etl-pyspark.html">1. ETL with PySpark</a>
+      <a href="02-in-memory-processing.html">2. In-Memory Processing</a>
+      <a href="03-spark-rdds.html">3. Spark RDDs</a>
+      <a href="04-dataframes-pyspark-vs-pandas.html">4. DataFrames</a>
+      <a href="05-pyspark-sql.html">5. PySpark SQL</a>
+      <a href="06-udfs-pyspark.html">6. UDFs</a>
+      <a href="07-data-cleaning.html">7. Data Cleaning</a>
+      <a href="08-data-exploration.html">8. Data Exploration</a>
+      <a href="09-transformation-operations.html">9. Transformations</a>
+      <a href="10-caching-broadcasting.html">10. Caching</a>
+    </nav>
+
+    <!-- 1. Where We Left Off -->
+    <details>
+      <summary>Where We Left Off</summary>
+      <p>In Module 6, we wrote UDFs to apply custom logic to our data. Now we face a real-world challenge: our dataset has problems. Before any analysis, we need to clean it.</p>
+    </details>
+
+    <!-- 2. Introducing the Messy Data -->
+    <h2>Introducing the Messy Data</h2>
+    <p>Our file <code>grades_messy.csv</code> has a range of quality issues that are typical of real-world datasets. Before we can do any meaningful analysis, we need to identify and fix these problems:</p>
+    <ul>
+      <li><strong>Null values</strong> — missing student IDs or grades</li>
+      <li><strong>Duplicate rows</strong> — the same enrollment appearing more than once</li>
+      <li><strong>Inconsistent casing</strong> — "Fall 2024", "SPRING 2025", "spring 2025"</li>
+      <li><strong>Extra whitespace</strong> — " Data Structures " with leading/trailing spaces</li>
+      <li><strong>Invalid grades</strong> — negative values or scores above 100</li>
+    </ul>
+    <div class="code-block simulated" data-output="+-------------+----------+--------------------+-----------+-----+&#10;|enrollment_id|student_id|         course_name|   semester|grade|&#10;+-------------+----------+--------------------+-----------+-----+&#10;|         E001|      1001|Intro to Programming|  Fall 2024|   92|&#10;|         E002|      1002| Data Structures    |SPRING 2025|   88|&#10;|         E002|      1002|data structures     |spring 2025|   88|&#10;|         E003|      null|          Calculus I|  Fall 2024|   75|&#10;|         E004|      1004|          calculus I|  fall 2024|   -5|&#10;|         E005|      1005|          ALGORITHMS|Spring 2025|  105|&#10;|         E006|      1006| Linear Algebra     |  Fall 2024|   84|&#10;|         E007|      null|          Statistics|Spring 2025| null|&#10;|         E008|      1008|Intro to Programming|  Fall 2024|   79|&#10;|         E009|      1009| Data Structures    |SPRING 2025|   91|&#10;+-------------+----------+--------------------+-----------+-----+&#10;only showing top 10 rows">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>messy_df = spark.read.csv("grades_messy.csv", header=True, inferSchema=True)
+messy_df.show(10)</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 3. Handling Nulls -->
+    <h2>Handling Nulls</h2>
+    <p>Null values are the most common data quality issue. PySpark gives you several strategies depending on whether you want to find, drop, or fill them.</p>
+
+    <h3>Finding nulls</h3>
+    <p>Use <code>isNull()</code> to filter and inspect which rows have missing values:</p>
+    <div class="code-block simulated" data-output="+-------------+----------+-----------+-----------+-----+&#10;|enrollment_id|student_id|course_name|   semester|grade|&#10;+-------------+----------+-----------+-----------+-----+&#10;|         E003|      null| Calculus I|  Fall 2024|   75|&#10;|         E007|      null| Statistics|Spring 2025| null|&#10;+-------------+----------+-----------+-----------+-----+">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>from pyspark.sql.functions import col
+
+# Find rows where student_id is null
+messy_df.filter(col("student_id").isNull()).show()</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <h3>Dropping nulls</h3>
+    <p>You can drop all rows with any null, or target specific columns:</p>
+    <div class="code-block simulated" data-output="Before: 10 rows&#10;After dropna(): 8 rows&#10;After dropna(subset=['student_id']): 8 rows">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>print(f"Before: {messy_df.count()} rows")
+
+# Drop rows with ANY null value
+no_nulls = messy_df.dropna()
+print(f"After dropna(): {no_nulls.count()} rows")
+
+# Drop only where student_id is null
+valid_students = messy_df.dropna(subset=["student_id"])
+print(f"After dropna(subset=['student_id']): {valid_students.count()} rows")</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <h3>Filling nulls</h3>
+    <p>Sometimes dropping rows loses too much data. You can fill missing values with a default instead:</p>
+    <div class="code-block simulated" data-output="+-------------+----------+-----------+-----------+-----+&#10;|enrollment_id|student_id|course_name|   semester|grade|&#10;+-------------+----------+-----------+-----------+-----+&#10;|         E003|      null| Calculus I|  Fall 2024|   75|&#10;|         E007|      null| Statistics|Spring 2025|    0|&#10;+-------------+----------+-----------+-----------+-----+&#10;(grade nulls filled with 0)">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea># Fill null grades with 0
+filled_df = messy_df.fillna({"grade": 0})
+filled_df.filter(col("student_id").isNull()).show()</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 4. Removing Duplicates -->
+    <h2>Removing Duplicates</h2>
+    <p>Duplicate rows can inflate counts and skew aggregations. PySpark's <code>dropDuplicates()</code> removes them:</p>
+    <div class="code-block simulated" data-output="Before: 10 rows&#10;After dropDuplicates(): 9 rows&#10;After dropDuplicates(['enrollment_id']): 9 rows">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea># Remove exact duplicate rows
+deduped = messy_df.dropDuplicates()
+print(f"Before: {messy_df.count()} rows")
+print(f"After dropDuplicates(): {deduped.count()} rows")
+
+# Deduplicate by a specific key column
+deduped_by_key = messy_df.dropDuplicates(["enrollment_id"])
+print(f"After dropDuplicates(['enrollment_id']): {deduped_by_key.count()} rows")</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 5. Fixing Inconsistent Text -->
+    <h2>Fixing Inconsistent Text</h2>
+    <p>Text columns often have extra whitespace and inconsistent capitalization. PySpark provides <code>trim()</code>, <code>lower()</code>, and <code>initcap()</code> to normalize text:</p>
+    <div class="code-block simulated" data-output="+-------------+--------------------+--------------------+-----------+-----------+&#10;|enrollment_id|  course_name_before|   course_name_after|sem_before |  sem_after|&#10;+-------------+--------------------+--------------------+-----------+-----------+&#10;|         E001|Intro to Programming|Intro To Programming|  Fall 2024|  Fall 2024|&#10;|         E002| Data Structures    |     Data Structures|SPRING 2025|Spring 2025|&#10;|         E004|          calculus I|          Calculus I|  fall 2024|  Fall 2024|&#10;|         E005|          ALGORITHMS|          Algorithms|Spring 2025|Spring 2025|&#10;|         E006| Linear Algebra     |      Linear Algebra|  Fall 2024|  Fall 2024|&#10;+-------------+--------------------+--------------------+-----------+-----------+&#10;only showing top 5 rows">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>from pyspark.sql.functions import trim, lower, initcap
+
+# Trim whitespace and normalize casing
+fixed_text = messy_df.withColumn("course_name_before", col("course_name")) \
+    .withColumn("course_name", trim(initcap(col("course_name")))) \
+    .withColumn("sem_before", col("semester")) \
+    .withColumn("semester", initcap(lower(col("semester"))))
+
+fixed_text.select("enrollment_id", "course_name_before", "course_name", "sem_before", "semester").show(5)</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 6. Validating Ranges -->
+    <h2>Validating Ranges</h2>
+    <p>Grades outside the valid 0-100 range indicate data entry errors. We filter them out to avoid corrupting our analysis:</p>
+    <div class="code-block simulated" data-output="Before: 10 rows&#10;After filtering invalid grades: 8 rows&#10;&#10;Removed rows:&#10;+-------------+----------+-----------+-----------+-----+&#10;|enrollment_id|student_id|course_name|   semester|grade|&#10;+-------------+----------+-----------+-----------+-----+&#10;|         E004|      1004| calculus I|  fall 2024|   -5|&#10;|         E005|      1005| ALGORITHMS|Spring 2025|  105|&#10;+-------------+----------+-----------+-----------+-----+">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>from pyspark.sql.functions import col
+
+# Keep only rows where grade is between 0 and 100
+valid_grades = messy_df.filter((col("grade") >= 0) & (col("grade") <= 100))
+print(f"Before: {messy_df.count()} rows")
+print(f"After filtering invalid grades: {valid_grades.count()} rows")
+
+# Show what was removed
+print("\nRemoved rows:")
+messy_df.filter((col("grade") < 0) | (col("grade") > 100)).show()</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 7. Complete Cleaning Pipeline -->
+    <h2>Complete Cleaning Pipeline</h2>
+    <p>In practice, you chain all cleaning steps together. PySpark's fluent API makes this readable as a single pipeline:</p>
+    <div class="code-block simulated" data-output="+-------------+----------+--------------------+-----------+-----+&#10;|enrollment_id|student_id|         course_name|   semester|grade|&#10;+-------------+----------+--------------------+-----------+-----+&#10;|         E001|      1001|Intro To Programming|  Fall 2024|   92|&#10;|         E002|      1002|     Data Structures|Spring 2025|   88|&#10;|         E006|      1006|      Linear Algebra|  Fall 2024|   84|&#10;|         E008|      1008|Intro To Programming|  Fall 2024|   79|&#10;|         E009|      1009|     Data Structures|Spring 2025|   91|&#10;+-------------+----------+--------------------+-----------+-----+&#10;&#10;Cleaned: 5 rows (from original 10)">
+      <div class="code-block-header">
+        <span class="simulated-label">Simulated PySpark</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>from pyspark.sql.functions import col, trim, lower, initcap
+
+cleaned_df = (
+    messy_df
+    .dropDuplicates(["enrollment_id"])
+    .filter(col("student_id").isNotNull())
+    .filter((col("grade") >= 0) & (col("grade") <= 100))
+    .withColumn("course_name", trim(initcap(col("course_name"))))
+    .withColumn("semester", initcap(lower(col("semester"))))
+)
+
+cleaned_df.show()
+print(f"Cleaned: {cleaned_df.count()} rows (from original {messy_df.count()})")</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 8. Live Demo: Cleaning in Pandas -->
+    <h2>Live Demo: Cleaning in Pandas</h2>
+    <p>The same cleaning concepts apply in Pandas. Run this block to see each step reduce the row count as problems are removed:</p>
+    <div class="code-block live">
+      <div class="code-block-header">
+        <span>Python (runs in browser)</span>
+        <button class="run-btn">Run</button>
+      </div>
+      <textarea>import pandas as pd
+
+# Messy data sample
+data = {
+    'enrollment_id': ['E001', 'E002', 'E002', 'E003', 'E004', 'E005', 'E006', 'E007'],
+    'student_id': [1001, 1002, 1002, None, 1004, 1005, 1006, None],
+    'course_name': ['Intro to Programming', ' Data Structures ', 'data structures', 'Calculus I', 'calculus I', 'ALGORITHMS', ' Linear Algebra ', 'Statistics'],
+    'semester': ['Fall 2024', 'SPRING 2025', 'spring 2025', 'Fall 2024', 'fall 2024', 'Spring 2025', 'Fall 2024', 'Spring 2025'],
+    'grade': [92, 88, 88, 75, -5, 105, 84, None]
+}
+df = pd.DataFrame(data)
+print("BEFORE CLEANING:")
+print(df.to_string())
+print(f"\nRows: {len(df)}")
+
+# Step 1: Remove duplicates
+df = df.drop_duplicates(subset=['enrollment_id'])
+print(f"\nAfter dedup: {len(df)} rows")
+
+# Step 2: Drop null student_id
+df = df.dropna(subset=['student_id'])
+print(f"After dropping null student_id: {len(df)} rows")
+
+# Step 3: Fix text
+df['course_name'] = df['course_name'].str.strip().str.title()
+df['semester'] = df['semester'].str.strip().str.title()
+
+# Step 4: Filter invalid grades
+df = df[(df['grade'] >= 0) & (df['grade'] <= 100)]
+print(f"After filtering invalid grades: {len(df)} rows")
+
+print("\nAFTER CLEANING:")
+print(df.to_string())</textarea>
+      <div class="code-output"></div>
+    </div>
+
+    <!-- 9. Checkpoint -->
+    <div class="checkpoint" data-correct="b">
+      <p class="checkpoint-question">Which approach is best for rows with null student_id?</p>
+      <label><input type="radio" name="cp1" value="a"> (a) Fill with 0</label>
+      <label><input type="radio" name="cp1" value="b"> (b) Drop the rows</label>
+      <label><input type="radio" name="cp1" value="c"> (c) Fill with the mean student_id</label>
+      <div class="feedback"></div>
+    </div>
+
+    <!-- 10. Practice Problems -->
+    <div class="practice-section">
+      <h2>Practice Problems</h2>
+
+      <!-- Problem 1 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Recall</span> — Problem 1</p>
+        <p>Load grades_messy.csv and count the number of null values in each column.</p>
+        <div class="code-block simulated" data-output="+-------------+----------+-----------+--------+-----+&#10;|enrollment_id|student_id|course_name|semester|grade|&#10;+-------------+----------+-----------+--------+-----+&#10;|            0|         2|          0|       0|    1|&#10;+-------------+----------+-----------+--------+-----+">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea>from pyspark.sql.functions import col, count, when
+
+messy_df = spark.read.csv("grades_messy.csv", header=True, inferSchema=True)
+
+# Count nulls in each column
+messy_df.select([count(when(col(c).isNull(), c)).alias(c) for c in messy_df.columns]).show()</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+
+      <!-- Problem 2 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Apply</span> — Problem 2</p>
+        <p>Remove duplicate rows and filter out rows where grade is outside the valid range (0-100). Show the row count before and after.</p>
+        <div class="code-block simulated" data-output="Original row count: 10&#10;After removing duplicates: 9&#10;After filtering invalid grades: 7">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea>from pyspark.sql.functions import col
+
+print(f"Original row count: {messy_df.count()}")
+
+# Remove duplicates
+deduped = messy_df.dropDuplicates(["enrollment_id"])
+print(f"After removing duplicates: {deduped.count()}")
+
+# Filter invalid grades
+valid = deduped.filter((col("grade") >= 0) & (col("grade") <= 100))
+print(f"After filtering invalid grades: {valid.count()}")</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+
+      <!-- Problem 3 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Stretch</span> — Problem 3</p>
+        <p>Build a complete cleaning pipeline: trim whitespace, normalize casing, drop nulls in student_id, remove duplicates, filter invalid grades. Print the count after each step.</p>
+        <div class="code-block simulated" data-output="Original: 10 rows&#10;After dropDuplicates: 9 rows&#10;After dropping null student_id: 7 rows&#10;After filtering invalid grades: 5 rows&#10;After text normalization: 5 rows&#10;&#10;Final cleaned DataFrame:&#10;+-------------+----------+--------------------+-----------+-----+&#10;|enrollment_id|student_id|         course_name|   semester|grade|&#10;+-------------+----------+--------------------+-----------+-----+&#10;|         E001|      1001|Intro To Programming|  Fall 2024|   92|&#10;|         E002|      1002|     Data Structures|Spring 2025|   88|&#10;|         E006|      1006|      Linear Algebra|  Fall 2024|   84|&#10;|         E008|      1008|Intro To Programming|  Fall 2024|   79|&#10;|         E009|      1009|     Data Structures|Spring 2025|   91|&#10;+-------------+----------+--------------------+-----------+-----+">
+          <div class="code-block-header">
+            <span class="simulated-label">Simulated PySpark</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea>from pyspark.sql.functions import col, trim, lower, initcap
+
+print(f"Original: {messy_df.count()} rows")
+
+# Step 1: Remove duplicates
+step1 = messy_df.dropDuplicates(["enrollment_id"])
+print(f"After dropDuplicates: {step1.count()} rows")
+
+# Step 2: Drop null student_id
+step2 = step1.filter(col("student_id").isNotNull())
+print(f"After dropping null student_id: {step2.count()} rows")
+
+# Step 3: Filter invalid grades
+step3 = step2.filter((col("grade") >= 0) & (col("grade") <= 100))
+print(f"After filtering invalid grades: {step3.count()} rows")
+
+# Step 4: Normalize text
+step4 = step3.withColumn("course_name", trim(initcap(col("course_name")))) \
+    .withColumn("semester", initcap(lower(col("semester"))))
+print(f"After text normalization: {step4.count()} rows")
+
+print("\nFinal cleaned DataFrame:")
+step4.show()</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+
+      <!-- Problem 4 -->
+      <div class="problem">
+        <p class="problem-title"><span class="difficulty">Stretch</span> — Problem 4</p>
+        <p>Using the live Pandas block, clean the sample messy data and verify each step reduces the row count appropriately.</p>
+        <div class="code-block live">
+          <div class="code-block-header">
+            <span>Python (runs in browser)</span>
+            <button class="run-btn">Run</button>
+          </div>
+          <textarea>import pandas as pd
+
+# Messy data sample
+data = {
+    'enrollment_id': ['E001', 'E002', 'E002', 'E003', 'E004', 'E005', 'E006', 'E007'],
+    'student_id': [1001, 1002, 1002, None, 1004, 1005, 1006, None],
+    'course_name': ['Intro to Programming', ' Data Structures ', 'data structures', 'Calculus I', 'calculus I', 'ALGORITHMS', ' Linear Algebra ', 'Statistics'],
+    'semester': ['Fall 2024', 'SPRING 2025', 'spring 2025', 'Fall 2024', 'fall 2024', 'Spring 2025', 'Fall 2024', 'Spring 2025'],
+    'grade': [92, 88, 88, 75, -5, 105, 84, None]
+}
+df = pd.DataFrame(data)
+print(f"Starting rows: {len(df)}")
+
+# Step 1: Deduplicate by enrollment_id
+df = df.drop_duplicates(subset=['enrollment_id'])
+print(f"After dedup: {len(df)} rows")
+assert len(df) == 7, "Expected 7 rows after removing 1 duplicate"
+
+# Step 2: Drop null student_id
+df = df.dropna(subset=['student_id'])
+print(f"After dropping null student_id: {len(df)} rows")
+assert len(df) == 5, "Expected 5 rows after removing 2 nulls"
+
+# Step 3: Normalize text
+df['course_name'] = df['course_name'].str.strip().str.title()
+df['semester'] = df['semester'].str.strip().str.title()
+
+# Step 4: Filter invalid grades
+df = df[(df['grade'] >= 0) & (df['grade'] <= 100)]
+print(f"After filtering invalid grades: {len(df)} rows")
+assert len(df) == 3, "Expected 3 rows after removing invalid grades"
+
+print("\nFinal cleaned data:")
+print(df.to_string())
+print("\nAll assertions passed — each step reduced rows as expected.")</textarea>
+          <div class="code-output"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 11. Bridge -->
+    <h2>Up Next</h2>
+    <p>With clean data in hand, we can now explore it to understand patterns, distributions, and relationships. Next up: data exploration.</p>
+
+    <!-- Navigation -->
+    <nav class="module-nav">
+      <a href="06-udfs-pyspark.html">&larr; Module 6: UDFs in PySpark</a>
+      <a href="08-data-exploration.html">Module 8: Data Exploration &rarr;</a>
+    </nav>
+  </div>
+
+  <script src="../assets/pyodide-loader.js"></script>
+  <script src="../assets/main.js"></script>
+</body>
+</html>

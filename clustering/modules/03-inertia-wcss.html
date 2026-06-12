@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 3: Inertia (WCSS) and the Elbow Method</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-clustering-intro.html">1. Intro</a>
+    <a href="02-distance-centroids.html">2. Distance &amp; Centroids</a>
+    <a href="03-inertia-wcss.html" class="active">3. Inertia (WCSS)</a>
+    <a href="04-silhouette-metrics.html">4. Silhouette &amp; Metrics</a>
+  </nav>
+  <header>
+    <h1>Module 3: Inertia (WCSS) and the Elbow Method</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- ── Section 1: What Does K-Means Actually Optimise? ── -->
+  <h2>What Does K-Means Actually Optimise?</h2>
+
+  <div class="bridge">
+    <strong>Building on Module 2:</strong> We saw that updating a centroid to the arithmetic mean of its assigned points minimises the sum of squared distances within that cluster. K-means runs this logic across <em>all K clusters simultaneously</em>. The single number it is driving toward zero is the <strong>Within-Cluster Sum of Squares (WCSS)</strong> — also called <strong>inertia</strong> in scikit-learn.
+  </div>
+
+  <p>
+    Formally, if we have K clusters <span class="math-latex math-inline">C_1, \ldots, C_K</span> with centroids
+    <span class="math-latex math-inline">\mu_1, \ldots, \mu_K</span>, the WCSS objective is:
+  </p>
+
+  <div class="math-latex math-block">\text{WCSS} = \sum_{k=1}^{K} \sum_{i \in C_k} \|x_i - \mu_k\|^2</div>
+
+  <p>
+    Each term <span class="math-latex math-inline">\|x_i - \mu_k\|^2</span> is the <em>squared Euclidean distance</em> from data point
+    <span class="math-latex math-inline">x_i</span> to its cluster centroid <span class="math-latex math-inline">\mu_k</span>.
+    Summing across all points gives the total "spread" or compactness within clusters. We want this number to be <strong>small</strong> — tight, cohesive clusters have low WCSS.
+  </p>
+
+  <p>Expanding the squared norm into individual feature dimensions gives an equivalent form:</p>
+
+  <div class="math-latex math-block">\text{WCSS} = \sum_{k=1}^{K} \sum_{i \in C_k} \sum_{j=1}^{p} (x_{ij} - \mu_{kj})^2</div>
+
+  <p>
+    where <span class="math-latex math-inline">x_{ij}</span> is the <span class="math-latex math-inline">j</span>-th feature of point
+    <span class="math-latex math-inline">i</span> and <span class="math-latex math-inline">\mu_{kj}</span> is the
+    <span class="math-latex math-inline">j</span>-th coordinate of centroid <span class="math-latex math-inline">k</span>.
+    Both forms are identical — the first is compact notation, the second makes the feature-by-feature sum explicit.
+  </p>
+
+  <div class="concept-box">
+    <h4>Key Intuition</h4>
+    <p style="margin-bottom:0;">
+      WCSS measures how "spread out" points are within their assigned clusters. A WCSS of zero would mean every point sits exactly on its centroid — perfect compactness. Real datasets always have positive WCSS. K-means tries to find the assignment and centroid positions that make WCSS as small as possible.
+    </p>
+  </div>
+
+  <!-- ── Section 2: K-Means as Coordinate Descent ── -->
+  <h2>K-Means as Coordinate Descent</h2>
+
+  <p>
+    K-means alternates between two steps. The key insight is that <em>each step is guaranteed to decrease (or leave unchanged) the WCSS</em>. This makes the algorithm a special case of <strong>coordinate descent</strong> — optimising over two sets of variables by alternating.
+  </p>
+
+  <h3>Assignment Step</h3>
+  <p>
+    For fixed centroids <span class="math-latex math-inline">\mu_1,\ldots,\mu_K</span>, assign each point to its nearest centroid:
+  </p>
+  <div class="math-latex math-block">c_i = \arg\min_{k} \;\|x_i - \mu_k\|^2</div>
+  <p>
+    This is optimal: any other assignment would place point <span class="math-latex math-inline">x_i</span> in a cluster whose centroid is farther away, increasing WCSS. The assignment step minimises WCSS with respect to the cluster labels, holding centroids fixed.
+  </p>
+
+  <h3>Update Step</h3>
+  <p>
+    For fixed assignments <span class="math-latex math-inline">C_1,\ldots,C_K</span>, update each centroid to the mean of its assigned points:
+  </p>
+  <div class="math-latex math-block">\mu_k = \frac{1}{|C_k|} \sum_{i \in C_k} x_i</div>
+  <p>
+    From Module 2, the arithmetic mean is the unique minimiser of
+    <span class="math-latex math-inline">\sum_{i \in C_k} \|x_i - \mu_k\|^2</span>.
+    The update step minimises WCSS with respect to the centroids, holding assignments fixed.
+  </p>
+
+  <h3>Why the Algorithm Converges</h3>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>WCSS is bounded below</strong>
+        <div class="step-explanation">WCSS is a sum of squared distances, so WCSS &ge; 0 always.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Assignment step is non-increasing</strong>
+        <div class="step-explanation">
+          WCSS(new assignments, old centroids) &le; WCSS(old assignments, old centroids).
+          Each point is reassigned to the nearest centroid, which can only reduce or maintain its contribution.
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Update step is non-increasing</strong>
+        <div class="step-explanation">
+          WCSS(new assignments, new centroids) &le; WCSS(new assignments, old centroids).
+          The mean minimises within-cluster sum of squares, so moving to the mean can only decrease WCSS.
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong>Convergence is guaranteed</strong>
+        <div class="step-explanation">
+          WCSS is non-increasing at every step and bounded below by zero. The number of distinct cluster assignments is finite (at most <span class="math-latex math-inline">K^n</span> for <span class="math-latex math-inline">n</span> points). Therefore the algorithm must visit each assignment at most once before repeating — and since WCSS is non-increasing, it can never revisit an assignment with lower WCSS. The algorithm converges in a finite number of iterations.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout warning">
+    <strong>Important Caveat: Local Minima</strong>
+    Coordinate descent finds a <em>local</em> minimum of WCSS, not the global minimum. The global optimisation of WCSS over all possible assignments is NP-hard — there is no known polynomial-time algorithm. Different random initialisations can lead to very different solutions. <strong>Multiple random restarts</strong> (running K-means several times with different starting points and keeping the run with lowest WCSS) are standard practice. K-means++ initialisation reduces but does not eliminate this problem.
+  </div>
+
+  <!-- ── Section 3: Properties of WCSS ── -->
+  <h2>Properties of WCSS</h2>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>WCSS &ge; 0 always</h5>
+      <p>
+        WCSS is a sum of squared terms, so it is always non-negative. It equals zero only when every point coincides exactly with its centroid — impossible with real, distinct data.
+      </p>
+    </div>
+    <div class="assumption-card">
+      <h5>WCSS decreases as K increases</h5>
+      <p>
+        With K = n (one cluster per point), WCSS = 0. This monotone decrease means WCSS alone <em>cannot</em> determine the right K — it always favours more clusters.
+      </p>
+    </div>
+    <div class="assumption-card">
+      <h5>WCSS depends on scale</h5>
+      <p>
+        If all feature values are multiplied by 2, all squared distances increase by 4&times;, so WCSS increases by 4&times;. Always standardise features before comparing WCSS values.
+      </p>
+    </div>
+    <div class="assumption-card">
+      <h5>Not comparable across datasets</h5>
+      <p>
+        A WCSS of 100 on dataset A and 100 on dataset B is meaningless for comparison — the datasets may have completely different scales and point densities.
+      </p>
+    </div>
+  </div>
+
+  <h3>Formal Argument: WCSS(K+1) &le; WCSS(K)</h3>
+  <p>
+    Given any K-clustering, we can construct a valid (K+1)-clustering with WCSS no larger. Split any cluster
+    <span class="math-latex math-inline">C_k</span> into two non-empty subsets
+    <span class="math-latex math-inline">C_k^L</span> and <span class="math-latex math-inline">C_k^R</span>.
+    The sub-cluster means <span class="math-latex math-inline">\mu_{C_k^L}</span> and <span class="math-latex math-inline">\mu_{C_k^R}</span>
+    are better fits for their respective points than the original centroid <span class="math-latex math-inline">\mu_{C_k}</span>.
+    Formally:
+  </p>
+  <div class="math-latex math-block">
+    \sum_{i \in C_k^L} \|x_i - \mu_{C_k^L}\|^2 + \sum_{i \in C_k^R} \|x_i - \mu_{C_k^R}\|^2 \;\leq\; \sum_{i \in C_k} \|x_i - \mu_{C_k}\|^2
+  </div>
+  <p>
+    This holds because the mean minimises the sum of squared distances. The means of the sub-clusters
+    are chosen to minimise their own within-cluster sums, whereas the original centroid
+    <span class="math-latex math-inline">\mu_{C_k}</span> is not in general optimal for either subset alone.
+    Summing over the remaining unchanged clusters gives WCSS(K+1) &le; WCSS(K).
+  </p>
+
+  <!-- ── Section 4: The Elbow Method ── -->
+  <h2>The Elbow Method</h2>
+
+  <p>
+    Since WCSS always decreases as K increases, plotting WCSS vs. K alone does not identify the correct number of clusters. The <strong>Elbow Method</strong> addresses this by looking at the <em>rate of decrease</em>: plot WCSS against K and look for a "kink" — the point where the marginal improvement from adding one more cluster drops sharply (like the bend of an arm at the elbow).
+  </p>
+
+  <h3>Intuition</h3>
+  <p>
+    Suppose the data has <span class="math-latex math-inline">K^*</span> natural clusters. When K &lt; K*, we are forcing genuinely different groups to share a centroid — each new cluster we add separates a real group, producing a <em>large</em> drop in WCSS. When K &gt; K*, we are splitting clusters that are already tight and well-separated — the drop in WCSS per additional cluster is <em>small</em>. The transition point is the elbow.
+  </p>
+
+  <div class="callout warning">
+    <strong>Limitations of the Elbow Method</strong>
+    <ol style="margin-bottom:0;">
+      <li><strong>Ambiguity:</strong> The WCSS curve is often smooth without a clear kink. Many practitioners disagree on where the elbow is for the same chart.</li>
+      <li><strong>Subjectivity:</strong> The method requires a visual judgment call; it is not automated or objective.</li>
+      <li><strong>Fails for non-spherical clusters:</strong> When clusters have very different sizes or densities, the elbow can be misleading.</li>
+      <li><strong>Measures cohesion only:</strong> Clusters may be internally compact but heavily overlapping. WCSS does not measure separation between clusters.</li>
+      <li><strong>Computational cost:</strong> You must run K-means for every K from 1 to K<sub>max</sub>, and ideally with multiple restarts for each K.</li>
+    </ol>
+  </div>
+
+  <!-- ── Section 5: The Gap Statistic ── -->
+  <h2>The Gap Statistic</h2>
+
+  <p>
+    Tibshirani, Walther, and Hastie (2001) proposed a more principled approach: compare the observed log-WCSS to the <em>expected</em> log-WCSS under a null reference distribution — data with no cluster structure at all.
+  </p>
+
+  <div class="math-latex math-block">\text{Gap}(K) = \mathbb{E}^*\!\left[\log\bigl(\text{WCSS}_{\text{ref}}(K)\bigr)\right] - \log\bigl(\text{WCSS}(K)\bigr)</div>
+
+  <p>
+    When the data has genuine cluster structure, the observed WCSS is much <em>lower</em> than we would expect from uniformly random data, so the gap is large. When there is no structure, both terms are similar and the gap is near zero.
+  </p>
+
+  <h3>Choosing K with the Gap Statistic</h3>
+  <p>
+    Choose the smallest K such that the gap at K is not substantially smaller than the gap at K+1, accounting for estimation uncertainty. Formally, choose:
+  </p>
+  <div class="math-latex math-block">K^* = \min\bigl\{K : \text{Gap}(K) \geq \text{Gap}(K+1) - s_{K+1}\bigr\}</div>
+  <p>
+    where <span class="math-latex math-inline">s_{K+1}</span> is the standard deviation of the reference log-WCSS estimates at K+1.
+    This "one-standard-error rule" guards against selecting an unnecessarily large K.
+  </p>
+
+  <h3>Implementation</h3>
+  <ol>
+    <li>Run K-means on the actual data for each K; record <span class="math-latex math-inline">\log(\text{WCSS}(K))</span>.</li>
+    <li>Generate B reference datasets (e.g., B = 10–20) sampled uniformly from the bounding box of the data.</li>
+    <li>Run K-means on each reference dataset for each K; record <span class="math-latex math-inline">\log(\text{WCSS}_b^{\text{ref}}(K))</span>.</li>
+    <li>Compute <span class="math-latex math-inline">\mathbb{E}^*[\log(\text{WCSS}_\text{ref}(K))]</span> as the mean over B reference runs, and <span class="math-latex math-inline">s_{K}</span> as the standard deviation.</li>
+    <li>Evaluate the gap criterion to select K*.</li>
+  </ol>
+
+  <div class="callout note">
+    <strong>Advantage Over the Elbow Method</strong>
+    The gap statistic can detect when the data has <em>no</em> cluster structure at all: if Gap(K) &asymp; 0 for all K, the observed WCSS is no lower than random, indicating no meaningful clusters. The elbow method gives an answer even when the data is completely uniform — the gap statistic does not.
+  </div>
+
+  <!-- ── Widget 1: WCSS Explorer ── -->
+  <h2>Interactive: WCSS and K-Means Convergence</h2>
+
+  <div class="widget-container">
+    <h4>Run K-means for different values of K. The right chart shows the WCSS curve for all K=1 to 8, pre-computed on the same dataset. The dashed line marks the true number of clusters (K=3).</h4>
+    <div class="widget-controls">
+      <label>
+        K: <strong id="w1-k-val">3</strong>
+        <input type="range" id="w1-k-slider" min="1" max="8" value="3">
+      </label>
+      <button id="w1-reseed-btn">Reseed data</button>
+    </div>
+    <div class="stat-row" style="margin-bottom:1rem;">
+      <div class="stat-card">
+        <span>WCSS at current K</span>
+        <strong id="w1-stat-wcss">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>WCSS change from K&minus;1</span>
+        <strong id="w1-stat-delta">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Percentage decrease</span>
+        <strong id="w1-stat-pct">—</strong>
+      </div>
+    </div>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+      <div id="w1-scatter" style="flex:1;min-width:280px;height:380px;"></div>
+      <div id="w1-wcss-curve" style="flex:1;min-width:280px;height:380px;"></div>
+    </div>
+  </div>
+
+  <!-- ── Widget 2: Build Your Own Elbow Curve ── -->
+  <h2>Interactive: Build Your Own Elbow Curve</h2>
+
+  <div class="widget-container">
+    <h4>Control the true number of clusters in the generated data, then look for the elbow in the WCSS curve. Use the WCSS difference bar chart to find the point of maximum rate-of-change reduction.</h4>
+    <div class="widget-controls">
+      <label>
+        True clusters in data: <strong id="w2-true-k-val">3</strong>
+        <input type="range" id="w2-true-k-slider" min="1" max="6" value="3">
+      </label>
+      <button id="w2-reveal-btn">Reveal true K</button>
+    </div>
+    <div id="w2-wcss-line" style="height:320px;margin-bottom:0.5rem;"></div>
+    <div id="w2-delta-bar" style="height:260px;"></div>
+  </div>
+
+  <!-- ── Widget 3: WCSS Decomposition ── -->
+  <h2>Interactive: Within-Cluster vs. Between-Cluster</h2>
+
+  <p>
+    Total variance in the dataset can be decomposed into two parts:
+  </p>
+  <div class="math-latex math-block">\text{TSS} = \text{WCSS} + \text{BCSS}</div>
+  <p>
+    where <strong>TSS</strong> (Total Sum of Squares) = <span class="math-latex math-inline">\sum_i \|x_i - \mu_{\text{global}}\|^2</span> is the total spread of all points around the global mean — a constant that does not depend on K.
+    <strong>BCSS</strong> (Between-Cluster Sum of Squares) = <span class="math-latex math-inline">\sum_{k=1}^{K} |C_k| \cdot \|\mu_k - \mu_{\text{global}}\|^2</span> measures how far cluster centroids are from the global mean, weighted by cluster size.
+  </p>
+  <p>
+    As K increases: WCSS falls, BCSS rises, TSS stays constant. A good K simultaneously minimises WCSS (tight clusters) and maximises BCSS (clusters far from each other). The stacked bar chart below makes this trade-off visible.
+  </p>
+  <div id="w3-stacked" style="height:360px;margin-top:1rem;"></div>
+
+  <!-- ── Practice Problems ── -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: Manual WCSS Calculation</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>
+        A dataset has 6 points partitioned into 2 clusters:
+      </p>
+      <ul>
+        <li><strong>Cluster 1:</strong> (1,2), (2,3), (3,2) &mdash; centroid = (2, 7/3)</li>
+        <li><strong>Cluster 2:</strong> (7,8), (8,7), (9,8) &mdash; centroid = (8, 23/3)</li>
+      </ul>
+      <p>Compute the WCSS. Show all squared distance calculations step by step.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>Cluster 1 contributions:</strong></p>
+        <p>
+          Centroid <span class="math-latex math-inline">\mu_1 = (2,\; 7/3)</span>.
+        </p>
+        <ul>
+          <li>
+            <span class="math-latex math-inline">d^2\bigl((1,2),\,(2,7/3)\bigr) = (1-2)^2 + (2-7/3)^2 = 1 + (-1/3)^2 = 1 + 1/9 \approx 1.111</span>
+          </li>
+          <li>
+            <span class="math-latex math-inline">d^2\bigl((2,3),\,(2,7/3)\bigr) = (2-2)^2 + (3-7/3)^2 = 0 + (2/3)^2 = 4/9 \approx 0.444</span>
+          </li>
+          <li>
+            <span class="math-latex math-inline">d^2\bigl((3,2),\,(2,7/3)\bigr) = (3-2)^2 + (2-7/3)^2 = 1 + 1/9 \approx 1.111</span>
+          </li>
+        </ul>
+        <p>
+          Cluster 1 WCSS: <span class="math-latex math-inline">1 + 1/9 + 4/9 + 1 + 1/9 = 2 + 6/9 = 2\tfrac{2}{3} \approx 2.667</span>
+        </p>
+        <p><strong>Cluster 2 contributions:</strong></p>
+        <p>
+          Centroid <span class="math-latex math-inline">\mu_2 = (8,\; 23/3)</span>. By symmetry of the point configuration, the within-cluster sum is identical:
+          Cluster 2 WCSS &asymp; 2.667.
+        </p>
+        <p><strong>Total WCSS:</strong></p>
+        <div class="math-latex math-block">\text{WCSS} = 2 \times \frac{8}{3} = \frac{16}{3} \approx 5.333</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: BCSS, Variance Explained, and the Elbow</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>
+        A dataset with n = 10 points has TSS = 120. K-means produces the following WCSS values:
+      </p>
+      <table>
+        <thead>
+          <tr><th>K</th><th>WCSS</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>2</td><td>80</td></tr>
+          <tr><td>3</td><td>45</td></tr>
+          <tr><td>4</td><td>30</td></tr>
+          <tr><td>5</td><td>25</td></tr>
+        </tbody>
+      </table>
+      <ol type="a">
+        <li>Compute BCSS for each K.</li>
+        <li>Compute the percentage of variance explained (BCSS / TSS &times; 100%) for each K.</li>
+        <li>Where is the elbow? Justify your answer.</li>
+        <li>Compute &Delta;WCSS = WCSS(K&minus;1) &minus; WCSS(K) for K = 3, 4, 5. What does the pattern suggest?</li>
+      </ol>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) BCSS = TSS &minus; WCSS</strong></p>
+        <table>
+          <thead><tr><th>K</th><th>WCSS</th><th>BCSS</th></tr></thead>
+          <tbody>
+            <tr><td>2</td><td>80</td><td>40</td></tr>
+            <tr><td>3</td><td>45</td><td>75</td></tr>
+            <tr><td>4</td><td>30</td><td>90</td></tr>
+            <tr><td>5</td><td>25</td><td>95</td></tr>
+          </tbody>
+        </table>
+        <p><strong>(b) Variance explained = BCSS / TSS &times; 100%</strong></p>
+        <table>
+          <thead><tr><th>K</th><th>BCSS/TSS</th></tr></thead>
+          <tbody>
+            <tr><td>2</td><td>33.3%</td></tr>
+            <tr><td>3</td><td>62.5%</td></tr>
+            <tr><td>4</td><td>75.0%</td></tr>
+            <tr><td>5</td><td>79.2%</td></tr>
+          </tbody>
+        </table>
+        <p><strong>(c) Elbow location:</strong> The elbow is at <strong>K = 3</strong>. From K = 2 to K = 3, WCSS drops by 35 (a large reduction). From K = 3 to K = 4, WCSS drops by only 15. From K = 4 to K = 5, the drop is just 5. The rate of decrease slows sharply after K = 3, indicating that adding a 4th or 5th cluster provides diminishing returns.</p>
+        <p><strong>(d) &Delta;WCSS values:</strong></p>
+        <table>
+          <thead><tr><th>K</th><th>&Delta;WCSS</th></tr></thead>
+          <tbody>
+            <tr><td>3</td><td>80 &minus; 45 = 35</td></tr>
+            <tr><td>4</td><td>45 &minus; 30 = 15</td></tr>
+            <tr><td>5</td><td>30 &minus; 25 = 5</td></tr>
+          </tbody>
+        </table>
+        <p>
+          The &Delta;WCSS values drop from 35 to 15 to 5 &mdash; the marginal gain from each additional cluster is rapidly diminishing. The large drop at K = 3 and the sharp fall-off afterward is exactly the elbow signature. This suggests <strong>K = 3</strong> as the natural number of clusters.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: Proof that WCSS(K+1) &le; WCSS(K)</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>
+        Prove rigorously that for any dataset and any K, the optimal WCSS with K+1 clusters is no greater than the optimal WCSS with K clusters.
+      </p>
+      <p>
+        <em>Hint:</em> Given an optimal K-clustering, construct a valid (K+1)-clustering with WCSS &le; WCSS(K) by taking any cluster and splitting it into two half-clusters. Use the following identity (parallel axis theorem for centroid optimality): for any cluster with points <span class="math-latex math-inline">\{x_i\}_{i \in C}</span> and any split into subsets <span class="math-latex math-inline">C^L, C^R</span>,
+      </p>
+      <div class="math-latex math-block">
+        \sum_{i \in C^L} \|x_i - \mu_{C^L}\|^2 + \sum_{i \in C^R} \|x_i - \mu_{C^R}\|^2
+        \;\leq\;
+        \sum_{i \in C} \|x_i - \mu_C\|^2
+      </div>
+      <p>
+        Then discuss: does this prove K = n always minimises WCSS? What does this imply for choosing K by WCSS alone?
+      </p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>Construction:</strong></p>
+        <p>
+          Let <span class="math-latex math-inline">\mathcal{C}^* = \{C_1^*, \ldots, C_K^*\}</span> be an optimal K-clustering with WCSS = W*. Pick any cluster, say <span class="math-latex math-inline">C_1^*</span>. Partition <span class="math-latex math-inline">C_1^*</span> into two non-empty subsets <span class="math-latex math-inline">C_1^L</span> and <span class="math-latex math-inline">C_1^R</span> (e.g., split by the median of any feature). Define a (K+1)-clustering: <span class="math-latex math-inline">\{C_1^L, C_1^R, C_2^*, \ldots, C_K^*\}</span>.
+        </p>
+        <p><strong>Key inequality:</strong></p>
+        <p>
+          For any cluster C with centroid <span class="math-latex math-inline">\mu_C</span> and split into <span class="math-latex math-inline">C^L, C^R</span> with centroids <span class="math-latex math-inline">\mu_L, \mu_R</span>:
+        </p>
+        <div class="math-latex math-block">
+          \sum_{i \in C^L} \|x_i - \mu_L\|^2 + \sum_{i \in C^R} \|x_i - \mu_R\|^2
+          \;\leq\;
+          \sum_{i \in C^L} \|x_i - \mu_C\|^2 + \sum_{i \in C^R} \|x_i - \mu_C\|^2
+          = \sum_{i \in C} \|x_i - \mu_C\|^2
+        </div>
+        <p>
+          The inequality holds because <span class="math-latex math-inline">\mu_L</span> is the minimiser of <span class="math-latex math-inline">\sum_{i \in C^L}\|x_i - \mu\|^2</span> over all <span class="math-latex math-inline">\mu</span>, so using <span class="math-latex math-inline">\mu_C</span> instead can only give a larger or equal value. Similarly for <span class="math-latex math-inline">\mu_R</span>.
+        </p>
+        <p><strong>Completing the proof:</strong></p>
+        <p>
+          WCSS of the (K+1)-clustering satisfies:
+        </p>
+        <div class="math-latex math-block">
+          \text{WCSS}(K+1) \;\leq\; \left(\sum_{i \in C_1^L}\|x_i-\mu_L\|^2 + \sum_{i \in C_1^R}\|x_i-\mu_R\|^2\right) + \sum_{k=2}^{K}\sum_{i \in C_k^*}\|x_i-\mu_k^*\|^2
+          \;\leq\; W^* = \text{WCSS}(K)
+        </div>
+        <p>
+          (The first inequality uses the fact that the optimal (K+1)-clustering has WCSS no larger than any specific (K+1)-clustering we construct. The second uses the key inequality above applied to the split cluster, and the remaining terms are unchanged.)
+        </p>
+        <p><strong>Discussion:</strong></p>
+        <p>
+          Yes, this proves that K = n (one point per cluster) achieves WCSS = 0 and is the global minimiser. This is precisely why WCSS alone cannot be used to choose K: the best WCSS is always achieved by the trivially useless solution where every point is its own cluster. The correct K must balance low WCSS against parsimony — using far fewer clusters than data points. Metrics like the Gap Statistic or Silhouette Score incorporate this trade-off; WCSS with the Elbow Method uses the heuristic that the rate of improvement collapses at the "right" K.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-buttons">
+    <a href="02-distance-centroids.html" class="nav-btn prev">Prev: Distance &amp; Centroids</a>
+    <a href="04-silhouette-metrics.html" class="nav-btn">Next: Silhouette &amp; Metrics</a>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ── Shared state ────────────────────────────────────────────────────────────
+  var W1_SEED = 7;
+  var w1Data = null;
+  var w1WcssAll = [];
+  var w1CurrentK = 3;
+
+  var W2_SEED_BASE = 42;
+  var w2TrueK = 3;
+  var w2Data = null;
+  var w2WcssAll = [];
+  var w2Revealed = false;
+
+  // ── Helper: run kMeans multiple times, return best WCSS ────────────────────
+  function bestKMeans(points, K, runs) {
+    runs = runs || 5;
+    var best = null;
+    for (var r = 0; r < runs; r++) {
+      var result = kMeans(points, K, 100);
+      if (best === null || result.inertia < best.inertia) best = result;
+    }
+    return best;
+  }
+
+  // ── Helper: compute WCSS curve for K=1..Kmax ───────────────────────────────
+  function computeWcssCurve(points, Kmax, runs) {
+    var vals = [];
+    for (var k = 1; k <= Kmax; k++) {
+      var res = bestKMeans(points, k, runs || 5);
+      vals.push(res.inertia);
+    }
+    return vals;
+  }
+
+  // ── Helper: compute TSS (vs global mean) ──────────────────────────────────
+  function computeTSS(points) {
+    var gx = 0, gy = 0;
+    for (var i = 0; i < points.length; i++) { gx += points[i][0]; gy += points[i][1]; }
+    gx /= points.length; gy /= points.length;
+    var tss = 0;
+    for (var i = 0; i < points.length; i++) {
+      var dx = points[i][0] - gx, dy = points[i][1] - gy;
+      tss += dx * dx + dy * dy;
+    }
+    return tss;
+  }
+
+  // ── Helper: compute BCSS ──────────────────────────────────────────────────
+  function computeBCSS(points, labels, centroids) {
+    var gx = 0, gy = 0;
+    for (var i = 0; i < points.length; i++) { gx += points[i][0]; gy += points[i][1]; }
+    gx /= points.length; gy /= points.length;
+    var K = centroids.length;
+    var counts = new Array(K).fill(0);
+    for (var i = 0; i < labels.length; i++) counts[labels[i]]++;
+    var bcss = 0;
+    for (var k = 0; k < K; k++) {
+      var dx = centroids[k][0] - gx, dy = centroids[k][1] - gy;
+      bcss += counts[k] * (dx * dx + dy * dy);
+    }
+    return bcss;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WIDGET 1 — WCSS Explorer
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  function w1Init() {
+    w1Data = generateBlobs(100, 3, 1.0, W1_SEED);
+    w1WcssAll = computeWcssCurve(w1Data.points, 8, 8);
+    w1Render(w1CurrentK);
+  }
+
+  function w1Render(K) {
+    w1CurrentK = K;
+    document.getElementById('w1-k-val').textContent = K;
+
+    var res = bestKMeans(w1Data.points, K, 8);
+    var points = w1Data.points;
+    var labels = res.labels;
+    var centroids = res.centroids;
+
+    // Scatter traces: one per cluster
+    var scatterTraces = [];
+    for (var k = 0; k < K; k++) {
+      var xs = [], ys = [];
+      for (var i = 0; i < points.length; i++) {
+        if (labels[i] === k) { xs.push(points[i][0]); ys.push(points[i][1]); }
+      }
+      scatterTraces.push({
+        x: xs, y: ys, mode: 'markers', type: 'scatter',
+        name: 'Cluster ' + (k + 1),
+        marker: { color: CLUSTER_COLORS[k % CLUSTER_COLORS.length], size: 6, opacity: 0.8 }
+      });
+    }
+    // Centroid markers
+    var cxs = centroids.map(function (c) { return c[0]; });
+    var cys = centroids.map(function (c) { return c[1]; });
+    scatterTraces.push({
+      x: cxs, y: cys, mode: 'markers', type: 'scatter', name: 'Centroids',
+      marker: { symbol: 'x', size: 14, color: '#111827', line: { width: 2, color: '#fff' } }
+    });
+
+    var scatterLayout = plotlyLayout({
+      title: { text: 'K = ' + K + ' clusters', font: { size: 13 } },
+      showlegend: false,
+      xaxis: { title: 'x₁', showgrid: true },
+      yaxis: { title: 'x₂', showgrid: true }
+    });
+
+    Plotly.react('w1-scatter', scatterTraces, scatterLayout, PLOTLY_CONFIG);
+
+    // WCSS curve
+    var Ks = Array.from({ length: 8 }, function (_, i) { return i + 1; });
+    var markerColors = Ks.map(function (k) {
+      return k === K ? '#dc2626' : CLUSTER_COLORS[0];
+    });
+    var markerSizes = Ks.map(function (k) { return k === K ? 12 : 7; });
+
+    var curveTrace = {
+      x: Ks, y: w1WcssAll, mode: 'lines+markers', type: 'scatter', name: 'WCSS',
+      line: { color: CLUSTER_COLORS[0], width: 2 },
+      marker: { color: markerColors, size: markerSizes }
+    };
+
+    var curveLayout = plotlyLayout({
+      title: { text: 'WCSS vs. K', font: { size: 13 } },
+      xaxis: { title: 'K (number of clusters)', dtick: 1 },
+      yaxis: { title: 'WCSS (Inertia)' },
+      shapes: [
+        {
+          type: 'line', x0: 3, x1: 3, y0: 0, y1: 1, yref: 'paper',
+          line: { color: '#16a34a', width: 1.5, dash: 'dash' }
+        }
+      ],
+      annotations: [
+        {
+          x: 3, y: 1, yref: 'paper', xanchor: 'left', yanchor: 'top',
+          text: 'True K=3', showarrow: false,
+          font: { color: '#16a34a', size: 11 }
+        }
+      ]
+    });
+
+    Plotly.react('w1-wcss-curve', [curveTrace], curveLayout, PLOTLY_CONFIG);
+
+    // Stat cards
+    var wCur = w1WcssAll[K - 1];
+    document.getElementById('w1-stat-wcss').textContent = wCur.toFixed(1);
+    if (K === 1) {
+      document.getElementById('w1-stat-delta').textContent = '—';
+      document.getElementById('w1-stat-pct').textContent = '—';
+    } else {
+      var wPrev = w1WcssAll[K - 2];
+      var delta = wPrev - wCur;
+      var pct = (delta / wPrev * 100);
+      document.getElementById('w1-stat-delta').textContent = '−' + delta.toFixed(1);
+      document.getElementById('w1-stat-pct').textContent = pct.toFixed(1) + '%';
+    }
+  }
+
+  document.getElementById('w1-k-slider').addEventListener('input', function () {
+    w1Render(parseInt(this.value, 10));
+  });
+
+  document.getElementById('w1-reseed-btn').addEventListener('click', function () {
+    W1_SEED = Math.floor(Math.random() * 9000) + 1;
+    w1Init();
+  });
+
+  w1Init();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WIDGET 2 — Elbow Method Live Demo
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  function w2Init(trueK) {
+    w2TrueK = trueK;
+    w2Revealed = false;
+    document.getElementById('w2-true-k-val').textContent = trueK;
+    var seed = W2_SEED_BASE + trueK * 13;
+    w2Data = generateBlobs(120, trueK, 1.0, seed);
+    w2WcssAll = computeWcssCurve(w2Data.points, 10, 6);
+    w2Render();
+  }
+
+  function w2Render() {
+    var Ks = Array.from({ length: 10 }, function (_, i) { return i + 1; });
+
+    // Line chart
+    var annotations = [];
+    var shapes = [];
+    if (w2Revealed) {
+      shapes.push({
+        type: 'line', x0: w2TrueK, x1: w2TrueK, y0: 0, y1: 1, yref: 'paper',
+        line: { color: '#dc2626', width: 2, dash: 'dot' }
+      });
+      annotations.push({
+        x: w2TrueK, y: 0.95, yref: 'paper', xanchor: 'left', yanchor: 'top',
+        text: 'True K=' + w2TrueK, showarrow: false,
+        font: { color: '#dc2626', size: 12, weight: 600 }
+      });
+    }
+
+    var lineTrace = {
+      x: Ks, y: w2WcssAll, mode: 'lines+markers', type: 'scatter', name: 'WCSS',
+      line: { color: CLUSTER_COLORS[0], width: 2 },
+      marker: { color: CLUSTER_COLORS[0], size: 8 }
+    };
+
+    var lineLayout = plotlyLayout({
+      title: { text: 'WCSS vs. K &mdash; Can you spot the elbow?', font: { size: 13 } },
+      xaxis: { title: 'K', dtick: 1 },
+      yaxis: { title: 'WCSS' },
+      shapes: shapes,
+      annotations: annotations
+    });
+
+    Plotly.react('w2-wcss-line', [lineTrace], lineLayout, PLOTLY_CONFIG);
+
+    // Delta bar chart
+    var deltaKs = Ks.slice(1);
+    var deltaVals = [];
+    for (var i = 1; i < w2WcssAll.length; i++) {
+      deltaVals.push(w2WcssAll[i - 1] - w2WcssAll[i]);
+    }
+    var barColors = deltaVals.map(function (_, idx) {
+      if (w2Revealed && (idx + 2) === w2TrueK) return '#dc2626';
+      return CLUSTER_COLORS[2];
+    });
+
+    var barTrace = {
+      x: deltaKs, y: deltaVals, type: 'bar', name: 'ΔWCSS',
+      marker: { color: barColors }
+    };
+
+    var barAnnotations = [];
+    if (w2Revealed) {
+      var trueIdx = w2TrueK - 2;
+      if (trueIdx >= 0 && trueIdx < deltaVals.length) {
+        barAnnotations.push({
+          x: deltaKs[trueIdx], y: deltaVals[trueIdx],
+          text: 'True K=' + w2TrueK,
+          showarrow: true, arrowhead: 2, ax: 0, ay: -30,
+          font: { color: '#dc2626', size: 11 }
+        });
+      }
+    }
+
+    var barLayout = plotlyLayout({
+      title: { text: 'ΔWCSS = WCSS(K−1) − WCSS(K) &mdash; Largest bar = Elbow', font: { size: 13 } },
+      xaxis: { title: 'K', dtick: 1 },
+      yaxis: { title: 'ΔWCSS (drop in inertia)' },
+      annotations: barAnnotations,
+      bargap: 0.3
+    });
+
+    Plotly.react('w2-delta-bar', [barTrace], barLayout, PLOTLY_CONFIG);
+  }
+
+  document.getElementById('w2-true-k-slider').addEventListener('input', function () {
+    w2Init(parseInt(this.value, 10));
+  });
+
+  document.getElementById('w2-reveal-btn').addEventListener('click', function () {
+    w2Revealed = true;
+    w2Render();
+  });
+
+  w2Init(3);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WIDGET 3 — WCSS Decomposition (static, computed once)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  (function () {
+    var data = generateBlobs(120, 3, 1.0, 99);
+    var points = data.points;
+    var tss = computeTSS(points);
+    var Ks = [1, 2, 3, 4, 5, 6, 7, 8];
+    var wcssVals = [];
+    var bcssVals = [];
+
+    for (var ki = 0; ki < Ks.length; ki++) {
+      var K = Ks[ki];
+      var res = bestKMeans(points, K, 6);
+      wcssVals.push(res.inertia);
+      bcssVals.push(computeBCSS(points, res.labels, res.centroids));
+    }
+
+    var wcssTrace = {
+      x: Ks, y: wcssVals, type: 'bar', name: 'WCSS (within-cluster)',
+      marker: { color: '#2563eb' },
+      hovertemplate: 'K=%{x}<br>WCSS=%{y:.1f}<extra></extra>'
+    };
+    var bcssTrace = {
+      x: Ks, y: bcssVals, type: 'bar', name: 'BCSS (between-cluster)',
+      marker: { color: '#dc2626' },
+      hovertemplate: 'K=%{x}<br>BCSS=%{y:.1f}<extra></extra>'
+    };
+
+    var tssAnnotations = Ks.map(function (k, i) {
+      return {
+        x: k, y: wcssVals[i] + bcssVals[i],
+        text: (wcssVals[i] + bcssVals[i]).toFixed(0),
+        showarrow: false, yanchor: 'bottom',
+        font: { size: 9, color: '#6b7280' }
+      };
+    });
+
+    var layout = plotlyLayout({
+      title: { text: 'TSS = WCSS + BCSS &mdash; Total height is constant (TSS = ' + tss.toFixed(0) + ')', font: { size: 13 } },
+      barmode: 'stack',
+      xaxis: { title: 'K (number of clusters)', dtick: 1 },
+      yaxis: { title: 'Sum of Squares' },
+      annotations: tssAnnotations,
+      legend: { orientation: 'h', y: -0.18 }
+    });
+
+    Plotly.newPlot('w3-stacked', [wcssTrace, bcssTrace], layout, PLOTLY_CONFIG);
+  })();
+
+});
+</script>
+</body>
+</html>

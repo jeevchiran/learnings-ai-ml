@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 3: Logistic Regression</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <a href="../index.html" style="font-weight:600;color:var(--text);text-decoration:none;font-size:0.9rem;">Regression</a>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button class="theme-toggle">Dark mode</button>
+        <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+      </div>
+    </header>
+    <nav class="module-nav-bar">
+      <a href="01-linear-regression.html">1. Linear Regression</a>
+      <a href="02-math-linear-regression.html">2. Math of LR</a>
+      <a href="03-logistic-regression.html" class="active">3. Logistic Regression</a>
+      <a href="04-math-logistic-regression.html">4. Math of LogR</a>
+    </nav>
+    <main>
+      <h1>Module 3: Logistic Regression</h1>
+
+      <div class="bridge">
+        <strong>Bridge from Modules 1-2:</strong> Linear regression models continuous outcomes. But many real problems involve categorical decisions: Is this email spam? Does this patient have diabetes? Which digit is written here? Linear regression fails for classification -- it predicts values outside [0,1] and has no principled way to represent uncertainty about discrete outcomes. We need a model that outputs probabilities.
+      </div>
+
+      <!-- WHY NOT LINEAR? -->
+      <h2>Why Linear Regression Fails for Classification</h2>
+      <p>Consider binary classification where <span class="math-latex">y \in \{0, 1\}</span>. If we naively fit a linear regression <span class="math-latex">\hat{y} = \mathbf{x}^T\boldsymbol{\beta}</span>, the predictions can be any real number -- including values less than 0 or greater than 1. These cannot be interpreted as probabilities.</p>
+
+      <div class="widget-container">
+        <h4>Linear regression applied to binary data: predictions exceed [0,1] bounds.</h4>
+        <div class="widget-controls">
+          <button id="linear-class-regen">Regenerate Data</button>
+          <label>Separation: <input type="range" id="sep-slider" min="1" max="6" step="0.5" value="3"> <span id="sep-val">3.0</span></label>
+        </div>
+        <div id="linear-class-plot" class="plot-area"></div>
+      </div>
+
+      <!-- THE LOGISTIC MODEL -->
+      <h2>The Logistic Model</h2>
+      <p>The solution: pass the linear predictor through a function that maps <span class="math-latex">\mathbb{R} \to (0, 1)</span>. The sigmoid (logistic) function:</p>
+      <div class="math-block">
+        <span class="math-latex math-block">\sigma(z) = \frac{1}{1 + e^{-z}}</span>
+      </div>
+      <p>The logistic regression model is:</p>
+      <div class="math-block">
+        <span class="math-latex math-block">P(y = 1 \mid \mathbf{x}) = \sigma(\mathbf{x}^T\boldsymbol{\beta}) = \frac{1}{1 + e^{-\mathbf{x}^T\boldsymbol{\beta}}}</span>
+      </div>
+
+      <h3>The Log-Odds (Logit) Interpretation</h3>
+      <p>Taking the inverse of sigmoid gives the logit function:</p>
+      <div class="math-block">
+        <span class="math-latex math-block">\log\frac{p}{1-p} = \mathbf{x}^T\boldsymbol{\beta} = \beta_0 + \beta_1 x_1 + \cdots + \beta_p x_p</span>
+      </div>
+      <p>The model is linear in log-odds but nonlinear in probability. Each unit increase in <span class="math-latex">x_j</span> changes the log-odds by <span class="math-latex">\beta_j</span>, which multiplies the odds by <span class="math-latex">e^{\beta_j}</span>.</p>
+
+      <!-- LOG-ODDS AND LOGITS -->
+      <h2>Log-Odds and Logits: What They Mean and How They Are Used</h2>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="logit-what">What</div>
+        <div class="tab" data-tab="logit-why">Why</div>
+        <div class="tab" data-tab="logit-how">How</div>
+      </div>
+      <div id="logit-what" class="tab-content active">
+        <h3>Odds, Log-Odds, and the Logit Function</h3>
+        <p><strong>Probability</strong> expresses the chance of an event occurring, bounded between 0 and 1. But this bounded range is inconvenient for a linear model -- we need a quantity that can range over all real numbers.</p>
+
+        <p><strong>Odds</strong> transform probability into the range <span class="math-latex">(0, \infty)</span>:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{Odds} = \frac{p}{1 - p}</span>
+        </div>
+        <p>If <span class="math-latex">p = 0.75</span>, the odds are <span class="math-latex">\frac{0.75}{0.25} = 3</span>, meaning the event is 3 times more likely to happen than not. Odds of 1 correspond to <span class="math-latex">p = 0.5</span> (a coin flip).</p>
+
+        <p><strong>Log-odds (logit)</strong> take the natural logarithm of odds, mapping to <span class="math-latex">(-\infty, +\infty)</span>:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{logit}(p) = \log\frac{p}{1 - p} \in (-\infty, +\infty)</span>
+        </div>
+        <p>This is the transformation that makes logistic regression "linear" -- the logit of the probability is a linear function of the features.</p>
+
+        <table>
+          <tr><th>Probability <span class="math-latex">p</span></th><th>Odds <span class="math-latex">\frac{p}{1-p}</span></th><th>Log-odds <span class="math-latex">\log\frac{p}{1-p}</span></th><th>Interpretation</th></tr>
+          <tr><td>0.01</td><td>0.01</td><td>-4.60</td><td>Very unlikely</td></tr>
+          <tr><td>0.10</td><td>0.11</td><td>-2.20</td><td>Unlikely</td></tr>
+          <tr><td>0.25</td><td>0.33</td><td>-1.10</td><td>Improbable</td></tr>
+          <tr><td>0.50</td><td>1.00</td><td>0.00</td><td>Even (decision boundary)</td></tr>
+          <tr><td>0.75</td><td>3.00</td><td>1.10</td><td>Probable</td></tr>
+          <tr><td>0.90</td><td>9.00</td><td>2.20</td><td>Likely</td></tr>
+          <tr><td>0.99</td><td>99.0</td><td>4.60</td><td>Very likely</td></tr>
+        </table>
+      </div>
+
+      <div id="logit-why" class="tab-content">
+        <h3>Why Work in Log-Odds Space?</h3>
+        <p>Three reasons make the logit the natural scale for classification models:</p>
+
+        <p><strong>1. It linearizes the problem.</strong> Probability is bounded and its relationship with features is typically S-shaped. The logit transformation straightens this curve, allowing us to model it as a simple linear combination <span class="math-latex">\beta_0 + \beta_1 x_1 + \cdots</span>. Without this transformation, a linear predictor could produce impossible probabilities outside [0, 1].</p>
+
+        <p><strong>2. Coefficients become multiplicative on odds.</strong> In log-odds space, a coefficient <span class="math-latex">\beta_j</span> has a clean interpretation: a one-unit increase in <span class="math-latex">x_j</span> adds <span class="math-latex">\beta_j</span> to the log-odds. Exponentiating gives the odds ratio <span class="math-latex">e^{\beta_j}</span> -- the factor by which the odds are multiplied. This is directly actionable in domains like medicine and business.</p>
+
+        <p><strong>3. It arises naturally from the Bernoulli distribution.</strong> The logit is the canonical link function for the Bernoulli family in the exponential family framework. It is not an arbitrary choice -- it is the mathematically natural way to parameterize binary outcomes (derived fully in Module 4).</p>
+
+        <div class="concept-box">
+          <h4>The Symmetry Property</h4>
+          <p>The logit function is symmetric around zero: <span class="math-latex">\text{logit}(p) = -\text{logit}(1-p)</span>. This means swapping the labels (calling "success" what was "failure") simply negates all coefficients. The model is inherently symmetric with respect to the two classes.</p>
+        </div>
+      </div>
+
+      <div id="logit-how" class="tab-content">
+        <h3>How Log-Odds Are Used in Practice</h3>
+
+        <p><strong>Reading model output.</strong> Most software reports logistic regression coefficients on the log-odds scale. A coefficient of <span class="math-latex">\beta_1 = 0.7</span> means: for each unit increase in <span class="math-latex">x_1</span>, the log-odds of the positive class increase by 0.7, or equivalently the odds are multiplied by <span class="math-latex">e^{0.7} \approx 2.01</span>.</p>
+
+        <p><strong>Converting between scales.</strong> The three representations are interconvertible:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">p = \frac{1}{1 + e^{-\text{logit}}} \qquad \text{Odds} = e^{\text{logit}} \qquad \text{logit} = \log(\text{Odds})</span>
+        </div>
+
+        <p><strong>Clinical example: diabetes risk.</strong> A model predicts diabetes with:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{logit}(P(\text{diabetes})) = -6.0 + 0.05 \cdot \text{BMI} + 0.03 \cdot \text{Age} + 1.2 \cdot \text{FamilyHistory}</span>
+        </div>
+        <p>For a patient with BMI = 30, Age = 50, FamilyHistory = 1:</p>
+        <div class="derivation">
+          <div class="derivation-step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+              <p>Compute log-odds: <span class="math-latex">-6.0 + 0.05(30) + 0.03(50) + 1.2(1) = -6.0 + 1.5 + 1.5 + 1.2 = -1.8</span></p>
+            </div>
+          </div>
+          <div class="derivation-step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+              <p>Convert to odds: <span class="math-latex">e^{-1.8} = 0.165</span> (for every 1 person who gets diabetes, about 6 do not)</p>
+            </div>
+          </div>
+          <div class="derivation-step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+              <p>Convert to probability: <span class="math-latex">p = \frac{1}{1 + e^{1.8}} = \frac{0.165}{1.165} = 0.142</span> (14.2% risk)</p>
+            </div>
+          </div>
+          <div class="derivation-step">
+            <div class="step-number">4</div>
+            <div class="step-content">
+              <p>Interpret family history coefficient: <span class="math-latex">e^{1.2} = 3.32</span>, so having family history multiplies diabetes odds by 3.3x compared to otherwise identical patient without.</p>
+            </div>
+          </div>
+        </div>
+
+        <p><strong>Where you see logits in practice:</strong></p>
+        <ul style="margin-left: 1.5rem;">
+          <li>Scikit-learn's <code>decision_function()</code> returns raw logits (log-odds before sigmoid)</li>
+          <li>Neural network classification layers output logits; softmax/sigmoid is applied separately</li>
+          <li>Medical literature reports odds ratios (<span class="math-latex">e^{\beta}</span>) rather than raw coefficients</li>
+          <li>Betting odds (e.g., "3 to 1 against") are odds in the non-log scale</li>
+        </ul>
+      </div>
+
+      <!-- INTERACTIVE: LOG-ODDS CONVERTER -->
+      <div class="widget-container">
+        <h4>Convert between probability, odds, and log-odds. Move any slider to see the equivalent values on all three scales.</h4>
+        <div class="widget-controls">
+          <label>Probability: <input type="range" id="logit-prob" min="0.01" max="0.99" step="0.01" value="0.5"> <span id="logit-prob-val">0.500</span></label>
+          <label>Odds: <strong id="logit-odds-val">1.000</strong></label>
+          <label>Log-odds: <strong id="logit-logit-val">0.000</strong></label>
+        </div>
+        <div id="logit-plot" class="plot-area" style="min-height: 280px;"></div>
+      </div>
+
+      <!-- SIGMOID EXPLORER -->
+      <h2>Interactive: Sigmoid Explorer</h2>
+      <div class="widget-container">
+        <h4>Adjust the weight and bias to see how the sigmoid curve and decision boundary change.</h4>
+        <div class="widget-controls">
+          <label>Weight (w): <input type="range" id="sig-weight" min="0.5" max="5" step="0.1" value="1"> <span id="sig-w-val">1.0</span></label>
+          <label>Bias (b): <input type="range" id="sig-bias" min="-5" max="5" step="0.1" value="0"> <span id="sig-b-val">0.0</span></label>
+          <label>Threshold: <input type="range" id="sig-thresh" min="0.1" max="0.9" step="0.05" value="0.5"> <span id="sig-t-val">0.50</span></label>
+        </div>
+        <div>
+          <span style="font-family: sans-serif; font-size: 0.85rem;">
+            Accuracy: <strong id="sig-acc">--</strong> |
+            Precision: <strong id="sig-prec">--</strong> |
+            Recall: <strong id="sig-recall">--</strong>
+          </span>
+        </div>
+        <div id="sigmoid-plot" class="plot-area"></div>
+      </div>
+
+      <!-- BINARY: SPAM -->
+      <h2>Binary Classification: Email Spam Detection</h2>
+      <div class="concept-box">
+        <h4>Problem Setup</h4>
+        <p>Features: word frequency of "free" (<span class="math-latex">x_1</span>), sender reputation score (<span class="math-latex">x_2</span>), number of links (<span class="math-latex">x_3</span>).</p>
+        <p>Model: <span class="math-latex">\log\frac{P(\text{spam})}{P(\text{not spam})} = -2.1 + 3.5 x_1 - 1.8 x_2 + 0.9 x_3</span></p>
+      </div>
+      <h3>Coefficient Interpretation</h3>
+      <table>
+        <tr><th>Feature</th><th><span class="math-latex">\beta</span></th><th><span class="math-latex">e^{\beta}</span> (Odds Ratio)</th><th>Meaning</th></tr>
+        <tr><td>Word "free" freq</td><td>3.5</td><td>33.1</td><td>Each unit increase multiplies spam odds by 33x</td></tr>
+        <tr><td>Sender reputation</td><td>-1.8</td><td>0.17</td><td>Higher reputation reduces spam odds by 83%</td></tr>
+        <tr><td>Link count</td><td>0.9</td><td>2.46</td><td>Each additional link roughly doubles spam odds</td></tr>
+      </table>
+      <p>Threshold choice matters: for spam, a false positive (legitimate email in spam folder) annoys users, while a false negative (spam in inbox) is merely inconvenient. A threshold of 0.7 prioritizes precision.</p>
+
+      <!-- DECISION BOUNDARY -->
+      <h2>Interactive: Decision Boundary</h2>
+      <div class="widget-container">
+        <h4>Two-class data with logistic regression decision boundary. Adjust class separation to see how the model responds.</h4>
+        <div class="widget-controls">
+          <label>Class Separation: <input type="range" id="db-sep" min="1" max="6" step="0.25" value="3"> <span id="db-sep-val">3.0</span></label>
+          <label>Samples: <input type="range" id="db-n" min="30" max="150" step="10" value="80"> <span id="db-n-val">80</span></label>
+          <button id="db-regen">Regenerate</button>
+        </div>
+        <div>
+          <span style="font-family: sans-serif; font-size: 0.85rem;">
+            Accuracy: <strong id="db-acc">--</strong> |
+            Confusion: TP=<strong id="db-tp">--</strong> FP=<strong id="db-fp">--</strong> FN=<strong id="db-fn">--</strong> TN=<strong id="db-tn">--</strong>
+          </span>
+        </div>
+        <div id="decision-boundary-plot" class="plot-area"></div>
+      </div>
+
+      <!-- MULTICLASS -->
+      <h2>Multiclass Classification</h2>
+      <div class="tabs">
+        <div class="tab active" data-tab="mc-ovr">One-vs-Rest</div>
+        <div class="tab" data-tab="mc-softmax">Softmax</div>
+        <div class="tab" data-tab="mc-comparison">Comparison</div>
+      </div>
+      <div id="mc-ovr" class="tab-content active">
+        <h3>One-vs-Rest (OvR)</h3>
+        <p>Train <span class="math-latex">K</span> separate binary classifiers. Classifier <span class="math-latex">k</span> learns to distinguish class <span class="math-latex">k</span> from "everything else." At prediction time, run all <span class="math-latex">K</span> classifiers and assign the class with highest confidence:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\hat{y} = \arg\max_k \; \sigma(\mathbf{x}^T\boldsymbol{\beta}_k)</span>
+        </div>
+        <p>For MNIST digit recognition: 10 binary classifiers, each asking "is this digit k?"</p>
+      </div>
+      <div id="mc-softmax" class="tab-content">
+        <h3>Softmax (Multinomial Logistic Regression)</h3>
+        <p>A single model that jointly estimates probabilities for all <span class="math-latex">K</span> classes:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">P(y = k \mid \mathbf{x}) = \frac{e^{\mathbf{x}^T\boldsymbol{\beta}_k}}{\sum_{j=1}^K e^{\mathbf{x}^T\boldsymbol{\beta}_j}}</span>
+        </div>
+        <p>Probabilities sum to 1 by construction. This is the natural generalization of the sigmoid to multiple classes (with <span class="math-latex">K=2</span>, softmax reduces to standard logistic regression).</p>
+      </div>
+      <div id="mc-comparison" class="tab-content">
+        <h3>When to Use Which</h3>
+        <table>
+          <tr><th>Criterion</th><th>One-vs-Rest</th><th>Softmax</th></tr>
+          <tr><td>Training</td><td>K independent models (parallelizable)</td><td>Single joint model</td></tr>
+          <tr><td>Calibration</td><td>Probabilities may not sum to 1</td><td>Properly calibrated by construction</td></tr>
+          <tr><td>Scalability</td><td>Better for very large K</td><td>Better for moderate K</td></tr>
+          <tr><td>Decision boundaries</td><td>Can be inconsistent between classifiers</td><td>Globally consistent</td></tr>
+        </table>
+      </div>
+
+      <!-- MULTICLASS WIDGET -->
+      <h2>Interactive: Multiclass Decision Regions</h2>
+      <div class="widget-container">
+        <h4>Three classes in 2D space. Observe how the decision regions partition the feature space.</h4>
+        <div class="widget-controls">
+          <label>Spread: <input type="range" id="mc-spread" min="0.5" max="3" step="0.25" value="1.5"> <span id="mc-spread-val">1.5</span></label>
+          <button id="mc-regen">Regenerate</button>
+        </div>
+        <div id="multiclass-plot" class="plot-area"></div>
+      </div>
+
+      <!-- REGULARIZATION -->
+      <h2>Regularization</h2>
+      <p>With many features, logistic regression can overfit -- it finds coefficients that perfectly separate the training data but generalize poorly. Regularization adds a penalty to the loss function:</p>
+      <div class="math-block">
+        <span class="math-latex math-block">J_{\text{reg}}(\boldsymbol{\beta}) = J(\boldsymbol{\beta}) + \lambda \cdot \text{penalty}(\boldsymbol{\beta})</span>
+      </div>
+
+      <div class="assumptions-grid">
+        <div class="assumption-card">
+          <h5>L1 (Lasso)</h5>
+          <p>Penalty: <span class="math-latex">\lambda \sum_{j=1}^p |\beta_j|</span></p>
+          <p>Effect: drives some coefficients to exactly zero, performing automatic feature selection. Useful when you suspect many features are irrelevant.</p>
+        </div>
+        <div class="assumption-card">
+          <h5>L2 (Ridge)</h5>
+          <p>Penalty: <span class="math-latex">\lambda \sum_{j=1}^p \beta_j^2</span></p>
+          <p>Effect: shrinks all coefficients toward zero but never exactly to zero. Stabilizes estimates when features are correlated.</p>
+        </div>
+        <div class="assumption-card">
+          <h5>Elastic Net</h5>
+          <p>Penalty: <span class="math-latex">\lambda_1 \sum|\beta_j| + \lambda_2 \sum\beta_j^2</span></p>
+          <p>Combines L1 and L2. Gets sparsity of L1 with the stability of L2 when features are grouped/correlated.</p>
+        </div>
+        <div class="assumption-card">
+          <h5>No Penalty (<span class="math-latex">\lambda = 0</span>)</h5>
+          <p>Unregularized MLE. Works well when <span class="math-latex">n \gg p</span> (many more samples than features). Overfits when <span class="math-latex">p</span> is large relative to <span class="math-latex">n</span>.</p>
+        </div>
+      </div>
+
+      <!-- REGULARIZATION WIDGET -->
+      <h2>Interactive: Regularization Effect on Coefficients</h2>
+      <div class="widget-container">
+        <h4>Observe how coefficients shrink as regularization strength increases. L1 drives coefficients to zero; L2 shrinks them uniformly.</h4>
+        <div class="widget-controls">
+          <label>Lambda: <input type="range" id="reg-lambda" min="-2" max="2" step="0.1" value="0"> <span id="reg-lambda-val">1.00</span></label>
+          <label>Type:
+            <select id="reg-type">
+              <option value="l1">L1 (Lasso)</option>
+              <option value="l2">L2 (Ridge)</option>
+            </select>
+          </label>
+        </div>
+        <div id="reg-plot" class="plot-area"></div>
+      </div>
+
+      <!-- HYPERPARAMETER TUNING -->
+      <h2>Hyperparameter Tuning</h2>
+      <h3>Key Hyperparameters</h3>
+      <table>
+        <tr><th>Parameter</th><th>What It Controls</th><th>How to Tune</th></tr>
+        <tr><td>C (or <span class="math-latex">1/\lambda</span>)</td><td>Inverse regularization strength</td><td>Log-scale grid: [0.001, 0.01, 0.1, 1, 10, 100]</td></tr>
+        <tr><td>Penalty type</td><td>L1 vs L2 vs Elastic Net</td><td>Try all; L1 for feature selection, L2 for stability</td></tr>
+        <tr><td>Solver</td><td>Optimization algorithm</td><td>lbfgs for L2, saga for L1/large datasets</td></tr>
+        <tr><td>max_iter</td><td>Convergence iterations</td><td>Increase if convergence warning appears</td></tr>
+      </table>
+
+      <h3>Cross-Validation</h3>
+      <p>Never tune hyperparameters on training data -- this leads to overfitting the validation strategy. Use k-fold cross-validation:</p>
+      <div class="math-block">
+        <span class="math-latex math-block">\text{CV Score} = \frac{1}{K}\sum_{k=1}^K \text{Score}(\hat{f}_{-k}, \text{fold}_k)</span>
+      </div>
+      <p>where <span class="math-latex">\hat{f}_{-k}</span> is the model trained on all folds except <span class="math-latex">k</span>.</p>
+
+      <!-- DISEASE DIAGNOSIS -->
+      <h2>Application: Disease Diagnosis (Diabetes)</h2>
+      <div class="concept-box">
+        <h4>Problem: Asymmetric Costs</h4>
+        <p>A missed diabetes diagnosis (false negative) means a patient does not receive treatment. A false positive leads to additional testing -- inconvenient but not dangerous. The costs are asymmetric, so the default 0.5 threshold is inappropriate.</p>
+        <p>Solution: lower the threshold to 0.3. This increases recall (catch more true cases) at the expense of precision (more false alarms). The ROC curve helps visualize this tradeoff.</p>
+      </div>
+
+      <!-- ROC CURVE -->
+      <h2>Interactive: ROC Curve and Threshold Selection</h2>
+      <div class="widget-container">
+        <h4>Move the threshold to trace the ROC curve. Observe how TPR and FPR change together.</h4>
+        <div class="widget-controls">
+          <label>Threshold: <input type="range" id="roc-thresh" min="0.01" max="0.99" step="0.01" value="0.5"> <span id="roc-thresh-val">0.50</span></label>
+          <label>Model Quality:
+            <select id="roc-quality">
+              <option value="good">Good Model</option>
+              <option value="fair">Fair Model</option>
+              <option value="random">Random Model</option>
+            </select>
+          </label>
+        </div>
+        <div>
+          <span style="font-family: sans-serif; font-size: 0.85rem;">
+            TPR: <strong id="roc-tpr">--</strong> |
+            FPR: <strong id="roc-fpr">--</strong> |
+            Precision: <strong id="roc-prec">--</strong> |
+            AUC: <strong id="roc-auc">--</strong>
+          </span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div id="roc-curve-plot" class="plot-area" style="min-height:320px;"></div>
+          <div id="roc-dist-plot" class="plot-area" style="min-height:320px;"></div>
+        </div>
+      </div>
+
+      <!-- CUSTOMER CHURN -->
+      <h2>Application: Customer Churn Prediction</h2>
+      <div class="concept-box">
+        <h4>Feature Selection with L1</h4>
+        <p>A telecom company has 50 features per customer (tenure, monthly charges, contract type, internet service, tech support calls, etc.). Using L1 regularization with <span class="math-latex">C = 0.1</span>, the model selects 8 relevant features -- the other 42 coefficients are driven to exactly zero. The top predictors: contract type (month-to-month vs. yearly), tenure, and monthly charges.</p>
+        <p>Business action: target month-to-month customers with high charges and low tenure for retention offers.</p>
+      </div>
+
+      <!-- CLASSIFICATION EVALUATION METRICS -->
+      <h2>Evaluation Metrics for Classification</h2>
+      <p>Unlike regression where we have a single continuous error, classification requires multiple metrics because different types of mistakes carry different costs.</p>
+
+      <h3>The Confusion Matrix</h3>
+      <p>All classification metrics derive from four fundamental counts:</p>
+      <div class="math-block">
+        <span class="math-latex math-block">\begin{array}{c|cc} & \text{Predicted Positive} & \text{Predicted Negative} \\ \hline \text{Actual Positive} & \text{TP (True Positive)} & \text{FN (False Negative)} \\ \text{Actual Negative} & \text{FP (False Positive)} & \text{TN (True Negative)} \end{array}</span>
+      </div>
+
+      <h3>Core Metrics</h3>
+      <div class="derivation">
+        <div class="derivation-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <p><strong>Accuracy</strong> -- overall fraction of correct predictions:</p>
+            <div class="math-block"><span class="math-latex math-block">\text{Accuracy} = \frac{TP + TN}{TP + TN + FP + FN}</span></div>
+            <div class="step-explanation">Misleading when classes are imbalanced. A model predicting "no fraud" for every transaction achieves 99.9% accuracy on a dataset with 0.1% fraud rate.</div>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <p><strong>Precision</strong> -- of all positive predictions, how many are correct:</p>
+            <div class="math-block"><span class="math-latex math-block">\text{Precision} = \frac{TP}{TP + FP}</span></div>
+            <div class="step-explanation">High precision means few false alarms. Critical when the cost of acting on a false positive is high (e.g., spam filter blocking legitimate email).</div>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <p><strong>Recall (Sensitivity, True Positive Rate)</strong> -- of all actual positives, how many did we catch:</p>
+            <div class="math-block"><span class="math-latex math-block">\text{Recall} = \frac{TP}{TP + FN}</span></div>
+            <div class="step-explanation">High recall means few missed positives. Critical when missing a positive case is dangerous (e.g., cancer screening, fraud detection).</div>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <p><strong>F1 Score</strong> -- harmonic mean of precision and recall:</p>
+            <div class="math-block"><span class="math-latex math-block">F_1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}} = \frac{2 \cdot TP}{2 \cdot TP + FP + FN}</span></div>
+            <div class="step-explanation">Balances both concerns. The harmonic mean penalizes extreme imbalance: if either precision or recall is very low, F1 will be low regardless of the other.</div>
+          </div>
+        </div>
+        <div class="derivation-step">
+          <div class="step-number">5</div>
+          <div class="step-content">
+            <p><strong>Specificity (True Negative Rate)</strong> -- of all actual negatives, how many did we correctly identify:</p>
+            <div class="math-block"><span class="math-latex math-block">\text{Specificity} = \frac{TN}{TN + FP} = 1 - \text{FPR}</span></div>
+            <div class="step-explanation">Specificity and Recall together define the ROC curve. FPR = 1 - Specificity is the x-axis of the ROC plot.</div>
+          </div>
+        </div>
+      </div>
+
+      <h3>The Precision-Recall Tradeoff</h3>
+      <p>Precision and recall are inversely related through the threshold. Lowering the threshold (predict positive more readily) increases recall but decreases precision. The optimal balance depends on the cost structure of the problem:</p>
+      <table>
+        <tr><th>Application</th><th>Priority</th><th>Threshold Strategy</th></tr>
+        <tr><td>Cancer screening</td><td>High recall (catch every case)</td><td>Low threshold (0.2-0.3)</td></tr>
+        <tr><td>Spam filtering</td><td>High precision (don't lose real email)</td><td>High threshold (0.7-0.9)</td></tr>
+        <tr><td>Credit approval</td><td>Balance (F1)</td><td>Threshold at F1 maximum</td></tr>
+        <tr><td>Fraud detection</td><td>High recall + acceptable precision</td><td>Threshold at target recall with tolerable FPR</td></tr>
+      </table>
+
+      <!-- INTERACTIVE: METRICS EXPLORER -->
+      <div class="widget-container">
+        <h4>Adjust the threshold and observe how all metrics change simultaneously. The confusion matrix updates in real-time.</h4>
+        <div class="widget-controls">
+          <label>Threshold: <input type="range" id="metrics-thresh" min="0.05" max="0.95" step="0.01" value="0.5"> <span id="metrics-thresh-val">0.50</span></label>
+          <label>Class balance:
+            <select id="metrics-balance">
+              <option value="balanced">Balanced (50/50)</option>
+              <option value="imbalanced">Imbalanced (90/10)</option>
+              <option value="rare">Rare event (99/1)</option>
+            </select>
+          </label>
+          <button id="metrics-regen">New Model</button>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div>
+            <table id="metrics-table" style="font-size: 0.85rem;">
+              <tr><th>Metric</th><th>Value</th></tr>
+              <tr><td>Accuracy</td><td id="m-acc">--</td></tr>
+              <tr><td>Precision</td><td id="m-prec">--</td></tr>
+              <tr><td>Recall (Sensitivity)</td><td id="m-recall">--</td></tr>
+              <tr><td>Specificity</td><td id="m-spec">--</td></tr>
+              <tr><td>F1 Score</td><td id="m-f1">--</td></tr>
+              <tr><td>FPR</td><td id="m-fpr">--</td></tr>
+            </table>
+            <div style="margin-top: 1rem; font-family: sans-serif; font-size: 0.75rem; color: var(--text-muted);">
+              Total samples: <strong id="m-total">--</strong>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Confusion Matrix</div>
+            <div style="display: grid; grid-template-columns: auto auto auto; grid-template-rows: auto auto auto; gap: 0; font-family: sans-serif;">
+              <!-- Header row -->
+              <div style="width: 80px;"></div>
+              <div style="width: 120px; text-align: center; padding: 0.4rem; font-size: 0.7rem; font-weight: 600; color: var(--text-muted);">Predicted Neg</div>
+              <div style="width: 120px; text-align: center; padding: 0.4rem; font-size: 0.7rem; font-weight: 600; color: var(--text-muted);">Predicted Pos</div>
+              <!-- Row 1: Actual Negative -->
+              <div style="width: 80px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 600; color: var(--text-muted); writing-mode: horizontal-tb;">Actual Neg</div>
+              <div id="cm-tn" style="width: 120px; height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px 0 0 0; border: 2px solid #fff; font-size: 0.75rem; transition: background 0.3s;">
+                <div style="font-size: 1.4rem; font-weight: 700;" id="cm-tn-count">--</div>
+                <div style="opacity: 0.8;">TN</div>
+              </div>
+              <div id="cm-fp" style="width: 120px; height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0 8px 0 0; border: 2px solid #fff; font-size: 0.75rem; transition: background 0.3s;">
+                <div style="font-size: 1.4rem; font-weight: 700;" id="cm-fp-count">--</div>
+                <div style="opacity: 0.8;">FP</div>
+              </div>
+              <!-- Row 2: Actual Positive -->
+              <div style="width: 80px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 600; color: var(--text-muted);">Actual Pos</div>
+              <div id="cm-fn" style="width: 120px; height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0 0 0 8px; border: 2px solid #fff; font-size: 0.75rem; transition: background 0.3s;">
+                <div style="font-size: 1.4rem; font-weight: 700;" id="cm-fn-count">--</div>
+                <div style="opacity: 0.8;">FN</div>
+              </div>
+              <div id="cm-tp" style="width: 120px; height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0 0 8px 0; border: 2px solid #fff; font-size: 0.75rem; transition: background 0.3s;">
+                <div style="font-size: 1.4rem; font-weight: 700;" id="cm-tp-count">--</div>
+                <div style="opacity: 0.8;">TP</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE: F1 vs THRESHOLD -->
+      <div class="widget-container">
+        <h4>Precision, Recall, and F1 as functions of threshold. The vertical line marks the current threshold; the star marks the optimal F1.</h4>
+        <div id="pr-threshold-plot" class="plot-area" style="min-height:300px;"></div>
+      </div>
+
+      <!-- PRACTICE PROBLEMS: METRICS -->
+      <h3>Practice Problems: Classification Metrics</h3>
+      <details>
+        <summary>Problem 1 (Basic): Computing metrics from a confusion matrix</summary>
+        <div class="details-content">
+          <p>A disease screening test on 1000 patients produces: TP = 45, FP = 55, FN = 5, TN = 895.</p>
+          <p><strong>Compute:</strong> Accuracy, Precision, Recall, Specificity, F1 Score. Is this a good test? For whom?</p>
+          <details>
+            <summary>Solution</summary>
+            <div class="details-content">
+              <p>Accuracy = (45+895)/1000 = <strong>94.0%</strong></p>
+              <p>Precision = 45/(45+55) = <strong>45.0%</strong> (many false positives)</p>
+              <p>Recall = 45/(45+5) = <strong>90.0%</strong> (catches most cases)</p>
+              <p>Specificity = 895/(895+55) = <strong>94.2%</strong></p>
+              <p>F1 = 2(0.45)(0.90)/(0.45+0.90) = <strong>0.60</strong></p>
+              <p><strong>Assessment:</strong> High accuracy is misleading (only 5% prevalence). The test has excellent recall (misses only 10% of cases) but poor precision (55% of positive results are false alarms). This is acceptable for a <em>screening</em> test where false positives lead to further testing, but unacceptable if a positive result triggers expensive treatment directly.</p>
+            </div>
+          </details>
+        </div>
+      </details>
+
+      <details>
+        <summary>Problem 2 (Intermediate): Choosing the right metric</summary>
+        <div class="details-content">
+          <p>You are building three models for different applications. For each, state which metric you would optimize and explain why:</p>
+          <ol style="margin-left: 1.5rem;">
+            <li>A system that automatically blocks suspicious login attempts</li>
+            <li>A model that flags manufacturing defects on an assembly line (defects are rare, ~0.5%)</li>
+            <li>A recommendation system that suggests articles to readers</li>
+          </ol>
+          <details>
+            <summary>Solution</summary>
+            <div class="details-content">
+              <ol style="margin-left: 1.5rem;">
+                <li><strong>Precision-focused (or balanced F1).</strong> Blocking a legitimate user (FP) is highly disruptive -- they may leave the platform. Missing one suspicious login (FN) is concerning but less immediately damaging if you have other detection layers. Optimize for precision at a minimum recall threshold (e.g., precision > 0.95 subject to recall > 0.70).</li>
+                <li><strong>Recall-focused.</strong> A defective product reaching the customer (FN) causes safety issues and costly recalls. A false alarm (FP) only means an extra inspection. Optimize recall subject to a tolerable false positive rate. Use F2 score (weights recall 2x higher) or set a target recall of 99%+.</li>
+                <li><strong>Precision@K or NDCG.</strong> Users see the top-K recommendations. Showing an irrelevant article (FP) wastes user attention and reduces trust. Missing a good article (FN) is invisible -- there are always more articles. Precision in the top-K positions matters most.</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+      </details>
+
+      <details>
+        <summary>Problem 3 (Advanced): The F-beta score and cost-sensitive thresholds</summary>
+        <div class="details-content">
+          <p>A fraud detection model outputs probabilities for 10,000 transactions. The cost matrix is: missed fraud (FN) costs $500 average loss; false alarm (FP) costs $10 in investigation time. The model's precision-recall at threshold 0.5 is: P=0.80, R=0.60.</p>
+          <p><strong>Questions:</strong></p>
+          <ol style="margin-left: 1.5rem;">
+            <li>What is the appropriate <span class="math-latex">\beta</span> for the <span class="math-latex">F_\beta</span> score given this cost ratio? (The <span class="math-latex">F_\beta</span> score is: <span class="math-latex">F_\beta = (1+\beta^2)\frac{P \cdot R}{\beta^2 P + R}</span>)</li>
+            <li>If the fraud rate is 2% (200 frauds in 10,000), compute the total expected cost at threshold 0.5.</li>
+            <li>At threshold 0.3, precision drops to 0.40 and recall rises to 0.90. Is this threshold better in terms of total cost?</li>
+          </ol>
+          <details>
+            <summary>Solution</summary>
+            <div class="details-content">
+              <ol style="margin-left: 1.5rem;">
+                <li><span class="math-latex">\beta^2 = \frac{\text{cost of FN}}{\text{cost of FP}} = \frac{500}{10} = 50</span>, so <span class="math-latex">\beta = \sqrt{50} \approx 7.07</span>. This heavily weights recall, reflecting that missing fraud is 50x costlier than investigating a false alarm.</li>
+                <li>At threshold 0.5: Recall=0.60 means TP=120, FN=80. Precision=0.80 means TP=120, FP=30. Total cost = 80 * $500 + 30 * $10 = <strong>$40,300</strong>.</li>
+                <li>At threshold 0.3: Recall=0.90 means TP=180, FN=20. Precision=0.40 means FP=TP*(1-P)/P = 180*0.6/0.4 = 270. Total cost = 20 * $500 + 270 * $10 = $10,000 + $2,700 = <strong>$12,700</strong>. The lower threshold reduces total cost by 68% despite much lower precision. The cost structure makes recall far more valuable.</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+      </details>
+
+      <!-- RESIDUAL ANALYSIS FOR LOGISTIC REGRESSION -->
+      <h2>Residual Analysis for Logistic Regression</h2>
+      <p>Unlike linear regression where raw residuals <span class="math-latex">(y - \hat{y})</span> are continuous and interpretable, logistic regression residuals require special treatment because the response is binary.</p>
+
+      <h3>Types of Residuals</h3>
+      <div class="assumptions-grid">
+        <div class="assumption-card">
+          <h5>Deviance Residuals</h5>
+          <p><span class="math-latex">d_i = \text{sign}(y_i - \hat{p}_i)\sqrt{-2[y_i\log\hat{p}_i + (1-y_i)\log(1-\hat{p}_i)]}</span></p>
+          <p>The default in most software. Analogous to standardized residuals in linear regression. Should be roughly normally distributed if the model is correct.</p>
+        </div>
+        <div class="assumption-card">
+          <h5>Pearson Residuals</h5>
+          <p><span class="math-latex">r_i = \frac{y_i - \hat{p}_i}{\sqrt{\hat{p}_i(1-\hat{p}_i)}}</span></p>
+          <p>Standardized by the binomial variance. Useful for detecting outliers (values beyond +/- 2 are suspicious).</p>
+        </div>
+        <div class="assumption-card">
+          <h5>Response Residuals</h5>
+          <p><span class="math-latex">e_i = y_i - \hat{p}_i</span></p>
+          <p>Simple but hard to interpret visually since <span class="math-latex">y</span> is 0 or 1. Creates two horizontal bands in scatter plots. Used mainly for binned residual plots.</p>
+        </div>
+        <div class="assumption-card">
+          <h5>Binned Residuals</h5>
+          <p>Group observations by predicted probability, compute average residual per bin. If model is correct, approximately 95% of bins should have average residuals within <span class="math-latex">\pm 2\text{SE}</span>.</p>
+        </div>
+      </div>
+
+      <h3>What to Check</h3>
+      <table>
+        <tr><th>Diagnostic</th><th>What It Reveals</th><th>What to Look For</th></tr>
+        <tr><td>Binned residuals vs predicted probability</td><td>Calibration (are predicted probabilities accurate?)</td><td>Points should scatter randomly within the SE bands</td></tr>
+        <tr><td>Binned residuals vs each predictor</td><td>Nonlinearity in that feature's effect</td><td>Systematic curve = need polynomial or spline term</td></tr>
+        <tr><td>Deviance residuals distribution</td><td>Overall model adequacy</td><td>Should approximate standard normal</td></tr>
+        <tr><td>Leverage vs deviance residuals</td><td>Influential observations</td><td>Points with high leverage AND large residuals</td></tr>
+      </table>
+
+      <!-- INTERACTIVE: LOGISTIC RESIDUALS -->
+      <div class="widget-container">
+        <h4>Logistic regression residual diagnostics. Compare binned residuals for well-specified vs. misspecified models.</h4>
+        <div class="widget-controls">
+          <label>Model:
+            <select id="logresid-model">
+              <option value="correct">Correctly specified (linear logit)</option>
+              <option value="nonlinear">Misspecified (true relationship is nonlinear)</option>
+              <option value="omitted">Omitted variable</option>
+            </select>
+          </label>
+          <button id="logresid-regen">Regenerate</button>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div id="logresid-binned" class="plot-area" style="min-height:300px;"></div>
+          <div id="logresid-deviance" class="plot-area" style="min-height:300px;"></div>
+        </div>
+      </div>
+
+      <!-- PRACTICE PROBLEMS: RESIDUALS FOR LOGISTIC -->
+      <h3>Practice Problems: Logistic Residual Analysis</h3>
+      <details>
+        <summary>Problem 1 (Basic): Interpreting deviance residuals</summary>
+        <div class="details-content">
+          <p>A logistic regression model for loan default has these deviance residuals for 5 observations:</p>
+          <table>
+            <tr><th>Observation</th><th>Actual <span class="math-latex">y</span></th><th>Predicted <span class="math-latex">\hat{p}</span></th><th>Deviance Residual</th></tr>
+            <tr><td>A</td><td>1 (default)</td><td>0.92</td><td>0.41</td></tr>
+            <tr><td>B</td><td>0 (no default)</td><td>0.08</td><td>-0.41</td></tr>
+            <tr><td>C</td><td>1 (default)</td><td>0.15</td><td>1.94</td></tr>
+            <tr><td>D</td><td>0 (no default)</td><td>0.85</td><td>-1.94</td></tr>
+            <tr><td>E</td><td>1 (default)</td><td>0.02</td><td>2.80</td></tr>
+          </table>
+          <p><strong>Questions:</strong> (a) Which observations are well-predicted? (b) Which are surprising? (c) Observation E -- why is the deviance residual so large, and what should you investigate?</p>
+          <details>
+            <summary>Solution</summary>
+            <div class="details-content">
+              <p>(a) Observations A and B have small deviance residuals (|d| < 1), meaning the model's predicted probability aligns well with the outcome.</p>
+              <p>(b) Observations C, D, and E are surprising. C defaulted but was given only 15% probability. D did not default despite 85% predicted risk. E defaulted despite the model being nearly certain (2%) it would not.</p>
+              <p>(c) Observation E has a deviance residual of 2.80 (> 2 standard deviations). This could indicate: (i) a genuinely unusual case (rare event), (ii) an important predictor is missing from the model that would explain this default, or (iii) data error (wrong label). Investigate by examining E's feature values -- is it unlike any training example? Are there features not in the model that differ?</p>
+            </div>
+          </details>
+        </div>
+      </details>
+
+      <details>
+        <summary>Problem 2 (Intermediate): Binned residuals and calibration</summary>
+        <div class="details-content">
+          <p>A model predicts customer churn. You create 10 bins by predicted probability and compute the average actual churn rate in each bin:</p>
+          <table>
+            <tr><th>Bin (predicted range)</th><th>Avg predicted</th><th>Avg actual</th><th>Count</th></tr>
+            <tr><td>0.0 - 0.1</td><td>0.05</td><td>0.04</td><td>320</td></tr>
+            <tr><td>0.1 - 0.2</td><td>0.15</td><td>0.14</td><td>180</td></tr>
+            <tr><td>0.2 - 0.3</td><td>0.25</td><td>0.22</td><td>120</td></tr>
+            <tr><td>0.3 - 0.4</td><td>0.35</td><td>0.30</td><td>90</td></tr>
+            <tr><td>0.4 - 0.5</td><td>0.45</td><td>0.35</td><td>80</td></tr>
+            <tr><td>0.5 - 0.6</td><td>0.55</td><td>0.42</td><td>70</td></tr>
+            <tr><td>0.6 - 0.7</td><td>0.65</td><td>0.50</td><td>60</td></tr>
+            <tr><td>0.7 - 0.8</td><td>0.75</td><td>0.60</td><td>45</td></tr>
+            <tr><td>0.8 - 0.9</td><td>0.85</td><td>0.72</td><td>25</td></tr>
+            <tr><td>0.9 - 1.0</td><td>0.95</td><td>0.88</td><td>10</td></tr>
+          </table>
+          <p><strong>Questions:</strong> (a) Is this model well-calibrated? (b) Describe the pattern in the residuals (predicted - actual). (c) What would you do to improve calibration?</p>
+          <details>
+            <summary>Solution</summary>
+            <div class="details-content">
+              <p>(a) <strong>No</strong>. The model is overconfident -- it systematically overestimates churn probability in the higher bins.</p>
+              <p>(b) The residual (predicted - actual) grows with predicted probability: ~0.01 at low bins, ~0.07 at mid bins, ~0.15 at high bins. This is a monotonically increasing calibration error -- the model's high-confidence predictions are less reliable than its low-confidence ones.</p>
+              <p>(c) Apply <strong>Platt scaling</strong> (fit a logistic function to map raw scores to calibrated probabilities) or <strong>isotonic regression</strong> (non-parametric calibration). Alternatively, the overconfidence may indicate the model is overfitting to training data -- try stronger regularization or reduce model complexity.</p>
+            </div>
+          </details>
+        </div>
+      </details>
+
+      <details>
+        <summary>Problem 3 (Advanced): Hosmer-Lemeshow test and model comparison</summary>
+        <div class="details-content">
+          <p>Two models for disease prediction are evaluated on 500 test patients. The Hosmer-Lemeshow goodness-of-fit test (10 bins) gives:</p>
+          <ul style="margin-left: 1.5rem;">
+            <li>Model A: <span class="math-latex">\chi^2 = 6.2</span>, df = 8, p = 0.63</li>
+            <li>Model B: <span class="math-latex">\chi^2 = 18.7</span>, df = 8, p = 0.017</li>
+          </ul>
+          <p>Model B has higher AUC (0.88 vs 0.82). Both have similar log-loss.</p>
+          <p><strong>Questions:</strong></p>
+          <ol style="margin-left: 1.5rem;">
+            <li>Interpret the Hosmer-Lemeshow results for each model.</li>
+            <li>Model B has better discrimination (AUC) but worse calibration. In what scenario would you still prefer Model B?</li>
+            <li>Can you have good discrimination with bad calibration? Explain with an example.</li>
+          </ol>
+          <details>
+            <summary>Solution</summary>
+            <div class="details-content">
+              <ol style="margin-left: 1.5rem;">
+                <li>Model A: p = 0.63 means we fail to reject the null (model is well-calibrated). The predicted probabilities agree with observed frequencies. Model B: p = 0.017 means we reject the null -- the model is statistically significantly miscalibrated. Predicted probabilities do not match observed rates.</li>
+                <li>Prefer Model B when the task is <strong>ranking/discrimination only</strong> -- e.g., "which patients are at highest risk?" for resource allocation. AUC measures ranking ability, not probability accuracy. If you need to compare the predicted probability to a fixed threshold or communicate risk levels to patients, Model A is better because its probabilities are trustworthy. Model B can also be preferred if you <strong>recalibrate</strong> it post-hoc (Platt scaling), preserving its superior discrimination while fixing calibration.</li>
+                <li><strong>Yes.</strong> Consider a model that predicts 0.99 for all positives and 0.98 for all negatives. It perfectly separates the classes (AUC = 1.0) but is terribly calibrated -- a prediction of 0.98 does not correspond to 98% probability of the positive class; it corresponds to 0%. Discrimination depends only on the <em>ranking</em> of scores; calibration depends on their <em>absolute values</em>.</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+      </details>
+
+      <!-- CHALLENGES -->
+      <h2>Where Logistic Regression Reaches Its Limits</h2>
+      <div class="assumptions-grid">
+        <div class="assumption-card">
+          <h5>Linear Decision Boundaries</h5>
+          <p>The model can only separate classes with a hyperplane. XOR-like patterns or spiral-shaped classes require nonlinear methods (kernel tricks, neural networks).</p>
+        </div>
+        <div class="assumption-card">
+          <h5>Feature Engineering Dependence</h5>
+          <p>Performance depends heavily on the features you provide. Unlike deep learning, logistic regression cannot learn feature representations from raw data.</p>
+        </div>
+      </div>
+
+      <!-- NAV -->
+      <div class="nav-buttons">
+        <a href="02-math-linear-regression.html" class="nav-btn prev">Previous: Math of Linear Regression</a>
+        <a href="04-math-logistic-regression.html" class="nav-btn">Next: Math Behind Logistic Regression</a>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Widget: Log-odds converter
+    (function() {
+      const probSlider = document.getElementById('logit-prob');
+      const probVal = document.getElementById('logit-prob-val');
+      const oddsVal = document.getElementById('logit-odds-val');
+      const logitVal = document.getElementById('logit-logit-val');
+
+      function updateLogitWidget() {
+        const p = parseFloat(probSlider.value);
+        const odds = p / (1 - p);
+        const logit = Math.log(odds);
+        probVal.textContent = p.toFixed(3);
+        oddsVal.textContent = odds.toFixed(3);
+        logitVal.textContent = logit.toFixed(3);
+
+        // Plot: logit function with current point highlighted
+        const pRange = linspace(0.01, 0.99, 200);
+        const logitRange = pRange.map(pi => Math.log(pi / (1 - pi)));
+
+        Plotly.react('logit-plot', [
+          { x: pRange, y: logitRange, mode: 'lines', name: 'logit(p)',
+            line: { color: '#374151', width: 2 } },
+          { x: [p], y: [logit], mode: 'markers', name: 'Current',
+            marker: { color: '#dc2626', size: 12, symbol: 'circle' } },
+          { x: [0, 1], y: [0, 0], mode: 'lines', showlegend: false,
+            line: { color: '#9ca3af', dash: 'dash', width: 1 } }
+        ], {
+          xaxis: { title: 'Probability (p)', range: [0, 1] },
+          yaxis: { title: 'Log-odds = logit(p)', range: [-5, 5] },
+          margin: { t: 20, r: 20 },
+          legend: { x: 0.02, y: 0.98 },
+          annotations: [
+            { x: p, y: logit, text: `p=${p.toFixed(2)}, logit=${logit.toFixed(2)}`,
+              showarrow: true, arrowhead: 2, ax: 40, ay: -30,
+              font: { size: 11 } }
+          ]
+        }, { responsive: true });
+      }
+
+      probSlider.addEventListener('input', updateLogitWidget);
+      updateLogitWidget();
+    })();
+
+    // Widget: Linear regression on binary data
+    (function() {
+      function plotLinearClassification() {
+        const sep = parseFloat(document.getElementById('sep-slider').value);
+        document.getElementById('sep-val').textContent = sep.toFixed(1);
+        const n = 40;
+        const x = [], y = [];
+        for (let i = 0; i < n; i++) {
+          const label = Math.random() > 0.5 ? 1 : 0;
+          const xi = label * sep + randn() * 1.2;
+          x.push(xi);
+          y.push(label);
+        }
+        const ols = simpleOLS(x, y);
+        const xLine = linspace(Math.min(...x) - 1, Math.max(...x) + 1, 100);
+        const yLine = xLine.map(xi => ols.slope * xi + ols.intercept);
+
+        Plotly.react('linear-class-plot', [
+          { x: x, y: y, mode: 'markers', type: 'scatter', name: 'Data',
+            marker: { color: y.map(yi => yi ? '#e53e3e' : '#3182ce'), size: 8 } },
+          { x: xLine, y: yLine, mode: 'lines', name: 'Linear Regression Fit',
+            line: { color: '#38a169', width: 2 } },
+          { x: xLine, y: xLine.map(() => 0), mode: 'lines', name: 'y = 0',
+            line: { color: '#999', dash: 'dash', width: 1 }, showlegend: false },
+          { x: xLine, y: xLine.map(() => 1), mode: 'lines', name: 'y = 1',
+            line: { color: '#999', dash: 'dash', width: 1 }, showlegend: false }
+        ], {
+          xaxis: { title: 'x' },
+          yaxis: { title: 'P(y=1)', range: [-0.3, 1.3] },
+          margin: { t: 20, r: 20 },
+          shapes: [
+            { type: 'rect', x0: xLine[0], x1: xLine[xLine.length-1], y0: 1, y1: 1.3,
+              fillcolor: 'rgba(229,62,62,0.1)', line: { width: 0 } },
+            { type: 'rect', x0: xLine[0], x1: xLine[xLine.length-1], y0: -0.3, y1: 0,
+              fillcolor: 'rgba(49,130,206,0.1)', line: { width: 0 } }
+          ],
+          annotations: [
+            { x: xLine[xLine.length-1], y: 1.15, text: 'Invalid: P > 1', showarrow: false, font: { size: 11, color: '#e53e3e' } },
+            { x: xLine[0], y: -0.15, text: 'Invalid: P < 0', showarrow: false, font: { size: 11, color: '#3182ce' } }
+          ]
+        }, { responsive: true });
+      }
+      document.getElementById('sep-slider').addEventListener('input', plotLinearClassification);
+      document.getElementById('linear-class-regen').addEventListener('click', plotLinearClassification);
+      plotLinearClassification();
+    })();
+
+    // Widget: Sigmoid Explorer
+    (function() {
+      // Generate fixed data for the demo
+      let dataX = [];
+      let dataY = [];
+      for (let i = 0; i < 50; i++) {
+        const label = Math.random() > 0.5 ? 1 : 0;
+        dataX.push(label * 4 + randn() * 1.5);
+        dataY.push(label);
+      }
+
+      function updateSigmoid() {
+        const w = parseFloat(document.getElementById('sig-weight').value);
+        const b = parseFloat(document.getElementById('sig-bias').value);
+        const thresh = parseFloat(document.getElementById('sig-thresh').value);
+        document.getElementById('sig-w-val').textContent = w.toFixed(1);
+        document.getElementById('sig-b-val').textContent = b.toFixed(1);
+        document.getElementById('sig-t-val').textContent = thresh.toFixed(2);
+
+        const xRange = linspace(-8, 12, 200);
+        const sigY = xRange.map(x => sigmoid(w * x + b));
+
+        // Predictions and metrics
+        let tp = 0, fp = 0, fn = 0, tn = 0;
+        dataX.forEach((xi, i) => {
+          const p = sigmoid(w * xi + b);
+          const pred = p >= thresh ? 1 : 0;
+          if (pred === 1 && dataY[i] === 1) tp++;
+          else if (pred === 1 && dataY[i] === 0) fp++;
+          else if (pred === 0 && dataY[i] === 1) fn++;
+          else tn++;
+        });
+        const acc = (tp + tn) / dataX.length;
+        const prec = tp + fp > 0 ? tp / (tp + fp) : 0;
+        const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
+        document.getElementById('sig-acc').textContent = (acc * 100).toFixed(1) + '%';
+        document.getElementById('sig-prec').textContent = (prec * 100).toFixed(1) + '%';
+        document.getElementById('sig-recall').textContent = (recall * 100).toFixed(1) + '%';
+
+        // Decision boundary x value
+        const dbX = -b / w;
+
+        Plotly.react('sigmoid-plot', [
+          { x: xRange, y: sigY, mode: 'lines', name: 'Sigmoid',
+            line: { color: '#3182ce', width: 2 } },
+          { x: dataX.filter((_, i) => dataY[i] === 1), y: dataX.filter((_, i) => dataY[i] === 1).map(xi => sigmoid(w * xi + b)),
+            mode: 'markers', name: 'Class 1', marker: { color: '#e53e3e', size: 7 } },
+          { x: dataX.filter((_, i) => dataY[i] === 0), y: dataX.filter((_, i) => dataY[i] === 0).map(xi => sigmoid(w * xi + b)),
+            mode: 'markers', name: 'Class 0', marker: { color: '#3182ce', size: 7 } }
+        ], {
+          xaxis: { title: 'x' },
+          yaxis: { title: 'P(y=1)', range: [-0.05, 1.05] },
+          shapes: [
+            { type: 'line', x0: xRange[0], x1: xRange[xRange.length-1], y0: thresh, y1: thresh,
+              line: { color: '#d69e2e', width: 2, dash: 'dash' } }
+          ],
+          annotations: [
+            { x: xRange[xRange.length-1] - 1, y: thresh + 0.05, text: 'Threshold = ' + thresh.toFixed(2),
+              showarrow: false, font: { size: 11, color: '#d69e2e' } }
+          ],
+          margin: { t: 20, r: 20 },
+          legend: { x: 0.02, y: 0.98 }
+        }, { responsive: true });
+      }
+
+      document.getElementById('sig-weight').addEventListener('input', updateSigmoid);
+      document.getElementById('sig-bias').addEventListener('input', updateSigmoid);
+      document.getElementById('sig-thresh').addEventListener('input', updateSigmoid);
+      updateSigmoid();
+    })();
+
+    // Widget: Decision Boundary
+    (function() {
+      function fitLogistic2D(x1, x2, labels, lr, iters) {
+        let w1 = 0, w2 = 0, b = 0;
+        const n = labels.length;
+        for (let it = 0; it < iters; it++) {
+          let gw1 = 0, gw2 = 0, gb = 0;
+          for (let i = 0; i < n; i++) {
+            const z = w1 * x1[i] + w2 * x2[i] + b;
+            const p = sigmoid(z);
+            const err = p - labels[i];
+            gw1 += err * x1[i];
+            gw2 += err * x2[i];
+            gb += err;
+          }
+          w1 -= lr * gw1 / n;
+          w2 -= lr * gw2 / n;
+          b -= lr * gb / n;
+        }
+        return { w1, w2, b };
+      }
+
+      function plotDecisionBoundary() {
+        const sep = parseFloat(document.getElementById('db-sep').value);
+        const n = parseInt(document.getElementById('db-n').value);
+        document.getElementById('db-sep-val').textContent = sep.toFixed(1);
+        document.getElementById('db-n-val').textContent = n;
+
+        const data = generateClassificationData(n, sep);
+        const model = fitLogistic2D(data.x1, data.x2, data.labels, 0.5, 200);
+
+        // Compute confusion matrix
+        let tp = 0, fp = 0, fn = 0, tn = 0;
+        data.labels.forEach((label, i) => {
+          const p = sigmoid(model.w1 * data.x1[i] + model.w2 * data.x2[i] + model.b);
+          const pred = p >= 0.5 ? 1 : 0;
+          if (pred === 1 && label === 1) tp++;
+          else if (pred === 1 && label === 0) fp++;
+          else if (pred === 0 && label === 1) fn++;
+          else tn++;
+        });
+        document.getElementById('db-acc').textContent = ((tp + tn) / n * 100).toFixed(1) + '%';
+        document.getElementById('db-tp').textContent = tp;
+        document.getElementById('db-fp').textContent = fp;
+        document.getElementById('db-fn').textContent = fn;
+        document.getElementById('db-tn').textContent = tn;
+
+        // Decision boundary line: w1*x1 + w2*x2 + b = 0 => x2 = -(w1*x1 + b)/w2
+        const xMin = Math.min(...data.x1) - 1;
+        const xMax = Math.max(...data.x1) + 1;
+        const dbX = [xMin, xMax];
+        const dbY = dbX.map(x => -(model.w1 * x + model.b) / model.w2);
+
+        const class0X = data.x1.filter((_, i) => data.labels[i] === 0);
+        const class0Y = data.x2.filter((_, i) => data.labels[i] === 0);
+        const class1X = data.x1.filter((_, i) => data.labels[i] === 1);
+        const class1Y = data.x2.filter((_, i) => data.labels[i] === 1);
+
+        Plotly.react('decision-boundary-plot', [
+          { x: class0X, y: class0Y, mode: 'markers', name: 'Class 0',
+            marker: { color: '#3182ce', size: 7 } },
+          { x: class1X, y: class1Y, mode: 'markers', name: 'Class 1',
+            marker: { color: '#e53e3e', size: 7 } },
+          { x: dbX, y: dbY, mode: 'lines', name: 'Decision Boundary',
+            line: { color: '#2d3748', width: 2, dash: 'dash' } }
+        ], {
+          xaxis: { title: 'x1' }, yaxis: { title: 'x2' },
+          margin: { t: 20, r: 20 },
+          legend: { x: 0.02, y: 0.98 }
+        }, { responsive: true });
+      }
+
+      document.getElementById('db-sep').addEventListener('input', plotDecisionBoundary);
+      document.getElementById('db-n').addEventListener('input', plotDecisionBoundary);
+      document.getElementById('db-regen').addEventListener('click', plotDecisionBoundary);
+      plotDecisionBoundary();
+    })();
+
+    // Widget: Multiclass
+    (function() {
+      function plotMulticlass() {
+        const spread = parseFloat(document.getElementById('mc-spread').value);
+        document.getElementById('mc-spread-val').textContent = spread.toFixed(1);
+
+        // Generate 3 clusters
+        const centers = [[0, 0], [4, 0], [2, 3.5]];
+        const colors = ['#3182ce', '#e53e3e', '#38a169'];
+        const x1 = [], x2 = [], labels = [];
+        for (let c = 0; c < 3; c++) {
+          for (let i = 0; i < 30; i++) {
+            x1.push(centers[c][0] + randn() * spread);
+            x2.push(centers[c][1] + randn() * spread);
+            labels.push(c);
+          }
+        }
+
+        // Plot with background grid colored by nearest centroid (simple approximation of decision regions)
+        const gridSize = 30;
+        const gx = linspace(-4, 8, gridSize);
+        const gy = linspace(-4, 8, gridSize);
+        const gridZ = [];
+        for (let j = 0; j < gridSize; j++) {
+          const row = [];
+          for (let i = 0; i < gridSize; i++) {
+            let minDist = Infinity, bestC = 0;
+            for (let c = 0; c < 3; c++) {
+              const d = (gx[i] - centers[c][0]) ** 2 + (gy[j] - centers[c][1]) ** 2;
+              if (d < minDist) { minDist = d; bestC = c; }
+            }
+            row.push(bestC);
+          }
+          gridZ.push(row);
+        }
+
+        const traces = [
+          { x: gx, y: gy, z: gridZ, type: 'heatmap',
+            colorscale: [[0, 'rgba(49,130,206,0.15)'], [0.5, 'rgba(229,62,62,0.15)'], [1, 'rgba(56,161,105,0.15)']],
+            showscale: false, hoverinfo: 'skip' }
+        ];
+        for (let c = 0; c < 3; c++) {
+          traces.push({
+            x: x1.filter((_, i) => labels[i] === c),
+            y: x2.filter((_, i) => labels[i] === c),
+            mode: 'markers', type: 'scatter', name: 'Class ' + c,
+            marker: { color: colors[c], size: 7 }
+          });
+        }
+
+        Plotly.react('multiclass-plot', traces, {
+          xaxis: { title: 'x1' }, yaxis: { title: 'x2' },
+          margin: { t: 20, r: 20 }
+        }, { responsive: true });
+      }
+
+      document.getElementById('mc-spread').addEventListener('input', plotMulticlass);
+      document.getElementById('mc-regen').addEventListener('click', plotMulticlass);
+      plotMulticlass();
+    })();
+
+    // Widget: Regularization
+    (function() {
+      // Simulated 8-feature coefficients (unregularized)
+      const trueCoefs = [2.5, -1.8, 0.3, 3.1, -0.1, 0.05, -2.2, 1.4];
+      const featureNames = ['tenure', 'charges', 'support_calls', 'contract', 'age', 'gender', 'usage', 'complaints'];
+
+      function updateRegPlot() {
+        const lambda = Math.pow(10, parseFloat(document.getElementById('reg-lambda').value));
+        const type = document.getElementById('reg-type').value;
+        document.getElementById('reg-lambda-val').textContent = lambda.toFixed(3);
+
+        let coefs;
+        if (type === 'l2') {
+          coefs = trueCoefs.map(c => c / (1 + lambda));
+        } else {
+          coefs = trueCoefs.map(c => {
+            if (Math.abs(c) <= lambda) return 0;
+            return c > 0 ? c - lambda : c + lambda;
+          });
+        }
+
+        Plotly.react('reg-plot', [{
+          x: featureNames,
+          y: coefs,
+          type: 'bar',
+          marker: { color: coefs.map(c => c === 0 ? '#cbd5e0' : (c > 0 ? '#3182ce' : '#e53e3e')) }
+        }], {
+          yaxis: { title: 'Coefficient Value', range: [-4, 4] },
+          xaxis: { title: 'Feature' },
+          margin: { t: 20, r: 20 },
+          annotations: [{
+            x: 0.5, y: 1.05, xref: 'paper', yref: 'paper',
+            text: 'Grey bars = coefficient driven to zero (feature eliminated)',
+            showarrow: false, font: { size: 11, color: '#666' }
+          }]
+        }, { responsive: true });
+      }
+
+      document.getElementById('reg-lambda').addEventListener('input', updateRegPlot);
+      document.getElementById('reg-type').addEventListener('change', updateRegPlot);
+      updateRegPlot();
+    })();
+
+    // Widget: ROC Curve
+    (function() {
+      function generateScores(quality) {
+        const n = 200;
+        const scores0 = [], scores1 = [];
+        const sep = quality === 'good' ? 2.0 : quality === 'fair' ? 1.0 : 0.0;
+        for (let i = 0; i < n / 2; i++) {
+          scores0.push(sigmoid(randn() * 1.2 - sep));
+          scores1.push(sigmoid(randn() * 1.2 + sep));
+        }
+        return { scores0, scores1 };
+      }
+
+      let scores = generateScores('good');
+
+      function computeROC(scores0, scores1) {
+        const thresholds = linspace(0, 1, 100);
+        const tprs = [], fprs = [];
+        thresholds.forEach(t => {
+          const tp = scores1.filter(s => s >= t).length;
+          const fn = scores1.filter(s => s < t).length;
+          const fp = scores0.filter(s => s >= t).length;
+          const tn = scores0.filter(s => s < t).length;
+          tprs.push(tp / (tp + fn));
+          fprs.push(fp / (fp + tn));
+        });
+        // AUC via trapezoidal rule
+        let auc = 0;
+        for (let i = 1; i < fprs.length; i++) {
+          auc += (fprs[i - 1] - fprs[i]) * (tprs[i - 1] + tprs[i]) / 2;
+        }
+        return { thresholds, tprs, fprs, auc };
+      }
+
+      function updateROC() {
+        const thresh = parseFloat(document.getElementById('roc-thresh').value);
+        document.getElementById('roc-thresh-val').textContent = thresh.toFixed(2);
+        const quality = document.getElementById('roc-quality').value;
+        scores = generateScores(quality);
+
+        const roc = computeROC(scores.scores0, scores.scores1);
+
+        // Find closest threshold
+        let idx = 0, minDiff = Infinity;
+        roc.thresholds.forEach((t, i) => {
+          if (Math.abs(t - thresh) < minDiff) { minDiff = Math.abs(t - thresh); idx = i; }
+        });
+
+        const tpr = roc.tprs[idx];
+        const fpr = roc.fprs[idx];
+        const tp = scores.scores1.filter(s => s >= thresh).length;
+        const fp = scores.scores0.filter(s => s >= thresh).length;
+        const prec = tp + fp > 0 ? tp / (tp + fp) : 0;
+
+        document.getElementById('roc-tpr').textContent = tpr.toFixed(3);
+        document.getElementById('roc-fpr').textContent = fpr.toFixed(3);
+        document.getElementById('roc-prec').textContent = prec.toFixed(3);
+        document.getElementById('roc-auc').textContent = roc.auc.toFixed(3);
+
+        // ROC Curve
+        Plotly.react('roc-curve-plot', [
+          { x: roc.fprs, y: roc.tprs, mode: 'lines', name: 'ROC',
+            line: { color: '#3182ce', width: 2 },
+            fill: 'tozeroy', fillcolor: 'rgba(49,130,206,0.1)' },
+          { x: [0, 1], y: [0, 1], mode: 'lines', name: 'Random',
+            line: { color: '#999', dash: 'dash', width: 1 } },
+          { x: [fpr], y: [tpr], mode: 'markers', name: 'Current Threshold',
+            marker: { color: '#e53e3e', size: 12 } }
+        ], {
+          xaxis: { title: 'False Positive Rate', range: [0, 1] },
+          yaxis: { title: 'True Positive Rate', range: [0, 1] },
+          title: { text: 'ROC Curve (AUC = ' + roc.auc.toFixed(3) + ')', font: { size: 12 } },
+          margin: { t: 40, r: 10 },
+          legend: { x: 0.5, y: 0.1 }
+        }, { responsive: true });
+
+        // Score distributions
+        Plotly.react('roc-dist-plot', [
+          { x: scores.scores0, type: 'histogram', name: 'Class 0 (negative)',
+            opacity: 0.6, marker: { color: '#3182ce' },
+            xbins: { start: 0, end: 1, size: 0.05 } },
+          { x: scores.scores1, type: 'histogram', name: 'Class 1 (positive)',
+            opacity: 0.6, marker: { color: '#e53e3e' },
+            xbins: { start: 0, end: 1, size: 0.05 } }
+        ], {
+          barmode: 'overlay',
+          xaxis: { title: 'Predicted Probability', range: [0, 1] },
+          yaxis: { title: 'Count' },
+          title: { text: 'Score Distributions', font: { size: 12 } },
+          shapes: [
+            { type: 'line', x0: thresh, x1: thresh, y0: 0, y1: 1, yref: 'paper',
+              line: { color: '#d69e2e', width: 2, dash: 'dash' } }
+          ],
+          margin: { t: 40, r: 10 },
+          legend: { x: 0.6, y: 0.95 }
+        }, { responsive: true });
+      }
+
+      document.getElementById('roc-thresh').addEventListener('input', updateROC);
+      document.getElementById('roc-quality').addEventListener('change', updateROC);
+      updateROC();
+    })();
+
+    // Widget: Classification Metrics Explorer
+    (function() {
+      let modelScores0 = [], modelScores1 = [];
+
+      function generateModelScores(balance) {
+        const n = 500;
+        let n1;
+        if (balance === 'balanced') n1 = Math.round(n * 0.5);
+        else if (balance === 'imbalanced') n1 = Math.round(n * 0.1);
+        else n1 = Math.round(n * 0.01);
+        const n0 = n - n1;
+
+        modelScores0 = [];
+        modelScores1 = [];
+        for (let i = 0; i < n0; i++) modelScores0.push(sigmoid(randn() * 1.2 - 1.5));
+        for (let i = 0; i < n1; i++) modelScores1.push(sigmoid(randn() * 1.2 + 1.5));
+      }
+
+      function updateMetrics() {
+        const thresh = parseFloat(document.getElementById('metrics-thresh').value);
+        document.getElementById('metrics-thresh-val').textContent = thresh.toFixed(2);
+
+        const tp = modelScores1.filter(s => s >= thresh).length;
+        const fn = modelScores1.filter(s => s < thresh).length;
+        const fp = modelScores0.filter(s => s >= thresh).length;
+        const tn = modelScores0.filter(s => s < thresh).length;
+        const total = tp + fn + fp + tn;
+
+        const acc = (tp + tn) / total;
+        const prec = tp + fp > 0 ? tp / (tp + fp) : 0;
+        const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
+        const spec = tn + fp > 0 ? tn / (tn + fp) : 0;
+        const f1 = prec + recall > 0 ? 2 * prec * recall / (prec + recall) : 0;
+        const fpr = 1 - spec;
+
+        document.getElementById('m-acc').textContent = (acc * 100).toFixed(1) + '%';
+        document.getElementById('m-prec').textContent = (prec * 100).toFixed(1) + '%';
+        document.getElementById('m-recall').textContent = (recall * 100).toFixed(1) + '%';
+        document.getElementById('m-spec').textContent = (spec * 100).toFixed(1) + '%';
+        document.getElementById('m-f1').textContent = f1.toFixed(3);
+        document.getElementById('m-fpr').textContent = (fpr * 100).toFixed(1) + '%';
+        document.getElementById('m-total').textContent = total;
+
+        // Update confusion matrix visual
+        document.getElementById('cm-tp-count').textContent = tp;
+        document.getElementById('cm-fp-count').textContent = fp;
+        document.getElementById('cm-fn-count').textContent = fn;
+        document.getElementById('cm-tn-count').textContent = tn;
+
+        // Color intensity based on proportion of total
+        const maxCell = Math.max(tp, fp, fn, tn, 1);
+        function cellColor(val, isCorrect) {
+          const intensity = Math.round(40 + (val / maxCell) * 60);
+          if (isCorrect) return `hsl(145, 65%, ${100 - intensity}%)`;  // green for correct
+          return `hsl(0, 70%, ${100 - intensity * 0.7}%)`;  // red for errors
+        }
+        function textColor(val) {
+          return val / maxCell > 0.5 ? '#fff' : '#1a1a1a';
+        }
+        document.getElementById('cm-tp').style.background = cellColor(tp, true);
+        document.getElementById('cm-tp').style.color = textColor(tp);
+        document.getElementById('cm-tn').style.background = cellColor(tn, true);
+        document.getElementById('cm-tn').style.color = textColor(tn);
+        document.getElementById('cm-fp').style.background = cellColor(fp, false);
+        document.getElementById('cm-fp').style.color = textColor(fp);
+        document.getElementById('cm-fn').style.background = cellColor(fn, false);
+        document.getElementById('cm-fn').style.color = textColor(fn);
+
+        // Precision, Recall, F1 vs Threshold plot
+        const thresholds = linspace(0.05, 0.95, 50);
+        const precs = [], recalls = [], f1s = [];
+        thresholds.forEach(t => {
+          const tpi = modelScores1.filter(s => s >= t).length;
+          const fni = modelScores1.filter(s => s < t).length;
+          const fpi = modelScores0.filter(s => s >= t).length;
+          const pi = tpi + fpi > 0 ? tpi / (tpi + fpi) : 0;
+          const ri = tpi + fni > 0 ? tpi / (tpi + fni) : 0;
+          const fi = pi + ri > 0 ? 2 * pi * ri / (pi + ri) : 0;
+          precs.push(pi);
+          recalls.push(ri);
+          f1s.push(fi);
+        });
+
+        const bestF1Idx = f1s.indexOf(Math.max(...f1s));
+
+        Plotly.react('pr-threshold-plot', [
+          { x: thresholds, y: precs, mode: 'lines', name: 'Precision',
+            line: { color: '#2563eb', width: 2 } },
+          { x: thresholds, y: recalls, mode: 'lines', name: 'Recall',
+            line: { color: '#dc2626', width: 2 } },
+          { x: thresholds, y: f1s, mode: 'lines', name: 'F1 Score',
+            line: { color: '#16a34a', width: 2.5 } },
+          { x: [thresholds[bestF1Idx]], y: [f1s[bestF1Idx]], mode: 'markers',
+            name: 'Best F1', marker: { color: '#16a34a', size: 10, symbol: 'star' } }
+        ], {
+          xaxis: { title: 'Threshold' },
+          yaxis: { title: 'Score', range: [0, 1.05] },
+          shapes: [{ type: 'line', x0: thresh, x1: thresh, y0: 0, y1: 1,
+            line: { color: '#d97706', width: 2, dash: 'dash' } }],
+          margin: { t: 20, r: 20 },
+          legend: { x: 0.7, y: 0.95 }
+        }, { responsive: true });
+      }
+
+      function regen() {
+        const balance = document.getElementById('metrics-balance').value;
+        generateModelScores(balance);
+        updateMetrics();
+      }
+
+      document.getElementById('metrics-thresh').addEventListener('input', updateMetrics);
+      document.getElementById('metrics-balance').addEventListener('change', regen);
+      document.getElementById('metrics-regen').addEventListener('click', regen);
+      generateModelScores('balanced');
+      updateMetrics();
+    })();
+
+    // Widget: Logistic Regression Residuals
+    (function() {
+      function plotLogisticResiduals() {
+        const modelType = document.getElementById('logresid-model').value;
+        const n = 200;
+        const x = [];
+        const yTrue = [];
+
+        for (let i = 0; i < n; i++) {
+          const xi = Math.random() * 8 - 4;
+          x.push(xi);
+          let logit;
+          if (modelType === 'correct') {
+            logit = -0.5 + 1.2 * xi;
+          } else if (modelType === 'nonlinear') {
+            logit = -0.5 + 0.3 * xi * xi; // true is quadratic, model fits linear
+          } else {
+            // omitted variable: true depends on xi and hidden z
+            const z = randn();
+            logit = -0.5 + 1.0 * xi + 2.0 * z;
+          }
+          const p = sigmoid(logit);
+          yTrue.push(Math.random() < p ? 1 : 0);
+        }
+
+        // Fit a simple logistic regression (1 feature) regardless of true model
+        let w = 0, b = 0;
+        for (let iter = 0; iter < 200; iter++) {
+          let gw = 0, gb = 0;
+          for (let i = 0; i < n; i++) {
+            const pi = sigmoid(w * x[i] + b);
+            gw += (yTrue[i] - pi) * x[i];
+            gb += (yTrue[i] - pi);
+          }
+          w += 0.05 * gw / n;
+          b += 0.05 * gb / n;
+        }
+
+        // Compute predicted probabilities and deviance residuals
+        const pHat = x.map(xi => sigmoid(w * xi + b));
+        const devianceResid = yTrue.map((yi, i) => {
+          const pi = Math.max(1e-7, Math.min(1 - 1e-7, pHat[i]));
+          const d = -2 * (yi * Math.log(pi) + (1 - yi) * Math.log(1 - pi));
+          return (yi - pi >= 0 ? 1 : -1) * Math.sqrt(d);
+        });
+
+        // Binned residuals
+        const nBins = 10;
+        const indices = pHat.map((p, i) => ({ p, i })).sort((a, b) => a.p - b.p);
+        const binSize = Math.ceil(n / nBins);
+        const binMidpoints = [], binAvgResid = [], binSE = [];
+
+        for (let bin = 0; bin < nBins; bin++) {
+          const start = bin * binSize;
+          const end = Math.min(start + binSize, n);
+          const binIndices = indices.slice(start, end);
+          const avgP = binIndices.reduce((s, o) => s + o.p, 0) / binIndices.length;
+          const avgResid = binIndices.reduce((s, o) => s + (yTrue[o.i] - pHat[o.i]), 0) / binIndices.length;
+          const se = Math.sqrt(avgP * (1 - avgP) / binIndices.length);
+          binMidpoints.push(avgP);
+          binAvgResid.push(avgResid);
+          binSE.push(2 * se);
+        }
+
+        // Binned residuals plot
+        Plotly.react('logresid-binned', [
+          { x: binMidpoints, y: binAvgResid, mode: 'markers', name: 'Avg Residual',
+            marker: { color: '#2563eb', size: 8 }, error_y: { type: 'data', array: binSE, visible: false } },
+          { x: binMidpoints, y: binSE, mode: 'lines', name: '+2 SE',
+            line: { color: '#dc2626', dash: 'dash', width: 1 } },
+          { x: binMidpoints, y: binSE.map(s => -s), mode: 'lines', name: '-2 SE',
+            line: { color: '#dc2626', dash: 'dash', width: 1 } },
+          { x: [0, 1], y: [0, 0], mode: 'lines', showlegend: false,
+            line: { color: '#9ca3af', width: 1 } }
+        ], {
+          title: { text: 'Binned Residuals vs Predicted Probability', font: { size: 11 } },
+          xaxis: { title: 'Avg Predicted Probability', range: [0, 1] },
+          yaxis: { title: 'Avg Residual (observed - predicted)' },
+          margin: { t: 35, r: 10, l: 60, b: 40 },
+          legend: { x: 0.6, y: 0.95 }
+        }, { responsive: true });
+
+        // Deviance residuals histogram
+        Plotly.react('logresid-deviance', [
+          { x: devianceResid, type: 'histogram', nbinsx: 25,
+            marker: { color: '#2563eb', opacity: 0.7 } },
+          { x: linspace(-4, 4, 100), y: linspace(-4, 4, 100).map(z => n * 0.32 * Math.exp(-z*z/2) / Math.sqrt(2*Math.PI)),
+            mode: 'lines', name: 'Normal reference',
+            line: { color: '#dc2626', width: 2 } }
+        ], {
+          title: { text: 'Deviance Residuals Distribution', font: { size: 11 } },
+          xaxis: { title: 'Deviance Residual' },
+          yaxis: { title: 'Count' },
+          margin: { t: 35, r: 10, l: 50, b: 40 },
+          legend: { x: 0.65, y: 0.95 }
+        }, { responsive: true });
+      }
+
+      document.getElementById('logresid-model').addEventListener('change', plotLogisticResiduals);
+      document.getElementById('logresid-regen').addEventListener('click', plotLogisticResiduals);
+      plotLogisticResiduals();
+    })();
+  </script>
+</body>
+</html>
