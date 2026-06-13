@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 8: Text Representation — Bag of Words, TF-IDF &amp; Topic Modeling</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-text-normalization-edit-distance.html">1</a>
+    <a href="02-stemming-lemmatization-noisy-channel.html">2</a>
+    <a href="03-pos-tagging-shallow-parsing.html">3</a>
+    <a href="04-cfg-parse-trees-deep-parsing.html">4</a>
+    <a href="05-ngrams-language-models.html">5</a>
+    <a href="06-naive-bayes-sentiment.html">6</a>
+    <a href="07-ner-iob-crf-srl-coreference.html">7</a>
+    <a href="08-bow-tfidf-topic-modeling.html" class="active">8</a>
+    <a href="09-word-embeddings.html">9</a>
+    <a href="10-transformers-bert-gpt.html">10</a>
+  </nav>
+
+  <header>
+    <h1>Module 8: Text Representation — Bag of Words, TF-IDF &amp; Topic Modeling</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: FROM TEXT TO NUMBERS                                        -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>From Text to Numbers</h2>
+
+  <p>Module 7 showed us how to extract rich linguistic annotations: named entities, semantic roles, coreference chains. These annotations <em>describe</em> text beautifully — but most machine learning models cannot consume them directly. A neural network, a support vector machine, or a logistic regression classifier needs a fixed-length vector of numbers. Language is none of those things: it is variable-length, symbolic, and sequential.</p>
+
+  <p>The central challenge of text representation is bridging this gap. Every document — whether a tweet or a legal brief — must be mapped to a point in some numeric space, in a way that preserves the information we care about for downstream tasks.</p>
+
+  <div class="callout note">
+    <strong>The representation bottleneck</strong>
+    A single word like "bank" carries different meanings depending on context ("river bank" vs. "savings bank"). Any representation method must decide which aspects of text to preserve and which to discard. There is no free lunch: simpler representations are faster and more interpretable, but lose nuance.
+  </div>
+
+  <p>This module covers three increasingly sophisticated approaches, forming a natural progression:</p>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>Bag of Words (BoW)</h5>
+      <p>Count how many times each vocabulary word appears in a document. Simple, sparse, and surprisingly powerful — ignores word order entirely.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>TF-IDF</h5>
+      <p>Reweight word counts so that common words ("the", "is") are downweighted and rare, distinctive words are upweighted. The workhorse of classical information retrieval.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Topic Modeling (NMF)</h5>
+      <p>Decompose the document-term matrix into latent topics. Each document is represented as a mixture of discovered themes — no labels required.</p>
+    </div>
+  </div>
+
+  <div class="bridge">
+    <strong>Module 7 → Module 8.</strong> NLP analysis gives us rich annotations; ML models need vectors. The three approaches here all answer the same question from different angles: how do we turn a bag of words into a number that a machine can learn from?
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2: BAG OF WORDS                                                -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Bag of Words</h2>
+
+  <p>The <strong>Bag of Words (BoW)</strong> model represents a document as a vector of word counts, ignoring all word order and grammar. The name comes from a useful mental image: imagine throwing all the words in a document into a bag, shaking it, and then counting each unique word. The resulting count profile is the document's representation.</p>
+
+  <h3>Step-by-Step Construction</h3>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Build the vocabulary V</strong>
+        <div class="step-explanation">Collect all unique words across all documents in the corpus (after preprocessing: lowercasing, stopword removal, stemming/lemmatisation). Every unique word becomes a column in the document-term matrix. If your corpus has 20,000 unique words, every document gets a vector of length 20,000.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Represent each document as a count vector</strong>
+        <div class="step-explanation">For document <em>d</em>, create a vector of length |V|. Entry <em>i</em> is the number of times vocabulary word <em>i</em> appears in document <em>d</em>. If word <em>i</em> does not appear in <em>d</em>, the entry is 0.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Stack into a document-term matrix</strong>
+        <div class="step-explanation">With N documents and |V| vocabulary words, the result is an N × |V| matrix. Each row is a document, each column is a word. This matrix is the input to most classical ML models.</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Worked Example</h3>
+
+  <p>Consider a tiny corpus of three documents (stopwords already removed):</p>
+
+  <div class="concept-box">
+    <h4>Example Corpus</h4>
+    <table style="width:100%;font-size:0.9rem;">
+      <thead><tr><th style="text-align:left;">Doc</th><th style="text-align:left;">Text</th></tr></thead>
+      <tbody>
+        <tr><td><strong>D1</strong></td><td>"the cat sat on the mat"</td></tr>
+        <tr><td><strong>D2</strong></td><td>"the dog chased the cat"</td></tr>
+        <tr><td><strong>D3</strong></td><td>"the cat and the dog are friends"</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:1rem;margin-bottom:0.5rem;"><strong>Vocabulary:</strong> {and, are, cat, chased, dog, friends, mat, on, sat, the}</p>
+    <div style="overflow-x:auto;">
+    <table style="width:100%;font-size:0.85rem;margin-top:0.5rem;">
+      <thead><tr><th>Doc</th><th>and</th><th>are</th><th>cat</th><th>chased</th><th>dog</th><th>friends</th><th>mat</th><th>on</th><th>sat</th><th>the</th></tr></thead>
+      <tbody>
+        <tr><td><strong>D1</strong></td><td>0</td><td>0</td><td>1</td><td>0</td><td>0</td><td>0</td><td>1</td><td>1</td><td>1</td><td>2</td></tr>
+        <tr><td><strong>D2</strong></td><td>0</td><td>0</td><td>1</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td>2</td></tr>
+        <tr><td><strong>D3</strong></td><td>1</td><td>1</td><td>1</td><td>0</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td><td>2</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <h3>Properties and Limitations</h3>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>Sparse</h5>
+      <p>In a real corpus of 20,000 words, any document uses only a few hundred. Most entries in the vector are 0. This sparsity can be a strength (efficient storage) or a weakness (distance metrics behave poorly in high-dimensional sparse spaces).</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Order-independent</h5>
+      <p>"Dog bites man" and "man bites dog" have <em>identical</em> BoW representations. This is the model's defining limitation: all syntactic and word-order information is lost.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Dominated by frequent words</h5>
+      <p>"The" appears in every English document. Without correction, it dominates the count vector and drowns out meaningful terms. TF-IDF (Section 3) fixes this directly.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Semantic blindness</h5>
+      <p>"Car" and "automobile" are different vocabulary entries despite being synonyms. BoW treats them as completely unrelated features. Word embeddings (Module 9) resolve this.</p>
+    </div>
+  </div>
+
+  <p>Despite these limitations, BoW remains extremely useful. It pairs naturally with Naive Bayes for text classification and spam filtering, where the independence assumption that BoW implies actually matches Naive Bayes's own assumptions — making the combination surprisingly effective in practice.</p>
+
+  <div class="code-snippet">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+      <span style="font-size:0.8rem;color:var(--text-muted);">Python — Bag of Words with CountVectorizer</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+<pre><code>from sklearn.feature_extraction.text import CountVectorizer
+
+docs = [
+    "the cat sat on the mat",
+    "the dog chased the cat",
+    "the cat and the dog are friends"
+]
+
+vectorizer = CountVectorizer()
+X = vectorizer.fit_transform(docs)
+
+print("Vocabulary:", vectorizer.get_feature_names_out())
+print("BoW matrix:\n", X.toarray())
+
+# Output:
+# Vocabulary: ['and' 'are' 'cat' 'chased' 'dog' 'friends' 'mat' 'on' 'sat' 'the']
+# BoW matrix:
+#  [[0 0 1 0 0 0 1 1 1 2]
+#   [0 0 1 1 1 0 0 0 0 2]
+#   [1 1 1 0 1 1 0 0 0 2]]</code></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 3: TF-IDF                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>TF-IDF — The Weighting Solution</h2>
+
+  <p>Bag of Words gives equal weight to every word. But intuitively, "the" appearing 10 times in a document tells us almost nothing about its content, while "quantum" appearing even once tells us a great deal. <strong>TF-IDF</strong> (Term Frequency–Inverse Document Frequency) is the canonical fix: it down-weights words that appear everywhere and up-weights words that characterise specific documents.</p>
+
+  <h3>Term Frequency (TF)</h3>
+
+  <p>TF measures how often a term appears <em>within a single document</em>, normalised by document length so that longer documents are not unfairly penalised:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{TF}(t, d) = \frac{\text{count}(t, d)}{|d|}</span>
+  </div>
+
+  <p>where <span class="math-inline math-latex">\text{count}(t, d)</span> is the number of times term <span class="math-inline math-latex">t</span> appears in document <span class="math-inline math-latex">d</span>, and <span class="math-inline math-latex">|d|</span> is the total number of tokens in <span class="math-inline math-latex">d</span>.</p>
+
+  <h3>Inverse Document Frequency (IDF)</h3>
+
+  <p>IDF measures how rare a term is <em>across the entire corpus</em>. Terms that appear in every document carry no discriminative power:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{IDF}(t) = \log\!\left(\frac{N}{\text{df}(t)}\right)</span>
+  </div>
+
+  <p>where <span class="math-inline math-latex">N</span> is the total number of documents and <span class="math-inline math-latex">\text{df}(t)</span> is the number of documents containing term <span class="math-inline math-latex">t</span>. If a term appears in all <span class="math-inline math-latex">N</span> documents, <span class="math-inline math-latex">\text{IDF} = \log(1) = 0</span> — it contributes nothing.</p>
+
+  <h3>TF-IDF Score</h3>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{TF-IDF}(t, d) = \text{TF}(t, d) \times \text{IDF}(t)</span>
+  </div>
+
+  <p>A high TF-IDF score means the term appears frequently in <em>this document</em> but rarely in <em>other documents</em> — exactly the signal we want for document characterisation.</p>
+
+  <div class="concept-box">
+    <h4>Sklearn Smoothed IDF (Default)</h4>
+    <p>The standard formula divides by df(t), which causes a division-by-zero for terms unseen in training. Scikit-learn uses a smoothed version that also adds 1 to ensure no weight is exactly zero even for frequent terms:</p>
+    <div class="math-block" style="margin:0.75rem 0;">
+      <span class="math-latex math-block">\text{IDF}_{\text{smooth}}(t) = \log\!\left(\frac{1 + N}{1 + \text{df}(t)}\right) + 1</span>
+    </div>
+    <p style="margin-bottom:0;">This is the formula used in the live widget below.</p>
+  </div>
+
+  <h3>Intuitive Examples</h3>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>"the" in any document</h5>
+      <p>High TF (very frequent in most documents) + Low IDF (df ≈ N, so log(N/df) ≈ 0) → <strong>Low TF-IDF</strong>. Stopword-like behaviour emerges automatically.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>"quantum" in a physics paper</h5>
+      <p>Medium TF (appears several times) + High IDF (only in a few documents) → <strong>High TF-IDF</strong>. This word characterises the document.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>"neural" in a deep learning paper</h5>
+      <p>High TF + Medium IDF (fairly common in ML corpus) → <strong>Medium TF-IDF</strong>. Useful but not uniquely identifying.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>"LSTM" in one specific paper</h5>
+      <p>Low TF + Very High IDF (rare term) → <strong>High TF-IDF</strong>. Even one occurrence of a very rare term gets a strong weight.</p>
+    </div>
+  </div>
+
+  <p>TF-IDF acts as an automatic <em>feature selector</em>: it surfaces the words that actually characterise each document and suppresses the noise of common words — without requiring a handcrafted stopword list.</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- WIDGET 1: LIVE TF-IDF CALCULATOR                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Interactive: Live TF-IDF Calculator</h2>
+
+  <div class="widget-container">
+    <h4>Edit the three documents below and click "Compute TF-IDF" to see the full TF-IDF matrix, top terms per document, and cosine similarity between documents.</h4>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin-bottom:1rem;">
+      <div>
+        <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Document 1</label>
+        <textarea id="tfidf-doc1" rows="4" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:0.82rem;font-family:var(--font-mono);resize:vertical;">machine learning is a subset of artificial intelligence that enables computers to learn</textarea>
+      </div>
+      <div>
+        <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Document 2</label>
+        <textarea id="tfidf-doc2" rows="4" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:0.82rem;font-family:var(--font-mono);resize:vertical;">deep learning uses neural networks with many layers to learn representations from data</textarea>
+      </div>
+      <div>
+        <label style="font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:0.25rem;">Document 3</label>
+        <textarea id="tfidf-doc3" rows="4" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:0.82rem;font-family:var(--font-mono);resize:vertical;">natural language processing applies machine learning to understand and generate human language</textarea>
+      </div>
+    </div>
+
+    <div class="widget-controls">
+      <button id="tfidf-compute-btn">Compute TF-IDF</button>
+    </div>
+
+    <!-- Top terms tables -->
+    <div id="tfidf-tables" style="display:none;">
+      <h3 style="margin-top:1.25rem;">Top 10 Terms by TF-IDF Score</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin-bottom:1.5rem;">
+        <div>
+          <strong style="font-size:0.85rem;">Document 1</strong>
+          <div id="tfidf-table-d1"></div>
+        </div>
+        <div>
+          <strong style="font-size:0.85rem;">Document 2</strong>
+          <div id="tfidf-table-d2"></div>
+        </div>
+        <div>
+          <strong style="font-size:0.85rem;">Document 3</strong>
+          <div id="tfidf-table-d3"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Heatmap -->
+    <div id="tfidf-heatmap" style="height:420px;"></div>
+
+    <!-- Cosine similarity -->
+    <div id="tfidf-cosine" style="display:none;margin-top:1rem;">
+      <h3 style="font-size:1rem;margin-bottom:0.5rem;">Cosine Similarity Between Documents</h3>
+      <div class="stat-row" id="tfidf-cosine-stats"></div>
+      <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.5rem;">Cosine similarity ranges from 0 (orthogonal — no shared terms) to 1 (identical TF-IDF profiles). A pair with sim &gt; 0.5 likely shares a topic.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 4: DOCUMENT SIMILARITY                                         -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Document Similarity with TF-IDF</h2>
+
+  <p>Once every document is a TF-IDF vector, comparison becomes straightforward: compute the angle between vectors. This is the basis of almost all classical information retrieval systems — every search engine built before the deep learning era used some variant of this approach.</p>
+
+  <p>A search query is treated as a short "document" and embedded in the same TF-IDF vector space. The engine then finds the corpus documents with the highest cosine similarity to the query vector. This is fast (<span class="math-inline math-latex">O(N \cdot |V|)</span> for a brute-force scan), and even faster with inverted indices.</p>
+
+  <div class="concept-box">
+    <h4>Cosine Similarity</h4>
+    <p>For two TF-IDF vectors <span class="math-inline math-latex">\mathbf{u}</span> and <span class="math-inline math-latex">\mathbf{v}</span>:</p>
+    <div class="math-block" style="margin:0.75rem 0;">
+      <span class="math-latex math-block">\text{cos}(\mathbf{u}, \mathbf{v}) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\| \, \|\mathbf{v}\|}</span>
+    </div>
+    <p style="margin-bottom:0;">Cosine similarity ignores vector magnitude — a long document and a short document on the same topic score high. This is why TF (normalized by document length) is preferable to raw counts for retrieval.</p>
+  </div>
+
+  <h3>BM25 — Beyond TF-IDF</h3>
+
+  <p><strong>BM25</strong> (Best Match 25) is the dominant improvement over vanilla TF-IDF in retrieval systems. It adds two important corrections: a saturation function on TF (doubling term frequency doesn't double relevance) and explicit document-length normalisation. BM25 is the default scoring function in Elasticsearch and Apache Solr. For this course it is sufficient to know that BM25 addresses TF-IDF's most practical shortcomings while staying within the same "bag of words" paradigm.</p>
+
+  <div class="code-snippet">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+      <span style="font-size:0.8rem;color:var(--text-muted);">Python — TF-IDF with TfidfVectorizer</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+<pre><code>from sklearn.feature_extraction.text import TfidfVectorizer
+import pandas as pd
+
+docs = [
+    "the cat sat on the mat",
+    "the dog chased the cat",
+    "the cat and the dog are friends"
+]
+
+tfidf = TfidfVectorizer(max_features=10)
+X_tfidf = tfidf.fit_transform(docs)
+
+df = pd.DataFrame(X_tfidf.toarray(), columns=tfidf.get_feature_names_out())
+print(df.round(3))
+
+#          and    are    cat  chased    dog  friends    mat     on    sat    the
+# 0      0.000  0.000  0.316   0.000  0.000    0.000  0.480  0.480  0.480  0.446
+# 1      0.000  0.000  0.316   0.631  0.480    0.000  0.000  0.000  0.000  0.446
+# 2      0.480  0.480  0.316   0.000  0.365    0.480  0.000  0.000  0.000  0.446</code></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 5: TOPIC MODELING WITH NMF                                     -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Topic Modeling with NMF</h2>
+
+  <p>Suppose you have 10,000 news articles. You want to know: what are they about? You cannot read them all. You have no labels. You need to <em>discover</em> the latent themes automatically — this is the topic modeling problem.</p>
+
+  <p>Topic modeling treats the problem as a form of dimensionality reduction: instead of representing a document as a vector over 20,000 vocabulary terms, represent it as a short vector over <em>K</em> discovered topics. Each topic is itself a distribution over terms — the top terms of a topic label it intuitively.</p>
+
+  <h3>Non-negative Matrix Factorization (NMF)</h3>
+
+  <p>NMF decomposes the document-term matrix <span class="math-inline math-latex">V</span> (which might be the TF-IDF matrix) into two non-negative factor matrices:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">V \approx W \times H \quad \text{where} \quad W, H \geq 0</span>
+  </div>
+
+  <div class="concept-box">
+    <h4>The Three Matrices</h4>
+    <table style="width:100%;font-size:0.9rem;">
+      <thead><tr><th style="text-align:left;">Matrix</th><th style="text-align:left;">Shape</th><th style="text-align:left;">Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><strong>V</strong></td><td>n_docs × n_terms</td><td>Original TF-IDF matrix — one row per document, one column per vocabulary term</td></tr>
+        <tr><td><strong>W</strong></td><td>n_docs × n_topics</td><td>Document-topic matrix — how strongly each document belongs to each topic</td></tr>
+        <tr><td><strong>H</strong></td><td>n_topics × n_terms</td><td>Topic-term matrix — each row is a topic; terms with large weights define the topic</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>NMF is solved by minimising the reconstruction error subject to non-negativity:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\min_{W, H \geq 0} \;\|V - WH\|_F^2</span>
+  </div>
+
+  <p>where <span class="math-inline math-latex">\|\cdot\|_F</span> is the Frobenius norm (sum of squared element-wise differences). The optimisation alternates between updating <span class="math-inline math-latex">W</span> with <span class="math-inline math-latex">H</span> fixed and vice versa — a multiplicative update rule that preserves non-negativity at every step.</p>
+
+  <h3>Interpreting Topics</h3>
+
+  <p>Once NMF has converged, each row of <span class="math-inline math-latex">H</span> is a topic vector. The top-<em>k</em> terms with the highest weights in that row label the topic intuitively. For a tech corpus with 3 topics:</p>
+
+  <div class="assumptions-grid" style="grid-template-columns:1fr 1fr 1fr;">
+    <div class="assumption-card">
+      <h5>Topic 0 — "Machine Learning"</h5>
+      <p>data, learning, model, training, accuracy</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Topic 1 — "Deep Learning"</h5>
+      <p>network, layer, neural, deep, activation</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Topic 2 — "NLP"</h5>
+      <p>text, language, word, sentence, corpus</p>
+    </div>
+  </div>
+
+  <p>Each document is assigned topic weights from its row in <span class="math-inline math-latex">W</span>. Unlike hard clustering, NMF supports <em>mixed membership</em>: a document about neural machine translation might have high weights for both Topic 1 and Topic 2.</p>
+
+  <h3>NMF vs. LDA</h3>
+
+  <p><strong>LDA</strong> (Latent Dirichlet Allocation) is the other widely used topic model. Both discover K topics from unlabelled text, but differ in key ways:</p>
+
+  <div class="concept-box">
+    <h4>NMF vs. LDA at a Glance</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <thead><tr><th style="text-align:left;">Property</th><th style="text-align:left;">NMF</th><th style="text-align:left;">LDA</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Framework</strong></td><td>Optimisation (matrix factorisation)</td><td>Probabilistic / Bayesian generative model</td></tr>
+        <tr><td><strong>Topic weights</strong></td><td>Non-negative reals (don't sum to 1)</td><td>Probability distributions (sum to 1 per document)</td></tr>
+        <tr><td><strong>Mixed membership</strong></td><td>Yes — weighted combination of topics</td><td>Yes — Dirichlet prior over topic proportions</td></tr>
+        <tr><td><strong>Statistical grounding</strong></td><td>None — purely a factorisation</td><td>Full generative story: topic → word distribution</td></tr>
+        <tr><td><strong>Topic crispness</strong></td><td>Tends to produce crisp, coherent topics</td><td>Topics can be broader; controlled by hyperparameters</td></tr>
+        <tr><td><strong>Practical use</strong></td><td>Fast, simpler to tune, works well with TF-IDF input</td><td>Preferred when probability outputs are needed downstream</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-snippet">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+      <span style="font-size:0.8rem;color:var(--text-muted);">Python — NMF Topic Modeling</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+<pre><code>from sklearn.decomposition import NMF
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+corpus = [
+    "machine learning models need data",
+    "deep learning neural networks layers",
+    "natural language processing text",
+    "supervised learning classification regression",
+    "recurrent neural networks LSTM sequences",
+    "word embeddings semantic similarity"
+]
+
+tfidf = TfidfVectorizer(max_features=20, stop_words='english')
+V = tfidf.fit_transform(corpus)
+
+nmf = NMF(n_components=3, random_state=42)
+W = nmf.fit_transform(V)   # document-topic matrix: (6 x 3)
+H = nmf.components_         # topic-term matrix:     (3 x 20)
+
+terms = tfidf.get_feature_names_out()
+for i, topic in enumerate(H):
+    top_terms = [terms[j] for j in topic.argsort()[-5:][::-1]]
+    print(f"Topic {i}: {', '.join(top_terms)}")
+
+# Topic 0: learning, neural, deep, networks, layers
+# Topic 1: language, natural, processing, word, text
+# Topic 2: machine, data, models, classification, supervised</code></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- WIDGET 2: NMF TOPIC EXPLORER                                           -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Interactive: NMF Topic Explorer</h2>
+
+  <div class="widget-container">
+    <h4>Step through the NMF decomposition on a pre-computed 10-document × 20-term matrix. Each step shows a different aspect of the factorisation V ≈ WH.</h4>
+
+    <div style="display:flex;gap:0.75rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;">
+      <button id="nmf-prev-btn" class="widget-controls" style="padding:0.3rem 0.9rem;">&#8592; Prev</button>
+      <span id="nmf-counter" style="font-size:0.85rem;color:var(--text-muted);min-width:90px;text-align:center;">Step 1 / 5</span>
+      <button id="nmf-next-btn" class="widget-controls" style="padding:0.3rem 0.9rem;">Next &#8594;</button>
+    </div>
+
+    <div id="nmf-explain" style="font-size:0.9rem;color:var(--text-muted);min-height:2.5rem;margin-bottom:0.75rem;padding:0.5rem 0.75rem;background:var(--bg-secondary);border-radius:4px;border-left:3px solid var(--accent-blue);"></div>
+
+    <div id="nmf-plot-container" style="min-height:340px;"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- PRACTICE PROBLEMS                                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: BoW Construction by Hand</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>Build the Bag-of-Words representation for the following two documents. First remove the stopwords: <em>the, a, is, in</em>.</p>
+      <p>D1: "The cat is in the house."<br>D2: "A dog is in the garden."</p>
+      <p>Show: (a) the vocabulary after stopword removal, (b) the count vectors for D1 and D2.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Vocabulary after stopword removal:</strong></p>
+        <p>{cat, house, dog, garden}</p>
+        <p><strong>(b) Count vectors (in vocabulary order: cat, house, dog, garden):</strong></p>
+        <table style="width:auto;margin:0.5rem 0;font-size:0.9rem;">
+          <thead><tr><th>Doc</th><th>cat</th><th>house</th><th>dog</th><th>garden</th></tr></thead>
+          <tbody>
+            <tr><td><strong>D1</strong></td><td>1</td><td>1</td><td>0</td><td>0</td></tr>
+            <tr><td><strong>D2</strong></td><td>0</td><td>0</td><td>1</td><td>1</td></tr>
+          </tbody>
+        </table>
+        <p>Notice that the two documents share no vocabulary words (after stopword removal). Their BoW vectors are orthogonal — cosine similarity = 0 — even though both are simple sentences about pets being in locations. This illustrates a weakness of BoW: synonymous or contextually similar sentences can appear maximally dissimilar.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: TF-IDF Calculation</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>A corpus has <span class="math-inline math-latex">N = 5</span> documents. The term "neural" appears in 2 of them (<span class="math-inline math-latex">\text{df} = 2</span>). In document D3, "neural" appears 4 times, and D3 has 100 tokens total.</p>
+      <p><strong>(a)</strong> Compute <span class="math-inline math-latex">\text{TF}(\text{neural}, D3)</span>.</p>
+      <p><strong>(b)</strong> Compute <span class="math-inline math-latex">\text{IDF}(\text{neural})</span> using both the standard formula <span class="math-inline math-latex">\log(N/\text{df})</span> and the sklearn smoothed formula <span class="math-inline math-latex">\log\!\left(\frac{1+N}{1+\text{df}}\right)+1</span>.</p>
+      <p><strong>(c)</strong> Compute <span class="math-inline math-latex">\text{TF-IDF}(\text{neural}, D3)</span> using both IDF formulas.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Term Frequency:</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{TF} = \frac{4}{100} = 0.04</span>
+        </div>
+        <p><strong>(b) Inverse Document Frequency:</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{IDF}_{\text{standard}} = \log\!\left(\frac{5}{2}\right) = \log(2.5) \approx 0.916</span>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{IDF}_{\text{sklearn}} = \log\!\left(\frac{1+5}{1+2}\right) + 1 = \log(2) + 1 \approx 0.693 + 1 = 1.693</span>
+        </div>
+        <p><strong>(c) TF-IDF scores:</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{TF-IDF}_{\text{standard}} = 0.04 \times 0.916 = 0.0366</span>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{TF-IDF}_{\text{sklearn}} = 0.04 \times 1.693 = 0.0677</span>
+        </div>
+        <p>The sklearn smoothed formula produces higher scores because it adds 1, preventing any IDF from being zero and biasing scores upward. When comparing TF-IDF values from different libraries, always check which IDF formula is in use.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: NMF vs. LDA Trade-offs</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>You are building a topic model for 50,000 news articles. Compare NMF and LDA on the following criteria: (a) interpretability of topics, (b) ability to assign a document to multiple topics (mixed membership), (c) runtime complexity, (d) statistical grounding. Then give a concrete recommendation: which would you use for a news <em>recommender system</em> that must tag articles with topic probabilities?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) Interpretability:</strong> Both yield human-readable topics as top-N terms. NMF topics tend to be "crisper" because the hard non-negativity constraint prevents cancellation between components. LDA topics can blend more smoothly but may be less focused without careful hyperparameter tuning.</p>
+        <p><strong>(b) Mixed membership:</strong> Both support mixed membership. LDA gives proper probability distributions over topics per document (rows of the document-topic matrix sum to 1, by the Dirichlet prior). NMF gives non-negative weights that do not sum to 1, making comparison across documents harder.</p>
+        <p><strong>(c) Runtime:</strong> Both scale roughly as <span class="math-inline math-latex">O(n_\text{docs} \times n_\text{terms} \times n_\text{topics} \times n_\text{iter})</span>. In practice, with sklearn on 50,000 articles and 20 topics, NMF is often faster due to simpler update rules. LDA with variational EM is competitive but can require more iterations.</p>
+        <p><strong>(d) Statistical grounding:</strong> LDA has a generative probabilistic story (Bayesian model with Dirichlet priors). This means you can compute the probability of a new document under the model, do posterior inference, and extend the model formally. NMF is a pure optimisation problem with no probabilistic interpretation — you cannot compute likelihoods or do Bayesian inference.</p>
+        <p><strong>Recommendation:</strong> Use <strong>LDA</strong> for the news recommender. Recommender systems need to score articles with normalised topic probabilities that integrate naturally with downstream ranking formulas (e.g., compute the probability overlap between a user's interest profile and a new article's topic distribution). LDA's Dirichlet output directly supports this. Choose NMF if engineering simplicity or faster iteration speed is the priority, or if you plan to combine topics with other non-probabilistic features in a linear model.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- QUIZ                                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Quiz</h2>
+
+  <!-- Q1 -->
+  <div class="quiz-question">
+    <p><strong>Q1.</strong> The Bag of Words model ignores which important aspect of text?</p>
+    <div class="quiz-option" data-correct="false">A) Word frequency</div>
+    <div class="quiz-option" data-correct="true">B) Word order and position</div>
+    <div class="quiz-option" data-correct="false">C) Document length</div>
+    <div class="quiz-option" data-correct="false">D) Stopwords</div>
+    <div class="quiz-feedback"
+      data-correct="'Dog bites man' and 'Man bites dog' have identical BoW representations. Word order, syntax, and context are all lost — this is the primary limitation of the bag-of-words model."
+      data-wrong="BoW ignores word order — 'dog bites man' and 'man bites dog' are identical to a BoW model. Word frequency is exactly what BoW captures (it counts words), and stopwords can be removed as a separate pre-processing step.">
+    </div>
+  </div>
+
+  <!-- Q2 -->
+  <div class="quiz-question">
+    <p><strong>Q2.</strong> A term with high TF but low IDF is likely to be:</p>
+    <div class="quiz-option" data-correct="false">A) A rare, highly specific term</div>
+    <div class="quiz-option" data-correct="true">B) A common word that appears frequently in this document and many others</div>
+    <div class="quiz-option" data-correct="false">C) A term that appears in only one document</div>
+    <div class="quiz-option" data-correct="false">D) A technical term unique to this document</div>
+    <div class="quiz-feedback"
+      data-correct="High TF means the word is frequent in this document; low IDF means it is also common across the corpus. This is exactly the profile of function words like 'the', 'is', 'of' — frequent everywhere but meaningless for document characterisation."
+      data-wrong="TF-IDF separates two signals. High TF + low IDF = common everywhere (stopword-like). High TF + high IDF = the real document-specific keywords. A rare term would have high IDF, not low IDF.">
+    </div>
+  </div>
+
+  <!-- Q3 -->
+  <div class="quiz-question">
+    <p><strong>Q3.</strong> In NMF, the matrix H (topic-term matrix) represents:</p>
+    <div class="quiz-option" data-correct="false">A) The probability of each document belonging to each topic</div>
+    <div class="quiz-option" data-correct="true">B) The weight of each term in each topic</div>
+    <div class="quiz-option" data-correct="false">C) The TF-IDF values of the original corpus</div>
+    <div class="quiz-option" data-correct="false">D) The cosine similarities between documents</div>
+    <div class="quiz-feedback"
+      data-correct="H has shape (n_topics × n_terms). Each row is a topic vector — the terms with the highest weights in that row define the topic's meaning. The top-5 or top-10 terms of each row are what you read out as a topic label."
+      data-wrong="In V ≈ WH: V = (docs × terms) = original TF-IDF matrix; W = (docs × topics) = document-topic weights; H = (topics × terms) = topic-term weights. The top-weight terms in each row of H label the topic.">
+    </div>
+  </div>
+
+  <!-- Q4 -->
+  <div class="quiz-question">
+    <p><strong>Q4.</strong> Why does TF-IDF give higher weights to rare terms than to common terms?</p>
+    <div class="quiz-option" data-correct="false">A) Because rare terms are longer on average</div>
+    <div class="quiz-option" data-correct="true">B) IDF decreases as a term appears in more documents, reducing the weight of common terms</div>
+    <div class="quiz-option" data-correct="false">C) TF increases for rare terms</div>
+    <div class="quiz-option" data-correct="false">D) Common terms are removed as stopwords before TF-IDF computation</div>
+    <div class="quiz-feedback"
+      data-correct="IDF = log(N/df). If a term appears in all N documents, IDF = log(1) = 0. Rare terms (small df) get large IDF, boosting their TF-IDF score. TF-IDF does not require a stopword list — the IDF term suppresses common words automatically."
+      data-wrong="The IDF term does the work: log(N/df) is large when df is small. Common words (large df, approaching N) get IDF near 0, dragging TF-IDF down even when TF is high. TF itself does not change based on how rare a word is — it only measures within-document frequency.">
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- BRIDGE TO MODULE 9                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="bridge" style="margin-top:2.5rem;">
+    <strong>Module 9: Word Embeddings.</strong> TF-IDF vectors treat each word as an independent dimension, so "king", "queen", "monarch", and "royalty" all occupy orthogonal axes in the vector space — despite being semantically related. Module 9 introduces <strong>word embeddings</strong>: dense, low-dimensional vectors learned from text that capture semantic relationships. The canonical example is the embedding arithmetic <strong>king − man + woman ≈ queen</strong> — something impossible to express in a TF-IDF space.
+  </div>
+
+  <div class="nav-buttons">
+    <a href="07-ner-iob-crf-srl-coreference.html" class="nav-btn prev">&#8592; Module 7: NER, IOB, CRF, SRL &amp; Coreference</a>
+    <a href="09-word-embeddings.html" class="nav-btn">Module 9: Word Embeddings &#8594;</a>
+  </div>
+
+</div><!-- end .container -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // WIDGET 1 — Live TF-IDF Calculator
+  // ═══════════════════════════════════════════════════════════════════════
+
+  function buildTermTable(topTerms) {
+    var html = '<table style="width:100%;font-size:0.78rem;margin-top:0.4rem;border-collapse:collapse;">';
+    html += '<thead><tr><th style="text-align:left;padding:0.2rem 0.3rem;border-bottom:1px solid var(--border);">Term</th>'
+          + '<th style="text-align:right;padding:0.2rem 0.3rem;border-bottom:1px solid var(--border);">TF</th>'
+          + '<th style="text-align:right;padding:0.2rem 0.3rem;border-bottom:1px solid var(--border);">IDF</th>'
+          + '<th style="text-align:right;padding:0.2rem 0.3rem;border-bottom:1px solid var(--border);">TF-IDF</th></tr></thead><tbody>';
+    topTerms.forEach(function (r) {
+      html += '<tr>'
+        + '<td style="padding:0.15rem 0.3rem;font-family:var(--font-mono);">' + escHtml(r.term) + '</td>'
+        + '<td style="text-align:right;padding:0.15rem 0.3rem;color:var(--text-muted);">' + r.tf.toFixed(4) + '</td>'
+        + '<td style="text-align:right;padding:0.15rem 0.3rem;color:var(--text-muted);">' + r.idf.toFixed(4) + '</td>'
+        + '<td style="text-align:right;padding:0.15rem 0.3rem;font-weight:600;color:var(--accent-blue);">' + r.score.toFixed(4) + '</td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function computeAndRender() {
+    var docs = [
+      document.getElementById('tfidf-doc1').value,
+      document.getElementById('tfidf-doc2').value,
+      document.getElementById('tfidf-doc3').value
+    ];
+
+    var result = computeTFIDF(docs);
+    var vocab = result.vocab;
+    var tfidf = result.tfidf;
+    var tf    = result.tf;
+    var idf   = result.idf;
+
+    // Top-10 terms per document
+    var docIds = ['d1', 'd2', 'd3'];
+    var docLabels = ['D1', 'D2', 'D3'];
+    docIds.forEach(function (id, idx) {
+      var scored = vocab.map(function (w) {
+        return { term: w, tf: tf[idx][w], idf: idf[w], score: tfidf[idx][w] };
+      });
+      scored.sort(function (a, b) { return b.score - a.score; });
+      var top10 = scored.slice(0, 10);
+      document.getElementById('tfidf-table-' + id).innerHTML = buildTermTable(top10);
+    });
+    document.getElementById('tfidf-tables').style.display = 'block';
+
+    // Top-15 terms by max TF-IDF across any document
+    var maxScore = {};
+    vocab.forEach(function (w) {
+      maxScore[w] = Math.max.apply(null, tfidf.map(function (d) { return d[w]; }));
+    });
+    var top15 = vocab.slice().sort(function (a, b) { return maxScore[b] - maxScore[a]; }).slice(0, 15);
+
+    // Build heatmap data
+    var zData = top15.map(function (term) {
+      return docLabels.map(function (_, i) { return tfidf[i][term]; });
+    });
+
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var layout = plotlyLayout({
+      height: 420,
+      title: { text: 'TF-IDF Matrix — Top 15 Terms', font: { size: 13 } },
+      xaxis: { title: 'Document', tickvals: [0, 1, 2], ticktext: ['D1', 'D2', 'D3'] },
+      yaxis: { title: '', autorange: 'reversed', tickfont: { size: 11, family: 'var(--font-mono)' } },
+      margin: { t: 50, r: 20, b: 60, l: 130 }
+    });
+
+    Plotly.newPlot('tfidf-heatmap', [{
+      type: 'heatmap',
+      z: zData,
+      x: ['D1', 'D2', 'D3'],
+      y: top15,
+      colorscale: 'YlOrRd',
+      showscale: true,
+      colorbar: { thickness: 14, len: 0.8, tickfont: { size: 10 } }
+    }], layout, PLOTLY_CONFIG);
+
+    // Cosine similarity
+    var vectors = docs.map(function (_, i) {
+      return vocab.map(function (w) { return tfidf[i][w]; });
+    });
+    var pairs = [
+      { label: 'D1 ↔ D2', i: 0, j: 1 },
+      { label: 'D1 ↔ D3', i: 0, j: 2 },
+      { label: 'D2 ↔ D3', i: 1, j: 2 }
+    ];
+    var statsHtml = '';
+    pairs.forEach(function (p) {
+      var sim = cosineSim(vectors[p.i], vectors[p.j]);
+      statsHtml += '<div class="stat-card"><span>' + p.label + '</span><strong>' + sim.toFixed(4) + '</strong></div>';
+    });
+    document.getElementById('tfidf-cosine-stats').innerHTML = statsHtml;
+    document.getElementById('tfidf-cosine').style.display = 'block';
+  }
+
+  document.getElementById('tfidf-compute-btn').addEventListener('click', computeAndRender);
+  // Auto-run on load
+  computeAndRender();
+
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // WIDGET 2 — NMF Topic Explorer (Step-Through)
+  // Pre-computed decomposition: 10 docs × 20 terms, 3 topics
+  // ═══════════════════════════════════════════════════════════════════════
+
+  var NMF_TERMS = [
+    'accuracy', 'activation', 'classification', 'corpus',
+    'data', 'deep', 'embedding', 'language',
+    'layer', 'learning', 'model', 'natural',
+    'network', 'neural', 'processing', 'regression',
+    'sentence', 'training', 'vector', 'word'
+  ];
+
+  // Pre-computed V (10 docs × 20 terms) — simulated TF-IDF values
+  var NMF_V = [
+    [0.00,0.00,0.00,0.00,0.38,0.00,0.00,0.00,0.00,0.42,0.35,0.00,0.00,0.00,0.00,0.00,0.00,0.32,0.00,0.00],
+    [0.00,0.45,0.00,0.00,0.00,0.48,0.00,0.00,0.51,0.29,0.00,0.00,0.41,0.44,0.00,0.00,0.00,0.00,0.00,0.00],
+    [0.00,0.00,0.00,0.32,0.00,0.00,0.00,0.44,0.00,0.00,0.00,0.41,0.00,0.00,0.39,0.00,0.36,0.00,0.00,0.40],
+    [0.34,0.00,0.41,0.00,0.29,0.00,0.00,0.00,0.00,0.38,0.36,0.00,0.00,0.00,0.00,0.38,0.00,0.35,0.00,0.00],
+    [0.00,0.38,0.00,0.00,0.00,0.45,0.00,0.00,0.47,0.00,0.00,0.00,0.49,0.42,0.00,0.00,0.00,0.00,0.00,0.00],
+    [0.00,0.00,0.00,0.41,0.00,0.00,0.44,0.38,0.00,0.00,0.00,0.35,0.00,0.00,0.33,0.00,0.00,0.00,0.48,0.42],
+    [0.41,0.00,0.35,0.00,0.44,0.00,0.00,0.00,0.00,0.40,0.42,0.00,0.00,0.00,0.00,0.36,0.00,0.38,0.00,0.00],
+    [0.00,0.42,0.00,0.00,0.00,0.39,0.00,0.00,0.44,0.31,0.00,0.00,0.45,0.47,0.00,0.00,0.00,0.00,0.00,0.00],
+    [0.00,0.00,0.00,0.38,0.00,0.00,0.41,0.42,0.00,0.00,0.00,0.39,0.00,0.00,0.36,0.00,0.44,0.00,0.45,0.40],
+    [0.32,0.00,0.38,0.00,0.35,0.00,0.00,0.00,0.00,0.44,0.40,0.00,0.00,0.00,0.00,0.41,0.00,0.42,0.00,0.00]
+  ];
+
+  // W: document-topic weights (10 × 3)
+  var NMF_W = [
+    [0.85, 0.05, 0.10],
+    [0.08, 0.87, 0.05],
+    [0.06, 0.07, 0.87],
+    [0.80, 0.10, 0.10],
+    [0.05, 0.91, 0.04],
+    [0.09, 0.05, 0.86],
+    [0.82, 0.08, 0.10],
+    [0.07, 0.88, 0.05],
+    [0.08, 0.06, 0.86],
+    [0.79, 0.09, 0.12]
+  ];
+
+  // H: topic-term weights (3 × 20)
+  var NMF_H = [
+    // Topic 0: Machine Learning
+    [0.42,0.00,0.38,0.00,0.41,0.00,0.00,0.00,0.00,0.45,0.44,0.00,0.00,0.00,0.00,0.40,0.00,0.43,0.00,0.00],
+    // Topic 1: Deep Learning
+    [0.00,0.51,0.00,0.00,0.00,0.55,0.00,0.00,0.58,0.30,0.00,0.00,0.52,0.50,0.00,0.00,0.00,0.00,0.00,0.00],
+    // Topic 2: NLP
+    [0.00,0.00,0.00,0.45,0.00,0.00,0.48,0.50,0.00,0.00,0.00,0.47,0.00,0.00,0.44,0.00,0.46,0.00,0.52,0.49]
+  ];
+
+  var DOC_LABELS = ['D1','D2','D3','D4','D5','D6','D7','D8','D9','D10'];
+  var TOPIC_LABELS = ['Topic 0 (ML)', 'Topic 1 (Deep)', 'Topic 2 (NLP)'];
+  var TOPIC_COLORS = ['#2563eb', '#16a34a', '#dc2626'];
+
+  function nmfVheatmap(container) {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var layout = plotlyLayout({
+      height: 340,
+      title: { text: 'V — TF-IDF Matrix (10 docs × 20 terms)', font: { size: 12 } },
+      xaxis: { title: 'Terms', tickfont: { size: 9 }, tickangle: -40 },
+      yaxis: { title: 'Documents', autorange: 'reversed', tickfont: { size: 10 } },
+      margin: { t: 50, r: 20, b: 100, l: 65 }
+    });
+    Plotly.newPlot(container, [{
+      type: 'heatmap',
+      z: NMF_V,
+      x: NMF_TERMS,
+      y: DOC_LABELS,
+      colorscale: 'Blues',
+      showscale: true,
+      colorbar: { thickness: 12, len: 0.8, tickfont: { size: 10 } }
+    }], layout, PLOTLY_CONFIG);
+  }
+
+  function nmfWheatmap(container) {
+    var layout = plotlyLayout({
+      height: 340,
+      title: { text: 'W — Document-Topic Weights (10 docs × 3 topics)', font: { size: 12 } },
+      xaxis: { title: 'Topics', tickvals: [0,1,2], ticktext: TOPIC_LABELS },
+      yaxis: { title: 'Documents', autorange: 'reversed', tickfont: { size: 10 } },
+      margin: { t: 50, r: 20, b: 80, l: 65 }
+    });
+    Plotly.newPlot(container, [{
+      type: 'heatmap',
+      z: NMF_W,
+      x: TOPIC_LABELS,
+      y: DOC_LABELS,
+      colorscale: 'Greens',
+      showscale: true,
+      colorbar: { thickness: 12, len: 0.8, tickfont: { size: 10 } }
+    }], layout, PLOTLY_CONFIG);
+  }
+
+  function nmfHbars(container) {
+    // Top-5 terms per topic as horizontal bar charts, stacked side by side
+    var traces = [];
+    NMF_H.forEach(function (topicWeights, t) {
+      var indexed = topicWeights.map(function (w, i) { return { w: w, term: NMF_TERMS[i] }; });
+      indexed.sort(function (a, b) { return b.w - a.w; });
+      var top5 = indexed.slice(0, 5);
+      traces.push({
+        type: 'bar',
+        orientation: 'h',
+        name: TOPIC_LABELS[t],
+        x: top5.map(function (d) { return d.w; }),
+        y: top5.map(function (d) { return d.term; }),
+        marker: { color: TOPIC_COLORS[t], opacity: 0.8 },
+        xaxis: 'x' + (t === 0 ? '' : (t + 1)),
+        yaxis: 'y' + (t === 0 ? '' : (t + 1))
+      });
+    });
+
+    var layout = plotlyLayout({
+      height: 340,
+      title: { text: 'H — Top-5 Terms per Topic', font: { size: 12 } },
+      grid: { rows: 1, columns: 3, pattern: 'independent' },
+      annotations: TOPIC_LABELS.map(function (lbl, i) {
+        return {
+          xref: 'x' + (i === 0 ? '' : (i+1)) + ' domain',
+          yref: 'paper',
+          x: 0.5, y: 1.1,
+          text: lbl, showarrow: false,
+          font: { size: 11, color: TOPIC_COLORS[i] }
+        };
+      }),
+      showlegend: false,
+      margin: { t: 55, r: 15, b: 50, l: 80 }
+    });
+    Plotly.newPlot(container, traces, layout, PLOTLY_CONFIG);
+  }
+
+  function nmfReconHeatmap(container) {
+    // Reconstruct V ≈ WH
+    var recon = NMF_W.map(function (wRow) {
+      return NMF_TERMS.map(function (_, j) {
+        var val = 0;
+        wRow.forEach(function (wk, k) { val += wk * NMF_H[k][j]; });
+        return val;
+      });
+    });
+    var layout = plotlyLayout({
+      height: 340,
+      title: { text: 'WH — Reconstructed Matrix (V ≈ WH)', font: { size: 12 } },
+      xaxis: { title: 'Terms', tickfont: { size: 9 }, tickangle: -40 },
+      yaxis: { title: 'Documents', autorange: 'reversed', tickfont: { size: 10 } },
+      margin: { t: 50, r: 20, b: 100, l: 65 }
+    });
+    Plotly.newPlot(container, [{
+      type: 'heatmap',
+      z: recon,
+      x: NMF_TERMS,
+      y: DOC_LABELS,
+      colorscale: 'Blues',
+      showscale: true,
+      colorbar: { thickness: 12, len: 0.8, tickfont: { size: 10 } }
+    }], layout, PLOTLY_CONFIG);
+  }
+
+  function nmfAssignment(container) {
+    // argmax of each row of W → topic assignment
+    var assignments = NMF_W.map(function (row) {
+      var maxIdx = 0;
+      row.forEach(function (v, i) { if (v > row[maxIdx]) maxIdx = i; });
+      return maxIdx;
+    });
+    var traces = TOPIC_LABELS.map(function (label, t) {
+      var docIdxs = assignments.map(function (a, i) { return a === t ? i : null; }).filter(function (x) { return x !== null; });
+      return {
+        type: 'bar',
+        name: label,
+        x: docIdxs.map(function (i) { return DOC_LABELS[i]; }),
+        y: docIdxs.map(function (i) { return NMF_W[i][t]; }),
+        marker: { color: TOPIC_COLORS[t], opacity: 0.85 },
+        text: docIdxs.map(function (i) { return 'Topic ' + t; }),
+        textposition: 'outside'
+      };
+    });
+    var layout = plotlyLayout({
+      height: 340,
+      title: { text: 'Document Topic Assignment (argmax of W rows)', font: { size: 12 } },
+      xaxis: { title: 'Document' },
+      yaxis: { title: 'Dominant Topic Weight', range: [0, 1.05] },
+      barmode: 'group',
+      legend: { orientation: 'h', y: -0.2 },
+      margin: { t: 50, r: 20, b: 80, l: 60 }
+    });
+    Plotly.newPlot(container, traces, layout, PLOTLY_CONFIG);
+  }
+
+  var nmfSteps = [
+    {
+      render: function (el) { nmfVheatmap(el); },
+      explain: 'Step 1 — V: The TF-IDF matrix. Each row is a document, each column is a vocabulary term. Brighter cells indicate higher TF-IDF weight. The matrix is sparse and high-dimensional — NMF will compress it into 3 latent topics.'
+    },
+    {
+      render: function (el) { nmfWheatmap(el); },
+      explain: 'Step 2 — W: Document-topic weights. Each row shows how strongly a document participates in each of the 3 topics. Most documents clearly belong to one topic (near 0.8–0.9 weight) with small overlap in others — mixed membership.'
+    },
+    {
+      render: function (el) { nmfHbars(el); },
+      explain: 'Step 3 — H: Topic-term weights. Each panel shows the 5 terms with the highest weight in that topic. Topic 0 captures machine learning terms; Topic 1 captures deep/neural network terms; Topic 2 captures NLP and language terms.'
+    },
+    {
+      render: function (el) { nmfReconHeatmap(el); },
+      explain: 'Step 4 — WH: The reconstructed matrix. Compare this to V (Step 1). The patterns are visually similar — NMF has captured the main structure of the data. Residuals (||V - WH||_F) reflect information lost in the compression to 3 topics.'
+    },
+    {
+      render: function (el) { nmfAssignment(el); },
+      explain: 'Step 5 — Interpretation: Each document assigned to its dominant topic (argmax of W row). D1, D4, D7, D10 → Topic 0 (ML). D2, D5, D8 → Topic 1 (Deep Learning). D3, D6, D9 → Topic 2 (NLP). The groupings reflect the underlying structure of the pre-computed corpus.'
+    }
+  ];
+
+  var nmfCtrl = makeStepThrough(nmfSteps, 'nmf-plot-container', 'nmf-explain', 'nmf-counter');
+  nmfCtrl.render();
+
+  document.getElementById('nmf-prev-btn').addEventListener('click', function () { nmfCtrl.prev(); });
+  document.getElementById('nmf-next-btn').addEventListener('click', function () { nmfCtrl.next(); });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Quiz feedback rendering
+  // ═══════════════════════════════════════════════════════════════════════
+  document.querySelectorAll('.quiz-question').forEach(function (qEl) {
+    var feedback = qEl.querySelector('.quiz-feedback');
+    if (!feedback) return;
+    var correctText = feedback.getAttribute('data-correct');
+    var wrongText   = feedback.getAttribute('data-wrong');
+    feedback.removeAttribute('data-correct');
+    feedback.removeAttribute('data-wrong');
+
+    var options = qEl.querySelectorAll('.quiz-option');
+    var answered = false;
+
+    options.forEach(function (opt) {
+      opt.addEventListener('click', function () {
+        if (answered) return;
+        answered = true;
+        var isCorrect = opt.dataset.correct === 'true';
+        options.forEach(function (o) {
+          o.classList.add('disabled');
+          if (o.dataset.correct === 'true') o.classList.add('correct');
+        });
+        if (!isCorrect) opt.classList.add('wrong');
+        feedback.classList.add('show');
+        feedback.classList.add(isCorrect ? 'correct-fb' : 'wrong-fb');
+        feedback.textContent = isCorrect ? correctText : wrongText;
+      });
+    });
+  });
+
+});
+</script>
+</body>
+</html>

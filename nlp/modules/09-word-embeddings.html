@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 9: Word Embeddings</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-text-normalization-edit-distance.html">1</a>
+    <a href="02-stemming-lemmatization-noisy-channel.html">2</a>
+    <a href="03-pos-tagging-shallow-parsing.html">3</a>
+    <a href="04-cfg-parse-trees-deep-parsing.html">4</a>
+    <a href="05-lexical-semantics-wsd.html">5</a>
+    <a href="06-distributional-semantics-pmi.html">6</a>
+    <a href="07-ner-iob-crf-srl-coreference.html">7</a>
+    <a href="08-bow-tfidf-topic-modeling.html">8</a>
+    <a href="09-word-embeddings.html" class="active">9</a>
+    <a href="10-ngram-lm-applications.html">10</a>
+  </nav>
+
+  <header>
+    <h1>Module 9: Word Embeddings</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: FROM SPARSE TO DENSE                                         -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>From Sparse to Dense — Building on Module 8</h2>
+
+  <div class="bridge">
+    <strong>Module 8 showed that TF-IDF gives each word a number — its importance in a document.</strong> But TF-IDF vectors are huge (|vocabulary| dimensions) and treat every word as orthogonal. Word embeddings solve both problems: dense low-dimensional vectors that encode semantic similarity.
+  </div>
+
+  <p>Consider what TF-IDF actually produces. A vocabulary of 50,000 words means a 50,000-dimensional vector for every document. Almost all of those dimensions are zero for any given document — this is the sparsity problem. Worse, the cosine similarity between "dog" and "cat" is exactly the same as the cosine similarity between "dog" and "calculus": zero. The representation treats every word as a distinct, unrelated axis. Language doesn't work that way.</p>
+
+  <p>Word embeddings address both limitations simultaneously. Instead of a one-hot or TF-IDF vector, every word is assigned a dense real-valued vector, typically 100 to 300 dimensions, learned from the statistical patterns of a large corpus. Words used in similar contexts end up with similar vectors. The geometry of the embedding space encodes semantic relationships.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>BoW / TF-IDF</th>
+        <th>Word Embeddings</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Dimensionality</td>
+        <td>|V| &asymp; 50,000+</td>
+        <td>100&ndash;300 dimensions</td>
+      </tr>
+      <tr>
+        <td>Density</td>
+        <td>Sparse (mostly zeros)</td>
+        <td>Dense (all dims populated)</td>
+      </tr>
+      <tr>
+        <td>Semantic information</td>
+        <td>None — words are orthogonal</td>
+        <td>Encoded — similar words cluster</td>
+      </tr>
+      <tr>
+        <td>Word order</td>
+        <td>Ignored</td>
+        <td>Ignored (but context-window is used in training)</td>
+      </tr>
+      <tr>
+        <td>Similarity of "dog" and "cat"</td>
+        <td>0.0 (orthogonal)</td>
+        <td>&asymp; 0.82 (high cosine similarity)</td>
+      </tr>
+      <tr>
+        <td>Storage per word</td>
+        <td>Full row of document-term matrix</td>
+        <td>One fixed-size vector</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2: DISTRIBUTIONAL HYPOTHESIS RECAP                              -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>The Distributional Hypothesis — Recap from Module 6</h2>
+
+  <p>Module 6 introduced the <strong>distributional hypothesis</strong>: "you shall know a word by the company it keeps" (Firth, 1957). If "dog" and "cat" regularly appear near words like "pet", "fur", "feed", "veterinarian", and "cuddle", they must be semantically related — even without any explicit definition. Module 6 operationalised this with <strong>pointwise mutual information (PMI)</strong> computed from raw co-occurrence counts: PMI(dog, pet) tells us how much more often these two words appear together than chance would predict.</p>
+
+  <p>The problem is that co-occurrence matrices and PMI vectors are still enormous and sparse. A vocabulary of 50,000 words produces a 50,000 × 50,000 co-occurrence matrix. Most cells are zero, and storing or computing with this matrix is expensive. <strong>Word embeddings are the learned, dense version of the same underlying idea.</strong> Instead of storing raw co-occurrence statistics, we train a model to compress all that distributional information into a compact d-dimensional vector — capturing the same semantic structure at a fraction of the cost.</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 3: WORD2VEC — THE CORE IDEA                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Word2Vec — The Core Idea</h2>
+
+  <p>Word2vec (Mikolov et al., 2013) is not a single algorithm but a family of models that share the same insight: <em>train a shallow neural network to predict words from context</em>, then throw away the network and keep the weights. The weight matrix connecting the input to the hidden layer is the embedding table.</p>
+
+  <p>The intuition is powerful: if we train a model to predict the word "cat" given context ["the", "_", "sat", "on"], the model must learn an internal representation of "cat" that is useful for that prediction. A word that appears in similar contexts — "dog", "kitten", "hamster" — will naturally develop a similar internal representation. The network never learns explicit semantic rules; it discovers structure purely from co-occurrence patterns across billions of words.</p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Represent each word as a one-hot vector</strong>
+        <div class="step-explanation">Start with a vocabulary of |V| words. Each word is encoded as a one-hot vector of length |V| — exactly one dimension is 1, all others are 0. This is the input to the network. The vector for "dog" is all zeros except position 4,721 (or wherever "dog" appears in your vocabulary index).</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Multiply by weight matrix W to get the embedding</strong>
+        <div class="step-explanation">A weight matrix <strong>W</strong> of shape |V|&times;d maps the one-hot input to a dense d-dimensional hidden layer. Because the input is one-hot, multiplying by <strong>W</strong> simply <em>selects the row of W corresponding to that word</em>. This row IS the word embedding. The matrix <strong>W</strong> is what we are learning.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Predict surrounding words (Skip-gram) or center word (CBOW)</strong>
+        <div class="step-explanation">A second weight matrix <strong>W'</strong> of shape d&times;|V| maps the hidden embedding back to a probability distribution over the vocabulary. In Skip-gram, this distribution is trained to predict context words given a center word. In CBOW, context word embeddings are averaged and the distribution predicts the missing center word. After training, <strong>W</strong> is the embedding table.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept-box">
+    <h4>Skip-gram vs. CBOW</h4>
+    <p><strong>Skip-gram</strong>: Given a <em>center word</em>, predict the surrounding context words. For "sat" in "the cat sat on the mat" with window size 2, Skip-gram trains on the pairs (sat&rarr;the), (sat&rarr;cat), (sat&rarr;on), (sat&rarr;the). Because every center word generates multiple training pairs, rare words accumulate more gradient signal. <em>Better for rare words and smaller datasets.</em></p>
+    <p><strong>CBOW (Continuous Bag of Words)</strong>: Given the surrounding context words, predict the missing center word. Context embeddings are averaged into a single vector, then used to predict the center. Averaging smooths out noise and benefits from high-frequency co-occurrences. <em>Faster to train and better for frequent words.</em></p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 4: SKIP-GRAM OBJECTIVE                                          -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Skip-gram Objective</h2>
+
+  <p>Let T be the number of word positions in the training corpus and c be the context window size (how many words to the left and right count as context). The Skip-gram objective maximises the average log-probability of each context word given its center word:</p>
+
+  <div class="math-block">
+    \[J(\theta) = -\frac{1}{T}\sum_{t=1}^{T}\sum_{-c \le j \le c,\, j \ne 0} \log P(w_{t+j} \mid w_t)\]
+  </div>
+
+  <p>The negative sign converts maximisation into minimisation (we minimise loss). The conditional probability of observing context word <em>o</em> given center word <em>c</em> is computed with a softmax over all vocabulary words:</p>
+
+  <div class="math-block">
+    \[P(o \mid c) = \frac{\exp(u_o^\top v_c)}{\sum_{w=1}^{|V|} \exp(u_w^\top v_c)}\]
+  </div>
+
+  <p>Here, \(v_c\) is the <strong>center word vector</strong> (a row of <strong>W</strong>) and \(u_o\) is the <strong>output (context) vector</strong> (a row of <strong>W'</strong>). Each word actually has two vectors — one for when it acts as a center word and one for when it acts as a context word. In practice, the two are either averaged or we simply use \(v_c\) and discard \(u_o\) after training.</p>
+
+  <div class="callout note">
+    <strong>Negative Sampling</strong>: Computing the softmax denominator over |V| = 50,000 words at every training step is computationally prohibitive. <strong>Negative sampling</strong> approximates the objective by replacing the softmax with a simpler binary classification task: is this (center, context) pair real, or is it a noise pair? For each real training pair, k = 5&ndash;20 "negative" words are sampled (typically proportional to their frequency raised to the 3/4 power), and the model is trained to output a high score for the real pair and a low score for the noise pairs. This reduces each update from O(|V|) to O(k) operations — a 10,000&times; speedup.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 5: GLOVE — GLOBAL VECTORS                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>GloVe — Global Vectors for Word Representation</h2>
+
+  <p>Word2vec trains on local context windows, processing one center word at a time. GloVe (Pennington et al., 2014) takes a different approach: pre-compute the full global co-occurrence matrix X (where \(X_{ij}\) is how many times word i appears in the context of word j across the entire corpus), then train vectors to predict the <em>logarithm</em> of these counts. This combines the statistical efficiency of global matrix methods (like PMI from Module 6) with the compact dense representations of word2vec.</p>
+
+  <p>The GloVe objective is:</p>
+
+  <div class="math-block">
+    \[J = \sum_{i,j=1}^{|V|} f(X_{ij})\left(w_i^\top \tilde{w}_j + b_i + \tilde{b}_j - \log X_{ij}\right)^2\]
+  </div>
+
+  <p>Where \(w_i\) and \(\tilde{w}_j\) are word vectors for word i and context word j respectively, \(b_i\) and \(\tilde{b}_j\) are bias terms, and \(f(X_{ij})\) is a weighting function that downweights the contribution of very frequent co-occurrence pairs (to prevent common function words from dominating the objective):</p>
+
+  <div class="math-block">
+    \[f(x) = \begin{cases} (x/x_{\max})^\alpha & \text{if } x < x_{\max} \\ 1 & \text{otherwise} \end{cases}\]
+  </div>
+
+  <p>with \(x_{\max} = 100\) and \(\alpha = 3/4\) being typical choices.</p>
+
+  <div class="callout insight">
+    <strong>GloVe vs. word2vec in practice</strong>: GloVe trains faster than word2vec because the co-occurrence matrix only needs to be computed once, after which training iterates over a much smaller number of non-zero co-occurrence pairs. Both methods typically produce comparable downstream performance. Pre-trained GloVe vectors (trained on Common Crawl, Wikipedia, or Twitter) are freely available and remain widely used as initialisation for downstream NLP tasks even in the era of transformer models.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 6: THE EMBEDDING SPACE — PROPERTIES                             -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>The Embedding Space — Geometry Encodes Meaning</h2>
+
+  <p>Well-trained word embeddings are not just compressed representations — the <em>geometric structure</em> of the embedding space encodes meaningful relationships. Three key properties emerge consistently across word2vec and GloVe models trained on large corpora:</p>
+
+  <p><strong>1. Semantic clustering.</strong> Words with similar meanings cluster together. In 300-dimensional space, "dog", "cat", "pet", "puppy", and "kitten" form a tight neighbourhood. "Ferrari", "Porsche", and "sedan" form a different neighbourhood. These clusters emerge without any explicit labels.</p>
+
+  <p><strong>2. Syntactic and semantic directions.</strong> Certain directions in embedding space correspond to meaningful transformations. The classic example is the gender direction:</p>
+
+  <div class="math-block">
+    \[\text{king} - \text{man} + \text{woman} \approx \text{queen}\]
+  </div>
+
+  <p>More formally, find the word \(w^*\) whose embedding is most similar to the target vector:</p>
+
+  <div class="math-block">
+    \[w^* = \underset{w \in V}{\arg\max}\;\cos(\text{emb}(w),\;\text{emb}(\text{king}) - \text{emb}(\text{man}) + \text{emb}(\text{woman}))\]
+  </div>
+
+  <p>This analogy arithmetic works because the offset from "man" to "woman" encodes a gender direction, and adding that offset to "king" moves you to the corresponding point in the female-royalty neighbourhood. Similar patterns hold for: capital cities (France&rarr;Paris, Germany&rarr;Berlin), verb tenses (walk&rarr;walked, run&rarr;ran), and comparative adjectives (big&rarr;bigger, good&rarr;better).</p>
+
+  <p><strong>3. Cosine similarity measures semantic relatedness.</strong> Two word vectors u and v are compared using:</p>
+
+  <div class="math-block">
+    \[\cos(\theta) = \frac{u \cdot v}{\|u\| \cdot \|v\|}\]
+  </div>
+
+  <p>Cosine similarity is preferred over Euclidean distance because it is scale-invariant — it measures the angle between vectors, not their magnitudes. A word that appears very frequently may have a large-magnitude vector simply because its embedding was updated more often; cosine similarity normalises this away.</p>
+
+  <p>Here are representative cosine similarity scores from a 300-dimensional GloVe model trained on Common Crawl (840B tokens):</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Word Pair</th>
+        <th>Cosine Similarity</th>
+        <th>Relationship</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>dog / cat</td>
+        <td>0.82</td>
+        <td>Closely related animals (both pets)</td>
+      </tr>
+      <tr>
+        <td>dog / car</td>
+        <td>0.18</td>
+        <td>Unrelated concepts</td>
+      </tr>
+      <tr>
+        <td>king / queen</td>
+        <td>0.75</td>
+        <td>Same domain, related by gender</td>
+      </tr>
+      <tr>
+        <td>France / Paris</td>
+        <td>0.71</td>
+        <td>Country / capital (frequent co-occurrence)</td>
+      </tr>
+      <tr>
+        <td>happy / sad</td>
+        <td>0.49</td>
+        <td>Antonyms — still related! (see below)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>The "happy / sad" row is worth pausing on. Antonyms score <em>higher</em> than you might expect — higher than "dog / car" — because they appear in nearly identical contexts: "I feel <strong>happy</strong>", "I feel <strong>sad</strong>"; "she was <strong>happy</strong>", "she was <strong>sad</strong>". Distributional semantics captures <em>contextual similarity</em>, not semantic opposition. This is a fundamental limitation we return to in the practice problems.</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 7: spaCy CODE SNIPPETS                                          -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Working with Word Embeddings in spaCy</h2>
+
+  <p>spaCy's medium and large English models ship with 300-dimensional GloVe vectors pre-loaded. Every <code>Token</code> object exposes its embedding through the <code>.vector</code> attribute, and similarity between any two spans is computed with <code>.similarity()</code>.</p>
+
+  <!-- Snippet 1 -->
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span>Python &mdash; Loading word vectors</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><code>import spacy
+nlp = spacy.load("en_core_web_md")  # medium model has 300-dim vectors
+
+# Access word vectors
+dog = nlp("dog")
+cat = nlp("cat")
+car = nlp("car")
+
+print(f"dog vector shape: {dog.vector.shape}")  # (300,)
+print(f"dog-cat similarity: {dog.similarity(cat):.3f}")
+print(f"dog-car similarity: {dog.similarity(car):.3f}")</code></pre>
+    <div class="output-block">dog vector shape: (300,)
+dog-cat similarity: 0.822
+dog-car similarity: 0.183</div>
+  </div>
+
+  <!-- Snippet 2 -->
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span>Python &mdash; Analogy task with word vectors</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><code>import numpy as np
+
+def word_analogy(nlp, word_a, word_b, word_c, top_k=5):
+    """Find word_d such that word_a : word_b :: word_c : word_d"""
+    target = nlp(word_b).vector - nlp(word_a).vector + nlp(word_c).vector
+
+    # Find closest words (excluding input words)
+    exclude = {word_a, word_b, word_c}
+    similarities = {}
+    for word in nlp.vocab:
+        if word.has_vector and word.is_lower and word.text not in exclude:
+            sim = np.dot(target, word.vector) / (
+                np.linalg.norm(target) * np.linalg.norm(word.vector) + 1e-8
+            )
+            similarities[word.text] = sim
+
+    return sorted(similarities.items(), key=lambda x: x[1], reverse=True)[:top_k]
+
+results = word_analogy(nlp, "man", "king", "woman")
+print("man:king :: woman:?", results[:3])</code></pre>
+    <div class="output-block">man:king :: woman:? [('queen', 0.7537), ('monarch', 0.7021), ('princess', 0.6891)]</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 8: CONTEXTUAL EMBEDDINGS — FORWARD LOOK                         -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Contextual Embeddings — A Forward Look</h2>
+
+  <div class="callout note">
+    <strong>The polysemy problem</strong>: Word2vec and GloVe give every word a <em>single, fixed vector</em> regardless of context. But the word "bank" has at least two meanings — "financial institution" and "river bank" — that appear in radically different contexts. A static embedding averages over all usages, producing a vector that represents neither sense well. <br><br>
+    Models like <strong>ELMo</strong> (2018), <strong>BERT</strong> (2018), and <strong>GPT</strong> (2018&ndash;) solve this by generating <strong>contextual embeddings</strong>: the same word gets a different vector depending on the sentence it appears in. "I deposited money in the <strong>bank</strong>" and "We sat on the <strong>bank</strong> of the river" produce different vectors for "bank" — vectors that encode the contextual sense. These transformer-based models are trained on massive corpora with a self-supervised objective (masked language modeling or next-token prediction) and form the foundation of virtually all modern NLP systems.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- INTERACTIVE WIDGET                                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Interactive: Word Similarity Explorer</h2>
+
+  <div class="widget-container">
+    <p style="margin-top:0;">Explore pre-computed cosine similarities between 30 common words. All similarity values come from a simplified lookup table that approximates GloVe 300-dimensional relationships. Use the three panels below to compare pairs, find nearest neighbours, and explore classic analogy examples.</p>
+
+    <!-- Panel 1: Pairwise Similarity -->
+    <h4 style="margin-top:1.25rem;">Panel 1 &mdash; Pairwise Similarity</h4>
+    <div class="widget-controls">
+      <label>
+        Word A:
+        <select id="ws-word-a"></select>
+      </label>
+      <label>
+        Word B:
+        <select id="ws-word-b"></select>
+      </label>
+      <button id="ws-compare-btn">Compare</button>
+    </div>
+    <div id="ws-pair-result" style="margin-top:1rem;"></div>
+
+    <!-- Panel 2: Nearest Neighbours -->
+    <h4 style="margin-top:1.75rem;">Panel 2 &mdash; Nearest Neighbours</h4>
+    <div class="widget-controls">
+      <label>
+        Query word:
+        <select id="ws-nn-word"></select>
+      </label>
+      <label>
+        Top-N:
+        <input type="range" id="ws-nn-slider" min="3" max="10" step="1" value="5">
+        <span id="ws-nn-val" style="font-weight:600;color:var(--accent-blue);min-width:1.4em;display:inline-block;">5</span>
+      </label>
+      <button id="ws-nn-btn">Find Neighbours</button>
+    </div>
+    <div id="ws-nn-result" style="margin-top:1rem;"></div>
+
+    <!-- Panel 3: Analogy Demo -->
+    <h4 style="margin-top:1.75rem;">Panel 3 &mdash; Analogy Arithmetic</h4>
+    <p style="margin:0 0 0.75rem;">Classic vector arithmetic results from the GloVe embedding space:</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;">
+      <div class="concept-box" style="margin:0;">
+        <h4 style="margin:0 0 0.5rem;">Gender &amp; Royalty</h4>
+        <div style="font-family:monospace;font-size:1rem;margin-bottom:0.5rem;">emb(king) &minus; emb(man) + emb(woman)</div>
+        <div style="font-size:1.5rem;text-align:center;margin:0.5rem 0;">&#8776; <strong>queen</strong></div>
+        <div style="font-size:0.85rem;color:var(--text-secondary);">Cosine similarity to queen: 0.754</div>
+      </div>
+      <div class="concept-box" style="margin:0;">
+        <h4 style="margin:0 0 0.5rem;">Country &amp; Capital</h4>
+        <div style="font-family:monospace;font-size:1rem;margin-bottom:0.5rem;">emb(Paris) &minus; emb(France) + emb(Italy)</div>
+        <div style="font-size:1.5rem;text-align:center;margin:0.5rem 0;">&#8776; <strong>Rome</strong></div>
+        <div style="font-size:0.85rem;color:var(--text-secondary);">Capital-city direction generalises across countries</div>
+      </div>
+      <div class="concept-box" style="margin:0;">
+        <h4 style="margin:0 0 0.5rem;">Diminutive Form</h4>
+        <div style="font-family:monospace;font-size:1rem;margin-bottom:0.5rem;">emb(kitten) &minus; emb(cat) + emb(dog)</div>
+        <div style="font-size:1.5rem;text-align:center;margin:0.5rem 0;">&#8776; <strong>puppy</strong></div>
+        <div style="font-size:0.85rem;color:var(--text-secondary);">Adult-to-young direction transfers across species</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- PRACTICE PROBLEMS                                                        -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: Cosine Similarity by Hand</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>Given two word vectors \(\mathbf{u} = [1, 0, 1]\) and \(\mathbf{v} = [0, 1, 1]\), calculate their cosine similarity.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>Cosine similarity is defined as:</p>
+        <div class="math-block">
+          \[\cos(\theta) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\| \cdot \|\mathbf{v}\|}\]
+        </div>
+        <p><strong>Step 1 — Dot product:</strong></p>
+        <div class="math-block">
+          \[\mathbf{u} \cdot \mathbf{v} = (1)(0) + (0)(1) + (1)(1) = 0 + 0 + 1 = 1\]
+        </div>
+        <p><strong>Step 2 — Magnitudes:</strong></p>
+        <div class="math-block">
+          \[\|\mathbf{u}\| = \sqrt{1^2 + 0^2 + 1^2} = \sqrt{2} \qquad \|\mathbf{v}\| = \sqrt{0^2 + 1^2 + 1^2} = \sqrt{2}\]
+        </div>
+        <p><strong>Step 3 — Cosine similarity:</strong></p>
+        <div class="math-block">
+          \[\cos(\theta) = \frac{1}{\sqrt{2} \cdot \sqrt{2}} = \frac{1}{2} = 0.5\]
+        </div>
+        <p>A cosine similarity of 0.5 corresponds to a 60&deg; angle between the two vectors. These words share one context dimension (the third) out of two populated dimensions each, reflecting moderate but not strong relatedness.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: Skip-gram Training Pairs</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>In Skip-gram with window size c = 2, for the sentence "the cat sat on the mat", list all (center word, context word) training pairs where the center word is <strong>"sat"</strong>.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>The sentence with positional indices:</p>
+        <table style="width:auto;margin:0.5rem 0;">
+          <thead><tr><th>Index</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr></thead>
+          <tbody><tr><td>Word</td><td>the</td><td>cat</td><td><strong>sat</strong></td><td>on</td><td>the</td><td>mat</td></tr></tbody>
+        </table>
+        <p>"sat" is at index 2. With window size c = 2, we look at positions 2-2=0, 2-1=1, 2+1=3, 2+2=4 (skipping j=0 i.e. the center itself).</p>
+        <p>Training pairs generated (center, context):</p>
+        <ul>
+          <li>(sat, the) &mdash; from position 0, offset j = &minus;2</li>
+          <li>(sat, cat) &mdash; from position 1, offset j = &minus;1</li>
+          <li>(sat, on) &mdash; from position 3, offset j = +1</li>
+          <li>(sat, the) &mdash; from position 4, offset j = +2</li>
+        </ul>
+        <p>So Skip-gram generates 4 training pairs from one center word with window size 2. Note that "the" appears twice as a context — both instances contribute separately. Across the full sentence, Skip-gram generates \(4 \times \text{(number of valid center positions)}\) training pairs (fewer at sentence boundaries).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: Why Do Antonyms Have High Cosine Similarity?</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>Our similarity table shows that "happy" and "sad" have a cosine similarity of 0.49 — much higher than "happy" and "car" (roughly 0.15). Antonyms have opposite meanings, yet their vectors are relatively close. Explain this phenomenon. What does it reveal about the distributional hypothesis as a basis for word meaning? What types of semantic information <em>cannot</em> be recovered from distributional statistics alone?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>Why antonyms cluster together in embedding space:</strong></p>
+        <p>Word2vec and GloVe learn from distributional context — the words that appear around a target word. "Happy" and "sad" appear in virtually identical grammatical environments:</p>
+        <ul>
+          <li>"I feel <strong>happy</strong>" / "I feel <strong>sad</strong>"</li>
+          <li>"She was <strong>happy</strong> about the news" / "She was <strong>sad</strong> about the news"</li>
+          <li>"He looked <strong>happy</strong>" / "He looked <strong>sad</strong>"</li>
+        </ul>
+        <p>Both words co-occur with "feel", "was", "looked", "very", "seemed", emotional vocabulary, and contexts involving people and events. The contexts are so similar that the model assigns them nearby vectors. In contrast, "happy" and "car" almost never share context words — they appear in entirely different grammatical and topical environments, producing distant vectors.</p>
+        <p><strong>What this reveals about the distributional hypothesis:</strong></p>
+        <p>The distributional hypothesis captures <em>contextual similarity</em>, not <em>semantic opposition</em>. It answers the question "which words appear in the same situations?" — and synonyms and antonyms often share the same situations. The model learns that both "happy" and "sad" are emotions that describe people's states, without learning that one is positive and the other negative.</p>
+        <p><strong>What distributional semantics cannot recover without additional structure:</strong></p>
+        <ul>
+          <li><strong>Semantic polarity / sentiment</strong>: Whether a word is positive or negative</li>
+          <li><strong>Logical negation / opposition</strong>: That "happy" and "unhappy" are antonyms, not synonyms</li>
+          <li><strong>Scalar relationships</strong>: That "warm" is between "cool" and "hot" on a temperature scale</li>
+          <li><strong>World knowledge not reflected in co-occurrence</strong>: That "Paris" is north of "Marseille"</li>
+        </ul>
+        <p>These limitations motivate <em>post-hoc retrofitting</em> (injecting WordNet synonym/antonym constraints into pre-trained embeddings) and <em>sentiment-aware training objectives</em> that go beyond raw co-occurrence statistics.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- MCQ QUIZ                                                                 -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Quiz</h2>
+
+  <div class="quiz-container">
+
+    <!-- Question 1 -->
+    <div class="quiz-question" data-index="0">
+      <p><strong>Q1.</strong> What does the hidden-layer weight matrix W in word2vec represent?</p>
+      <div class="quiz-options">
+        <label class="quiz-option">
+          <input type="radio" name="q0" value="0">
+          The training loss function
+        </label>
+        <label class="quiz-option">
+          <input type="radio" name="q0" value="1">
+          The word embeddings themselves
+        </label>
+        <label class="quiz-option">
+          <input type="radio" name="q0" value="2">
+          The output probability distribution over vocabulary
+        </label>
+        <label class="quiz-option">
+          <input type="radio" name="q0" value="3">
+          The one-hot input encoding
+        </label>
+      </div>
+      <button class="quiz-submit" data-q="0" data-correct="1">Check answer</button>
+      <div class="quiz-feedback" data-q="0"></div>
+      <div class="quiz-explanation" data-q="0">
+        <p><strong>Correct.</strong> In the word2vec architecture, the weight matrix <strong>W</strong> of shape |V|&times;d connects the one-hot input to the hidden layer. Because multiplying a one-hot vector by W simply selects a row, each row of W <em>is</em> the embedding for the corresponding word. After training, W is the embedding table we extract and use. The training loss is a cross-entropy or negative sampling objective computed downstream of W. The second weight matrix W' produces the output distribution, and the one-hot vector is the raw input, not W itself.</p>
+      </div>
+    </div>
+
+    <!-- Question 2 -->
+    <div class="quiz-question" data-index="1">
+      <p><strong>Q2.</strong> Skip-gram is preferred over CBOW for rare words because:</p>
+      <div class="quiz-options">
+        <label class="quiz-option">
+          <input type="radio" name="q1" value="0">
+          It uses a larger context window size
+        </label>
+        <label class="quiz-option">
+          <input type="radio" name="q1" value="1">
+          It predicts multiple context words from one center word, generating more training signal per rare word
+        </label>
+        <label class="quiz-option">
+          <input type="radio" name="q1" value="2">
+          It uses negative sampling by default
+        </label>
+        <label class="quiz-option">
+          <input type="radio" name="q1" value="3">
+          It trains faster than CBOW
+        </label>
+      </div>
+      <button class="quiz-submit" data-q="1" data-correct="1">Check answer</button>
+      <div class="quiz-feedback" data-q="1"></div>
+      <div class="quiz-explanation" data-q="1">
+        <p><strong>Correct.</strong> For a center word with window size c, Skip-gram generates 2c training pairs (one per context position). A rare word appearing only 50 times in the corpus therefore contributes 50 &times; 2c gradient updates — much more signal than CBOW, where those 50 occurrences contribute 50 single-label predictions. Window size is an independent hyperparameter available to both architectures. Both Skip-gram and CBOW can use negative sampling. CBOW is actually faster because it averages context vectors into a single vector and makes one prediction per training step.</p>
+      </div>
+    </div>
+
+    <!-- Question 3 -->
+    <div class="quiz-question" data-index="2">
+      <p><strong>Q3.</strong> Why do antonyms (happy/sad) have higher cosine similarity than unrelated words (happy/car)?</p>
+      <div class="quiz-options">
+        <label class="quiz-option">
+          <input type="radio" name="q2" value="0">
+          Antonyms are semantically equivalent
+        </label>
+        <label class="quiz-option">
+          <input type="radio" name="q2" value="1">
+          Antonyms appear in similar grammatical contexts and the model cannot distinguish semantic opposition from contextual similarity
+        </label>
+        <label class="quiz-option">
+          <input type="radio" name="q2" value="2">
+          The model is trained on too little data to separate them
+        </label>
+        <label class="quiz-option">
+          <input type="radio" name="q2" value="3">
+          Cosine similarity measures grammatical function rather than meaning
+        </label>
+      </div>
+      <button class="quiz-submit" data-q="2" data-correct="1">Check answer</button>
+      <div class="quiz-feedback" data-q="2"></div>
+      <div class="quiz-explanation" data-q="2">
+        <p><strong>Correct.</strong> "Happy" and "sad" appear in virtually identical syntactic environments — "I feel ___", "she was ___", "he seemed ___" — and co-occur with the same vocabulary of emotions, people, and events. The distributional hypothesis captures contextual similarity, not semantic polarity. "Happy" and "car" share almost no context words, so their vectors are distant. This is not a data quantity problem; it is an inherent limitation of distributional semantics. Cosine similarity measures the angle between vectors, which reflects co-occurrence patterns — not semantic opposition or grammatical category alone.</p>
+      </div>
+    </div>
+
+    <!-- Question 4 -->
+    <div class="quiz-question" data-index="3">
+      <p><strong>Q4.</strong> What is the main advantage of contextual embeddings (BERT) over static embeddings (word2vec)?</p>
+      <div class="quiz-options">
+        <label class="quiz-option">
+          <input type="radio" name="q3" value="0">
+          They use a larger vocabulary
+        </label>
+        <label class="quiz-option">
+          <input type="radio" name="q3" value="1">
+          They train faster
+        </label>
+        <label class="quiz-option">
+          <input type="radio" name="q3" value="2">
+          The same word gets a different vector depending on its context, handling polysemy
+        </label>
+        <label class="quiz-option">
+          <input type="radio" name="q3" value="3">
+          They require less training data
+        </label>
+      </div>
+      <button class="quiz-submit" data-q="3" data-correct="2">Check answer</button>
+      <div class="quiz-feedback" data-q="3"></div>
+      <div class="quiz-explanation" data-q="3">
+        <p><strong>Correct.</strong> Word2vec and GloVe assign a single fixed vector to each word regardless of context. BERT and similar transformer models generate a different embedding for each token occurrence based on the full surrounding sentence. This means "bank" in "savings bank" and "bank" in "river bank" receive different vectors — solving the polysemy problem that static embeddings cannot address. Contextual models actually train much more slowly (BERT-base requires days on 64 TPUs). Vocabulary size is a secondary characteristic. Transformer models require far more training data than word2vec to reach good performance.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- BRIDGE TO MODULE 10                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="bridge">
+    <strong>Word embeddings give us rich semantic representations — a word's meaning encoded as a point in space.</strong> But language isn't just isolated words; it's sequences. The next module asks: given what we know about sequences, how likely is a particular sentence? N-gram language models answer this using probability — and it turns out you can use the log-probability of a sequence to measure how "surprised" a model is, which connects to evaluating any generative system.
+  </div>
+
+  <!-- Navigation -->
+  <div class="nav-buttons">
+    <a href="08-bow-tfidf-topic-modeling.html" class="nav-btn prev">Prev: BoW, TF-IDF &amp; Topic Modeling</a>
+    <a href="10-ngram-lm-applications.html" class="nav-btn">Next: N-gram Language Models</a>
+  </div>
+
+</div><!-- /.container -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Word similarity data — pre-computed pairwise cosine similarities
+  // Approximates 300-dim GloVe relationships with a 30-word vocabulary
+  // ═══════════════════════════════════════════════════════════════════════════
+  var wordSimilarities = {
+    // Animals
+    "dog":    {"cat": 0.82, "pet": 0.79, "puppy": 0.91, "wolf": 0.74, "animal": 0.76, "car": 0.12, "king": 0.08, "happy": 0.15, "bird": 0.55},
+    "cat":    {"dog": 0.82, "pet": 0.81, "kitten": 0.93, "animal": 0.73, "car": 0.10, "king": 0.07, "bird": 0.51},
+    "puppy":  {"dog": 0.91, "kitten": 0.85, "cat": 0.79, "pet": 0.83, "animal": 0.65},
+    "kitten": {"cat": 0.93, "puppy": 0.85, "dog": 0.79, "pet": 0.80, "animal": 0.62},
+    "pet":    {"dog": 0.79, "cat": 0.81, "animal": 0.71, "puppy": 0.83, "kitten": 0.80, "bird": 0.60},
+    "wolf":   {"dog": 0.74, "animal": 0.68, "forest": 0.52, "cat": 0.48},
+    "animal": {"dog": 0.76, "cat": 0.73, "pet": 0.71, "wolf": 0.68, "bird": 0.70, "puppy": 0.65, "kitten": 0.62},
+    "bird":   {"animal": 0.70, "pet": 0.60, "dog": 0.55, "cat": 0.51},
+    // Royalty
+    "king":     {"queen": 0.75, "royal": 0.78, "prince": 0.73, "man": 0.31, "dog": 0.08, "woman": 0.28},
+    "queen":    {"king": 0.75, "royal": 0.80, "princess": 0.79, "woman": 0.35, "prince": 0.69},
+    "prince":   {"king": 0.73, "queen": 0.69, "royal": 0.74, "princess": 0.81, "man": 0.35},
+    "princess": {"queen": 0.79, "prince": 0.81, "royal": 0.76, "woman": 0.38, "girl": 0.55},
+    "royal":    {"king": 0.78, "queen": 0.80, "prince": 0.74, "princess": 0.76},
+    // Gender
+    "man":   {"woman": 0.68, "boy": 0.73, "king": 0.31, "doctor": 0.45, "prince": 0.35, "girl": 0.55},
+    "woman": {"man": 0.68, "girl": 0.74, "queen": 0.35, "doctor": 0.48, "princess": 0.38, "boy": 0.52},
+    "boy":   {"man": 0.73, "girl": 0.80, "child": 0.82, "woman": 0.52},
+    "girl":  {"woman": 0.74, "boy": 0.80, "child": 0.81, "princess": 0.55, "man": 0.55},
+    "child": {"boy": 0.82, "girl": 0.81, "parent": 0.68, "man": 0.45, "woman": 0.48},
+    // Emotions
+    "happy":     {"joyful": 0.88, "sad": 0.49, "excited": 0.78, "content": 0.75, "dog": 0.15, "angry": 0.38, "unhappy": 0.62},
+    "sad":       {"happy": 0.49, "unhappy": 0.85, "depressed": 0.80, "angry": 0.61, "joyful": 0.42, "content": 0.45},
+    "angry":     {"sad": 0.61, "happy": 0.38, "furious": 0.84, "depressed": 0.58, "joyful": 0.32},
+    "joyful":    {"happy": 0.88, "excited": 0.79, "content": 0.72, "sad": 0.42, "angry": 0.32},
+    // Places
+    "france":  {"paris": 0.71, "europe": 0.76, "germany": 0.72, "italy": 0.74, "country": 0.70, "london": 0.60},
+    "paris":   {"france": 0.71, "city": 0.72, "london": 0.69, "rome": 0.68, "europe": 0.65},
+    "london":  {"paris": 0.69, "city": 0.73, "england": 0.78, "europe": 0.71, "france": 0.60},
+    "city":    {"paris": 0.72, "london": 0.73, "town": 0.80, "country": 0.55, "europe": 0.55},
+    // Transport
+    "car":   {"vehicle": 0.85, "bus": 0.72, "truck": 0.78, "drive": 0.70, "dog": 0.12, "train": 0.65},
+    "bus":   {"car": 0.72, "vehicle": 0.79, "train": 0.74, "transport": 0.77, "truck": 0.68},
+    "train": {"bus": 0.74, "vehicle": 0.71, "car": 0.65, "transport": 0.79}
+  };
+
+  var allWords = Object.keys(wordSimilarities).sort();
+
+  // Helper: get similarity between two words (symmetric)
+  function getSimilarity(a, b) {
+    if (a === b) return 1.0;
+    if (wordSimilarities[a] && wordSimilarities[a][b] !== undefined) return wordSimilarities[a][b];
+    if (wordSimilarities[b] && wordSimilarities[b][a] !== undefined) return wordSimilarities[b][a];
+    return null; // no data
+  }
+
+  // Helper: get all known similarities for a word
+  function getNeighbours(word) {
+    var sims = {};
+    allWords.forEach(function (w) {
+      if (w === word) return;
+      var s = getSimilarity(word, w);
+      if (s !== null) sims[w] = s;
+    });
+    return Object.entries(sims).sort(function (a, b) { return b[1] - a[1]; });
+  }
+
+  // Helper: render a similarity bar
+  function simBar(score) {
+    var pct = Math.round(score * 100);
+    var hue = Math.round(score * 120); // 0=red, 120=green
+    var color = 'hsl(' + hue + ',70%,45%)';
+    return '<div style="display:flex;align-items:center;gap:0.6rem;margin:0.25rem 0;">'
+      + '<div style="background:' + color + ';width:' + pct + '%;height:14px;border-radius:3px;min-width:4px;transition:width 0.3s;"></div>'
+      + '<span style="font-weight:600;color:' + color + ';min-width:3rem;">' + score.toFixed(3) + '</span>'
+      + '</div>';
+  }
+
+  // Populate dropdowns
+  function populateSelect(id, selectedWord) {
+    var sel = document.getElementById(id);
+    sel.innerHTML = '';
+    allWords.forEach(function (w) {
+      var opt = document.createElement('option');
+      opt.value = w;
+      opt.textContent = w;
+      if (w === selectedWord) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  populateSelect('ws-word-a', 'dog');
+  populateSelect('ws-word-b', 'cat');
+  populateSelect('ws-nn-word', 'king');
+
+  // Panel 1 — Pairwise comparison
+  document.getElementById('ws-compare-btn').addEventListener('click', function () {
+    var a = document.getElementById('ws-word-a').value;
+    var b = document.getElementById('ws-word-b').value;
+    var sim = getSimilarity(a, b);
+    var el = document.getElementById('ws-pair-result');
+
+    if (a === b) {
+      el.innerHTML = '<div class="callout note" style="margin:0;"><strong>Same word!</strong> Cosine similarity of a vector with itself is always 1.0.</div>';
+      return;
+    }
+
+    if (sim === null) {
+      el.innerHTML = '<div class="callout warning" style="margin:0;">No similarity data available for <strong>' + a + '</strong> and <strong>' + b + '</strong> in this simplified table. Try a pair where both words share context in the data.</div>';
+      return;
+    }
+
+    var interp = sim >= 0.80 ? 'highly similar' : sim >= 0.60 ? 'moderately similar' : sim >= 0.40 ? 'somewhat related' : 'not closely related';
+    var explanation = '';
+    if (sim >= 0.80) {
+      explanation = 'These words appear in very similar contexts in the training corpus — they likely belong to the same semantic category.';
+    } else if (sim >= 0.60) {
+      explanation = 'These words share notable context overlap, suggesting they are related but not interchangeable.';
+    } else if (sim >= 0.40) {
+      explanation = 'Moderate similarity — these words may co-occur in related topics without being semantically close.';
+    } else {
+      explanation = 'Low similarity — these words appear in different contexts and carry different meanings.';
+    }
+
+    el.innerHTML = '<div style="padding:1rem;background:var(--surface-secondary,#f8f9fa);border-radius:8px;border:1px solid var(--border,#e0e0e0);">'
+      + '<p style="margin:0 0 0.5rem;"><strong>' + a + '</strong> and <strong>' + b + '</strong> are <strong>' + interp + '</strong>.</p>'
+      + simBar(sim)
+      + '<p style="margin:0.5rem 0 0;font-size:0.9rem;color:var(--text-secondary);">' + explanation + '</p>'
+      + '</div>';
+  });
+
+  // Panel 2 — Nearest neighbours
+  document.getElementById('ws-nn-slider').addEventListener('input', function () {
+    document.getElementById('ws-nn-val').textContent = this.value;
+  });
+
+  document.getElementById('ws-nn-btn').addEventListener('click', function () {
+    var word = document.getElementById('ws-nn-word').value;
+    var topN = parseInt(document.getElementById('ws-nn-slider').value, 10);
+    var neighbours = getNeighbours(word).slice(0, topN);
+    var el = document.getElementById('ws-nn-result');
+
+    if (neighbours.length === 0) {
+      el.innerHTML = '<div class="callout warning" style="margin:0;">No neighbours found for <strong>' + word + '</strong> in this dataset.</div>';
+      return;
+    }
+
+    var html = '<div style="padding:1rem;background:var(--surface-secondary,#f8f9fa);border-radius:8px;border:1px solid var(--border,#e0e0e0);">'
+      + '<p style="margin:0 0 0.75rem;">Top-' + neighbours.length + ' nearest neighbours for <strong>' + word + '</strong>:</p>';
+
+    neighbours.forEach(function (pair, i) {
+      html += '<div style="display:flex;align-items:center;gap:0.75rem;margin:0.35rem 0;">'
+        + '<span style="min-width:2rem;color:var(--text-secondary);font-size:0.85rem;">#' + (i + 1) + '</span>'
+        + '<span style="min-width:6rem;font-weight:600;">' + pair[0] + '</span>'
+        + simBar(pair[1])
+        + '</div>';
+    });
+
+    html += '</div>';
+    el.innerHTML = html;
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Initialise shared utilities from common.js
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (typeof initTheme === 'function') initTheme();
+  if (typeof initHamburger === 'function') initHamburger();
+  if (typeof renderMath === 'function') renderMath();
+  if (typeof initPractice === 'function') initPractice();
+  if (typeof initQuiz === 'function') initQuiz();
+  if (typeof initCodeCopy === 'function') initCodeCopy();
+
+});
+</script>
+</body>
+</html>

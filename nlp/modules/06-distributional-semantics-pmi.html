@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 6: Distributional Semantics &amp; Pointwise Mutual Information</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-text-normalization-edit-distance.html">1</a>
+    <a href="02-stemming-lemmatization-noisy-channel.html">2</a>
+    <a href="03-pos-tagging-shallow-parsing.html">3</a>
+    <a href="04-cfg-parse-trees-deep-parsing.html">4</a>
+    <a href="05-lexical-semantics-wsd.html">5</a>
+    <a href="06-distributional-semantics-pmi.html" class="active">6</a>
+    <a href="07-ner-iob-crf-srl-coreference.html">7</a>
+    <a href="08-bow-tfidf-topic-modeling.html">8</a>
+    <a href="09-word-embeddings.html">9</a>
+    <a href="10-ngram-lm-applications.html">10</a>
+  </nav>
+
+  <header>
+    <h1>Module 6: Distributional Semantics &amp; Pointwise Mutual Information</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: THE DISTRIBUTIONAL HYPOTHESIS                               -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>The Distributional Hypothesis</h2>
+
+  <div class="callout note">
+    <strong>Bridge from Module 5.</strong> WordNet gave us a hand-crafted lexical database — rich, precise, and built by human experts over decades. But scaling to new languages, domains, or senses requires enormous labour. Can we instead <em>learn</em> meaning automatically from raw text, with no manual annotation at all?
+  </div>
+
+  <p>The answer comes from a simple but powerful observation made by the British linguist J.R. Firth in 1957:</p>
+
+  <blockquote style="border-left:4px solid var(--accent-blue);margin:1.25rem 0;padding:0.75rem 1.25rem;background:rgba(37,99,235,0.06);border-radius:0 6px 6px 0;font-style:italic;color:var(--text);">
+    "You shall know a word by the company it keeps."
+    <footer style="font-style:normal;font-size:0.85rem;color:var(--text-muted);margin-top:0.4rem;">— J.R. Firth, <em>A Synopsis of Linguistic Theory</em> (1957)</footer>
+  </blockquote>
+
+  <p>This is the <strong>distributional hypothesis</strong>: words that appear in similar contexts tend to have similar meanings. It shifts the question from "what does a word mean?" (hard, requires human judgment) to "what company does a word keep?" (easy, just count co-occurrences in a corpus).</p>
+
+  <div class="concept-box">
+    <h4>Intuition: 'dog' and 'cat'</h4>
+    <p>Consider the words <em>dog</em> and <em>cat</em>. They both appear frequently near words like <strong>pet</strong>, <strong>feed</strong>, <strong>vet</strong>, <strong>furry</strong>, <strong>loyal</strong>, and <strong>bark</strong>/<strong>meow</strong>. They almost never appear near <em>photosynthesis</em> or <em>transistor</em>. Because their <em>context distributions</em> are so similar, the distributional hypothesis predicts — correctly — that they are semantically related.</p>
+    <p>By contrast, <em>dog</em> and <em>democracy</em> share almost no context words, predicting — again correctly — that they occupy very different regions of semantic space.</p>
+  </div>
+
+  <p>This idea is the <strong>foundation of almost all modern word representations</strong>. Word2Vec (Module 9), GloVe, FastText, and even the input layers of large language models all exploit the distributional hypothesis in one form or another. Understanding PMI and co-occurrence matrices is the prerequisite for understanding why those methods work.</p>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>No labeling required</h5>
+      <p>The entire framework is unsupervised. Any raw text corpus — Wikipedia, a book, tweets — is sufficient input. There are no annotation costs.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Language-agnostic</h5>
+      <p>The same algorithm works identically for English, Swahili, or ancient Greek. No language-specific rules or resources are needed.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Domain-adaptable</h5>
+      <p>Train on medical literature and "discharge" means what a hospital means; train on electrical engineering texts and it means something different. The context determines the meaning.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Scalable</h5>
+      <p>More data almost always helps. A trillion-word corpus gives richer co-occurrence statistics than a million-word one, producing higher-quality semantic representations.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2: CO-OCCURRENCE MATRICES                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Co-occurrence Matrices</h2>
+
+  <p>The first concrete step toward distributional semantics is counting how often words appear together. The result is a <strong>co-occurrence matrix</strong>: rows are <em>target words</em>, columns are <em>context words</em>, and each cell holds a count of how many times the target and context appeared in each other's vicinity.</p>
+
+  <div class="concept-box">
+    <h4>Window-Based Co-occurrence</h4>
+    <p>Given a sentence and a <em>window size</em> <span class="math-inline math-latex">k</span>, every pair of words within distance <span class="math-inline math-latex">k</span> (positions <span class="math-inline math-latex">i-k</span> to <span class="math-inline math-latex">i+k</span>, excluding position <span class="math-inline math-latex">i</span> itself) is counted as a co-occurrence. Common choices are <span class="math-inline math-latex">k = 2</span> (tight syntactic context) or <span class="math-inline math-latex">k = 5</span> (broader topical context).</p>
+  </div>
+
+  <h3 style="font-size:1.05rem;margin-top:1.5rem;color:var(--text);">Building a Co-occurrence Matrix: Step by Step</h3>
+
+  <p>Consider this small four-sentence corpus with window size <span class="math-inline math-latex">k = 2</span>:</p>
+
+  <div class="code-snippet" style="margin:1rem 0;">
+    <pre style="margin:0;padding:1rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:var(--font-mono);font-size:0.88rem;overflow-x:auto;">"I like dogs and cats"
+"Dogs are loyal pets"
+"Cats are independent pets"
+"I prefer dogs over cats"</pre>
+  </div>
+
+  <p>Target vocabulary (alphabetical): <code>and, are, cats, dogs, i, independent, like, loyal, over, pets, prefer</code></p>
+
+  <p>For sentence 1, "I like dogs and cats", with <span class="math-inline math-latex">k=2</span>:</p>
+  <ul style="font-size:0.93rem;line-height:1.9;">
+    <li><strong>dogs</strong> co-occurs with: <em>i</em> (dist 2), <em>like</em> (dist 1), <em>and</em> (dist 1), <em>cats</em> (dist 2)</li>
+    <li><strong>cats</strong> co-occurs with: <em>like</em> (dist 2 — wait, dist 3 — outside window), <em>dogs</em> (dist 2), <em>and</em> (dist 1)</li>
+  </ul>
+
+  <p>Repeat for all sentences, accumulate counts. A subset of the resulting matrix (showing key words):</p>
+
+  <div style="overflow-x:auto;margin:1rem 0;">
+    <table style="border-collapse:collapse;font-size:0.85rem;min-width:520px;">
+      <thead>
+        <tr style="background:rgba(37,99,235,0.08);">
+          <th style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:left;">Target \ Context</th>
+          <th style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;">dogs</th>
+          <th style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;">cats</th>
+          <th style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;">pets</th>
+          <th style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;">loyal</th>
+          <th style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;">independent</th>
+          <th style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;">i</th>
+          <th style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;">are</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;font-weight:600;">dogs</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;color:var(--text-muted);">0</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.12);">3</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.08);">2</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.06);">1</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;color:var(--text-muted);">0</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.08);">2</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.06);">1</td>
+        </tr>
+        <tr>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;font-weight:600;">cats</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.12);">3</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;color:var(--text-muted);">0</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.08);">2</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;color:var(--text-muted);">0</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.06);">1</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.06);">1</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.06);">1</td>
+        </tr>
+        <tr>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;font-weight:600;">pets</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.08);">2</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.08);">2</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;color:var(--text-muted);">0</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.06);">1</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.06);">1</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;color:var(--text-muted);">0</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.08);">2</td>
+        </tr>
+        <tr>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;font-weight:600;">loyal</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.06);">1</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;color:var(--text-muted);">0</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.06);">1</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;color:var(--text-muted);">0</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;color:var(--text-muted);">0</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;color:var(--text-muted);">0</td>
+          <td style="border:1px solid var(--border);padding:0.4rem 0.75rem;text-align:center;background:rgba(37,99,235,0.06);">1</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Notice that <em>dogs</em> and <em>cats</em> have similar row vectors — they co-occur with mostly the same words. This is the distributional hypothesis made numerical.</p>
+
+  <div class="callout warning">
+    <strong>Problem: Raw counts are dominated by function words.</strong> Words like "the", "is", "and" appear in virtually every sentence. The co-occurrence count for "dog–the" can be enormous, even though that pairing carries almost no semantic information. Raw counts therefore misrepresent what words are truly "about". This motivates statistical weighting — specifically PMI.
+  </div>
+
+  <h3 style="font-size:1.05rem;margin-top:1.5rem;color:var(--text);">Python: Building the Co-occurrence Matrix</h3>
+
+  <div class="code-snippet">
+    <button class="code-copy-btn">Copy</button>
+    <pre>import numpy as np
+from collections import defaultdict
+
+def build_cooccurrence(sentences, window=2):
+    # Build vocabulary
+    all_words = [w for sent in sentences for w in sent]
+    vocab = sorted(set(all_words))
+    word2idx = {w: i for i, w in enumerate(vocab)}
+
+    # Count co-occurrences
+    cooc = np.zeros((len(vocab), len(vocab)))
+    for sent in sentences:
+        for i, w in enumerate(sent):
+            for j in range(max(0, i - window), min(len(sent), i + window + 1)):
+                if i != j:
+                    cooc[word2idx[w], word2idx[sent[j]]] += 1
+    return cooc, vocab, word2idx
+
+sentences = [
+    ["i", "like", "dogs", "and", "cats"],
+    ["dogs", "are", "loyal", "pets"],
+    ["cats", "are", "independent", "pets"],
+    ["i", "prefer", "dogs", "over", "cats"]
+]
+cooc, vocab, w2i = build_cooccurrence(sentences)
+print(vocab)
+# ['and', 'are', 'cats', 'dogs', 'i', 'independent', 'like', 'loyal', 'over', 'pets', 'prefer']</pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 3: POINTWISE MUTUAL INFORMATION                                -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Pointwise Mutual Information (PMI)</h2>
+
+  <p><strong>Pointwise Mutual Information</strong> answers the question: how much more often do two words co-occur than we would expect if they were completely independent? If "dog" and "pet" appear together far more than chance predicts, they must be meaningfully related.</p>
+
+  <h3 style="font-size:1.05rem;margin-top:1.5rem;color:var(--text);">The PMI Formula</h3>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Define joint and marginal probabilities</strong>
+        <div class="step-explanation">
+          From the co-occurrence matrix, estimate:
+        </div>
+        <div class="math-block" style="margin-top:0.5rem;">
+          <span class="math-latex math-block">P(x, y) = \frac{\text{count}(x, y)}{N} \qquad P(x) = \frac{\text{count}(x)}{N} \qquad P(y) = \frac{\text{count}(y)}{N}</span>
+        </div>
+        <div class="step-explanation">where <span class="math-inline math-latex">N</span> is the total number of co-occurrence tokens (sum of all cells).</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Compute PMI</strong>
+        <div class="math-block" style="margin-top:0.5rem;">
+          <span class="math-latex math-block">\text{PMI}(x, y) = \log_2 \frac{P(x, y)}{P(x) \cdot P(y)}</span>
+        </div>
+        <div class="step-explanation">If <span class="math-inline math-latex">x</span> and <span class="math-inline math-latex">y</span> are independent, <span class="math-inline math-latex">P(x,y) = P(x)P(y)</span> and PMI = 0. Positive PMI means they attract; negative means they repel.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Clip to PPMI</strong>
+        <div class="math-block" style="margin-top:0.5rem;">
+          <span class="math-latex math-block">\text{PPMI}(x, y) = \max\bigl(0,\; \text{PMI}(x, y)\bigr)</span>
+        </div>
+        <div class="step-explanation">Negative PMI values are unreliable for rare pairs (where <span class="math-inline math-latex">P(x,y) \approx 0</span> gives PMI <span class="math-inline math-latex">\to -\infty</span>). Clipping at 0 — Positive PMI — discards unreliable negatives.</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="font-size:1.05rem;margin-top:1.5rem;color:var(--text);">Interpreting the PMI Score</h3>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5 style="color:var(--success);">PMI &gt; 0 — Attraction</h5>
+      <p>The pair co-occurs <em>more</em> than chance predicts. Strong semantic association. Example: PMI("ice", "cream") is large and positive — they overwhelmingly appear together.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>PMI = 0 — Independence</h5>
+      <p>The pair co-occurs <em>exactly</em> as often as chance predicts. No detectable semantic relationship. Rare in practice; most word pairs are slightly positively or negatively associated.</p>
+    </div>
+    <div class="assumption-card">
+      <h5 style="color:var(--danger);">PMI &lt; 0 — Repulsion</h5>
+      <p>The pair co-occurs <em>less</em> than chance predicts. Problematic for sparse data: even a single zero count drives PMI to <span class="math-inline math-latex">-\infty</span>. PPMI clips these to 0.</p>
+    </div>
+  </div>
+
+  <div class="callout insight">
+    <strong>Key insight: PMI vs. raw counts.</strong> Consider "ice" and "the": they co-occur enormously often in any large corpus — simply because "the" appears everywhere. But their PMI is close to 0 or negative, because "the" is so frequent that it appears near <em>every</em> word by chance. PMI("ice", "cream"), by contrast, is large because this pairing exceeds what two individually-frequent words would produce by chance.
+  </div>
+
+  <h3 style="font-size:1.05rem;margin-top:1.5rem;color:var(--text);">Python: Computing PPMI</h3>
+
+  <div class="code-snippet">
+    <button class="code-copy-btn">Copy</button>
+    <pre>def compute_ppmi(cooc):
+    total = cooc.sum()
+    row_sums = cooc.sum(axis=1, keepdims=True)
+    col_sums = cooc.sum(axis=0, keepdims=True)
+
+    # P(x,y), P(x), P(y)
+    pxy = cooc / total
+    px  = row_sums / total
+    py  = col_sums / total
+
+    # PMI = log2(P(x,y) / P(x)*P(y)); clip negatives to 0 for PPMI
+    with np.errstate(divide='ignore', invalid='ignore'):
+        pmi = np.log2(pxy / (px * py))
+    pmi  = np.nan_to_num(pmi, nan=0.0, neginf=0.0)
+    ppmi = np.maximum(0, pmi)   # PPMI
+    return ppmi
+
+ppmi = compute_ppmi(cooc)
+# ppmi[w2i['dogs'], w2i['loyal']] will be positive
+# ppmi[w2i['dogs'], w2i['independent']] will be 0.0 (no co-occurrence)</pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 4: BUILDING AND INTERPRETING THE PMI MATRIX                   -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Building and Interpreting the PMI Matrix</h2>
+
+  <p>With PPMI vectors in hand, each word is now represented as a <strong>high-dimensional sparse vector</strong>. Words that appear in similar contexts have similar vectors. Semantic similarity can be measured directly with <strong>cosine similarity</strong>.</p>
+
+  <h3 style="font-size:1.05rem;margin-top:1.5rem;color:var(--text);">Cosine Similarity</h3>
+
+  <p>For two word vectors <span class="math-inline math-latex">\mathbf{u}</span> and <span class="math-inline math-latex">\mathbf{v}</span>:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">\text{cosine\_sim}(\mathbf{u}, \mathbf{v}) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\| \cdot \|\mathbf{v}\|} = \frac{\displaystyle\sum_i u_i v_i}{\sqrt{\displaystyle\sum_i u_i^2} \cdot \sqrt{\displaystyle\sum_i v_i^2}}</span>
+  </div>
+
+  <p>Cosine similarity ranges from <span class="math-inline math-latex">-1</span> (opposite) to <span class="math-inline math-latex">+1</span> (identical direction). For PPMI vectors (all non-negative), the range is <span class="math-inline math-latex">[0, 1]</span>. It is preferred over Euclidean distance because it is <em>invariant to vector magnitude</em> — a word appearing twice as often in a corpus gets a longer PPMI vector but should not be considered semantically different from its shorter counterpart.</p>
+
+  <div class="concept-box">
+    <h4>Finding the Most Similar Word</h4>
+    <p>Given the PPMI matrix <span class="math-inline math-latex">M</span>, the most semantically similar word to "dogs" is:</p>
+    <div class="math-block">
+      <span class="math-latex math-block">\text{similar\_to}(\text{"dogs"}) = \underset{w \neq \text{"dogs"}}{\arg\max}\; \text{cosine\_sim}(M_{\text{dogs}},\, M_w)</span>
+    </div>
+    <p>On the small four-sentence corpus above, this reliably returns <strong>"cats"</strong> — because dogs and cats share the same high-PMI context words (pets, loyal/independent patterns, appearing near "i" and "prefer").</p>
+  </div>
+
+  <h3 style="font-size:1.05rem;margin-top:1.5rem;color:var(--text);">Limitations of Raw PPMI Vectors</h3>
+
+  <ul style="line-height:2;">
+    <li><strong>High-dimensional:</strong> With a 50,000-word vocabulary, vectors have 50,000 dimensions — expensive to store and compare.</li>
+    <li><strong>Sparse:</strong> Most entries are 0 (most word pairs never co-occur). Sparse vectors are inefficient for neural networks.</li>
+    <li><strong>No generalisation:</strong> Two words can have identical meanings but never share a context word in the corpus — they'll appear unrelated.</li>
+  </ul>
+
+  <div class="bridge">
+    <strong>This motivates dimensionality reduction</strong> — Singular Value Decomposition (SVD) compresses a 50,000-dimensional PPMI matrix into dense 300-dimensional vectors. And word2vec (Module 9) learns dense vectors directly by predicting context words with a neural network, implicitly discovering a structure similar to PPMI but far more scalable.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- INTERACTIVE WIDGET: PMI EXPLORER                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Interactive: Live Co-occurrence &amp; PMI Explorer</h2>
+
+  <div class="widget-container">
+    <h4>Enter a small corpus below (one sentence per line). Click <strong>Compute</strong> to see the raw co-occurrence matrix and PPMI heatmap. Then query a word to find its top-3 most similar words by cosine similarity on PPMI vectors.</h4>
+
+    <div class="widget-controls" style="flex-direction:column;align-items:stretch;gap:0.75rem;">
+      <label style="font-weight:600;">Corpus (one sentence per line):</label>
+      <textarea id="pmi-corpus" rows="8" style="width:100%;font-family:var(--font-mono);font-size:0.85rem;padding:0.6rem 0.8rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);resize:vertical;">I like dogs and cats
+Dogs are loyal pets
+Cats are independent pets
+I prefer dogs over cats
+Pets need food and care
+Dogs and cats are furry animals
+I love my loyal dog and fluffy cat
+Both dogs and cats make great pets</textarea>
+
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <label>
+          Window size:
+          <select id="pmi-window" style="padding:0.3rem 0.6rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="5">5</option>
+          </select>
+        </label>
+        <button id="pmi-compute-btn">Compute</button>
+      </div>
+    </div>
+
+    <!-- Raw co-occurrence table -->
+    <div id="pmi-cooc-section" style="display:none;margin-top:1.25rem;">
+      <h4 style="margin-bottom:0.5rem;">Raw Co-occurrence Matrix <span style="font-weight:400;font-size:0.85rem;color:var(--text-muted);">(cell colour = count intensity)</span></h4>
+      <div id="pmi-cooc-table" style="overflow-x:auto;"></div>
+    </div>
+
+    <!-- PPMI heatmap -->
+    <div id="pmi-heatmap-section" style="display:none;margin-top:1.25rem;">
+      <h4 style="margin-bottom:0.5rem;">PPMI Heatmap</h4>
+      <div id="pmi-heatmap" class="plot-area" style="height:480px;"></div>
+    </div>
+
+    <!-- Similarity query -->
+    <div id="pmi-query-section" style="display:none;margin-top:1.25rem;">
+      <h4 style="margin-bottom:0.5rem;">Similarity Query</h4>
+      <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+        <input type="text" id="pmi-query-word" placeholder="Enter a word from the corpus" style="padding:0.4rem 0.75rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.9rem;min-width:220px;">
+        <button id="pmi-query-btn">Find Similar</button>
+      </div>
+      <div id="pmi-query-result" style="margin-top:0.75rem;"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- PRACTICE PROBLEMS                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: PMI Calculation</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>Given co-occurrence statistics from a corpus:</p>
+      <ul>
+        <li>count(dogs, pets) = 3</li>
+        <li>count(dogs) = 8 &nbsp;&nbsp;&nbsp; count(pets) = 5</li>
+        <li>Total co-occurrence tokens <span class="math-inline math-latex">N = 50</span></li>
+      </ul>
+      <p>Compute PMI(dogs, pets). Is the value positive or negative? What does this tell you about the semantic relationship?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>Compute the three probabilities:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">P(\text{dogs}, \text{pets}) = \frac{3}{50} = 0.06</span>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">P(\text{dogs}) = \frac{8}{50} = 0.16 \qquad P(\text{pets}) = \frac{5}{50} = 0.10</span>
+        </div>
+        <p>Now apply the PMI formula:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{PMI}(\text{dogs}, \text{pets}) = \log_2 \frac{0.06}{0.16 \times 0.10} = \log_2 \frac{0.06}{0.016} = \log_2 3.75 \approx 1.91</span>
+        </div>
+        <p>The value is <strong>positive</strong>, which means "dogs" and "pets" co-occur about 3.75 times more often than chance predicts. This indicates a strong semantic association — consistent with our intuition that dogs are pets.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: PPMI Vectors and Cosine Similarity</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>Two words have PPMI vectors over a 5-word vocabulary:</p>
+      <div class="math-block">
+        <span class="math-latex math-block">\mathbf{w}_1 = [0.5,\; 1.2,\; 0.0,\; 0.8,\; 0.3]</span>
+      </div>
+      <div class="math-block">
+        <span class="math-latex math-block">\mathbf{w}_2 = [0.4,\; 1.1,\; 0.2,\; 0.9,\; 0.0]</span>
+      </div>
+      <p>Compute their cosine similarity. Are these words semantically similar?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>Step 1: Dot product</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">\mathbf{w}_1 \cdot \mathbf{w}_2 = (0.5)(0.4) + (1.2)(1.1) + (0)(0.2) + (0.8)(0.9) + (0.3)(0) = 0.20 + 1.32 + 0 + 0.72 + 0 = 2.24</span>
+        </div>
+        <p><strong>Step 2: Norms</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">\|\mathbf{w}_1\| = \sqrt{0.25 + 1.44 + 0 + 0.64 + 0.09} = \sqrt{2.42} \approx 1.556</span>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">\|\mathbf{w}_2\| = \sqrt{0.16 + 1.21 + 0.04 + 0.81 + 0} = \sqrt{2.22} \approx 1.490</span>
+        </div>
+        <p><strong>Step 3: Cosine similarity</strong></p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{cosine\_sim}(\mathbf{w}_1, \mathbf{w}_2) = \frac{2.24}{1.556 \times 1.490} = \frac{2.24}{2.318} \approx 0.966</span>
+        </div>
+        <p>A cosine similarity of <strong>0.966</strong> is very high (maximum is 1.0). These two words are highly semantically similar — their PPMI vectors point in nearly the same direction, meaning they appear in very similar contexts.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: Alternative Weighting Schemes Beyond PPMI</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>Raw co-occurrence counts are dominated by frequent function words. PPMI is one remedy — but it is not the only one. List <strong>three alternative weighting schemes</strong> beyond PPMI, explain the rationale for each, and write the mathematical formula for one of them.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>1. TF-IDF applied to co-occurrence</strong></p>
+        <p>Treat each target word as a "document" and each context word as a "term". Apply Inverse Document Frequency: context words that appear near <em>many</em> target words get down-weighted (like stop words). Context words that are more specific get up-weighted. The rationale mirrors document retrieval: specificity signals relevance.</p>
+
+        <p><strong>2. Shifted PPMI (SPPMI)</strong></p>
+        <p>Add a smoothing shift parameter <span class="math-inline math-latex">k</span> that penalises all PMI values, retaining only high-confidence positive associations:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\text{SPPMI}_k(x, y) = \max\!\left(0,\; \log_2 \frac{P(x, y)}{P(x)\,P(y)} - \log_2 k\right)</span>
+        </div>
+        <p>This is directly analogous to the negative sampling objective in word2vec (with <span class="math-inline math-latex">k</span> = number of negative samples). Setting <span class="math-inline math-latex">k > 1</span> forces the model to require stronger-than-chance association before assigning a non-zero weight.</p>
+
+        <p><strong>3. Sublinear count scaling</strong></p>
+        <p>Replace raw co-occurrence count <span class="math-inline math-latex">\text{count}(x, y)</span> with <span class="math-inline math-latex">\log(1 + \text{count}(x, y))</span> or <span class="math-inline math-latex">\sqrt{\text{count}(x, y)}</span> before computing PMI. The rationale: the semantic information added by seeing "dogs–pets" for the 50th time is far less than seeing it for the first time. Sublinear scaling compresses the dynamic range, reducing the dominance of extremely frequent pairs without discarding them entirely.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- MCQ QUIZ                                                               -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Quiz</h2>
+
+  <!-- Q1 -->
+  <div class="quiz-question">
+    <p><strong>Q1.</strong> The distributional hypothesis states that:</p>
+    <div class="quiz-option" data-correct="false">Words can be distributed across documents uniformly.</div>
+    <div class="quiz-option" data-correct="true">Words occurring in similar contexts tend to have similar meanings.</div>
+    <div class="quiz-option" data-correct="false">Rare words have more specific meanings than common ones.</div>
+    <div class="quiz-option" data-correct="false">Every word has a unique distributional fingerprint unrelated to others.</div>
+    <div class="quiz-feedback">
+      <span class="quiz-feedback-correct">Correct. Firth's "you shall know a word by the company it keeps" — context predicts meaning, enabling unsupervised semantic learning.</span>
+      <span class="quiz-feedback-wrong">The distributional hypothesis links meaning to context: similar contexts → similar meanings. This is the foundation of all distributional word representations.</span>
+    </div>
+  </div>
+
+  <!-- Q2 -->
+  <div class="quiz-question">
+    <p><strong>Q2.</strong> PMI(<em>x</em>, <em>y</em>) &lt; 0 means:</p>
+    <div class="quiz-option" data-correct="false">The two words are antonyms.</div>
+    <div class="quiz-option" data-correct="true"><em>x</em> and <em>y</em> co-occur <em>less</em> often than expected if they were independent.</div>
+    <div class="quiz-option" data-correct="false">The words never co-occur.</div>
+    <div class="quiz-option" data-correct="false">There is a data error in the co-occurrence matrix.</div>
+    <div class="quiz-feedback">
+      <span class="quiz-feedback-correct">Correct. Negative PMI means the observed co-occurrence P(x,y) is below the expected P(x)×P(y) — the words tend to avoid each other.</span>
+      <span class="quiz-feedback-wrong">PMI&lt;0 means co-occurrence is below random chance expectation — not that they never co-occur, just less often than chance predicts.</span>
+    </div>
+  </div>
+
+  <!-- Q3 -->
+  <div class="quiz-question">
+    <p><strong>Q3.</strong> Why is PPMI preferred over raw PMI for sparse NLP data?</p>
+    <div class="quiz-option" data-correct="false">PPMI is faster to compute.</div>
+    <div class="quiz-option" data-correct="true">Negative PMI values are unreliable for rare word pairs with zero or very low counts.</div>
+    <div class="quiz-option" data-correct="false">PPMI eliminates all stop words.</div>
+    <div class="quiz-option" data-correct="false">PPMI guarantees cosine similarity equals 1 for similar words.</div>
+    <div class="quiz-feedback">
+      <span class="quiz-feedback-correct">Correct. When two words never co-occur, PMI = −∞ (log of 0). Clipping at 0 (PPMI) prevents these unreliable negative values from dominating similarity calculations.</span>
+      <span class="quiz-feedback-wrong">The issue is reliability: PMI=−∞ for zero-count pairs is not meaningful. PPMI clips these to 0, making vectors more stable for downstream similarity.</span>
+    </div>
+  </div>
+
+  <!-- Q4 -->
+  <div class="quiz-question">
+    <p><strong>Q4.</strong> Cosine similarity is preferred over Euclidean distance for comparing word vectors because:</p>
+    <div class="quiz-option" data-correct="false">It is faster to compute.</div>
+    <div class="quiz-option" data-correct="true">It is invariant to the magnitude (length) of the vectors, focusing only on direction.</div>
+    <div class="quiz-option" data-correct="false">It always returns a value between 0 and 1.</div>
+    <div class="quiz-option" data-correct="false">It works only for binary vectors.</div>
+    <div class="quiz-feedback">
+      <span class="quiz-feedback-correct">Correct. Cosine ignores vector magnitude — a word appearing 10× more in a corpus has a longer vector but the same semantic direction. Euclidean distance would wrongly penalise this.</span>
+      <span class="quiz-feedback-wrong">Cosine similarity measures the angle between vectors, not their length. This makes it robust to frequency differences in the corpus. Note: it can be negative for non-PPMI vectors.</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- BRIDGE TO MODULE 7                                                     -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="bridge" style="margin-top:2rem;">
+    <strong>Looking ahead to Module 7.</strong> Distributional semantics gives us continuous, data-driven semantic representations — but real-world text is full of specific named entities: <em>Apple</em>, <em>Barack Obama</em>, <em>the Eiffel Tower</em> — that need to be identified and classified in context. Module 7 tackles three practical sequence labeling tasks: <strong>Named Entity Recognition (NER)</strong>, <strong>Semantic Role Labeling (SRL)</strong>, and <strong>Coreference Resolution</strong>, all powered by the Conditional Random Field (CRF) model and IOB tagging conventions.
+  </div>
+
+  <div class="nav-buttons">
+    <a href="05-lexical-semantics-wsd.html" class="nav-btn prev">Prev: Lexical Semantics &amp; WSD</a>
+    <a href="07-ner-iob-crf-srl-coreference.html" class="nav-btn">Next: NER, IOB, CRF &amp; SRL</a>
+  </div>
+
+</div><!-- /.container -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PMI EXPLORER WIDGET
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  var pmiResult = null; // stores { vocab, cooc, ppmi } from last compute
+
+  // Tokenise corpus textarea into array of sentence arrays
+  function parseCorpus(text) {
+    return text.trim().split('\n')
+      .map(function (line) {
+        return line.toLowerCase()
+          .replace(/[^a-z0-9\s]/g, '')
+          .split(/\s+/)
+          .filter(function (w) { return w.length > 0; });
+      })
+      .filter(function (sent) { return sent.length > 0; });
+  }
+
+  // Build co-occurrence counts { key: count } and word marginals
+  function buildCooc(sentences, window) {
+    var wordCounts = {};
+    var coocRaw = {}; // "w1|||w2" -> count
+    var total = 0;
+
+    sentences.forEach(function (sent) {
+      sent.forEach(function (w) {
+        wordCounts[w] = (wordCounts[w] || 0) + 1;
+        total++;
+      });
+      for (var i = 0; i < sent.length; i++) {
+        for (var j = Math.max(0, i - window); j <= Math.min(sent.length - 1, i + window); j++) {
+          if (i === j) continue;
+          var key = sent[i] + '|||' + sent[j];
+          coocRaw[key] = (coocRaw[key] || 0) + 1;
+        }
+      }
+    });
+
+    var vocab = Object.keys(wordCounts).sort();
+    var V = vocab.length;
+    var w2i = {};
+    vocab.forEach(function (w, i) { w2i[w] = i; });
+
+    // Build dense cooc matrix
+    var coocMat = [];
+    for (var i = 0; i < V; i++) {
+      coocMat.push(new Array(V).fill(0));
+    }
+    Object.keys(coocRaw).forEach(function (key) {
+      var parts = key.split('|||');
+      var i = w2i[parts[0]], j = w2i[parts[1]];
+      if (i !== undefined && j !== undefined) {
+        coocMat[i][j] = coocRaw[key];
+      }
+    });
+
+    // Compute PPMI
+    var N_total = 0;
+    for (var i = 0; i < V; i++) for (var j = 0; j < V; j++) N_total += coocMat[i][j];
+
+    var rowSums = vocab.map(function (_, i) {
+      var s = 0; for (var j = 0; j < V; j++) s += coocMat[i][j]; return s;
+    });
+    var colSums = vocab.map(function (_, j) {
+      var s = 0; for (var i = 0; i < V; i++) s += coocMat[i][j]; return s;
+    });
+
+    var ppmiMat = [];
+    for (var i = 0; i < V; i++) {
+      ppmiMat.push([]);
+      for (var j = 0; j < V; j++) {
+        var cnt = coocMat[i][j];
+        if (cnt === 0 || N_total === 0 || rowSums[i] === 0 || colSums[j] === 0) {
+          ppmiMat[i].push(0);
+        } else {
+          var pxy = cnt / N_total;
+          var px  = rowSums[i] / N_total;
+          var py  = colSums[j] / N_total;
+          var pmiVal = Math.log2(pxy / (px * py));
+          ppmiMat[i].push(Math.max(0, pmiVal));
+        }
+      }
+    }
+
+    return { vocab: vocab, w2i: w2i, coocMat: coocMat, ppmiMat: ppmiMat };
+  }
+
+  // Render raw co-occurrence as HTML table with intensity colouring
+  function renderCoocTable(vocab, coocMat) {
+    var V = vocab.length;
+    // Find max for colour scaling
+    var maxVal = 0;
+    for (var i = 0; i < V; i++) for (var j = 0; j < V; j++) {
+      if (coocMat[i][j] > maxVal) maxVal = coocMat[i][j];
+    }
+
+    var html = '<table style="border-collapse:collapse;font-size:0.78rem;min-width:' + (V * 52 + 80) + 'px;">';
+    html += '<thead><tr><th style="border:1px solid var(--border);padding:0.3rem 0.5rem;text-align:left;background:rgba(37,99,235,0.08);">Target \\ Context</th>';
+    vocab.forEach(function (w) {
+      html += '<th style="border:1px solid var(--border);padding:0.3rem 0.5rem;text-align:center;background:rgba(37,99,235,0.08);white-space:nowrap;">' + escHtml(w) + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    for (var i = 0; i < V; i++) {
+      html += '<tr><td style="border:1px solid var(--border);padding:0.3rem 0.6rem;font-weight:600;white-space:nowrap;">' + escHtml(vocab[i]) + '</td>';
+      for (var j = 0; j < V; j++) {
+        var val = coocMat[i][j];
+        var intensity = maxVal > 0 ? val / maxVal : 0;
+        var alpha = (intensity * 0.55).toFixed(3);
+        var cellStyle = val > 0
+          ? 'background:rgba(37,99,235,' + alpha + ');'
+          : 'color:var(--text-muted);';
+        html += '<td style="border:1px solid var(--border);padding:0.3rem 0.5rem;text-align:center;' + cellStyle + '">' + val + '</td>';
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    return html;
+  }
+
+  // Render PPMI heatmap with Plotly
+  function renderPPMIHeatmap(vocab, ppmiMat) {
+    // Plotly expects z as [row][col] with y-axis reversed for natural table orientation
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var paperBg = dark ? '#1f2937' : '#f8f9fa';
+    var fontColor = dark ? '#f3f4f6' : '#1a1a1a';
+
+    var trace = {
+      type: 'heatmap',
+      z: ppmiMat,
+      x: vocab,
+      y: vocab,
+      colorscale: 'Blues',
+      showscale: true,
+      hoverongaps: false,
+      hovertemplate: 'Target: %{y}<br>Context: %{x}<br>PPMI: %{z:.3f}<extra></extra>'
+    };
+
+    var layout = {
+      paper_bgcolor: paperBg,
+      plot_bgcolor: paperBg,
+      font: { color: fontColor, size: 11 },
+      xaxis: {
+        title: 'Context word',
+        tickangle: -40,
+        tickfont: { size: 10 },
+        automargin: true
+      },
+      yaxis: {
+        title: 'Target word',
+        tickfont: { size: 10 },
+        autorange: 'reversed',
+        automargin: true
+      },
+      margin: { t: 30, r: 30, b: 100, l: 100 }
+    };
+
+    Plotly.react('pmi-heatmap', [trace], layout, PLOTLY_CONFIG);
+  }
+
+  // Handle compute button
+  document.getElementById('pmi-compute-btn').addEventListener('click', function () {
+    var text = document.getElementById('pmi-corpus').value;
+    var window = parseInt(document.getElementById('pmi-window').value, 10);
+    var sentences = parseCorpus(text);
+
+    if (sentences.length === 0 || sentences.every(function (s) { return s.length === 0; })) {
+      alert('Please enter at least one sentence.');
+      return;
+    }
+
+    pmiResult = buildCooc(sentences, window);
+    var vocab = pmiResult.vocab;
+    var V = vocab.length;
+
+    if (V < 2) {
+      alert('Need at least 2 distinct words in the corpus.');
+      return;
+    }
+
+    // Render co-occurrence table
+    var coocSection = document.getElementById('pmi-cooc-section');
+    coocSection.style.display = 'block';
+    document.getElementById('pmi-cooc-table').innerHTML = renderCoocTable(vocab, pmiResult.coocMat);
+
+    // Render PPMI heatmap
+    var heatmapSection = document.getElementById('pmi-heatmap-section');
+    heatmapSection.style.display = 'block';
+    renderPPMIHeatmap(vocab, pmiResult.ppmiMat);
+
+    // Show query section
+    document.getElementById('pmi-query-section').style.display = 'block';
+    document.getElementById('pmi-query-result').innerHTML = '';
+
+    // Re-render math in any newly inserted elements
+    renderMath();
+  });
+
+  // Handle similarity query
+  document.getElementById('pmi-query-btn').addEventListener('click', function () {
+    if (!pmiResult) { alert('Click Compute first.'); return; }
+
+    var queryWord = document.getElementById('pmi-query-word').value.trim().toLowerCase();
+    var vocab = pmiResult.vocab;
+    var w2i = pmiResult.w2i;
+    var ppmiMat = pmiResult.ppmiMat;
+    var resultDiv = document.getElementById('pmi-query-result');
+
+    if (!w2i.hasOwnProperty(queryWord)) {
+      resultDiv.innerHTML = '<p style="color:var(--danger);">Word "<strong>' + escHtml(queryWord) + '</strong>" not found in the corpus vocabulary.</p>';
+      return;
+    }
+
+    var qi = w2i[queryWord];
+    var qVec = ppmiMat[qi];
+
+    // Compute cosine similarity to all other words
+    var sims = vocab
+      .map(function (w, i) {
+        if (i === qi) return null;
+        var sim = cosineSim(qVec, ppmiMat[i]);
+        return { word: w, sim: sim };
+      })
+      .filter(function (x) { return x !== null; })
+      .sort(function (a, b) { return b.sim - a.sim; })
+      .slice(0, 3);
+
+    if (sims.length === 0) {
+      resultDiv.innerHTML = '<p style="color:var(--text-muted);">No other words in vocabulary.</p>';
+      return;
+    }
+
+    var html = '<p>Top-3 most similar words to <strong>' + escHtml(queryWord) + '</strong>:</p>';
+    html += '<div class="stat-row" style="flex-wrap:wrap;">';
+    sims.forEach(function (item, rank) {
+      var barWidth = (item.sim * 100).toFixed(1);
+      html += '<div class="stat-card" style="min-width:140px;">';
+      html += '<span>#' + (rank + 1) + ' — ' + escHtml(item.word) + '</span>';
+      html += '<strong>cosine = ' + item.sim.toFixed(4) + '</strong>';
+      html += '<div style="background:var(--border);border-radius:3px;height:6px;margin-top:4px;">';
+      html += '<div style="background:var(--accent-blue);height:6px;border-radius:3px;width:' + Math.max(2, barWidth) + '%;transition:width 0.4s;"></div>';
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    resultDiv.innerHTML = html;
+  });
+
+  // Allow Enter key in query input
+  document.getElementById('pmi-query-word').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('pmi-query-btn').click();
+  });
+
+});
+</script>
+</body>
+</html>

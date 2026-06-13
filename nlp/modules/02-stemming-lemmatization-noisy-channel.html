@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 2: Stemming, Lemmatization &amp; the Noisy Channel Model</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+
+  <!-- NAV BAR -->
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-text-normalization-edit-distance.html">1. Normalisation</a>
+    <a href="02-stemming-lemmatization-noisy-channel.html" class="active">2. Stemming &amp; Lemmatization</a>
+    <a href="03-pos-tagging-shallow-parsing.html">3. POS &amp; Parsing</a>
+    <a href="04-cfg-parse-trees-deep-parsing.html">4. CFG &amp; Deep Parsing</a>
+    <a href="05-lexical-semantics-wsd.html">5. Lexical Semantics</a>
+    <a href="06-distributional-semantics-pmi.html">6. Distributional Semantics</a>
+    <a href="07-ner-iob-crf-srl-coreference.html">7. NER &amp; SRL</a>
+    <a href="08-bow-tfidf-topic-modeling.html">8. BoW &amp; TF-IDF</a>
+    <a href="09-word-embeddings.html">9. Word Embeddings</a>
+    <a href="10-ngram-lm-applications.html">10. N-gram LMs</a>
+  </nav>
+
+  <!-- HEADER -->
+  <header>
+    <h1>Module 2: Stemming, Lemmatization &amp; the Noisy Channel Model</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION 1: MORPHOLOGY
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Morphology — Why Word Forms Matter</h2>
+
+  <p>Module 1 equipped us with tools to normalise raw text: lowercase everything, strip punctuation, and measure the edit distance between strings. But even after normalisation, the same underlying concept can still surface under many surface forms. A search engine that indexes "run" will miss documents that only contain "running", "runs", or "ran" — all of which refer to the same act. This is the problem that <strong>morphological processing</strong> exists to solve.</p>
+
+  <p>Morphology is the study of the internal structure of words. Every word can be decomposed into one or more <strong>morphemes</strong> — the smallest units of meaning.</p>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>Free morphemes</h5>
+      <p>Can stand alone as a word: <em>run</em>, <em>happy</em>, <em>compute</em>. They carry the core meaning.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Bound morphemes</h5>
+      <p>Cannot stand alone — must attach to a root: <em>-ing</em>, <em>-ed</em>, <em>un-</em>, <em>-ation</em>. They modify or extend meaning.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Roots vs affixes</h5>
+      <p>The <strong>root</strong> (or stem) carries the primary meaning. <strong>Affixes</strong> attach before (prefix) or after (suffix) the root. In <em>uncomputerised</em>: root = <em>comput</em>, affixes = <em>un-</em>, <em>-er</em>, <em>-ise</em>, <em>-d</em>.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Inflectional morphology</h5>
+      <p>Marks grammatical properties: tense, number, case, person. "runs", "ran", "running" are all inflections of <em>run</em>. The word class does <em>not</em> change — all three remain verbs.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Derivational morphology</h5>
+      <p>Creates new words, often changing the word class or meaning: <em>happy</em> (adj) → <em>unhappy</em> (adj); <em>compute</em> (verb) → <em>computation</em> (noun). More semantically significant than inflection.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Why NLP cares</h5>
+      <p>Search engines, classifiers, and chatbots all benefit from recognising that "studying", "studied", and "studies" share the same root. Morphological reduction is the primary means of achieving this.</p>
+    </div>
+  </div>
+
+  <div class="callout note">
+    <strong>Inflectional vs. derivational — a practical rule of thumb</strong>
+    Inflectional morphology is almost always worth collapsing: "runs" and "ran" should match "run" in most applications. Derivational morphology is more nuanced: "compute" and "computation" are related but distinct — sometimes you want them grouped (broad IR), sometimes not (precise QA). This tension shapes the stemming vs. lemmatization trade-off we explore next.
+  </div>
+
+  <p>Consider the query "run" in a search engine. The documents in the index may contain:</p>
+
+  <div class="token-sequence" style="font-size:0.95rem;line-height:2.5;">
+    <span class="token-wrap"><span class="token-word pos-VERB">running</span><span class="token-pos pos-badge-VERB">VERB</span></span>
+    <span class="token-wrap"><span class="token-word pos-VERB">runs</span><span class="token-pos pos-badge-VERB">VERB</span></span>
+    <span class="token-wrap"><span class="token-word pos-VERB">ran</span><span class="token-pos pos-badge-VERB">VERB</span></span>
+    <span class="token-wrap"><span class="token-word pos-NOUN">runner</span><span class="token-pos pos-badge-NOUN">NOUN</span></span>
+    <span class="token-wrap"><span class="token-word pos-NOUN">run</span><span class="token-pos pos-badge-NOUN">NOUN</span></span>
+    <span class="token-wrap"><span class="token-word pos-ADJ">runnable</span><span class="token-pos pos-badge-ADJ">ADJ</span></span>
+  </div>
+
+  <p>All six tokens share the same root. Without morphological processing, a simple string-match for "run" only retrieves documents containing the exact string "run". Stemming and lemmatization map all six to a single canonical form, dramatically improving recall.</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION 2: STEMMING
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Stemming</h2>
+
+  <p>Stemming is a <strong>crude heuristic process</strong> that chops off word endings based on a fixed set of rules, without any understanding of grammar or vocabulary. The output — the <em>stem</em> — need not be a real dictionary word. The goal is simply that all inflected (and some derived) forms of a word produce the same stem, so they index to the same bucket.</p>
+
+  <h3>The Porter Stemmer</h3>
+
+  <p>The Porter Stemmer (Porter, 1980) remains the most widely cited English stemmer after more than four decades. It defines a series of transformation rules organised into five phases, applied in sequence. A key concept is the <strong>measure m</strong> — roughly the number of vowel-consonant sequences in the word stem, used to guard against over-aggressive stripping on short words.</p>
+
+  <div class="concept-box">
+    <h4>Measure m — quick definition</h4>
+    <p>Denote a vowel as V and a consonant as C. The measure <em>m</em> of a word is the count of (VC) pairs in the pattern [C](VC)<sup>m</sup>[V]. For example: "tr" → m = 0; "tree" → m = 0; "troubles" → m = 1; "private" → m = 2; "oats" → m = 1. Rules guarded by "(m&gt;0)" only fire when the remaining stem is not trivially short.</p>
+  </div>
+
+  <p>The five phases of Porter stemming (simplified) are shown below, each with representative examples:</p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1a</div>
+      <div class="step-content">
+        <strong>Handle plural -S endings</strong>
+        <div class="step-explanation">
+          Rules (applied in priority order): SSES → SS ("caresses" → "caress"), IES → I ("ponies" → "poni", "ties" → "ti"), SS → SS (no change: "caress" → "caress"), S → "" ("cats" → "cat", "runs" → "run"). The IES → I rule is deliberately crude — "ponies" becomes "poni", not "pony".
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">1b</div>
+      <div class="step-content">
+        <strong>Handle -ED and -ING</strong>
+        <div class="step-explanation">
+          (m&gt;0) EED → EE ("agreed" → "agree"; "feed" → "feed" because m=0). (*v*) ED → "" if the stem contains a vowel: "plastered" → "plaster", "caressed" → "cares" (note: this is an error — the stem "cares" is misleading). (*v*) ING → "": "motoring" → "motor", "running" → "run". A cleanup sub-step then handles double consonants (e.g., "matting" → "matt" → "mat") and restores E where needed ("hoping" → "hop" + final-e rule → "hope").
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Transform common suffixes</strong>
+        <div class="step-explanation">
+          (m&gt;0) apply a table of suffix substitutions: ATIONAL → ATE ("relational" → "relate"), TIONAL → TION ("conditional" → "condition"), ENCI → ENCE ("valenci" → "valence"), OUSLI → OUS ("callousli" → "callous"), ALISM → AL ("feudalism" → "feudal"), and many more.
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Remove -icate, -ative, -alize, -iciti, -ical, -ful, -ness</strong>
+        <div class="step-explanation">
+          (m&gt;0): ICATE → IC ("triplicate" → "triplic"), ATIVE → "" ("formative" → "form"), ALIZE → AL ("formalize" → "formal"), ICAL → IC ("electrical" → "electr"), FUL → "" ("hopeful" → "hope"), NESS → "" ("goodness" → "good").
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">4–5</div>
+      <div class="step-content">
+        <strong>Remove residual derivational suffixes; clean up final -e and -ll</strong>
+        <div class="step-explanation">
+          Phase 4 strips longer derivational endings like -ance, -ence, -ism, -able, -ible, -ion, -ment, -ous, -ive, -ize (all requiring m&gt;1). Phase 5a removes a terminal E when m&gt;1, or when m=1 and the preceding context is not a short vowel sequence. Phase 5b: (m&gt;1) double-L ending → L ("controll" → "control").
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Snowball (Porter2)</h3>
+
+  <p>Snowball, also written by Porter, is a more careful revision of the original algorithm. It fixes several known errors (e.g., "generously" → "generous" rather than "generos"), handles irregular vowel patterns more accurately, and is implemented in many languages beyond English. NLTK ships both algorithms as <code>PorterStemmer</code> and <code>SnowballStemmer</code>.</p>
+
+  <h3>Over-stemming and Under-stemming</h3>
+
+  <div class="pros-cons">
+    <div class="pros-cons-col pros">
+      <h4>Over-stemming</h4>
+      <ul>
+        <li>The stemmer strips <em>too much</em>, merging words that should remain distinct</li>
+        <li>Classic example: "universe", "university", "universal" → all map to "univers"</li>
+        <li>Also: "news" → "new" (stripping valid noun as if it were an adjective)</li>
+        <li>Damages precision: retrieval returns semantically unrelated documents</li>
+      </ul>
+    </div>
+    <div class="pros-cons-col cons">
+      <h4>Under-stemming</h4>
+      <ul>
+        <li>The stemmer strips <em>too little</em>, failing to merge forms that should be grouped</li>
+        <li>Example: "alumnus" and "alumni" may not be conflated</li>
+        <li>Also: irregular forms like "mice"/"mouse" are not handled by rule-based stemmers</li>
+        <li>Damages recall: related documents are missed</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Code Snippet 1 -->
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python · NLTK — PorterStemmer &amp; SnowballStemmer</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-kw">from</span> nltk.stem <span class="py-kw">import</span> <span class="py-cls">PorterStemmer</span>, <span class="py-cls">SnowballStemmer</span>
+
+porter   = <span class="py-cls">PorterStemmer</span>()
+snowball = <span class="py-cls">SnowballStemmer</span>(<span class="py-str">"english"</span>)
+
+words = [<span class="py-str">"running"</span>, <span class="py-str">"studies"</span>, <span class="py-str">"better"</span>, <span class="py-str">"caresses"</span>, <span class="py-str">"happily"</span>,
+         <span class="py-str">"computing"</span>, <span class="py-str">"generously"</span>, <span class="py-str">"university"</span>, <span class="py-str">"universal"</span>]
+
+<span class="py-kw">for</span> w <span class="py-kw">in</span> words:
+    <span class="py-fn">print</span>(<span class="py-str">f"</span>{w:<span class="py-num">15</span>}<span class="py-str"> → Porter: </span>{porter.<span class="py-fn">stem</span>(w):<span class="py-num">15</span>}<span class="py-str"> Snowball: </span>{snowball.<span class="py-fn">stem</span>(w)}<span class="py-str">"</span>)</pre>
+    <div class="output-block">running         → Porter: run             Snowball: run
+studies         → Porter: studi          Snowball: studi
+better          → Porter: better         Snowball: better
+caresses        → Porter: caress         Snowball: caress
+happily         → Porter: happili        Snowball: happili
+computing       → Porter: comput         Snowball: comput
+generously      → Porter: generos        Snowball: generous
+university      → Porter: univers        Snowball: univers
+universal       → Porter: univers        Snowball: univers</div>
+  </div>
+
+  <p>Notice three things: (1) neither stemmer knows that "better" is the comparative of "good" — it takes no vocabulary; (2) Snowball correctly keeps the "ous" in "generous" while Porter strips it to "generos"; (3) both merge "university" and "universal" into "univers" — a classic over-stemming case.</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION 3: LEMMATIZATION
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Lemmatization</h2>
+
+  <p>Lemmatization takes a slower but fundamentally different approach. Instead of stripping characters by rule, it uses a <strong>morphological lexicon</strong> — a dictionary that maps inflected forms to their <em>lemma</em>, the canonical dictionary headword. The output is always a valid word.</p>
+
+  <p>Crucially, lemmatization benefits from knowing the word's part of speech. The word "better" has two lemmas depending on context:</p>
+
+  <table style="width:auto;margin:1rem 0;">
+    <thead><tr><th>Surface form</th><th>POS</th><th>Lemma</th><th>Paradigm</th></tr></thead>
+    <tbody>
+      <tr><td><code>better</code></td><td>ADJ (comparative)</td><td><strong>good</strong></td><td>good → better → best</td></tr>
+      <tr><td><code>better</code></td><td>VERB</td><td><strong>better</strong></td><td>to better (improve)</td></tr>
+      <tr><td><code>running</code></td><td>VERB</td><td><strong>run</strong></td><td>run → ran → run → running</td></tr>
+      <tr><td><code>running</code></td><td>NOUN</td><td><strong>running</strong></td><td>a running (event)</td></tr>
+      <tr><td><code>wolves</code></td><td>NOUN</td><td><strong>wolf</strong></td><td>irregular plural</td></tr>
+      <tr><td><code>argued</code></td><td>VERB</td><td><strong>argue</strong></td><td>regular past tense</td></tr>
+    </tbody>
+  </table>
+
+  <p>A stemmer would produce "run" for both VERB and NOUN "running" (correct in the first case, wrong in the second). Lemmatization gets both right — but it requires a POS tagger upstream, making it slower and more complex.</p>
+
+  <h3>WordNet Lemmatizer (NLTK)</h3>
+
+  <p>NLTK's <code>WordNetLemmatizer</code> uses the WordNet lexical database. You must supply the POS manually (or from a POS tagger). Without a POS argument it defaults to NOUN, which is often wrong for verbs.</p>
+
+  <h3>spaCy Lemmatization</h3>
+
+  <p>spaCy integrates lemmatization directly into its processing pipeline. After calling <code>nlp(text)</code>, each token exposes <code>token.lemma_</code>. spaCy uses its trained model to predict POS before lemmatizing, so no manual POS annotation is needed.</p>
+
+  <!-- Code Snippet 2 -->
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python · spaCy — Token, POS, and Lemma</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-kw">import</span> spacy
+
+nlp = spacy.<span class="py-fn">load</span>(<span class="py-str">"en_core_web_sm"</span>)
+doc = nlp(<span class="py-str">"The wolves are running faster than they were yesterday."</span>)
+
+<span class="py-kw">for</span> token <span class="py-kw">in</span> doc:
+    <span class="py-fn">print</span>(<span class="py-str">f"</span>{token.text:<span class="py-num">12</span>}<span class="py-str"> POS: </span>{token.pos_:<span class="py-num">6</span>}<span class="py-str"> Lemma: </span>{token.lemma_}<span class="py-str">"</span>)</pre>
+    <div class="output-block">The          POS: DET    Lemma: the
+wolves       POS: NOUN   Lemma: wolf
+are          POS: AUX    Lemma: be
+running      POS: VERB   Lemma: run
+faster       POS: ADV    Lemma: fast
+than         POS: SCONJ  Lemma: than
+they         POS: PRON   Lemma: they
+were         POS: AUX    Lemma: be
+yesterday    POS: NOUN   Lemma: yesterday
+.            POS: PUNCT  Lemma: .</div>
+  </div>
+
+  <p>Key observations: "wolves" → "wolf" (irregular plural handled correctly), "are"/"were" → "be" (auxiliary forms unified), "running" → "run" (with POS=VERB). A stemmer would leave "wolves" as "wolv" or "wolve" — not a real word.</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION 4: TRADE-OFF COMPARISON
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Stemming vs. Lemmatization — The Trade-off</h2>
+
+  <p>There is no universally superior choice. The right tool depends on the task, the available compute budget, and the cost of errors.</p>
+
+  <table class="comparison-table">
+    <thead>
+      <tr>
+        <th>Dimension</th>
+        <th>Stemming</th>
+        <th>Lemmatization</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Method</strong></td><td class="stem">Rule-based suffix stripping</td><td class="lemma">Vocabulary lookup + morphological analysis</td></tr>
+      <tr><td><strong>Output</strong></td><td class="stem">Stem (may not be a real word: "univers", "argu")</td><td class="lemma">Valid dictionary lemma ("argue", "universal")</td></tr>
+      <tr><td><strong>Speed</strong></td><td class="stem">Very fast — O(|word|) per token, no memory</td><td class="lemma">Slower — requires dictionary and/or neural model</td></tr>
+      <tr><td><strong>Accuracy</strong></td><td class="stem">Lower — over/under-stemming errors</td><td class="lemma">Higher — handles irregular forms correctly</td></tr>
+      <tr><td><strong>POS needed?</strong></td><td class="stem">No</td><td class="lemma">Yes (for best results — "better" example)</td></tr>
+      <tr><td><strong>"better" (adj)</strong></td><td class="stem">"better" (unchanged)</td><td class="lemma">"good"</td></tr>
+      <tr><td><strong>"wolves"</strong></td><td class="stem">"wolv" or "wolve"</td><td class="lemma">"wolf"</td></tr>
+      <tr><td><strong>"caressed"</strong></td><td class="stem">"cares" (Porter error)</td><td class="lemma">"caress"</td></tr>
+      <tr><td><strong>Use case</strong></td><td class="stem">IR, large-scale indexing, spam classification</td><td class="lemma">QA, NLU, chatbots, tasks needing precise meaning</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout insight">
+    <strong>Practical heuristic</strong>
+    If your task cares primarily about <em>recall</em> — finding all documents relevant to a query — and operates at a scale where speed matters, use stemming. If your task cares about <em>semantic precision</em> — correctly distinguishing "universal" from "university", or understanding that "better" is a comparative of "good" — use lemmatization. Many production systems use a two-stage pipeline: fast stemming for initial retrieval, then lemmatization for re-ranking or feature engineering.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       WIDGET 1: STEMMER / LEMMATIZER COMPARATOR
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Interactive: Stemmer / Lemmatizer Comparator</h2>
+
+  <div class="widget-container">
+    <h4>Enter a comma-separated list of words, then click Compare to see Porter stem, Snowball stem, and spaCy lemma side-by-side. Try words with irregular plurals, comparatives, or verb conjugations.</h4>
+    <div class="widget-controls">
+      <label style="flex:1;min-width:300px;">
+        Words:
+        <input type="text" id="stem-input" value="running, studies, better, caresses, happily, computing, wolves, argued" style="width:100%;max-width:500px;">
+      </label>
+      <button id="stem-compare-btn">Compare</button>
+    </div>
+    <div id="stem-results" style="margin-top:1rem;overflow-x:auto;"></div>
+    <p style="font-size:0.78rem;color:var(--text-muted);margin-top:0.75rem;">
+      Stems are computed with a simplified JavaScript implementation of Porter / Snowball rules. Lemmas use a pre-computed lookup table (~50 common words); unknown words fall back to a heuristic suffix-stripping rule.
+    </p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION 5: NOISY CHANNEL MODEL
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>The Noisy Channel Model</h2>
+
+  <p>You have seen how to normalise and reduce word forms. But NLP must also contend with a more adversarial kind of noise: human <em>typos</em>. When someone types "teh", they almost certainly meant "the". When someone types "recieve", they almost certainly meant "receive". How can a system decide this automatically?</p>
+
+  <p>Naive string matching fails immediately. The system must consider all possible intended words and weigh two competing factors: <em>how likely was the intended word to appear here?</em> and <em>how likely is this particular typo given that intended word?</em> The <strong>noisy channel model</strong> provides the mathematical framework.</p>
+
+  <h3>The Metaphor</h3>
+
+  <p>Imagine the writer has a perfect intended word <em>w</em> in mind. They attempt to transmit it through a noisy communication channel — their fingers on the keyboard. The channel corrupts the signal, and what arrives at the receiver (the spell checker) is the observed string <em>e</em> (the error). The task is to <em>decode</em> <em>e</em> back to the most probable intended word <em>w</em>.</p>
+
+  <div class="concept-box">
+    <h4>Noisy Channel — Channel Model Derivation</h4>
+    <p>We want the word <em>w</em> that maximises the posterior probability given the observation <em>e</em>. By Bayes' theorem:</p>
+    <div class="math-block">
+      <span class="math-latex math-block">\hat{w} = \underset{w \in \mathcal{V}}{\arg\max}\; P(w \mid e) = \underset{w \in \mathcal{V}}{\arg\max}\; \frac{P(e \mid w) \cdot P(w)}{P(e)}</span>
+    </div>
+    <p>Since <span class="math-inline math-latex">P(e)</span> is the same constant for all candidate <em>w</em> (the observation is fixed), we can drop it from the argmax:</p>
+    <div class="math-block">
+      <span class="math-latex math-block">\hat{w} = \underset{w \in \mathcal{V}}{\arg\max}\; P(e \mid w) \cdot P(w)</span>
+    </div>
+    <p>This is the <strong>noisy channel equation</strong>. Its two components are:</p>
+    <ul>
+      <li><strong><span class="math-inline math-latex">P(w)</span> — the language model (prior):</strong> how probable is word <em>w</em> in this language/context? A unigram LM uses word frequency; a bigram LM conditions on the preceding word.</li>
+      <li><strong><span class="math-inline math-latex">P(e \mid w)</span> — the channel/error model (likelihood):</strong> given that the writer intended <em>w</em>, how probable is it that they produced the observed string <em>e</em>? This is estimated from a <em>confusion matrix</em> built from annotated typo data.</li>
+    </ul>
+  </div>
+
+  <h3>The Error Model: Confusion Matrices</h3>
+
+  <p>The error model <span class="math-inline math-latex">P(e \mid w)</span> is estimated from a large corpus of spelling errors annotated with their corrections. For each edit operation (deletion, insertion, substitution, transposition), we count how often a particular character pair is involved:</p>
+
+  <ul>
+    <li><strong>Substitution confusion</strong>: how often is character <em>x</em> typed as <em>y</em>? (e.g., "a" → "e" because of keyboard adjacency)</li>
+    <li><strong>Transposition confusion</strong>: how often are adjacent characters <em>xy</em> typed as <em>yx</em>? (e.g., "th" → "ht", giving "teh" from "the")</li>
+    <li><strong>Deletion confusion</strong>: how often is a character simply dropped?</li>
+    <li><strong>Insertion confusion</strong>: how often is a spurious character added?</li>
+  </ul>
+
+  <p>These counts are normalised to produce probabilities. The overall <span class="math-inline math-latex">P(e \mid w)</span> is the product of per-edit probabilities along the optimal edit path.</p>
+
+  <h3>Candidate Generation</h3>
+
+  <p>Searching over the entire vocabulary for every observed string is impractical. Instead, candidates are generated by finding all dictionary words within edit distance 1 or 2 of the observed string. This is exactly the edit distance computation from Module 1. In practice, about 80% of non-word errors are within edit distance 1 of the correct word (Damerau, 1964).</p>
+
+  <div class="callout warning">
+    <strong>Real-word errors</strong>
+    The noisy channel model as presented handles <em>non-word</em> errors — typos that produce strings not in the dictionary ("teh"). It does not handle <em>real-word</em> errors where the typo happens to be a valid word ("their" → "there"). Handling those requires a language model strong enough to detect contextual implausibility — a topic for later modules.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       WIDGET 2: NOISY CHANNEL STEP-THROUGH
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Interactive: Noisy Channel Step-Through</h2>
+
+  <div class="widget-container">
+    <h4>Walk through the noisy channel model for the observed misspelling "teh". Use the controls to advance through each stage: candidate generation → language model scoring → error model scoring → argmax.</h4>
+
+    <div class="step-controls">
+      <button id="nc-prev-btn" class="secondary">&#8592; Prev</button>
+      <button id="nc-next-btn">Next &#8594;</button>
+      <button id="nc-reset-btn" class="secondary">Reset</button>
+      <span class="step-counter" id="nc-counter">Step 1 / 6</span>
+    </div>
+
+    <div class="step-explanation" id="nc-explain">Observed string: "teh". We suspect this is a misspelling. Our task is to find the most probable intended word using the noisy channel model.</div>
+
+    <div id="nc-content" style="margin-top:1rem;"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       PRACTICE PROBLEMS
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: Apply Porter Stemmer Phase 1a by Hand</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>Apply Porter Stemmer Phase 1a rules manually to each of the following words: <strong>caresses</strong>, <strong>ponies</strong>, <strong>cats</strong>, <strong>bass</strong>.</p>
+      <p>Phase 1a rules (applied in priority order, first match wins):</p>
+      <ol>
+        <li>SSES → SS</li>
+        <li>IES → I</li>
+        <li>SS → SS (no change)</li>
+        <li>S → "" (delete)</li>
+      </ol>
+      <p>State which rule fires and the resulting stem for each word.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <table>
+          <thead><tr><th>Word</th><th>Rule</th><th>Stem</th><th>Explanation</th></tr></thead>
+          <tbody>
+            <tr><td><strong>caresses</strong></td><td>SSES → SS</td><td><strong>caress</strong></td><td>Ends in SSES; replace with SS. Correct result.</td></tr>
+            <tr><td><strong>ponies</strong></td><td>IES → I</td><td><strong>poni</strong></td><td>Ends in IES; replace with I. Not a real word — expected over-simplification in Phase 1a.</td></tr>
+            <tr><td><strong>cats</strong></td><td>S → ""</td><td><strong>cat</strong></td><td>Ends in S but not SS or SSES or IES; delete S.</td></tr>
+            <tr><td><strong>bass</strong></td><td>SS → SS</td><td><strong>bass</strong></td><td>Ends in SS; no change (rule 3 fires before rule 4).</td></tr>
+          </tbody>
+        </table>
+        <p>Note that "cats" and "caresses" both work correctly. "ponies" → "poni" is a known Phase 1a simplification — later phases do not repair it in Porter (though Snowball handles it better). "bass" correctly stays unchanged, preventing the erroneous "ba".</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: Noisy Channel Calculation</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>You observe the misspelled word <strong>"recieve"</strong>. Three candidate corrections are proposed with the following scores:</p>
+      <table>
+        <thead><tr><th>Candidate w</th><th>P(w) — language model</th><th>P(e|w) — error model</th></tr></thead>
+        <tbody>
+          <tr><td><strong>receive</strong></td><td>0.01</td><td>0.85</td></tr>
+          <tr><td><strong>relieve</strong></td><td>0.003</td><td>0.05</td></tr>
+          <tr><td><strong>retrieve</strong></td><td>0.002</td><td>0.02</td></tr>
+        </tbody>
+      </table>
+      <p>Which word does the noisy channel model select? Show the full calculation for each candidate, and write the argmax formula.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>The noisy channel model selects:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">\hat{w} = \underset{w}{\arg\max}\; P(e \mid w) \cdot P(w)</span>
+        </div>
+        <p>Computing the joint score for each candidate:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">
+            \text{receive:} \quad P(e \mid w) \cdot P(w) = 0.85 \times 0.01 = \mathbf{0.0085}
+          </span>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">
+            \text{relieve:} \quad P(e \mid w) \cdot P(w) = 0.05 \times 0.003 = 0.00015
+          </span>
+        </div>
+        <div class="math-block">
+          <span class="math-latex math-block">
+            \text{retrieve:} \quad P(e \mid w) \cdot P(w) = 0.02 \times 0.002 = 0.00004
+          </span>
+        </div>
+        <p>Ranking: receive (0.0085) > relieve (0.00015) > retrieve (0.00004).</p>
+        <p><strong>The model selects "receive"</strong> with a score of 0.0085 — nearly 57× higher than the next candidate.</p>
+        <p><em>Interpretation:</em> "receive" wins because it has <em>both</em> a high language model probability (it is a common word) <em>and</em> a high error model probability (the "ie/ei" transposition is a very common confusion). "relieve" is penalised by a low error model score — the path from "recieve" to "relieve" requires more/different edits. "retrieve" suffers on both components.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3 -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: Stemming Failure Analysis</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>The Porter stemmer produces <code>"univers"</code> as the stem for all of: "university", "universe", and "universal".</p>
+      <p><strong>(a)</strong> Is this an instance of over-stemming or under-stemming? Justify your answer precisely.</p>
+      <p><strong>(b)</strong> Give a concrete example of an IR query where this conflation is <em>beneficial</em>, and a concrete example where it is <em>harmful</em>.</p>
+      <p><strong>(c)</strong> Propose a principled test to help decide whether to use stemming or lemmatization for a given application. Your test should be actionable — something a practitioner could actually run.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>(a) This is over-stemming.</strong> Over-stemming occurs when distinct words that should <em>not</em> be conflated are mapped to the same stem. "Universe" (a cosmological entity), "university" (an educational institution), and "universal" (an adjective meaning applicable to all) are semantically distinct. Their shared Latin root <em>universus</em> is an etymological coincidence that does not make them synonyms in modern English. By merging them, the stemmer is asserting a semantic equivalence that does not exist. Compare under-stemming, which would fail to merge "running" and "run" — an error in the opposite direction.</p>
+
+        <p><strong>(b) Beneficial example:</strong> A broad academic IR query like <em>"universal access to higher education"</em>. If the user is researching education policy, they may also want results containing "university access" or "universities universal". Conflating these three terms under "univers" increases recall — retrieving more potentially relevant documents — at the cost of some precision.</p>
+
+        <p><strong>Harmful example:</strong> A scientific query distinguishing cosmology from education policy, such as <em>"universe expansion models"</em>. After stemming, documents about "university curriculum expansion" and "universal healthcare models" share the same "univers" token and will be scored as relevant. This pollutes the result set with semantically unrelated material — a precision failure.</p>
+
+        <p><strong>(c) Principled test — precision/recall audit on a held-out query set:</strong></p>
+        <ol>
+          <li>Collect 50–100 representative queries and their relevance judgements (which documents are truly relevant to each query).</li>
+          <li>Index the same document corpus twice: once with stemming, once with lemmatization.</li>
+          <li>Compute precision@10 and recall@10 for each system on every query.</li>
+          <li>Compare aggregate P@10 and R@10 across both systems. Also look at per-query deltas — some queries will be harmed by stemming (over-conflation), others will be helped (better recall). If the task has strict precision requirements (e.g., a legal or medical search system), choose the system with higher P@10. If recall is paramount (e.g., patent prior-art search), prefer higher R@10.</li>
+          <li>As a quick proxy: count "stem-collapse collisions" — pairs of semantically distinct words that map to the same stem — in the target domain vocabulary. A high collision rate predicts precision degradation.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       QUIZ
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Quiz</h2>
+
+  <div class="quiz-block">
+    <div class="quiz-block-header">Multiple choice · 4 questions · click to answer</div>
+
+    <!-- Q1 -->
+    <div class="quiz-question">
+      <p>Q1. Which output is a valid <strong>lemma</strong> for the word "better" when used as an adjective?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>"bett" — a stem produced by over-aggressive suffix stripping</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">B</span>
+          <span>"good" — the base form of the good/better/best paradigm</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>"better" — unchanged; the lemmatizer returns the input</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>"best" — the superlative of the same paradigm</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. The lemma of "better" (adj) is "good" — lemmatization uses POS context and a morphological lexicon to trace the word back to its dictionary headword. "Good", "better", "best" are suppletive forms of the same adjective paradigm.</div>
+      <div class="quiz-feedback wrong-fb">The lemma of "better" (adj) is "good". This requires knowing the POS — "better" is the comparative form of the adjective "good". A stemmer, which has no vocabulary, would simply return "better" unchanged. Lemmatization traces suppletive paradigms (good/better/best) through a lexical database.</div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="quiz-question">
+      <p>Q2. In the noisy channel model for spell correction, what does <span class="math-inline math-latex">P(e \mid w)</span> represent?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>The probability that the user intended to type the observed string e</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">B</span>
+          <span>The probability of observing the error string e given that the intended word was w</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>The probability that w appears in the vocabulary of the language</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>The language model probability of word w appearing in this context</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. <span class="math-inline math-latex">P(e \mid w)</span> is the channel model (error model) — how likely is it that someone trying to type w produced the observed misspelling e? It is estimated from confusion matrices that count specific character-level edit patterns in annotated typo corpora.</div>
+      <div class="quiz-feedback wrong-fb"><span class="math-inline math-latex">P(e \mid w)</span> is the channel/error model probability. <span class="math-inline math-latex">P(w)</span> is the language model prior. They are multiplied together: <span class="math-inline math-latex">\hat{w} = \arg\max\, P(e|w) \cdot P(w)</span>. Option D describes <span class="math-inline math-latex">P(w)</span>, not <span class="math-inline math-latex">P(e|w)</span>.</div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="quiz-question">
+      <p>Q3. The Porter stemmer reduces "arguing" to "argu". This is an example of:</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>Under-stemming — the stemmer failed to merge related forms</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">B</span>
+          <span>Over-stemming — the stemmer stripped too aggressively, producing a non-word</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>Correct lemmatization — "argu" is the correct lemma of "arguing"</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Morphological analysis — the stemmer correctly identified the root morpheme</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. Over-stemming strips too much, producing a non-word. "argu" is not in any dictionary — the correct lemma is "argue". Phase 1b removes -ING: "arguing" → "argu" (dropping the -e before the -ing). The correct stem should be "argu" only if paired with a cleanup rule that restores the E — Porter's cleanup fires for "hop"→"hope" but not for "argu" because the preceding letter pattern doesn't trigger it.</div>
+      <div class="quiz-feedback wrong-fb">Over-stemming occurs when the stemmer strips too aggressively, producing a stem that is shorter than it should be — and often not a real word. "argu" is not a word; the correct form is "argue". Under-stemming would be the opposite: leaving "arguing" and "argued" as different stems when they should be merged.</div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="quiz-question">
+      <p>Q4. Which of the following tasks would most benefit from <strong>lemmatization</strong> over stemming?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>Indexing billions of web pages for a large-scale search engine where speed is critical</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">B</span>
+          <span>Spam email classification using a bag-of-words feature vector</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">C</span>
+          <span>A question-answering system that must handle "What is the best treatment?" vs "How do doctors treat patients?"</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Counting word frequencies across a large text corpus for statistical analysis</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. QA and NLU tasks benefit from lemmatization's precision. Recognising that "treat", "treats", "treated", and "treatment" (noun) share the root "treat" — and knowing the POS of each — enables correct semantic matching. Stemming would conflate "treat" and "treatment" (which have subtly different meanings in this context) without the positional awareness lemmatization provides.</div>
+      <div class="quiz-feedback wrong-fb">Lemmatization shines when POS-sensitive semantic distinctions matter. Tasks A, B, and D all prioritise throughput and approximate matching over fine-grained morphological precision — stemming is the natural fit. A QA system, by contrast, must correctly handle different word forms in context, which is exactly what lemmatization with POS information enables.</div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       BRIDGE TO MODULE 3
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="bridge" style="margin-top:2.5rem;">
+    <strong>Bridge to Module 3.</strong> We can now reduce any surface word form to its canonical root — either a rough stem for fast indexing, or a precise lemma for semantically aware processing. But text understanding requires more than knowing what individual words mean in isolation — it requires understanding how words combine grammatically to form phrases and clauses. Module 3 introduces syntactic processing: how to assign grammatical roles (part-of-speech tags) to each token, and how to group tokens into meaningful phrases through shallow parsing (chunking).
+  </div>
+
+  <!-- NAVIGATION BUTTONS -->
+  <div class="nav-buttons">
+    <a href="01-text-normalization-edit-distance.html" class="nav-btn prev">&#8592; Module 1: Text Normalisation</a>
+    <a href="03-pos-tagging-shallow-parsing.html" class="nav-btn">Module 3: POS &amp; Parsing &#8594;</a>
+  </div>
+
+</div><!-- /.container -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     INLINE JAVASCRIPT
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PRE-COMPUTED LOOKUP TABLE
+  // Keys: lowercase word. Value: { porter, snowball, lemma }
+  // ─────────────────────────────────────────────────────────────────────────────
+  var LOOKUP = {
+    'running':     { porter: 'run',       snowball: 'run',       lemma: 'run' },
+    'runs':        { porter: 'run',       snowball: 'run',       lemma: 'run' },
+    'ran':         { porter: 'ran',       snowball: 'ran',       lemma: 'run' },
+    'runner':      { porter: 'runner',    snowball: 'runner',    lemma: 'runner' },
+    'studies':     { porter: 'studi',     snowball: 'studi',     lemma: 'study' },
+    'studied':     { porter: 'studi',     snowball: 'studi',     lemma: 'study' },
+    'studying':    { porter: 'studi',     snowball: 'studi',     lemma: 'study' },
+    'better':      { porter: 'better',    snowball: 'better',    lemma: 'good' },
+    'best':        { porter: 'best',      snowball: 'best',      lemma: 'good' },
+    'good':        { porter: 'good',      snowball: 'good',      lemma: 'good' },
+    'caresses':    { porter: 'caress',    snowball: 'caress',    lemma: 'caress' },
+    'caressed':    { porter: 'cares',     snowball: 'caress',    lemma: 'caress' },
+    'happily':     { porter: 'happili',   snowball: 'happili',   lemma: 'happily' },
+    'happy':       { porter: 'happi',     snowball: 'happi',     lemma: 'happy' },
+    'unhappy':     { porter: 'unhappi',   snowball: 'unhappi',   lemma: 'unhappy' },
+    'computing':   { porter: 'comput',    snowball: 'comput',    lemma: 'compute' },
+    'computed':    { porter: 'comput',    snowball: 'comput',    lemma: 'compute' },
+    'computation': { porter: 'comput',    snowball: 'comput',    lemma: 'computation' },
+    'wolves':      { porter: 'wolv',      snowball: 'wolv',      lemma: 'wolf' },
+    'wolf':        { porter: 'wolf',      snowball: 'wolf',      lemma: 'wolf' },
+    'argued':      { porter: 'argu',      snowball: 'argu',      lemma: 'argue' },
+    'arguing':     { porter: 'argu',      snowball: 'argu',      lemma: 'argue' },
+    'argues':      { porter: 'argu',      snowball: 'argu',      lemma: 'argue' },
+    'argue':       { porter: 'argu',      snowball: 'argu',      lemma: 'argue' },
+    'university':  { porter: 'univers',   snowball: 'univers',   lemma: 'university' },
+    'universe':    { porter: 'univers',   snowball: 'univers',   lemma: 'universe' },
+    'universal':   { porter: 'univers',   snowball: 'univers',   lemma: 'universal' },
+    'generously':  { porter: 'generos',   snowball: 'generous',  lemma: 'generously' },
+    'generous':    { porter: 'gener',     snowball: 'generous',  lemma: 'generous' },
+    'mice':        { porter: 'mice',      snowball: 'mice',      lemma: 'mouse' },
+    'mouse':       { porter: 'mous',      snowball: 'mous',      lemma: 'mouse' },
+    'went':        { porter: 'went',      snowball: 'went',      lemma: 'go' },
+    'goes':        { porter: 'goe',       snowball: 'goe',       lemma: 'go' },
+    'going':       { porter: 'go',        snowball: 'go',        lemma: 'go' },
+    'are':         { porter: 'are',       snowball: 'are',       lemma: 'be' },
+    'were':        { porter: 'were',      snowball: 'were',      lemma: 'be' },
+    'been':        { porter: 'been',      snowball: 'been',      lemma: 'be' },
+    'is':          { porter: 'is',        snowball: 'is',        lemma: 'be' },
+    'was':         { porter: 'was',       snowball: 'was',       lemma: 'be' },
+    'cats':        { porter: 'cat',       snowball: 'cat',       lemma: 'cat' },
+    'ponies':      { porter: 'poni',      snowball: 'poni',      lemma: 'pony' },
+    'pony':        { porter: 'poni',      snowball: 'poni',      lemma: 'pony' },
+    'happiness':   { porter: 'happi',     snowball: 'happi',     lemma: 'happiness' },
+    'happier':     { porter: 'happier',   snowball: 'happier',   lemma: 'happy' },
+    'relational':  { porter: 'relat',     snowball: 'relat',     lemma: 'relational' },
+    'relate':      { porter: 'relat',     snowball: 'relat',     lemma: 'relate' },
+    'conditional': { porter: 'condit',    snowball: 'condit',    lemma: 'conditional' },
+    'electrical':  { porter: 'electr',    snowball: 'electr',    lemma: 'electrical' },
+    'formalize':   { porter: 'formal',    snowball: 'formal',    lemma: 'formalize' },
+    'hopeful':     { porter: 'hope',      snowball: 'hope',      lemma: 'hopeful' },
+    'goodness':    { porter: 'good',      snowball: 'good',      lemma: 'goodness' },
+    'faster':      { porter: 'faster',    snowball: 'faster',    lemma: 'fast' },
+    'fastest':     { porter: 'fastest',   snowball: 'fastest',   lemma: 'fast' },
+    'yesterday':   { porter: 'yesterday', snowball: 'yesterday', lemma: 'yesterday' }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Fallback: simplified suffix-stripping for unknown words
+  // ─────────────────────────────────────────────────────────────────────────────
+  function simpleStem(word) {
+    word = word.toLowerCase();
+    // Order matters — longest suffix first
+    var suffixes = [
+      ['nesses', ''],   ['ments', ''],   ['tions', 'tion'],
+      ['nesses', ''],   ['ings', ''],    ['ness', ''],
+      ['ment', ''],     ['tion', ''],    ['ing', ''],
+      ['ies', 'i'],     ['ers', ''],     ['est', ''],
+      ['ier', 'i'],     ['ier', 'i'],    ['er', ''],
+      ['ed', ''],       ['ly', ''],      ['es', ''],
+      ['s', '']
+    ];
+    for (var i = 0; i < suffixes.length; i++) {
+      var suf = suffixes[i][0];
+      var rep = suffixes[i][1];
+      if (word.endsWith(suf) && word.length - suf.length >= 3) {
+        return word.slice(0, word.length - suf.length) + rep;
+      }
+    }
+    return word;
+  }
+
+  function simpleLemma(word) {
+    word = word.toLowerCase();
+    // Irregular forms
+    var irreg = { 'mice': 'mouse', 'geese': 'goose', 'feet': 'foot',
+                  'teeth': 'tooth', 'men': 'man', 'women': 'woman',
+                  'went': 'go', 'went': 'go', 'better': 'good',
+                  'best': 'good', 'worse': 'bad', 'worst': 'bad' };
+    if (irreg[word]) return irreg[word];
+    var stem = simpleStem(word);
+    // Try to restore a trailing e that was before -ed/-ing
+    if (stem.length >= 3 && !stem.endsWith('e')) {
+      var cands = [stem + 'e', stem];
+      // Return the longer form as the lemma guess
+      if (word.endsWith('ing') || word.endsWith('ed')) return stem + 'e';
+    }
+    return stem;
+  }
+
+  function lookupWord(word) {
+    var key = word.toLowerCase().trim();
+    if (LOOKUP[key]) return LOOKUP[key];
+    return {
+      porter:   simpleStem(key),
+      snowball: simpleStem(key),
+      lemma:    simpleLemma(key)
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // WIDGET 1 — Stemmer / Lemmatizer Comparator
+  // ─────────────────────────────────────────────────────────────────────────────
+  function renderStemTable(words) {
+    var html = '<table><thead><tr>' +
+      '<th>Word</th>' +
+      '<th>Porter Stem</th>' +
+      '<th>Snowball Stem</th>' +
+      '<th>spaCy Lemma</th>' +
+      '</tr></thead><tbody>';
+
+    words.forEach(function (w) {
+      var clean = w.trim();
+      if (!clean) return;
+      var res = lookupWord(clean);
+      var porterNote = (res.porter === clean.toLowerCase()) ? '' : '';
+      var lemmaNote  = (res.lemma !== res.porter) ? '<span style="font-size:0.75rem;color:var(--success);margin-left:4px;">✓ real word</span>' : '';
+      html += '<tr>' +
+        '<td><strong>' + escHtml(clean) + '</strong></td>' +
+        '<td class="stem" style="font-family:var(--font-mono);">' + escHtml(res.porter) + '</td>' +
+        '<td class="stem" style="font-family:var(--font-mono);">' + escHtml(res.snowball) + '</td>' +
+        '<td class="lemma" style="font-family:var(--font-mono);">' + escHtml(res.lemma) + lemmaNote + '</td>' +
+        '</tr>';
+    });
+
+    html += '</tbody></table>';
+    return html;
+  }
+
+  var stemInput = document.getElementById('stem-input');
+  var stemResults = document.getElementById('stem-results');
+  var stemBtn = document.getElementById('stem-compare-btn');
+
+  function doCompare() {
+    var raw = stemInput.value || '';
+    var words = raw.split(',').map(function (w) { return w.trim(); }).filter(function (w) { return w.length > 0; });
+    if (!words.length) {
+      stemResults.innerHTML = '<p style="color:var(--text-muted);font-size:0.9rem;">Enter at least one word.</p>';
+      return;
+    }
+    stemResults.innerHTML = renderStemTable(words);
+    if (typeof renderMath === 'function') renderMath();
+  }
+
+  stemBtn.addEventListener('click', doCompare);
+  stemInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') doCompare(); });
+  // Initial render
+  doCompare();
+
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // WIDGET 2 — Noisy Channel Step-Through
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  var OBSERVED = 'teh';
+
+  // Candidates: { word, pw (language model score), pew (error model P(e|w)), note }
+  var CANDIDATES = [
+    { word: 'the',  freq: 69971, pw: 0.070, pew: 0.90,  note: 'Single transposition: t-h swap (th→ht, "the"→"teh"). Very common confusion matrix entry.' },
+    { word: 'ten',  freq: 1210,  pw: 0.0012, pew: 0.06, note: 'Substitution: n→h. Less common keyboard adjacency.' },
+    { word: 'tee',  freq: 430,   pw: 0.0004, pew: 0.04, note: 'Substitution: e→h. Uncommon confusion.' },
+    { word: 'hen',  freq: 330,   pw: 0.0003, pew: 0.03, note: 'Two edits needed (transposition + substitution). Higher edit distance, lower P(e|w).' },
+    { word: 'teh',  freq: 1,     pw: 0.000001, pew: 1.00, note: 'If "teh" were in the vocabulary (e.g., a proper noun), P(e|w)=1 but P(w)≈0 since it is unknown.' }
+  ];
+
+  var NC_STEPS = [
+    {
+      explain: 'Step 1 — Input: we observe the string "teh". It is not in the standard dictionary, so it is classified as a non-word error. Our goal: find the most probable intended word using the noisy channel model: argmax_w P(e|w) · P(w).',
+      render: function (el) {
+        el.innerHTML = '<div style="text-align:center;padding:1.5rem;">' +
+          '<span style="font-size:2.5rem;font-family:var(--font-mono);color:var(--error);">teh</span>' +
+          '<p style="color:var(--text-muted);margin-top:0.5rem;font-size:0.9rem;">Observed string — not a valid English word</p>' +
+          '<div class="math-block" style="margin-top:1rem;"><span class="math-latex math-block">\\hat{w} = \\underset{w}{\\arg\\max}\\; P(e \\mid w) \\cdot P(w)</span></div>' +
+          '</div>';
+        if (typeof renderMath === 'function') renderMath();
+      }
+    },
+    {
+      explain: 'Step 2 — Candidate generation. We find all words in the vocabulary within edit distance 1 of "teh". Edit distance 1 means one insertion, deletion, substitution, or transposition. The viable candidates are shown below.',
+      render: function (el) {
+        var html = '<table><thead><tr><th>Candidate w</th><th>Edit from "teh"</th><th>Edit distance</th></tr></thead><tbody>';
+        var edits = [
+          ['the', 'Transposition: swap t↔h', 1],
+          ['ten', 'Substitution: h→n',        1],
+          ['tee', 'Substitution: h→e',        1],
+          ['hen', 'Substitution: t→h',        1],
+          ['teh', '(unchanged — non-word)',   0]
+        ];
+        edits.forEach(function (r) {
+          html += '<tr><td><strong>' + r[0] + '</strong></td><td>' + r[1] + '</td><td>' + r[2] + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        el.innerHTML = html;
+      }
+    },
+    {
+      explain: 'Step 3 — Language model P(w). We score each candidate by its unigram frequency (how often it appears in English text). "the" is the most common English word, far more probable than the others.',
+      render: function (el) {
+        var html = '<table><thead><tr><th>Candidate w</th><th>Approx. frequency rank</th><th>P(w) — unigram</th></tr></thead><tbody>';
+        CANDIDATES.forEach(function (c) {
+          var bar = Math.round((c.pw / 0.070) * 100);
+          html += '<tr><td><strong>' + c.word + '</strong></td>' +
+            '<td style="font-family:var(--font-mono);">' + c.freq.toLocaleString() + ' / million words</td>' +
+            '<td><span style="font-family:var(--font-mono);">' + c.pw.toFixed(6) + '</span>' +
+            '<span style="margin-left:8px;display:inline-block;width:' + bar + 'px;height:10px;background:var(--accent-blue);opacity:0.6;border-radius:2px;vertical-align:middle;"></span></td></tr>';
+        });
+        html += '</tbody></table>';
+        el.innerHTML = html;
+      }
+    },
+    {
+      explain: 'Step 4 — Error model P(e|w). For each candidate w, how probable is it that a person trying to type w produced "teh"? "the"→"teh" requires one transposition (h and e swapped), which is one of the most common single-key errors.',
+      render: function (el) {
+        var html = '<table><thead><tr><th>Candidate w</th><th>P(e|w)</th><th>Reasoning</th></tr></thead><tbody>';
+        CANDIDATES.forEach(function (c) {
+          var bar = Math.round(c.pew * 80);
+          html += '<tr><td><strong>' + c.word + '</strong></td>' +
+            '<td><span style="font-family:var(--font-mono);">' + c.pew.toFixed(2) + '</span>' +
+            '<span style="margin-left:8px;display:inline-block;width:' + bar + 'px;height:10px;background:var(--warning);opacity:0.7;border-radius:2px;vertical-align:middle;"></span></td>' +
+            '<td style="font-size:0.82rem;color:var(--text-muted);">' + c.note + '</td></tr>';
+        });
+        html += '</tbody></table>';
+      }
+    },
+    {
+      explain: 'Step 5 — Compute the joint score P(e|w) · P(w) for each candidate. This is the numerator of the Bayes formula (denominator P(e) is constant and ignored for argmax).',
+      render: function (el) {
+        var html = '<table><thead><tr><th>Candidate w</th><th>P(e|w)</th><th>P(w)</th><th>P(e|w)·P(w)</th></tr></thead><tbody>';
+        var maxScore = 0;
+        var scores = CANDIDATES.map(function (c) {
+          var s = c.pew * c.pw;
+          if (s > maxScore) maxScore = s;
+          return s;
+        });
+        CANDIDATES.forEach(function (c, i) {
+          var s = scores[i];
+          var isMax = (s === maxScore);
+          html += '<tr' + (isMax ? ' style="background:rgba(22,163,74,0.08);font-weight:600;"' : '') + '>' +
+            '<td>' + (isMax ? '&#127942; ' : '') + '<strong>' + c.word + '</strong></td>' +
+            '<td style="font-family:var(--font-mono);">' + c.pew.toFixed(2) + '</td>' +
+            '<td style="font-family:var(--font-mono);">' + c.pw.toFixed(6) + '</td>' +
+            '<td style="font-family:var(--font-mono);color:' + (isMax ? 'var(--success)' : 'inherit') + ';">' + (c.pew * c.pw).toExponential(3) + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        el.innerHTML = html;
+      }
+    },
+    {
+      explain: 'Step 6 — argmax. The winner is "the" with a joint score of 6.3×10⁻³ — more than 80× higher than the next best candidate "ten". The model correctly corrects "teh" → "the".',
+      render: function (el) {
+        el.innerHTML = '<div style="text-align:center;padding:1.5rem;">' +
+          '<p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:0.5rem;">Observed</p>' +
+          '<span style="font-size:2rem;font-family:var(--font-mono);color:var(--error);">teh</span>' +
+          '<span style="font-size:2rem;margin:0 1rem;color:var(--text-muted);">→</span>' +
+          '<span style="font-size:2rem;font-family:var(--font-mono);color:var(--success);">the</span>' +
+          '<p style="color:var(--text-muted);font-size:0.9rem;margin-top:0.5rem;">Correction</p>' +
+          '<div class="math-block" style="margin-top:1rem;"><span class="math-latex math-block">\\hat{w} = \\text{"the"} \\quad \\text{with score } 0.90 \\times 0.070 = 0.063</span></div>' +
+          '<p style="font-size:0.9rem;color:var(--text-muted);">A high P(w) (most common English word) combined with a high P(e|w) (simple adjacent-key transposition) overwhelms all competitors.</p>' +
+          '</div>';
+        if (typeof renderMath === 'function') renderMath();
+      }
+    }
+  ];
+
+  var ncStep = 0;
+
+  function renderNCStep() {
+    var explain = document.getElementById('nc-explain');
+    var content = document.getElementById('nc-content');
+    var counter = document.getElementById('nc-counter');
+    if (explain) explain.textContent = NC_STEPS[ncStep].explain;
+    if (content) NC_STEPS[ncStep].render(content);
+    if (counter) counter.textContent = 'Step ' + (ncStep + 1) + ' / ' + NC_STEPS.length;
+    // Update button states
+    var prevBtn = document.getElementById('nc-prev-btn');
+    var nextBtn = document.getElementById('nc-next-btn');
+    if (prevBtn) prevBtn.disabled = (ncStep === 0);
+    if (nextBtn) nextBtn.disabled = (ncStep === NC_STEPS.length - 1);
+    if (typeof renderMath === 'function') renderMath();
+  }
+
+  document.getElementById('nc-prev-btn').addEventListener('click', function () {
+    if (ncStep > 0) { ncStep--; renderNCStep(); }
+  });
+  document.getElementById('nc-next-btn').addEventListener('click', function () {
+    if (ncStep < NC_STEPS.length - 1) { ncStep++; renderNCStep(); }
+  });
+  document.getElementById('nc-reset-btn').addEventListener('click', function () {
+    ncStep = 0; renderNCStep();
+  });
+
+  // Initial render
+  renderNCStep();
+
+});
+</script>
+</body>
+</html>
