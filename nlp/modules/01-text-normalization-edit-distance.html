@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 1: Text Normalization &amp; Edit Distance</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-text-normalization-edit-distance.html" class="active">1. Text Normalization</a>
+    <a href="02-stemming-lemmatization-noisy-channel.html">2. Stemming &amp; Lemmatization</a>
+    <a href="03-pos-tagging-shallow-parsing.html">3. POS Tagging</a>
+    <a href="04-cfg-parse-trees-deep-parsing.html">4. CFG &amp; Parse Trees</a>
+    <a href="05-lexical-semantics-wsd.html">5. Lexical Semantics</a>
+    <a href="06-distributional-semantics-pmi.html">6. Distributional Semantics</a>
+    <a href="07-ner-iob-crf-srl-coreference.html">7. NER, CRF &amp; SRL</a>
+    <a href="08-bow-tfidf-topic-modeling.html">8. BoW &amp; TF-IDF</a>
+    <a href="09-word-embeddings.html">9. Word Embeddings</a>
+    <a href="10-ngram-lm-applications.html">10. N-gram LMs</a>
+  </nav>
+
+  <header>
+    <h1>Module 1: Text Normalization &amp; Edit Distance</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: WHY NLP? THE PIPELINE IDEA                                 -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Why NLP? The Pipeline Idea</h2>
+
+  <p>A computer, at its core, sees text as a sequence of bytes. When you type "The quick brown fox", your machine stores 23 numbers. It has no idea that "fox" refers to an animal, that "quick" modifies it, or that this sentence is the beginning of a sentence that has tested typefaces since the nineteenth century. Bridging the gap between raw character sequences and meaning is the central problem of <strong>Natural Language Processing</strong>.</p>
+
+  <p>NLP does not solve this in one leap. Instead, it applies a sequence of transformations — a <strong>pipeline</strong> — each stage building on the last. Think of it as an assembly line: raw text enters one end, and progressively more structured, abstract representations emerge from the other.</p>
+
+  <div class="concept-box">
+    <h4>The NLP Pipeline</h4>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;margin:0.5rem 0;font-size:0.88rem;font-family:var(--font-mono);">
+      <span style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0.4rem 0.75rem;">Raw text</span>
+      <span style="color:var(--text-muted);">→</span>
+      <span style="background:rgba(37,99,235,0.10);border:1px solid rgba(37,99,235,0.3);border-radius:4px;padding:0.4rem 0.75rem;color:var(--accent-blue);">Tokenization</span>
+      <span style="color:var(--text-muted);">→</span>
+      <span style="background:rgba(37,99,235,0.10);border:1px solid rgba(37,99,235,0.3);border-radius:4px;padding:0.4rem 0.75rem;color:var(--accent-blue);">Normalization</span>
+      <span style="color:var(--text-muted);">→</span>
+      <span style="background:rgba(22,163,74,0.10);border:1px solid rgba(22,163,74,0.3);border-radius:4px;padding:0.4rem 0.75rem;color:var(--success);">POS tagging</span>
+      <span style="color:var(--text-muted);">→</span>
+      <span style="background:rgba(22,163,74,0.10);border:1px solid rgba(22,163,74,0.3);border-radius:4px;padding:0.4rem 0.75rem;color:var(--success);">Parsing</span>
+      <span style="color:var(--text-muted);">→</span>
+      <span style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.3);border-radius:4px;padding:0.4rem 0.75rem;color:#7c3aed;">Semantics</span>
+    </div>
+    <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:0;">Blue stages (Modules 1–2) are <em>lexical processing</em>: they work at the word level and produce clean, normalised tokens. Green stages (Modules 3–4) are <em>syntactic analysis</em>: they assign grammatical structure. Purple stages (Modules 5–10) are <em>semantic</em>: they assign meaning.</p>
+  </div>
+
+  <p>Lexical processing is the foundation of this pipeline. Every later stage — parsing, named-entity recognition, machine translation — consumes tokens produced by the lexical layer. If that layer is noisy, inconsistent, or lossy, errors compound downstream. This is the "garbage in, garbage out" principle applied to language: a parser that receives inconsistently cased, un-normalised tokens must work far harder (and makes more mistakes) than one that receives clean input.</p>
+
+  <div class="callout note">
+    <strong>Why lexical processing matters more than it looks</strong>
+    A 2018 study on clinical NLP found that 38% of downstream information-extraction errors could be traced back to tokenization and normalization failures — not model limitations, but pipeline foundations. Getting the first stage right pays dividends across every module that follows.
+  </div>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>Spell checking</h5>
+      <p>Correcting "accomodation" to "accommodation" requires comparing candidate strings. Edit distance — the topic of this module's second half — is the algorithmic core of every spell checker from word processors to search engines.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Search &amp; retrieval</h5>
+      <p>A search engine normalises queries and documents to the same canonical form so that "running", "runs", and "ran" can all match a query for "run". Without normalisation, recall drops sharply.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Machine translation</h5>
+      <p>Pre-processing tokenizes and normalises source text before it enters a neural network. Inconsistent tokenization across train and inference degrades translation quality for rare words and morphologically complex languages.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Sentiment analysis</h5>
+      <p>A sentiment classifier trained on lower-cased text will struggle if inference receives mixed-case input. Normalising to a consistent case during training <em>and</em> inference avoids a category of vocabulary mismatch errors.</p>
+    </div>
+  </div>
+
+  <div class="bridge">
+    <strong>Structure of this module.</strong> We cover the pipeline in two halves. Sections 2–3 examine tokenization and text normalisation: the practical steps that convert raw text into clean tokens. Sections 4–6 develop the theory of edit distance: the mathematical tool that underlies spell correction, fuzzy matching, and sequence alignment. An interactive widget ties the two halves together.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2: TOKENIZATION                                               -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Tokenization</h2>
+
+  <p>Before any processing can begin, we must decide what the basic units of text are. A <strong>token</strong> is the atomic unit the rest of the pipeline works with. The process of splitting text into tokens is <strong>tokenization</strong>. This sounds trivial — just split on spaces — but the subtleties are significant.</p>
+
+  <p>Tokens are typically one of three granularities:</p>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>Word tokens</h5>
+      <p>The most natural unit. "I love NLP" → ["I", "love", "NLP"]. Works well for English but poorly for agglutinative languages like Turkish or Finnish, where a single "word" can encode an entire English sentence.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Subword tokens</h5>
+      <p>Used by modern neural models (BERT, GPT). "unhappiness" → ["un", "##happi", "##ness"]. Balances vocabulary size with coverage: rare words are split into known pieces, eliminating unknown-word problems.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Character tokens</h5>
+      <p>Vocabulary is trivially small (26 letters + punctuation). Handles any word including neologisms and misspellings. The downside: sequences become very long, making context modelling harder.</p>
+    </div>
+  </div>
+
+  <h3>Tokenization Strategies</h3>
+
+  <p><strong>Whitespace tokenization</strong> splits on spaces and newlines. It is fast and adequate for clean, space-separated text, but fails on contractions ("don't" → one word or two?), punctuation attached to words ("end." keeps the period), and languages like Chinese that have no spaces between words.</p>
+
+  <p><strong>Rule-based tokenization</strong> uses hand-crafted regular expressions and dictionaries. The NLTK <code>word_tokenize</code> function, for example, applies Penn Treebank–style rules that separate punctuation from words, handle contractions, and preserve certain abbreviations.</p>
+
+  <p><strong>ML-based tokenization</strong> trains a sequence-labelling model on annotated data to predict token boundaries. This is the standard for languages without spaces (Chinese, Japanese) and for robustly handling social-media text with non-standard punctuation.</p>
+
+  <div class="callout warning">
+    <strong>Tokenization edge cases — they matter in practice</strong>
+    <ul style="margin-bottom:0;">
+      <li><strong>Contractions:</strong> "don't" → ["do", "n't"] or ["don't"]? spaCy splits; NLTK splits differently. The choice affects downstream lemmatization.</li>
+      <li><strong>Hyphenated words:</strong> "state-of-the-art" — one token or five? Domain conventions differ (NLP papers often keep the hyphen).</li>
+      <li><strong>URLs and emails:</strong> <code>https://example.com/page</code> must be kept as one token, not split on slashes or dots.</li>
+      <li><strong>Numbers:</strong> "3.14" and "3,000" look like punctuation-split words to a naive tokenizer.</li>
+    </ul>
+  </div>
+
+  <p>spaCy is an industrial-strength NLP library that handles all these edge cases out of the box. Its tokenizer first applies language-specific prefix/suffix/infix rules, then a dictionary of special cases (contractions, abbreviations), producing linguistically sensible tokens:</p>
+
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python — spaCy tokenization</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-kw">import</span> spacy
+
+nlp = spacy.<span class="py-fn">load</span>(<span class="py-str">"en_core_web_sm"</span>)
+doc = nlp(<span class="py-str">"Don't stop me now! I'm having such a good time."</span>)
+tokens = [token.text <span class="py-kw">for</span> token <span class="py-kw">in</span> doc]
+<span class="py-fn">print</span>(tokens)</pre>
+    <div class="output-block">['Do', "n't", 'stop', 'me', 'now', '!', 'I', "'m", 'having', 'such', 'a', 'good', 'time', '.']</div>
+  </div>
+
+  <p>Notice that "Don't" becomes ["Do", "n't"] — the contraction is split at the clitic boundary, which is the linguistically correct choice. The period at the end of the sentence is its own token, separated from "time". This is consistent with Penn Treebank convention and means downstream tools like POS taggers receive clean punctuation tokens.</p>
+
+  <div class="bridge">
+    <strong>From tokens to normalised tokens.</strong> spaCy gives us a list of strings. But "Apple", "apple", and "APPLE" are three distinct strings with the same meaning. The next step — normalisation — collapses such surface variation into a canonical form.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 3: TEXT NORMALIZATION STEPS                                   -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Text Normalization Steps</h2>
+
+  <p>Text normalization is not a single operation but a pipeline of small transformations, each motivated by a specific type of noise. The order matters: lowercasing before punctuation removal is standard; removing stopwords before stemming makes the stemmer faster.</p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>Lowercasing</strong>
+        <div class="step-explanation">Convert all characters to lowercase: "NLP" → "nlp", "Running" → "running". This collapses case variants of the same word into one vocabulary entry, dramatically reducing vocabulary size. A vocabulary of 100 000 mixed-case tokens might shrink to 60 000 after lowercasing.</div>
+        <div class="callout warning" style="margin-top:0.75rem;font-size:0.88rem;">
+          <strong>When lowercasing hurts</strong>
+          "US" (United States) and "us" (first-person plural pronoun) become identical. "Apple" (company) and "apple" (fruit) collapse. For named-entity recognition and word-sense disambiguation tasks, case is a crucial disambiguation signal. Modern neural models typically skip lowercasing and let the model learn case-sensitive representations.
+        </div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>Punctuation and special character removal</strong>
+        <div class="step-explanation">Strip punctuation marks, HTML tags, and non-alphabetic symbols. "Hello, world!" → "Hello world". Reduces vocabulary by eliminating punctuation-attached variants ("end." ≠ "end" to a string matcher). However, punctuation carries semantic weight in some domains: a smiley face ":)" is sentiment-bearing; a medical text's parentheses enclose important qualifiers. Remove punctuation with domain awareness.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>Number normalisation</strong>
+        <div class="step-explanation">Replace numeric tokens with a placeholder such as <code>NUM</code> or <code>0</code>. "The cost was $3,499.99" → "The cost was NUM". This prevents the vocabulary from bloating with thousands of unique number strings that share the same semantic role (quantity). Alternatively, normalise to a canonical form ("three thousand" → "3000"). For tasks where the exact value matters (financial analysis, arithmetic reasoning), keep numbers intact.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">4</div>
+      <div class="step-content">
+        <strong>Stop word removal</strong>
+        <div class="step-explanation">Remove high-frequency function words — "the", "a", "is", "in", "of" — that occur in almost every document and carry little topical information. NLTK provides a curated list of 179 English stopwords. Removing them reduces feature dimensionality and noise for tasks like document classification and topic modelling.</div>
+        <div class="callout note" style="margin-top:0.75rem;font-size:0.88rem;">
+          <strong>Not all tasks benefit from stopword removal</strong>
+          Sentiment analysis needs "not", "no", and "never" — all common stopwords. Question answering needs "who", "when", "where". Coreference resolution needs "he", "she", "they". Always consider whether your task is stopword-sensitive before removing them.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p>Here is a concrete NLTK-based stopword removal pipeline:</p>
+
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python — NLTK stopword removal</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-kw">from</span> nltk.corpus <span class="py-kw">import</span> stopwords
+<span class="py-kw">import</span> nltk
+nltk.<span class="py-fn">download</span>(<span class="py-str">'stopwords'</span>)
+
+stop_words = <span class="py-fn">set</span>(stopwords.<span class="py-fn">words</span>(<span class="py-str">'english'</span>))
+tokens = [<span class="py-str">'the'</span>, <span class="py-str">'quick'</span>, <span class="py-str">'brown'</span>, <span class="py-str">'fox'</span>, <span class="py-str">'jumps'</span>,
+          <span class="py-str">'over'</span>, <span class="py-str">'the'</span>, <span class="py-str">'lazy'</span>, <span class="py-str">'dog'</span>]
+filtered = [t <span class="py-kw">for</span> t <span class="py-kw">in</span> tokens <span class="py-kw">if</span> t.<span class="py-fn">lower</span>() <span class="py-kw">not in</span> stop_words]
+<span class="py-fn">print</span>(filtered)</pre>
+    <div class="output-block">['quick', 'brown', 'fox', 'jumps', 'lazy', 'dog']</div>
+  </div>
+
+  <p>The function words "the" (×2) and "over" are removed, leaving only the content-bearing nouns and adjectives. This is a lossless compression of topical signal: the five remaining tokens are exactly what a topic model or classifier needs to detect that this sentence is about animals.</p>
+
+  <p>Here is the effect of the full normalisation pipeline quantified:</p>
+
+  <table>
+    <thead>
+      <tr><th>Step</th><th>Example input</th><th>Example output</th><th>Vocabulary effect</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Raw tokens</td><td>["The", "Cats", "Running", "Fast!"]</td><td>—</td><td>Baseline</td></tr>
+      <tr><td>Lowercase</td><td>["The", "Cats", "Running", "Fast!"]</td><td>["the", "cats", "running", "fast!"]</td><td>−20–40%</td></tr>
+      <tr><td>Punctuation removal</td><td>["the", "cats", "running", "fast!"]</td><td>["the", "cats", "running", "fast"]</td><td>−5–15%</td></tr>
+      <tr><td>Number normalisation</td><td>["cost", "was", "499"]</td><td>["cost", "was", "NUM"]</td><td>Eliminates number variants</td></tr>
+      <tr><td>Stopword removal</td><td>["the", "cats", "running", "fast"]</td><td>["cats", "running", "fast"]</td><td>−20–40% of remaining tokens</td></tr>
+    </tbody>
+  </table>
+
+  <div class="bridge">
+    <strong>Normalised tokens are still surface forms.</strong> After normalization, "cats" and "cat" remain distinct strings, as do "running", "runs", and "ran". Module 2 introduces stemming and lemmatization — the morphological reduction that maps these inflected forms to their shared root. But before that, we need a fundamental tool that appears in spell correction, fuzzy matching, and sequence alignment: <em>edit distance</em>.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 4: EDIT DISTANCE — THE CORE IDEA                             -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Edit Distance — The Core Idea</h2>
+
+  <p>Spell checkers face a deceptively simple problem: the user typed "accomodation". What did they mean? The answer requires comparing the misspelled word to every word in the dictionary and finding which dictionary word requires the <em>fewest changes</em> to produce the typo. This notion of "fewest changes" is formalised as <strong>edit distance</strong>.</p>
+
+  <p>Edit distance has applications far beyond spell checking:</p>
+
+  <div class="assumptions-grid">
+    <div class="assumption-card">
+      <h5>Spell correction</h5>
+      <p>The noisy channel model (Module 2) ranks correction candidates by their edit distance to the observed typo combined with their prior probability in the language. Edit distance is the channel model.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>DNA sequence alignment</h5>
+      <p>Bioinformatics uses a generalised edit distance (the Smith-Waterman / Needleman-Wunsch algorithms) to align DNA strands, where insertions, deletions, and mutations correspond directly to the three edit operations.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Fuzzy string matching</h5>
+      <p>Search-as-you-type, autocomplete, and record deduplication (is "J. Smith" the same person as "John Smith"?) all rank candidates by edit distance. The Python <code>fuzzywuzzy</code> and <code>rapidfuzz</code> libraries implement this.</p>
+    </div>
+    <div class="assumption-card">
+      <h5>Machine translation evaluation</h5>
+      <p>The TER (Translation Edit Rate) metric scores how many word-level edits are needed to convert a machine translation into the reference translation — directly applying edit distance at the word level.</p>
+    </div>
+  </div>
+
+  <h3>The Three Edit Operations (Levenshtein)</h3>
+
+  <p>The <strong>Levenshtein distance</strong> between two strings <span class="math-inline math-latex">s</span> and <span class="math-inline math-latex">t</span> is the minimum number of <em>single-character</em> operations needed to transform <span class="math-inline math-latex">s</span> into <span class="math-inline math-latex">t</span>. The three allowed operations are:</p>
+
+  <div class="concept-box">
+    <h4>The Three Edit Operations</h4>
+    <table style="margin:0.5rem 0;">
+      <thead><tr><th>Operation</th><th>Cost</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Insertion</strong></td><td>1</td><td>"cat" → "ca<strong>r</strong>t" (insert 'r')</td></tr>
+        <tr><td><strong>Deletion</strong></td><td>1</td><td>"cart" → "cat" (delete 'r')</td></tr>
+        <tr><td><strong>Substitution</strong></td><td>1</td><td>"cat" → "c<strong>u</strong>t" (substitute 'a'→'u')</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:0;">A fourth operation — <em>transposition</em> (swapping adjacent characters) — is not included in basic Levenshtein distance but is added in the <strong>Damerau-Levenshtein</strong> variant, which handles common keyboard typos like "teh" → "the" in one operation instead of two.</p>
+  </div>
+
+  <h3>Intuition: "kitten" → "sitting"</h3>
+
+  <p>Let's walk through the transformation from "kitten" to "sitting" manually, without any algorithm, to build intuition for what edit distance means.</p>
+
+  <div class="derivation">
+    <div class="derivation-step">
+      <div class="step-number">1</div>
+      <div class="step-content">
+        <strong>k<span style="color:var(--accent-blue);">i</span>tten → <span style="color:var(--accent-blue);">s</span>itten</strong>
+        <div class="step-explanation">Substitute 'k' → 's' at position 1. Cost: 1. Running total: 1.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">2</div>
+      <div class="step-content">
+        <strong>sitt<span style="color:var(--accent-blue);">e</span>n → sitt<span style="color:var(--accent-blue);">i</span>n</strong>
+        <div class="step-explanation">Substitute 'e' → 'i' at position 5. Cost: 1. Running total: 2.</div>
+      </div>
+    </div>
+    <div class="derivation-step">
+      <div class="step-number">3</div>
+      <div class="step-content">
+        <strong>sittin → sittin<span style="color:var(--accent-blue);">g</span></strong>
+        <div class="step-explanation">Insert 'g' at the end. Cost: 1. Running total: 3.</div>
+      </div>
+    </div>
+  </div>
+
+  <p>Three operations: two substitutions and one insertion. Therefore <span class="math-inline math-latex">\text{lev}(\text{"kitten"}, \text{"sitting"}) = 3</span>. But how do we know this is <em>minimum</em>? Perhaps there is a sequence of two operations we missed? This is where the dynamic programming algorithm becomes essential — it provably finds the minimum over all possible operation sequences.</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 5: LEVENSHTEIN DISTANCE — THE DP SOLUTION                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Levenshtein Distance — The Dynamic Programming Solution</h2>
+
+  <h3>Why Not Brute Force?</h3>
+
+  <p>A naive approach would enumerate every possible sequence of edit operations and find the shortest one. How many sequences are there? At each step we can insert, delete, or substitute — roughly three choices. The string length can grow or shrink at each step. The search tree is exponential in depth: approximately <span class="math-inline math-latex">O(3^{\max(m,n)})</span> paths, where <span class="math-inline math-latex">m = |s|</span> and <span class="math-inline math-latex">n = |t|</span>. For strings of length 10, that is already over 59 000 paths. For length 20, over 3.5 billion. Brute force is completely infeasible.</p>
+
+  <p>The key observation is that this exponential blowup arises from <strong>overlapping subproblems</strong>: the same sub-alignment between prefixes of <span class="math-inline math-latex">s</span> and <span class="math-inline math-latex">t</span> is recomputed many times. Dynamic programming stores each subproblem's answer once, reducing complexity from exponential to polynomial.</p>
+
+  <h3>The Recurrence Relation</h3>
+
+  <p>Define <span class="math-inline math-latex">d[i][j]</span> as the edit distance between the first <span class="math-inline math-latex">i</span> characters of <span class="math-inline math-latex">s</span> and the first <span class="math-inline math-latex">j</span> characters of <span class="math-inline math-latex">t</span>. The base cases are intuitive: aligning <span class="math-inline math-latex">i</span> characters with an empty string requires exactly <span class="math-inline math-latex">i</span> deletions:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">d[i][0] = i \quad \text{and} \quad d[0][j] = j</span>
+  </div>
+
+  <p>For the general case, we consider what the last operation in an optimal alignment might be. There are exactly three possibilities:</p>
+
+  <div class="concept-box">
+    <h4>Deriving the Recurrence</h4>
+    <ol style="font-size:0.92rem;">
+      <li><strong>The last operation is a deletion</strong> (we deleted <span class="math-inline math-latex">s[i]</span> from <span class="math-inline math-latex">s</span>): the cost is <span class="math-inline math-latex">d[i-1][j] + 1</span>. We had already aligned <span class="math-inline math-latex">s[1..i-1]</span> to <span class="math-inline math-latex">t[1..j]</span>, then deleted one more character.</li>
+      <li><strong>The last operation is an insertion</strong> (we inserted <span class="math-inline math-latex">t[j]</span> into <span class="math-inline math-latex">s</span>): the cost is <span class="math-inline math-latex">d[i][j-1] + 1</span>. We had aligned <span class="math-inline math-latex">s[1..i]</span> to <span class="math-inline math-latex">t[1..j-1]</span>, then inserted one more character.</li>
+      <li><strong>The last operation is a substitution or match</strong>: the cost is <span class="math-inline math-latex">d[i-1][j-1] + \text{cost}(i,j)</span>, where <span class="math-inline math-latex">\text{cost}(i,j) = 0</span> if <span class="math-inline math-latex">s[i] = t[j]</span> (free match), else <span class="math-inline math-latex">1</span> (substitution).</li>
+    </ol>
+    <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:0;">We take the minimum of these three possibilities, since we want the cheapest alignment.</p>
+  </div>
+
+  <p>Putting it together, the full recurrence is:</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">d[i][j] = \begin{cases} d[i-1][j-1] & \text{if } s[i] = t[j] \quad \text{(free match)} \\ 1 + \min\!\Big(d[i-1][j],\; d[i][j-1],\; d[i-1][j-1]\Big) & \text{otherwise} \end{cases}</span>
+  </div>
+
+  <p>The final answer — the edit distance between the full strings — is stored in the bottom-right cell: <span class="math-inline math-latex">d[m][n]</span>.</p>
+
+  <h3>Worked Example: "cat" → "cut"</h3>
+
+  <p>Let's fill the 4×4 matrix for <span class="math-inline math-latex">s = \text{"cat"}</span> (rows) and <span class="math-inline math-latex">t = \text{"cut"}</span> (columns). Indices run 0 to 3 for rows, 0 to 3 for columns.</p>
+
+  <p><strong>Base cases</strong> (row 0 and column 0):</p>
+
+  <div class="math-block">
+    <span class="math-latex math-block">d[0][0..3] = [0, 1, 2, 3] \qquad d[0..3][0] = [0, 1, 2, 3]</span>
+  </div>
+
+  <p><strong>Filling row 1</strong> (<span class="math-inline math-latex">s[1] = \text{'c'}</span>):</p>
+  <ul>
+    <li><span class="math-inline math-latex">d[1][1]</span>: s[1]='c' vs t[1]='c' — match, so <span class="math-inline math-latex">d[0][0] = 0</span>.</li>
+    <li><span class="math-inline math-latex">d[1][2]</span>: s[1]='c' vs t[2]='u' — mismatch, so <span class="math-inline math-latex">1 + \min(d[0][2], d[1][1], d[0][1]) = 1 + \min(2, 0, 1) = 1</span>.</li>
+    <li><span class="math-inline math-latex">d[1][3]</span>: s[1]='c' vs t[3]='t' — mismatch, so <span class="math-inline math-latex">1 + \min(d[0][3], d[1][2], d[0][2]) = 1 + \min(3, 1, 2) = 2</span>.</li>
+  </ul>
+
+  <p><strong>Filling row 2</strong> (<span class="math-inline math-latex">s[2] = \text{'a'}</span>):</p>
+  <ul>
+    <li><span class="math-inline math-latex">d[2][1]</span>: 'a' vs 'c' — mismatch, <span class="math-inline math-latex">1 + \min(d[1][1], d[2][0], d[1][0]) = 1 + \min(0, 2, 1) = 1</span>.</li>
+    <li><span class="math-inline math-latex">d[2][2]</span>: 'a' vs 'u' — mismatch, <span class="math-inline math-latex">1 + \min(d[1][2], d[2][1], d[1][1]) = 1 + \min(1, 1, 0) = 1</span>.</li>
+    <li><span class="math-inline math-latex">d[2][3]</span>: 'a' vs 't' — mismatch, <span class="math-inline math-latex">1 + \min(d[1][3], d[2][2], d[1][2]) = 1 + \min(2, 1, 1) = 2</span>.</li>
+  </ul>
+
+  <p><strong>Filling row 3</strong> (<span class="math-inline math-latex">s[3] = \text{'t'}</span>):</p>
+  <ul>
+    <li><span class="math-inline math-latex">d[3][1]</span>: 't' vs 'c' — mismatch, <span class="math-inline math-latex">1 + \min(d[2][1], d[3][0], d[2][0]) = 1 + \min(1, 3, 2) = 2</span>.</li>
+    <li><span class="math-inline math-latex">d[3][2]</span>: 't' vs 'u' — mismatch, <span class="math-inline math-latex">1 + \min(d[2][2], d[3][1], d[2][1]) = 1 + \min(1, 2, 1) = 2</span>.</li>
+    <li><span class="math-inline math-latex">d[3][3]</span>: 't' vs 't' — <strong>match</strong>, so <span class="math-inline math-latex">d[2][2] = 1</span>.</li>
+  </ul>
+
+  <p>The completed matrix (path cells highlighted below) shows <span class="math-inline math-latex">d[3][3] = 1</span>: "cat" → "cut" requires exactly one substitution ('a' → 'u').</p>
+
+  <div class="lev-matrix-wrap">
+    <table class="lev-matrix">
+      <thead>
+        <tr><th></th><th></th><th>c</th><th>u</th><th>t</th></tr>
+      </thead>
+      <tbody>
+        <tr><th></th><td class="path filled">0</td><td class="filled">1</td><td class="filled">2</td><td class="filled">3</td></tr>
+        <tr><th>c</th><td class="filled">1</td><td class="path filled">0</td><td class="filled">1</td><td class="filled">2</td></tr>
+        <tr><th>a</th><td class="filled">2</td><td class="filled">1</td><td class="path filled">1</td><td class="filled">2</td></tr>
+        <tr><th>t</th><td class="filled">3</td><td class="filled">2</td><td class="filled">2</td><td class="current filled">1</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout insight">
+    <strong>Time and space complexity</strong>
+    The DP table has <span class="math-inline math-latex">(m+1) \times (n+1)</span> cells, each computed in <span class="math-inline math-latex">O(1)</span> time. Total time: <span class="math-inline math-latex">O(mn)</span>. Space: <span class="math-inline math-latex">O(mn)</span> for the full table, or <span class="math-inline math-latex">O(\min(m,n))</span> if we only need the final distance (not the backtrace), since we only ever look at the previous row.
+  </div>
+
+  <p>Here is the full Python implementation:</p>
+
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python — Levenshtein distance (DP)</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-kw">def</span> <span class="py-fn">levenshtein</span>(s, t):
+    m, n = <span class="py-fn">len</span>(s), <span class="py-fn">len</span>(t)
+    dp = [[<span class="py-num">0</span>] * (n + <span class="py-num">1</span>) <span class="py-kw">for</span> _ <span class="py-kw">in</span> <span class="py-fn">range</span>(m + <span class="py-num">1</span>)]
+    <span class="py-kw">for</span> i <span class="py-kw">in</span> <span class="py-fn">range</span>(m + <span class="py-num">1</span>): dp[i][<span class="py-num">0</span>] = i
+    <span class="py-kw">for</span> j <span class="py-kw">in</span> <span class="py-fn">range</span>(n + <span class="py-num">1</span>): dp[<span class="py-num">0</span>][j] = j
+    <span class="py-kw">for</span> i <span class="py-kw">in</span> <span class="py-fn">range</span>(<span class="py-num">1</span>, m + <span class="py-num">1</span>):
+        <span class="py-kw">for</span> j <span class="py-kw">in</span> <span class="py-fn">range</span>(<span class="py-num">1</span>, n + <span class="py-num">1</span>):
+            cost = <span class="py-num">0</span> <span class="py-kw">if</span> s[i - <span class="py-num">1</span>] == t[j - <span class="py-num">1</span>] <span class="py-kw">else</span> <span class="py-num">1</span>
+            dp[i][j] = <span class="py-fn">min</span>(dp[i-<span class="py-num">1</span>][j] + <span class="py-num">1</span>,      <span class="py-cmt"># deletion</span>
+                          dp[i][j-<span class="py-num">1</span>] + <span class="py-num">1</span>,      <span class="py-cmt"># insertion</span>
+                          dp[i-<span class="py-num">1</span>][j-<span class="py-num">1</span>] + cost)  <span class="py-cmt"># substitution / match</span>
+    <span class="py-kw">return</span> dp[m][n]
+
+<span class="py-fn">print</span>(<span class="py-fn">levenshtein</span>(<span class="py-str">"kitten"</span>, <span class="py-str">"sitting"</span>))   <span class="py-cmt"># 3</span>
+<span class="py-fn">print</span>(<span class="py-fn">levenshtein</span>(<span class="py-str">"saturday"</span>, <span class="py-str">"sunday"</span>))  <span class="py-cmt"># 3</span></pre>
+    <div class="output-block">3
+3</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 6: READING THE MATRIX AND BACKTRACE                          -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Reading the Matrix and Backtrace</h2>
+
+  <p>The DP matrix records not just the final edit distance but the <em>full alignment</em> between the two strings. To recover the sequence of operations, we perform a <strong>backtrace</strong>: starting at the bottom-right corner <span class="math-inline math-latex">d[m][n]</span>, we follow the path backward to the top-left corner <span class="math-inline math-latex">d[0][0]</span>, selecting the move that produced each cell's value.</p>
+
+  <div class="concept-box">
+    <h4>Interpreting Each Cell and Each Move</h4>
+    <ul style="font-size:0.92rem;margin-bottom:0;">
+      <li><strong>Cell value <span class="math-inline math-latex">d[i][j]</span></strong> — the minimum cost to align the first <span class="math-inline math-latex">i</span> characters of <span class="math-inline math-latex">s</span> with the first <span class="math-inline math-latex">j</span> characters of <span class="math-inline math-latex">t</span>. It says nothing about what happened after those characters.</li>
+      <li><strong>Diagonal move</strong> (<span class="math-inline math-latex">[i,j] \leftarrow [i-1,j-1]</span>) — a <em>match</em> (if <span class="math-inline math-latex">s[i]=t[j]</span>, free) or <em>substitution</em> (cost 1). Both characters are consumed simultaneously.</li>
+      <li><strong>Up move</strong> (<span class="math-inline math-latex">[i,j] \leftarrow [i-1,j]</span>) — a <em>deletion</em> from <span class="math-inline math-latex">s</span>. Character <span class="math-inline math-latex">s[i]</span> is removed; no character from <span class="math-inline math-latex">t</span> is consumed.</li>
+      <li><strong>Left move</strong> (<span class="math-inline math-latex">[i,j] \leftarrow [i,j-1]</span>) — an <em>insertion</em> into <span class="math-inline math-latex">s</span>. Character <span class="math-inline math-latex">t[j]</span> is inserted; no character from <span class="math-inline math-latex">s</span> is consumed.</li>
+    </ul>
+  </div>
+
+  <p>During backtrace, at each cell <span class="math-inline math-latex">[i,j]</span> we check which of the three predecessor cells could have generated the current value, and move to that cell. When multiple predecessors give the same minimum, any choice yields a valid optimal alignment (there may be multiple optimal alignments).</p>
+
+  <p>The sequence of cells on the backtrace path, read from top-left to bottom-right, gives the complete edit script: every diagonal step is either a match or substitution, every upward step is a deletion, and every leftward step is an insertion.</p>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- INTERACTIVE WIDGET                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Interactive: Levenshtein Distance Explorer</h2>
+
+  <div class="widget-container">
+    <h4>Type any two words to see the DP matrix recompute live. Blue cells mark the optimal backtrace path. The bottom-right cell (bold outline) is the final edit distance.</h4>
+
+    <div class="widget-controls">
+      <label>
+        Source:
+        <input type="text" id="lev-src" value="kitten" maxlength="20" style="width:120px;">
+      </label>
+      <label>
+        Target:
+        <input type="text" id="lev-tgt" value="sitting" maxlength="20" style="width:120px;">
+      </label>
+      <button id="lev-step-btn">Step through matrix</button>
+      <button id="lev-reset-btn" class="secondary">Reset</button>
+    </div>
+
+    <div id="lev-matrix-container" class="lev-matrix-wrap"></div>
+
+    <div class="stat-row" style="margin-top:0.75rem;">
+      <div class="stat-card">
+        <span>Edit Distance</span>
+        <strong id="stat-lev-dist">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Substitutions</span>
+        <strong id="stat-lev-subs">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Insertions</span>
+        <strong id="stat-lev-ins">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Deletions</span>
+        <strong id="stat-lev-del">—</strong>
+      </div>
+      <div class="stat-card">
+        <span>Matches</span>
+        <strong id="stat-lev-match">—</strong>
+      </div>
+    </div>
+
+    <!-- Step-through mode -->
+    <div id="step-mode-panel" style="display:none;margin-top:1rem;">
+      <div class="step-controls">
+        <button id="step-prev-btn">&#8592; Prev</button>
+        <span class="step-counter" id="step-counter-lbl">Step 1 / 1</span>
+        <button id="step-next-btn">Next &#8594;</button>
+        <button id="step-exit-btn" class="secondary">Exit step mode</button>
+      </div>
+      <div class="step-explanation" id="step-explain-box">Click "Next" to begin filling the matrix cell by cell.</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- PRACTICE PROBLEMS                                                     -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1: Easy -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: Fill in the Base Cases</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>The Levenshtein DP table for comparing <code>'ab'</code> (source, rows) against <code>'abc'</code> (target, columns) has dimensions 3×4 (rows 0–2 for source, columns 0–3 for target).</p>
+      <p>Fill in the first row (row 0) and first column (column 0) — the base cases. What are the values, and why?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>Row 0:</strong> <code>[0, 1, 2, 3]</code></p>
+        <p><strong>Column 0:</strong> <code>[0, 1, 2]</code></p>
+        <p><strong>Explanation:</strong></p>
+        <ul>
+          <li><span class="math-inline math-latex">d[0][j] = j</span> for all <span class="math-inline math-latex">j</span>. This is the cost of converting the <em>empty string</em> (0 characters of source) to the first <span class="math-inline math-latex">j</span> characters of the target. The only way to do this is <span class="math-inline math-latex">j</span> insertions — one for each target character.</li>
+          <li><span class="math-inline math-latex">d[i][0] = i</span> for all <span class="math-inline math-latex">i</span>. This is the cost of converting the first <span class="math-inline math-latex">i</span> characters of the source to the <em>empty string</em>. The only way is <span class="math-inline math-latex">i</span> deletions — one for each source character.</li>
+        </ul>
+        <p>So row 0 = [0, 1, 2, 3] and column 0 = [0, 1, 2]. These boundary conditions anchor the entire table: every other cell is computed relative to these values.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2: Medium -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: Compute by Hand — "cat" to "cart"</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>Compute the Levenshtein distance between <code>'cat'</code> (source) and <code>'cart'</code> (target) by filling in the full DP matrix. The matrix dimensions are 4×5 (rows 0–3, columns 0–4). Show each cell's computation and state the minimum edit operations.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>Full 4×5 matrix</strong> (source='cat' down rows, target='cart' across columns):</p>
+        <div class="lev-matrix-wrap">
+          <table class="lev-matrix">
+            <thead><tr><th></th><th></th><th>c</th><th>a</th><th>r</th><th>t</th></tr></thead>
+            <tbody>
+              <tr><th></th><td class="path filled">0</td><td class="filled">1</td><td class="filled">2</td><td class="filled">3</td><td class="filled">4</td></tr>
+              <tr><th>c</th><td class="filled">1</td><td class="path filled">0</td><td class="filled">1</td><td class="filled">2</td><td class="filled">3</td></tr>
+              <tr><th>a</th><td class="filled">2</td><td class="filled">1</td><td class="path filled">0</td><td class="filled">1</td><td class="filled">2</td></tr>
+              <tr><th>t</th><td class="filled">3</td><td class="filled">2</td><td class="filled">1</td><td class="path filled">1</td><td class="current filled">1</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>Key cells:</strong></p>
+        <ul>
+          <li><span class="math-inline math-latex">d[1][1]</span>: 'c'='c', match → <span class="math-inline math-latex">d[0][0] = 0</span>.</li>
+          <li><span class="math-inline math-latex">d[2][2]</span>: 'a'='a', match → <span class="math-inline math-latex">d[1][1] = 0</span>.</li>
+          <li><span class="math-inline math-latex">d[2][3]</span>: 'a'≠'r', mismatch → <span class="math-inline math-latex">1 + \min(d[1][3], d[2][2], d[1][2]) = 1 + \min(2,0,1) = 1</span>.</li>
+          <li><span class="math-inline math-latex">d[3][3]</span>: 't'≠'r', mismatch → <span class="math-inline math-latex">1 + \min(d[2][3], d[3][2], d[2][2]) = 1 + \min(1,1,0) = 1</span>.</li>
+          <li><span class="math-inline math-latex">d[3][4]</span>: 't'='t', match → <span class="math-inline math-latex">d[2][3] = 1</span>.</li>
+        </ul>
+        <p><strong>Result:</strong> <span class="math-inline math-latex">d[3][4] = 1</span>. Only one edit is needed: insert 'r' between 'a' and 't' to get "ca<strong>r</strong>t". The backtrace follows the path of blue cells: two free matches (c→c, a→a), one insertion of 'r', one free match (t→t).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3: Hard -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: Weighted Edit Distance</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>In OCR (optical character recognition) error correction, some character substitutions are far more likely than others — 'l' and '1' look similar, as do 'O' and '0', 'rn' and 'm'. A uniform substitution cost of 1 treats all confusable pairs equally, which is suboptimal.</p>
+      <p><strong>Question:</strong> Describe how you would modify the Levenshtein recurrence to incorporate a cost function <code>cost(a, b)</code> that returns the substitution cost between characters <code>a</code> and <code>b</code> (where <code>cost(a, a) = 0</code> and <code>cost(a, b)</code> may differ from <code>cost(b, a)</code> in general). How does this change affect the algorithm's time complexity?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>Modification:</strong> Replace the binary <code>cost = 0 if s[i-1] == t[j-1] else 1</code> with the lookup <code>cost = cost_fn(s[i-1], t[j-1])</code>. The recurrence becomes:</p>
+        <div class="math-block">
+          <span class="math-latex math-block">d[i][j] = \min\!\Big(d[i-1][j] + 1,\;\; d[i][j-1] + 1,\;\; d[i-1][j-1] + \text{cost}(s[i], t[j])\Big)</span>
+        </div>
+        <p>Deletion and insertion costs typically remain 1, but they too can be made character-dependent for even more fine-grained control (e.g., deleting a punctuation mark costs less than deleting a letter).</p>
+        <p><strong>Time complexity:</strong> Unchanged at <span class="math-inline math-latex">O(mn)</span>, assuming <code>cost(a, b)</code> is looked up in an <span class="math-inline math-latex">O(1)</span> precomputed table (a 2D array indexed by character code). The <span class="math-inline math-latex">O(mn)</span> structure of the DP is entirely determined by the table shape, not the cell computation.</p>
+        <p><strong>Applications:</strong> This generalised weighted edit distance is the foundation of bioinformatics sequence alignment (Needleman-Wunsch substitution matrices like BLOSUM62 assign costs based on evolutionary substitution frequencies) and keyboard-layout-aware spell correction (characters adjacent on the keyboard get lower substitution cost).</p>
+        <p><strong>Implementation sketch:</strong></p>
+        <div class="code-snippet" style="margin-top:0.5rem;">
+          <div class="code-snippet-header"><span class="code-snippet-label">Python</span><button class="code-copy-btn">Copy</button></div>
+          <pre><span class="py-kw">def</span> <span class="py-fn">weighted_levenshtein</span>(s, t, cost_fn):
+    m, n = <span class="py-fn">len</span>(s), <span class="py-fn">len</span>(t)
+    dp = [[<span class="py-num">0</span>]*(n+<span class="py-num">1</span>) <span class="py-kw">for</span> _ <span class="py-kw">in</span> <span class="py-fn">range</span>(m+<span class="py-num">1</span>)]
+    <span class="py-kw">for</span> i <span class="py-kw">in</span> <span class="py-fn">range</span>(m+<span class="py-num">1</span>): dp[i][<span class="py-num">0</span>] = i
+    <span class="py-kw">for</span> j <span class="py-kw">in</span> <span class="py-fn">range</span>(n+<span class="py-num">1</span>): dp[<span class="py-num">0</span>][j] = j
+    <span class="py-kw">for</span> i <span class="py-kw">in</span> <span class="py-fn">range</span>(<span class="py-num">1</span>, m+<span class="py-num">1</span>):
+        <span class="py-kw">for</span> j <span class="py-kw">in</span> <span class="py-fn">range</span>(<span class="py-num">1</span>, n+<span class="py-num">1</span>):
+            dp[i][j] = <span class="py-fn">min</span>(dp[i-<span class="py-num">1</span>][j] + <span class="py-num">1</span>,
+                           dp[i][j-<span class="py-num">1</span>] + <span class="py-num">1</span>,
+                           dp[i-<span class="py-num">1</span>][j-<span class="py-num">1</span>] + <span class="py-fn">cost_fn</span>(s[i-<span class="py-num">1</span>], t[j-<span class="py-num">1</span>]))
+    <span class="py-kw">return</span> dp[m][n]</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- MCQ QUIZ                                                              -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Quiz</h2>
+
+  <div class="quiz-block">
+    <div class="quiz-block-header">Module 1 — Check Your Understanding</div>
+
+    <!-- Q1 -->
+    <div class="quiz-question">
+      <p>1. Which of the following is NOT a standard text normalization step?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>Lowercasing all tokens</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">B</span>
+          <span>Removing stopwords</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">C</span>
+          <span>Part-of-speech tagging</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Punctuation removal</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">POS tagging assigns grammatical roles to tokens — it is syntactic analysis, not normalization. Normalization reduces surface variation to a canonical form; it does not interpret or annotate.</div>
+      <div class="quiz-feedback wrong-fb">That IS a normalization step. POS tagging is different: it assigns grammatical labels (noun, verb, adjective) to tokens. That is an analysis step that comes after normalization, not part of it.</div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="quiz-question">
+      <p>2. The Levenshtein distance between <code>'abc'</code> and <code>'abc'</code> is:</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">A</span>
+          <span>0</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">B</span>
+          <span>1</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>3</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Undefined — a string cannot be compared to itself</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Identical strings require zero edits — every character is a free match. The DP table fills with 0s along the diagonal, and the final cell d[3][3] = 0.</div>
+      <div class="quiz-feedback wrong-fb">Think about it: the strings are identical, so no operations are needed. Every character aligns with itself at cost 0, and the final distance is 0.</div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="quiz-question">
+      <p>3. Why is dynamic programming used for Levenshtein distance instead of plain recursion?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>DP can handle strings of any length; recursion is limited to short strings</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">B</span>
+          <span>The naive recursive solution has exponential time complexity due to overlapping subproblems</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>DP always uses less memory than recursion</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Recursion cannot represent the insertion operation</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">The naive recursion recomputes d[i][j] an exponential number of times because many different paths through the string pairs converge on the same sub-alignment. Memoizing (DP) computes each of the O(mn) subproblems exactly once, reducing time from exponential to O(mn).</div>
+      <div class="quiz-feedback wrong-fb">Recursion can handle any length and all three operations. The problem is efficiency: the naive recursion has overlapping subproblems — d[i][j] is recomputed many times from different call paths, causing exponential runtime. DP fixes this by storing each result once.</div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="quiz-question">
+      <p>4. If you remove the word "the" from a text as a stopword, you potentially lose information about:</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>Nothing — "the" carries no semantic content whatsoever</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">B</span>
+          <span>Definiteness and coreference (e.g., "the president" refers to a specific, contextually known president)</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>Verb tense and aspect</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Sentence length only</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Removing "the" destroys the definiteness distinction: "a dog" (indefinite, any dog) vs "the dog" (definite, the contextually known dog). This hurts coreference resolution and named-entity tasks where definiteness signals whether a noun phrase refers to a previously introduced entity.</div>
+      <div class="quiz-feedback wrong-fb">"The" (the definite article) carries real information — it signals that the noun phrase refers to a specific, contextually identified entity. "A president spoke" (any president, vague) differs semantically from "The president spoke" (a specific, known president). This distinction matters for coreference resolution.</div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- BRIDGE TO MODULE 2                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="bridge" style="margin-top:2rem;">
+    <strong>What's next: morphology and probabilistic spell correction.</strong>
+    We can now convert raw text into clean, normalised tokens. But tokens like "running", "runs", and "ran" are all surface forms of the same root "run" — yet our normaliser treats them as three distinct vocabulary entries. Module 2 introduces <em>morphological analysis</em>: stemming (aggressively stripping suffixes) and lemmatization (linguistically accurate root reduction). It also shows how edit distance and token frequency combine into the <em>noisy channel model</em> — the probabilistic framework that turns spell checking from a string-matching heuristic into a principled inference problem.
+  </div>
+
+  <div class="nav-buttons">
+    <a href="../index.html" class="nav-btn prev">Track Home</a>
+    <a href="02-stemming-lemmatization-noisy-channel.html" class="nav-btn">Next: Module 2 — Stemming, Lemmatization &amp; Noisy Channel</a>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // LIVE LEVENSHTEIN WIDGET
+  // ═══════════════════════════════════════════════════════════════════════
+
+  var srcInput   = document.getElementById('lev-src');
+  var tgtInput   = document.getElementById('lev-tgt');
+  var matrixDiv  = document.getElementById('lev-matrix-container');
+  var statDist   = document.getElementById('stat-lev-dist');
+  var statSubs   = document.getElementById('stat-lev-subs');
+  var statIns    = document.getElementById('stat-lev-ins');
+  var statDel    = document.getElementById('stat-lev-del');
+  var statMatch  = document.getElementById('stat-lev-match');
+
+  var stepPanel  = document.getElementById('step-mode-panel');
+  var stepBtn    = document.getElementById('lev-step-btn');
+  var resetBtn   = document.getElementById('lev-reset-btn');
+  var stepPrev   = document.getElementById('step-prev-btn');
+  var stepNext   = document.getElementById('step-next-btn');
+  var stepExit   = document.getElementById('step-exit-btn');
+  var stepLabel  = document.getElementById('step-counter-lbl');
+  var stepExplain = document.getElementById('step-explain-box');
+
+  var stepMode = false;
+  var stepStates = [];  // array of { i, j, matrix, explain }
+  var stepIdx = 0;
+
+  // ── Count operations along the backtrace path ──────────────────────────
+  function countOps(s, t, result) {
+    var path = result.path.slice().reverse();  // top-left to bottom-right
+    var subs = 0, ins = 0, del = 0, match = 0;
+    for (var k = 1; k < path.length; k++) {
+      var prev = path[k - 1];
+      var curr = path[k];
+      var di = curr[0] - prev[0];
+      var dj = curr[1] - prev[1];
+      if (di === 1 && dj === 1) {
+        if (s[curr[0] - 1] === t[curr[1] - 1]) { match++; }
+        else { subs++; }
+      } else if (di === 1 && dj === 0) {
+        del++;
+      } else if (di === 0 && dj === 1) {
+        ins++;
+      }
+    }
+    return { subs: subs, ins: ins, del: del, match: match };
+  }
+
+  // ── Render live (full matrix) ──────────────────────────────────────────
+  function renderLive() {
+    if (stepMode) return;  // don't overwrite step mode
+    var s = srcInput.value;
+    var t = tgtInput.value;
+    if (s.length === 0 || t.length === 0) {
+      matrixDiv.innerHTML = '<p style="color:var(--text-muted);font-size:0.88rem;">Enter non-empty source and target words.</p>';
+      statDist.textContent = statSubs.textContent = statIns.textContent = statDel.textContent = statMatch.textContent = '—';
+      return;
+    }
+    if (s.length > 18 || t.length > 18) {
+      matrixDiv.innerHTML = '<p style="color:var(--text-muted);font-size:0.88rem;">Please keep words under 18 characters for display clarity.</p>';
+      return;
+    }
+    var result = levenshteinMatrix(s, t);
+    matrixDiv.innerHTML = buildLevTable(s, t, result);
+    statDist.textContent  = result.dist;
+    var ops = countOps(s, t, result);
+    statSubs.textContent  = ops.subs;
+    statIns.textContent   = ops.ins;
+    statDel.textContent   = ops.del;
+    statMatch.textContent = ops.match;
+  }
+
+  // ── Build step-through states ──────────────────────────────────────────
+  function buildStepStates(s, t) {
+    var m = s.length, n = t.length;
+    var states = [];
+
+    // State 0: empty table (only header)
+    states.push({
+      filledUpTo: { i: -1, j: -1 },
+      explain: 'The table has ' + (m + 1) + ' rows (for source "' + s + '" plus empty string) and ' + (n + 1) + ' columns (for target "' + t + '" plus empty string). All cells start empty. We fill left-to-right, top-to-bottom.'
+    });
+
+    // Build the full DP matrix first
+    var dp = [];
+    for (var i = 0; i <= m; i++) {
+      dp[i] = [];
+      for (var j = 0; j <= n; j++) {
+        if (i === 0) dp[i][j] = j;
+        else if (j === 0) dp[i][j] = i;
+        else {
+          var cost = s[i-1] === t[j-1] ? 0 : 1;
+          dp[i][j] = Math.min(dp[i-1][j] + 1, dp[i][j-1] + 1, dp[i-1][j-1] + cost);
+        }
+      }
+    }
+
+    // Generate one state per cell
+    var order = [];
+    for (var ii = 0; ii <= m; ii++) {
+      for (var jj = 0; jj <= n; jj++) {
+        order.push([ii, jj]);
+      }
+    }
+
+    for (var k = 0; k < order.length; k++) {
+      var ci = order[k][0], cj = order[k][1];
+      var explain = '';
+      if (ci === 0 && cj === 0) {
+        explain = 'd[0][0] = 0. Base case: converting the empty string to the empty string costs 0.';
+      } else if (ci === 0) {
+        explain = 'd[0][' + cj + '] = ' + cj + '. Base case (row 0): converting empty string to "' + t.slice(0, cj) + '" requires ' + cj + ' insertion' + (cj > 1 ? 's' : '') + '.';
+      } else if (cj === 0) {
+        explain = 'd[' + ci + '][0] = ' + ci + '. Base case (col 0): converting "' + s.slice(0, ci) + '" to empty string requires ' + ci + ' deletion' + (ci > 1 ? 's' : '') + '.';
+      } else {
+        var sc = s[ci - 1], tc = t[cj - 1];
+        var cost2 = sc === tc ? 0 : 1;
+        var del2  = dp[ci-1][cj] + 1;
+        var ins2  = dp[ci][cj-1] + 1;
+        var sub2  = dp[ci-1][cj-1] + cost2;
+        var chosen = Math.min(del2, ins2, sub2);
+        var opStr = '';
+        if (chosen === sub2 && cost2 === 0) opStr = 'match (s[' + ci + ']="' + sc + '" = t[' + cj + ']="' + tc + '"), diagonal d[' + (ci-1) + '][' + (cj-1) + ']=' + dp[ci-1][cj-1];
+        else if (chosen === sub2) opStr = 'substitute ("' + sc + '"→"' + tc + '"), diagonal d[' + (ci-1) + '][' + (cj-1) + ']+1=' + sub2;
+        else if (chosen === del2) opStr = 'delete "' + sc + '", up d[' + (ci-1) + '][' + cj + ']+1=' + del2;
+        else opStr = 'insert "' + tc + '", left d[' + ci + '][' + (cj-1) + ']+1=' + ins2;
+        explain = 'd[' + ci + '][' + cj + ']: s[' + ci + ']="' + sc + '", t[' + cj + ']="' + tc + '". ' +
+          'delete=' + del2 + ', insert=' + ins2 + ', sub=' + sub2 + '. ' +
+          'Min=' + chosen + ' (' + opStr + ').';
+      }
+      states.push({ filledUpTo: { i: ci, j: cj }, explain: explain, dp: dp });
+    }
+    return states;
+  }
+
+  // ── Render step-through matrix ─────────────────────────────────────────
+  function renderStep() {
+    var s = srcInput.value;
+    var t = tgtInput.value;
+    var state = stepStates[stepIdx];
+    var m = s.length, n = t.length;
+    var dp = state.dp || null;
+    var upTo = state.filledUpTo;
+
+    // Build result for path (use full dp from last state)
+    var fullDp = stepStates[stepStates.length - 1].dp;
+    var result = levenshteinMatrix(s, t);  // for path only
+    var pathSet = new Set(result.path.map(function(p){ return p[0]+','+p[1]; }));
+
+    var html = '<table class="lev-matrix"><thead><tr><th></th><th></th>';
+    for (var j = 0; j <= n; j++) {
+      html += '<th>' + (j === 0 ? '' : escHtml(t[j-1])) + '</th>';
+    }
+    html += '</tr></thead><tbody>';
+
+    for (var i = 0; i <= m; i++) {
+      html += '<tr><th>' + (i === 0 ? '' : escHtml(s[i-1])) + '</th>';
+      for (var jj = 0; jj <= n; jj++) {
+        // Is this cell filled yet?
+        var linearThis  = i * (n + 1) + jj;
+        var linearUpTo  = upTo.i * (n + 1) + upTo.j;
+        var isCurrent   = (i === upTo.i && jj === upTo.j && stepIdx > 0);
+        var isFilled    = (linearThis <= linearUpTo);
+        var isPath      = pathSet.has(i + ',' + jj) && isFilled;
+        var cls;
+        if (isCurrent && i === m && jj === n) cls = 'current filled';
+        else if (isCurrent) cls = 'current filled';
+        else if (isPath) cls = 'path filled';
+        else if (isFilled) cls = 'filled';
+        else cls = '';
+
+        var val = '';
+        if (isFilled && dp) {
+          val = dp[i][jj];
+        }
+        html += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + val + '</td>';
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    matrixDiv.innerHTML = html;
+
+    stepLabel.textContent = 'Step ' + stepIdx + ' / ' + (stepStates.length - 1);
+    stepExplain.textContent = state.explain;
+    stepPrev.disabled = (stepIdx === 0);
+    stepNext.disabled = (stepIdx === stepStates.length - 1);
+  }
+
+  // ── Enter step mode ────────────────────────────────────────────────────
+  stepBtn.addEventListener('click', function () {
+    var s = srcInput.value, t = tgtInput.value;
+    if (!s || !t) { return; }
+    stepMode = true;
+    stepStates = buildStepStates(s, t);
+    stepIdx = 0;
+    stepPanel.style.display = '';
+    renderStep();
+  });
+
+  stepNext.addEventListener('click', function () {
+    if (stepIdx < stepStates.length - 1) { stepIdx++; renderStep(); }
+  });
+
+  stepPrev.addEventListener('click', function () {
+    if (stepIdx > 0) { stepIdx--; renderStep(); }
+  });
+
+  stepExit.addEventListener('click', function () {
+    stepMode = false;
+    stepPanel.style.display = 'none';
+    renderLive();
+  });
+
+  resetBtn.addEventListener('click', function () {
+    srcInput.value = 'kitten';
+    tgtInput.value = 'sitting';
+    stepMode = false;
+    stepPanel.style.display = 'none';
+    renderLive();
+  });
+
+  // ── Live update on input ───────────────────────────────────────────────
+  srcInput.addEventListener('input', function () { stepMode = false; stepPanel.style.display = 'none'; renderLive(); });
+  tgtInput.addEventListener('input', function () { stepMode = false; stepPanel.style.display = 'none'; renderLive(); });
+
+  // ── Initial render ─────────────────────────────────────────────────────
+  renderLive();
+
+});
+</script>
+</body>
+</html>
