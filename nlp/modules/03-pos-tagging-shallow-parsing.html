@@ -40,7 +40,7 @@
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Why Syntax? From Words to Structure</h2>
 
-  <p>Module 2 gave us normalized tokens: stemmed or lemmatized word forms, cleaned of noise and spelling variation. That is progress, but it leaves a fundamental problem unsolved. Consider these two sentences:</p>
+  <p>Normalized tokens from Module 2 still leave meaning underspecified — word order matters. Consider:</p>
 
   <div class="concept-box">
     <h4>The order of words changes everything</h4>
@@ -49,23 +49,21 @@
     <p style="margin-top:0.75rem;margin-bottom:0;color:var(--text-muted);font-size:0.92rem;">Both sentences contain exactly the same tokens: <code>the</code>, <code>dog</code>, <code>bites</code>, <code>man</code>. A bag-of-words model assigns them identical representations. Yet they describe radically different events.</p>
   </div>
 
-  <p>The gap between tokens and meaning is bridged by <strong>syntax</strong> — the rules governing how words combine into phrases, and phrases into sentences. Syntax captures not just <em>which</em> words appear but <em>how</em> they are arranged and what role each plays.</p>
-
-  <p>Syntactic analysis comes in two flavours of increasing depth:</p>
+  <p><strong>Syntax</strong> bridges this gap — capturing not just which words appear but how they are arranged and what role each plays. Syntactic analysis comes in two flavours:</p>
 
   <div class="assumptions-grid">
     <div class="assumption-card">
       <h5>Shallow parsing (this module)</h5>
-      <p>Assigns a grammatical category (part of speech) to each token, then groups adjacent tokens into flat, non-overlapping phrase chunks. Fast, robust, and sufficient for many tasks such as information extraction and named entity recognition.</p>
+      <p>Tags each token with a POS, then groups adjacent tokens into flat, non-overlapping phrase chunks. Fast and sufficient for IE and NER.</p>
     </div>
     <div class="assumption-card">
       <h5>Deep parsing (Module 4)</h5>
-      <p>Builds a full hierarchical parse tree using a grammar. Captures recursive structure — a PP inside an NP inside a VP inside an S — at the cost of greater complexity and sensitivity to out-of-domain text.</p>
+      <p>Builds a full recursive parse tree (PP inside NP inside VP inside S). More expressive but more complex and domain-sensitive.</p>
     </div>
   </div>
 
   <div class="bridge">
-    <strong>The plan for this module.</strong> We start with parts of speech — the grammatical vocabulary — then look at how statistical taggers assign them automatically. We then move one level up to shallow parsing, or chunking, which groups tagged tokens into meaningful phrase units. Two interactive widgets let you explore real tagged sentences and see NP chunks emerge.
+    <strong>Plan:</strong> POS tags → statistical taggers → shallow parsing (chunking). Two widgets let you explore tagged sentences and NP chunks interactively.
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
@@ -73,11 +71,7 @@
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Parts of Speech</h2>
 
-  <p>A <strong>part of speech</strong> (POS), also called a <em>word class</em> or <em>lexical category</em>, is the grammatical role a word plays in a sentence. Traditional grammar gives us nouns, verbs, adjectives, and so on, but computational linguistics uses finer-grained tagsets designed for corpus annotation.</p>
-
-  <h3>Open class vs. closed class words</h3>
-
-  <p>One of the most useful high-level distinctions is between open and closed class words:</p>
+  <p>A <strong>part of speech</strong> (POS), or <em>lexical category</em>, is the grammatical role a word plays in a sentence. Computational linguistics uses finer-grained tagsets than traditional grammar — the key distinction is between open and closed class words:</p>
 
   <div class="pros-cons">
     <div class="pros-cons-col pros">
@@ -88,7 +82,7 @@
         <li><strong>Adjectives</strong> — properties of nouns (<em>quick, neural, ambiguous</em>)</li>
         <li><strong>Adverbs</strong> — modifiers of verbs/adjectives (<em>quickly, very, not</em>)</li>
       </ul>
-      <p style="font-size:0.85rem;color:var(--text-muted);margin:0.5rem 0 0 0;">New words enter these classes constantly — every new technology coins new nouns and verbs.</p>
+      <p style="font-size:0.85rem;color:var(--text-muted);margin:0.5rem 0 0 0;">New words enter these classes constantly.</p>
     </div>
     <div class="pros-cons-col cons">
       <h4>Closed class (function words)</h4>
@@ -104,7 +98,7 @@
 
   <h3>The Penn Treebank tagset</h3>
 
-  <p>The de facto standard for English NLP is the <strong>Penn Treebank (PTB) tagset</strong>, which defines 45 fine-grained tags. The table below covers the most commonly encountered ones:</p>
+  <p>The de facto standard for English NLP, defining 45 fine-grained tags. Most common ones:</p>
 
   <table>
     <thead>
@@ -139,7 +133,7 @@
 
   <h3>Why ambiguity is hard</h3>
 
-  <p>The same word can belong to different parts of speech depending on context. This is the central challenge for any POS tagger:</p>
+  <p>The same word can belong to different POS depending on context:</p>
 
   <div class="callout note">
     <strong>Lexical ambiguity in POS</strong>
@@ -151,7 +145,7 @@
     </ul>
   </div>
 
-  <p>Studies of the Brown Corpus show that about <strong>11–12% of word tokens are genuinely ambiguous</strong> between two or more major POS categories. A naive most-frequent-tag baseline achieves roughly 92% accuracy, but resolving the remaining 8% requires context — which is exactly what statistical taggers exploit.</p>
+  <p>About <strong>11–12% of word tokens are genuinely ambiguous</strong> across major POS categories (Brown Corpus). A most-frequent-tag baseline achieves ~92% accuracy; resolving the remaining 8% requires context — what statistical taggers exploit.</p>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
        SECTION 3: RULE-BASED VS STATISTICAL TAGGERS
@@ -160,7 +154,7 @@
 
   <h3>Rule-based taggers</h3>
 
-  <p>The earliest taggers (e.g., the ENGTWOL tagger, 1980s) used large hand-crafted rule sets. A typical rule might say: <em>if a word ends in <code>-ly</code>, assign RB (adverb)</em>. A cascade of such rules, applied in order, narrows down possible tags.</p>
+  <p>Early taggers (e.g., ENGTWOL, 1980s) used hand-crafted rule cascades — e.g., <em>word ends in <code>-ly</code> → RB</em> — to narrow down candidates.</p>
 
   <div class="pros-cons">
     <div class="pros-cons-col pros">
@@ -184,28 +178,28 @@
 
   <h3>HMM taggers — the statistical approach</h3>
 
-  <p>A <strong>Hidden Markov Model (HMM)</strong> tagger treats POS tagging as a sequence labeling problem. The words we observe are the "visible" sequence; the tags we want are the "hidden" sequence. The model uses two probability distributions:</p>
+  <p>A <strong>Hidden Markov Model (HMM)</strong> tagger treats POS tagging as sequence labeling: observed words are the visible sequence, tags are the hidden sequence. It uses two distributions:</p>
 
   <div class="derivation">
     <div class="derivation-step">
       <div class="step-number">1</div>
       <div class="step-content">
         <strong>Emission probability P(word | tag)</strong>
-        <div class="step-explanation">How likely is a particular word given a tag? Estimated from a labeled corpus by counting: how often does the word "dog" appear with tag NN, divided by how often NN appears at all? A high P("dog" | NN) means "dog" is a reliable indicator of a noun.</div>
+        <div class="step-explanation">How likely is a word given a tag? Estimated by counting: P("dog" | NN) = count(dog, NN) / count(NN).</div>
       </div>
     </div>
     <div class="derivation-step">
       <div class="step-number">2</div>
       <div class="step-content">
         <strong>Transition probability P(tag<sub>i</sub> | tag<sub>i−1</sub>)</strong>
-        <div class="step-explanation">How likely is one tag to follow another? P(VBD | NN) — a past-tense verb following a noun — is high (the dog ran). P(DT | DT) — a determiner following a determiner — is near zero (you almost never see "the the"). This captures the grammar implicitly.</div>
+        <div class="step-explanation">How likely is one tag to follow another? P(VBD | NN) is high ("the dog ran"); P(DT | DT) is near zero ("the the"). Captures grammar implicitly.</div>
       </div>
     </div>
     <div class="derivation-step">
       <div class="step-number">3</div>
       <div class="step-content">
         <strong>Viterbi decoding</strong>
-        <div class="step-explanation">Given a sentence of n words, finding the tag sequence that maximises the joint probability is exponential in n by brute force. The Viterbi algorithm solves this in O(n · |T|²) time using dynamic programming, filling a table of best-path scores one word at a time and backtracking at the end.</div>
+        <div class="step-explanation">Brute-force search over tag sequences is exponential; Viterbi finds the optimal sequence in O(n · |T|²) via dynamic programming.</div>
       </div>
     </div>
   </div>
@@ -216,7 +210,7 @@
     <span class="math-latex math-block">P(t_1, \ldots, t_n \mid w_1, \ldots, w_n) \;\propto\; \prod_{i=1}^{n} P(w_i \mid t_i)\, P(t_i \mid t_{i-1})</span>
   </div>
 
-  <p>where <span class="math-inline math-latex">t_0</span> is a special start-of-sentence tag. The product of emission and transition probabilities over all positions defines the score of any complete tag assignment; Viterbi finds the highest-scoring one efficiently.</p>
+  <p>where <span class="math-inline math-latex">t_0</span> is a special start-of-sentence tag. Viterbi finds the highest-scoring tag assignment efficiently.</p>
 
   <div class="callout insight">
     <strong>Accuracy on standard benchmarks</strong>
@@ -225,14 +219,14 @@
 
   <h3>Neural taggers (modern)</h3>
 
-  <p>Contemporary NLP pipelines replace the HMM with deep learning. A <strong>BiLSTM tagger</strong> reads the sentence forward and backward simultaneously, building a context-aware representation of each token. A transformer-based tagger (e.g., spaCy's <code>en_core_web_trf</code>) uses attention over the entire sentence. Both learn the emission- and transition-like patterns implicitly from data, without requiring explicit probability tables.</p>
+  <p>A <strong>BiLSTM tagger</strong> reads the sentence bidirectionally for context-aware token representations. A transformer tagger (e.g., spaCy's <code>en_core_web_trf</code>) uses full-sentence attention. Both learn emission- and transition-like patterns implicitly from data.</p>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
        SECTION 4: POS TAGGING IN spaCy
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>POS Tagging in spaCy</h2>
 
-  <p>spaCy exposes two levels of POS annotation on each <code>Token</code> object: a coarse universal tag (<code>token.pos_</code>) and the fine-grained Penn Treebank tag (<code>token.tag_</code>). The <code>spacy.explain()</code> function provides a human-readable description of any tag.</p>
+  <p>spaCy exposes two POS levels per token: coarse universal tag (<code>token.pos_</code>) and fine-grained PTB tag (<code>token.tag_</code>). <code>spacy.explain()</code> returns a human-readable description.</p>
 
   <div class="code-snippet">
     <div class="code-snippet-header">
@@ -258,7 +252,7 @@ dog          NOUN     NN       noun, singular or mass
 .            PUNCT    .        punctuation mark, sentence closer</div>
   </div>
 
-  <p>Notice the two-level design: <code>pos_</code> gives the universal coarse tag (NOUN, VERB, ADJ, DET, ADP, PUNCT …) while <code>tag_</code> gives the Penn Treebank fine-grained tag. The coarse tags are language-independent (used across 60+ languages in Universal Dependencies); the fine-grained tags are English-specific.</p>
+  <p>Coarse <code>pos_</code> tags are language-independent (Universal Dependencies, 60+ languages); fine-grained <code>tag_</code> tags are English-specific PTB.</p>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
        WIDGET 1: LIVE POS TAGGER
@@ -310,9 +304,7 @@ dog          NOUN     NN       noun, singular or mass
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Shallow Parsing (Chunking)</h2>
 
-  <p><strong>Chunking</strong>, also called shallow parsing, groups consecutive tokens into non-overlapping, non-recursive <em>phrase chunks</em>. Unlike full parsing, it does not build a recursive hierarchical tree — it produces a flat sequence of labelled spans that sit "just above" individual tokens.</p>
-
-  <p>The three main chunk types are:</p>
+  <p><strong>Chunking</strong> groups consecutive tokens into non-overlapping, non-recursive <em>phrase chunks</em> — a flat sequence of labelled spans, one level above tokens. The three main chunk types are:</p>
 
   <ul>
     <li><strong>NP (Noun Phrase)</strong> — "the quick brown fox", "cardiovascular health"</li>
@@ -320,7 +312,7 @@ dog          NOUN     NN       noun, singular or mass
     <li><strong>PP (Prepositional Phrase)</strong> — "over the lazy dog", "in London"</li>
   </ul>
 
-  <p>Chunked output is typically written with bracket notation:</p>
+  <p>Chunks are written with bracket notation:</p>
 
   <div class="concept-box">
     <h4>Bracket notation for chunks</h4>
@@ -331,13 +323,13 @@ dog          NOUN     NN       noun, singular or mass
 
   <h3>Chunk grammar — regex over POS tags</h3>
 
-  <p>The simplest chunker applies regex-like patterns over POS tag sequences. For NP, a canonical grammar rule is:</p>
+  <p>The simplest chunker applies regex patterns over POS tag sequences. For NP:</p>
 
   <div class="math-block">
     <span style="font-family:var(--font-mono);font-size:0.95rem;">NP: {&lt;DT&gt;?&lt;JJ&gt;*&lt;NN.*&gt;+}</span>
   </div>
 
-  <p>Reading this pattern: an optional determiner (<code>?</code>), zero or more adjectives (<code>*</code>), and one or more nouns (<code>+</code>, using the <code>.*</code> wildcard to match NN, NNS, NNP, NNPS). This single rule correctly identifies most English noun phrases.</p>
+  <p>Optional determiner, zero or more adjectives, one or more nouns (<code>.*</code> matches NN/NNS/NNP/NNPS). This single rule correctly identifies most English NPs.</p>
 
   <div class="callout note">
     <strong>Regex quantifiers in chunk grammars</strong>
@@ -349,7 +341,7 @@ dog          NOUN     NN       noun, singular or mass
     </ul>
   </div>
 
-  <p>NLTK's <code>RegexpParser</code> implements this directly:</p>
+  <p>NLTK's <code>RegexpParser</code> applies this directly:</p>
 
   <div class="code-snippet">
     <div class="code-snippet-header">
@@ -375,11 +367,11 @@ result = cp.<span class="py-fn">parse</span>(sentence)
   (NP the/DT lazy/JJ dog/NN))</div>
   </div>
 
-  <p>Tokens not matched by any chunk rule remain as bare tokens in the output (here <em>jumps/VBZ</em> and <em>over/IN</em>). The two NP chunks are correctly identified.</p>
+  <p>Unmatched tokens remain bare (<em>jumps/VBZ</em>, <em>over/IN</em>). Two NP chunks are correctly identified.</p>
 
   <h3>Noun phrase chunking with spaCy</h3>
 
-  <p>spaCy provides built-in NP chunking via <code>doc.noun_chunks</code>, computed from the dependency parse:</p>
+  <p>spaCy provides NP chunking via <code>doc.noun_chunks</code>, derived from the dependency parse:</p>
 
   <div class="code-snippet">
     <div class="code-snippet-header">
@@ -653,8 +645,8 @@ NP: 'the bright morning sun' | Root: sun | Root POS: NOUN</div>
        BRIDGE TO MODULE 4
        ═══════════════════════════════════════════════════════════════════════ -->
   <div class="bridge" style="margin-top:2.5rem;">
-    <strong>Looking ahead to Module 4: Context-Free Grammars and Parse Trees.</strong>
-    Shallow parsing gives us flat phrase groups, but natural language is deeply hierarchical — a prepositional phrase can modify a noun phrase, which sits inside a verb phrase, which is embedded inside a subordinate clause. Flat chunks cannot capture this recursive structure. Module 4 introduces <strong>Context-Free Grammars (CFGs)</strong> and full parse trees, the formal framework that represents syntactic structure at arbitrary depth. You will see how the grammar rules that shallow parsing only hints at become the backbone of a complete hierarchical analysis.
+    <strong>Looking ahead to Module 4: CFGs and Parse Trees.</strong>
+    Flat chunks cannot capture recursive structure (PP inside NP inside VP inside clause). Module 4 introduces <strong>Context-Free Grammars</strong> and full parse trees for arbitrary-depth hierarchical analysis.
   </div>
 
   <div class="nav-buttons">

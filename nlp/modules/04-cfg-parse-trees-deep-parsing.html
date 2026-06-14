@@ -40,25 +40,15 @@
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>From Chunks to Full Structure</h2>
 
-  <p>Module 3 gave us shallow parsing: a chunker labels spans like <code>[NP the cat]</code> and <code>[NP the mat]</code>, but it does not tell you <em>how those phrases relate to each other</em>. Consider the sentence:</p>
-
-  <blockquote style="border-left:3px solid var(--accent-blue);padding:0.5rem 1rem;margin:1rem 0;font-style:italic;color:var(--text-muted);">
-    "The cat that sat on the mat looked up."
-  </blockquote>
-
-  <p>A chunker would identify several noun phrases and a verb phrase, but it cannot represent that "that sat on the mat" is a <strong>relative clause modifying "the cat"</strong>, which in turn is the subject of "looked up". That nested relationship — an NP containing a clause containing its own NP — is invisible to a flat chunk sequence.</p>
-
-  <p>This is where <strong>deep parsing</strong> comes in. A full syntactic parse produces a <em>constituency tree</em> (also called a parse tree) that captures every level of embedding, showing how every word and phrase is grammatically governed by the structure above it.</p>
+  <p>Shallow parsing labels flat spans like <code>[NP the cat]</code> but cannot represent nested relationships — that "the cat that sat on the mat" contains a relative clause modifying the subject. <strong>Deep parsing</strong> produces a <em>constituency tree</em> that captures every level of embedding.</p>
 
   <div class="callout note">
     <strong>Chomsky's central insight (1957)</strong>
     Natural language is <em>recursive</em>. An NP can contain a clause (relative clause), and that clause contains another NP, which might contain yet another clause. A finite grammar of rewriting rules generates an <em>infinite</em> set of grammatical sentences — the "infinite use of finite means." Context-Free Grammars (CFGs) are the formal system that captures this creativity.
   </div>
 
-  <p>Deep parsing has real-world impact wherever understanding <em>grammatical structure</em> matters: machine translation, question answering, grammar checking, information extraction, and semantic parsing all rely on knowing which constituent heads which clause.</p>
-
   <div class="bridge">
-    <strong>The path from Module 3 to Module 4.</strong> Shallow parsing gave us labeled flat spans. This module formalises the recursive rule system (CFG) that generates those spans, shows how to represent them as trees, explains how parsers find those trees efficiently (CYK, Earley), and confronts the hard fact that most sentences are structurally ambiguous.
+    <strong>Module 3 → 4.</strong> This module formalises the recursive rule system (CFG), shows how to represent derivations as trees, explains CYK and Earley parsing, and addresses structural ambiguity.
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -95,13 +85,11 @@ V  → "chased" | "saw" | "ate"
 JJ → "big"  | "small" | "lazy"
 IN → "in"   | "with"  | "on"</div>
 
-  <p>The vertical bar <code>|</code> is shorthand for alternative right-hand sides — <code>NP → DT N | DT JJ N</code> is simply two separate rules with the same left-hand side.</p>
+  <p>The <code>|</code> bar is shorthand for alternative right-hand sides.</p>
 
   <h3>Derivations</h3>
 
-  <p>A <strong>derivation</strong> is a sequence of rewriting steps starting from S and ending in a sequence of terminals (the sentence). At each step we pick one non-terminal and replace it with the right-hand side of one of its rules. A <em>leftmost derivation</em> always expands the leftmost non-terminal first.</p>
-
-  <p>Here is the complete leftmost derivation for <em>"the dog chased a cat"</em>:</p>
+  <p>A <strong>derivation</strong> is a sequence of rewriting steps from S to a terminal string. A <em>leftmost derivation</em> always expands the leftmost non-terminal first. Example for <em>"the dog chased a cat"</em>:</p>
 
   <div class="derivation">
     <div class="derivation-step">
@@ -174,28 +162,20 @@ IN → "in"   | "with"  | "on"</div>
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Parse Trees — Structure and Reading</h2>
 
-  <p>A <strong>parse tree</strong> (constituency tree) is a visual representation of a derivation. It is a rooted, ordered tree where:</p>
-
-  <ul>
-    <li><strong>Internal nodes</strong> are labeled with non-terminal symbols (S, NP, VP, PP, &hellip;). Each internal node corresponds to one application of a production rule.</li>
-    <li><strong>Leaf nodes</strong> are labeled with terminal words in left-to-right sentence order.</li>
-    <li>Each subtree rooted at an internal node represents a <em>constituent</em> — a grammatically coherent phrase.</li>
-  </ul>
-
-  <p>Three key structural concepts:</p>
+  <p>A <strong>parse tree</strong> is a rooted, ordered tree where internal nodes are non-terminals (each corresponding to one rule application), leaves are terminal words in sentence order, and each subtree is a <em>constituent</em>. Three key structural concepts:</p>
 
   <div class="assumptions-grid">
     <div class="assumption-card">
       <h5>Dominance</h5>
-      <p>Node A <em>dominates</em> node B if there is a downward path from A to B. S dominates every node; NP dominates all words in that noun phrase.</p>
+      <p>Node A <em>dominates</em> node B if there is a downward path from A to B (S dominates everything).</p>
     </div>
     <div class="assumption-card">
       <h5>Linear precedence</h5>
-      <p>If the leftmost leaf under node A comes before the leftmost leaf under B in the sentence, then A <em>precedes</em> B. The tree encodes word order through left-to-right child ordering.</p>
+      <p>Word order is encoded through left-to-right child ordering in the tree.</p>
     </div>
     <div class="assumption-card">
       <h5>Headedness</h5>
-      <p>Each phrase has a <em>head</em> — the word that determines the phrase's category. The head of an NP is typically the N; the head of a VP is the V. Heads govern agreement and subcategorization.</p>
+      <p>Each phrase has a <em>head</em> that determines its category (N for NP, V for VP). Heads govern agreement and subcategorization.</p>
     </div>
   </div>
 
@@ -208,7 +188,7 @@ IN → "in"   | "with"  | "on"</div>
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Interactive: Step-Through Parse Tree Builder</h2>
 
-  <p>Select a sentence, then step through the derivation one rule application at a time. Each step reveals one more level of tree structure. The production rule applied at that step is shown in the explanation box.</p>
+  <p>Select a sentence and step through the derivation one rule at a time.</p>
 
   <div class="widget-container">
     <div class="widget-controls">
@@ -237,11 +217,11 @@ IN → "in"   | "with"  | "on"</div>
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Structural Ambiguity</h2>
 
-  <p>One of the most important (and humbling) facts about natural language syntax is that most sentences above a few words in length can be parsed in more than one way by a CFG. This is called <strong>structural ambiguity</strong>.</p>
+  <p>Most sentences of any length can be parsed in more than one way — this is <strong>structural ambiguity</strong>.</p>
 
   <h3>PP Attachment Ambiguity</h3>
 
-  <p>The canonical example is prepositional phrase (PP) attachment. Consider:</p>
+  <p>The canonical example is prepositional phrase (PP) attachment:</p>
 
   <blockquote style="border-left:3px solid var(--accent-blue);padding:0.5rem 1rem;margin:1rem 0;font-style:italic;color:var(--text-muted);">
     "I saw the man with the telescope."
@@ -254,39 +234,34 @@ IN → "in"   | "with"  | "on"</div>
     <li><strong>NP attachment:</strong> <em>I [VP saw [NP the man [PP with the telescope]]]</em> — the man had/was holding the telescope.</li>
   </ul>
 
-  <p>Both are perfectly grammatical readings of the same word sequence. A CFG generates <em>both</em> parse trees with equal status. Choosing the right one requires world knowledge or statistical evidence from a corpus.</p>
+  <p>A CFG generates both parse trees with equal status; choosing the right one requires world knowledge or corpus statistics.</p>
 
   <h3>Garden Path Sentences</h3>
 
-  <p>Garden path sentences are extreme cases where the preferred initial parse is wrong and the parser — human or machine — must <em>backtrack</em>:</p>
+  <p>Garden path sentences force the parser to backtrack when the initial parse fails:</p>
 
   <blockquote style="border-left:3px solid var(--warning);padding:0.5rem 1rem;margin:1rem 0;font-style:italic;color:var(--text-muted);">
     "The horse raced past the barn fell."
   </blockquote>
 
-  <p>Most readers initially parse "raced past the barn" as the main verb phrase, then hit "fell" and realise the sentence is actually passive: "The horse [that was] raced past the barn fell." The parser went down the garden path.</p>
+  <p>"Raced past the barn" looks like the main VP until "fell" reveals the sentence is passive: "The horse [that was] raced past the barn fell."</p>
 
   <h3>Ambiguity Grows Exponentially</h3>
 
-  <p>For a sentence with <span class="math-inline math-latex">n</span> words, the number of distinct binary tree structures (and thus potential parse trees) follows the Catalan number sequence:</p>
+  <p>The number of distinct binary tree structures follows the Catalan number sequence:</p>
 
   <div class="math-block">
     <span class="math-latex math-block">C_n = \frac{1}{n+1}\binom{2n}{n} = \frac{(2n)!}{(n+1)!\, n!}</span>
   </div>
 
-  <p>For 3 attachment sites: <span class="math-inline math-latex">C_3 = 5</span>. For 10 attachment sites: <span class="math-inline math-latex">C_{10} = 16{,}796</span>. The combinatorial explosion is real — statistical parsers deal with it by assigning probabilities to rules and selecting the highest-probability parse tree.</p>
-
-  <div class="callout insight">
-    <strong>How statistical parsers resolve ambiguity</strong>
-    A Probabilistic CFG (PCFG) annotates each rule with a probability estimated from a treebank (a corpus of human-annotated parse trees, such as the Penn Treebank). The parser selects the most probable parse tree. "With the telescope" attaches to NP more often in the training corpus when the NP refers to a person, so the parser learns to prefer that attachment in those contexts.
-  </div>
+  <p><span class="math-inline math-latex">C_3 = 5</span>; <span class="math-inline math-latex">C_{10} = 16{,}796</span>. Statistical parsers tame this explosion by assigning probabilities to rules (PCFG) and selecting the highest-probability parse.</p>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <!-- WIDGET 2: AMBIGUITY VISUALIZER                                          -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Interactive: Ambiguity Visualizer</h2>
 
-  <p>The sentence <em>"I shot an elephant in my pajamas."</em> (from Groucho Marx) has two very different readings, both grammatically valid. Toggle between interpretations to see how the parse tree structure changes.</p>
+  <p>The Groucho Marx sentence has two grammatically valid readings — toggle to see how parse tree structure changes.</p>
 
   <div class="widget-container">
     <p style="font-size:1rem;font-style:italic;margin-bottom:0.75rem;color:var(--text-muted);">
@@ -307,15 +282,15 @@ IN → "in"   | "with"  | "on"</div>
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Parsing Algorithms — Overview</h2>
 
-  <p>Given a sentence and a CFG, a parser must find the parse tree (or all parse trees). Two classic families of algorithm dominate:</p>
+  <p>Two classic algorithm families dominate:</p>
 
   <h3>Top-Down Parsing (Earley Algorithm)</h3>
 
-  <p>Start from S and repeatedly expand rules, predicting which non-terminals might cover upcoming input tokens. The Earley algorithm (1970) handles all CFGs in <span class="math-inline math-latex">O(n^3)</span> time (or <span class="math-inline math-latex">O(n^2)</span> for unambiguous grammars). It works by maintaining a chart of <em>Earley items</em> — partial rule applications with a dot showing how far they have progressed.</p>
+  <p>Expands from S, predicting which non-terminals cover upcoming tokens. Earley (1970) handles all CFGs in <span class="math-inline math-latex">O(n^3)</span> (or <span class="math-inline math-latex">O(n^2)</span> for unambiguous grammars) using a chart of partial rule applications.</p>
 
   <h3>Bottom-Up Parsing (CYK Algorithm)</h3>
 
-  <p>Start from individual words and combine adjacent constituents upward until a complete S is built. The <strong>Cocke-Younger-Kasami (CYK)</strong> algorithm requires the grammar to be in <strong>Chomsky Normal Form (CNF)</strong>.</p>
+  <p>Combines adjacent words upward until a complete S is built. The <strong>Cocke-Younger-Kasami (CYK)</strong> algorithm requires <strong>Chomsky Normal Form (CNF)</strong>.</p>
 
   <div class="concept-box">
     <h4>Chomsky Normal Form (CNF)</h4>
@@ -327,19 +302,17 @@ IN → "in"   | "with"  | "on"</div>
     <p>Any CFG can be converted to CNF by binarising longer rules (introducing fresh non-terminals) and removing unit productions and &epsilon;-rules. See Practice Problem 3.</p>
   </div>
 
-  <p>CYK fills a triangular table where cell <span class="math-inline math-latex">[i,j]</span> records all non-terminals that can derive the substring from position <span class="math-inline math-latex">i</span> to <span class="math-inline math-latex">j</span>. The sentence is grammatical if and only if <span class="math-inline math-latex">S \in [1,n]</span>.</p>
-
-  <p>Time complexity:</p>
+  <p>CYK fills a triangular table where cell <span class="math-inline math-latex">[i,j]</span> records non-terminals deriving substring <span class="math-inline math-latex">i..j</span>; the sentence is grammatical iff <span class="math-inline math-latex">S \in [1,n]</span>. Time complexity:</p>
 
   <div class="math-block">
     <span class="math-latex math-block">O(n^3 \cdot |G|)</span>
   </div>
 
-  <p>where <span class="math-inline math-latex">n</span> is the sentence length and <span class="math-inline math-latex">|G|</span> is the size of the grammar (number of rules).</p>
+  <p>where <span class="math-inline math-latex">n</span> is sentence length and <span class="math-inline math-latex">|G|</span> is the number of rules.</p>
 
   <div class="callout insight">
     <strong>Modern neural parsers</strong>
-    Transition-based parsers (shift-reduce with a neural scorer) and graph-based parsers (biaffine attention over all pairs of words) have largely replaced pure CFG parsers in production NLP systems. They achieve near-human accuracy on Penn Treebank benchmarks (F1 &gt; 95%) and run in near-linear time. However, they are best understood as learning to approximate the decisions that a rule-based CFG parser would make — the CFG framework remains the conceptual foundation.
+    Transition-based (shift-reduce + neural scorer) and graph-based (biaffine attention) parsers have largely replaced CFG parsers in production, achieving F1 &gt; 95% on Penn Treebank in near-linear time. They remain best understood as approximating CFG parser decisions — the CFG framework is still the conceptual foundation.
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -347,24 +320,24 @@ IN → "in"   | "with"  | "on"</div>
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Grammatical Agreement Checking</h2>
 
-  <p><strong>Agreement</strong> is the grammatical requirement that certain features (number, person, gender, case) must match between linked constituents. It is one of the most concrete applications of syntactic structure.</p>
+  <p><strong>Agreement</strong> requires features (number, person, gender, case) to match between linked constituents.</p>
 
   <div class="assumptions-grid">
     <div class="assumption-card">
       <h5>Subject-verb agreement</h5>
-      <p>"The dog <strong>runs</strong>" (singular) vs. *"The dog <strong>run</strong>" (violation). The verb form must match the subject's number and person.</p>
+      <p>"The dog <strong>runs</strong>" (singular) vs. *"The dog <strong>run</strong>" (violation).</p>
     </div>
     <div class="assumption-card">
       <h5>Number agreement</h5>
-      <p>"The data <strong>are</strong> / <strong>show</strong>" — "data" is the Latin plural of "datum". Prescriptive grammar requires a plural verb; everyday usage accepts the singular.</p>
+      <p>"data" is plural (Latin); prescriptive grammar requires "The data <strong>show</strong>", not "shows".</p>
     </div>
     <div class="assumption-card">
       <h5>Case agreement (pronouns)</h5>
-      <p>English is mostly case-free, but pronouns retain it: "He/him", "she/her", "they/them". *"Him ran" violates case.</p>
+      <p>English pronouns retain case: "He/him", "she/her". *"Him ran" violates nominative case.</p>
     </div>
     <div class="assumption-card">
       <h5>Rich agreement in other languages</h5>
-      <p>German nouns have grammatical gender (der/die/das) and four cases. Latin verbs encode person, number, and tense in a single suffix. CFGs encode agreement via <em>feature-annotated</em> non-terminals.</p>
+      <p>German has grammatical gender (der/die/das) and four cases; Latin encodes person, number, and tense in a single verb suffix. CFGs handle this via <em>feature-annotated</em> non-terminals.</p>
     </div>
   </div>
 
@@ -381,14 +354,14 @@ N_pl → "dogs" | "cats"
 V_sg → "runs" | "chases"
 V_pl → "run"  | "chase"</div>
 
-  <p>Under this grammar, "The dogs chases a cat" is <em>ungrammatical</em> because <code>NP_pl</code> requires <code>VP_pl</code>, but "chases" is a <code>V_sg</code>. Grammar checkers (Grammarly, LanguageTool) implement exactly this logic — they use a parser to find the subject-head NP, extract its number feature, and then check that the head verb's inflection matches.</p>
+  <p>"The dogs chases a cat" is ungrammatical because <code>NP_pl</code> requires <code>VP_pl</code> but "chases" is <code>V_sg</code>. Grammar checkers (Grammarly, LanguageTool) implement exactly this logic.</p>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <!-- CODE SNIPPETS                                                           -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Code: CFG Parsing with NLTK</h2>
 
-  <p>spaCy does not expose a CFG interface directly — it uses a neural dependency parser. For explicit CFG work, NLTK provides a clean API.</p>
+  <p>spaCy uses a neural dependency parser; NLTK provides the explicit CFG interface.</p>
 
   <div class="code-snippet">
     <div class="code-snippet-header">
@@ -560,8 +533,8 @@ park       → dep: pobj         head: in
       <p><strong>(c)</strong> The Catalan number <span class="math-inline math-latex">C_n</span> counts the number of distinct binary tree structures for a sequence of <span class="math-inline math-latex">n+1</span> leaves. Write the formula for <span class="math-inline math-latex">C_n</span> and compute <span class="math-inline math-latex">C_3</span>.</p>
       <button class="practice-toggle">Show solution</button>
       <div class="practice-solution">
-        <p><strong>(a) NPs:</strong> There are <strong>4 NPs</strong>: "I", "the man", "the girl", "the dog". The sentence unpacks as: I saw [the man [the girl [the dog bit] scratched]].</p>
-        <p><strong>(b) Psycholinguistic difficulty:</strong> Each relative clause is <em>center-embedded</em> — it interrupts the main clause rather than appearing at the end. The parser must hold the unresolved subject NPs in working memory ("the man", "the girl") while processing the inner clauses. By the time the verb "scratched" arrives, the parser must retroactively link it to "the girl" — but the intervening material has consumed the available working memory slots. Humans are typically limited to one level of center-embedding before comprehension collapses.</p>
+        <p><strong>(a) NPs:</strong> 4 NPs: "I", "the man", "the girl", "the dog". Unpacked: I saw [the man [the girl [the dog bit] scratched]].</p>
+        <p><strong>(b) Psycholinguistic difficulty:</strong> Each relative clause is <em>center-embedded</em>, forcing the parser to hold unresolved subject NPs in working memory while processing inner clauses. By the time "scratched" arrives, working memory is exhausted. Humans tolerate at most one level of center-embedding.</p>
         <p><strong>(c) Catalan number formula:</strong></p>
         <div class="math-block">
           <span class="math-latex math-block">C_n = \frac{1}{n+1}\binom{2n}{n} = \frac{(2n)!}{(n+1)!\, n!}</span>
@@ -570,7 +543,7 @@ park       → dep: pobj         head: in
         <div class="math-block">
           <span class="math-latex math-block">C_3 = \frac{1}{4}\binom{6}{3} = \frac{1}{4} \cdot 20 = 5</span>
         </div>
-        <p>There are 5 distinct binary tree shapes for 4 leaves. This corresponds to 5 different ways to bracket the string <span class="math-inline math-latex">((AB)C)D</span>, <span class="math-inline math-latex">(A(BC))D</span>, &hellip; All 5 might represent valid parse trees for an ambiguous 4-word phrase.</p>
+        <p>There are 5 distinct binary tree shapes for 4 leaves — 5 bracketings of an ambiguous 4-word phrase.</p>
       </div>
     </div>
   </div>
@@ -587,7 +560,7 @@ park       → dep: pobj         head: in
       <p>CNF requires all rules to be either <span class="math-inline math-latex">A \to BC</span> or <span class="math-inline math-latex">A \to a</span>. Show all intermediate steps and list every new rule introduced. Use right-binarization (introduce helpers for the rightmost groupings first).</p>
       <button class="practice-toggle">Show solution</button>
       <div class="practice-solution">
-        <p>The rule has 4 symbols on the right-hand side. CNF requires exactly 2. We binarize by introducing auxiliary non-terminals, grouping from right to left (right-binarization):</p>
+        <p>The rule has 4 RHS symbols; CNF requires exactly 2. Right-binarize by introducing auxiliary non-terminals:</p>
         <div class="derivation">
           <div class="derivation-step">
             <div class="step-number">1</div>

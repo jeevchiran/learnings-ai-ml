@@ -42,34 +42,32 @@
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Morphology — Why Word Forms Matter</h2>
 
-  <p>Module 1 equipped us with tools to normalise raw text: lowercase everything, strip punctuation, and measure the edit distance between strings. But even after normalisation, the same underlying concept can still surface under many surface forms. A search engine that indexes "run" will miss documents that only contain "running", "runs", or "ran" — all of which refer to the same act. This is the problem that <strong>morphological processing</strong> exists to solve.</p>
-
-  <p>Morphology is the study of the internal structure of words. Every word can be decomposed into one or more <strong>morphemes</strong> — the smallest units of meaning.</p>
+  <p>Even after normalisation, the same concept surfaces under many word forms: "run", "running", "runs", "ran" all refer to the same act. <strong>Morphological processing</strong> maps these variants to a single canonical form. Every word decomposes into <strong>morphemes</strong> — the smallest units of meaning.</p>
 
   <div class="assumptions-grid">
     <div class="assumption-card">
       <h5>Free morphemes</h5>
-      <p>Can stand alone as a word: <em>run</em>, <em>happy</em>, <em>compute</em>. They carry the core meaning.</p>
+      <p>Stand alone as words: <em>run</em>, <em>happy</em>, <em>compute</em>.</p>
     </div>
     <div class="assumption-card">
       <h5>Bound morphemes</h5>
-      <p>Cannot stand alone — must attach to a root: <em>-ing</em>, <em>-ed</em>, <em>un-</em>, <em>-ation</em>. They modify or extend meaning.</p>
+      <p>Must attach to a root: <em>-ing</em>, <em>-ed</em>, <em>un-</em>, <em>-ation</em>.</p>
     </div>
     <div class="assumption-card">
       <h5>Roots vs affixes</h5>
-      <p>The <strong>root</strong> (or stem) carries the primary meaning. <strong>Affixes</strong> attach before (prefix) or after (suffix) the root. In <em>uncomputerised</em>: root = <em>comput</em>, affixes = <em>un-</em>, <em>-er</em>, <em>-ise</em>, <em>-d</em>.</p>
+      <p>The <strong>root</strong> carries primary meaning; <strong>affixes</strong> attach before (prefix) or after (suffix). In <em>uncomputerised</em>: root = <em>comput</em>, affixes = <em>un-</em>, <em>-er</em>, <em>-ise</em>, <em>-d</em>.</p>
     </div>
     <div class="assumption-card">
       <h5>Inflectional morphology</h5>
-      <p>Marks grammatical properties: tense, number, case, person. "runs", "ran", "running" are all inflections of <em>run</em>. The word class does <em>not</em> change — all three remain verbs.</p>
+      <p>Marks grammatical properties (tense, number, case) without changing word class: "runs", "ran", "running" are all verbs.</p>
     </div>
     <div class="assumption-card">
       <h5>Derivational morphology</h5>
-      <p>Creates new words, often changing the word class or meaning: <em>happy</em> (adj) → <em>unhappy</em> (adj); <em>compute</em> (verb) → <em>computation</em> (noun). More semantically significant than inflection.</p>
+      <p>Creates new words, often changing word class: <em>compute</em> (verb) → <em>computation</em> (noun). More semantically significant than inflection.</p>
     </div>
     <div class="assumption-card">
       <h5>Why NLP cares</h5>
-      <p>Search engines, classifiers, and chatbots all benefit from recognising that "studying", "studied", and "studies" share the same root. Morphological reduction is the primary means of achieving this.</p>
+      <p>Recognising that "studying", "studied", and "studies" share the same root lets search engines, classifiers, and chatbots treat them as equivalent.</p>
     </div>
   </div>
 
@@ -78,7 +76,7 @@
     Inflectional morphology is almost always worth collapsing: "runs" and "ran" should match "run" in most applications. Derivational morphology is more nuanced: "compute" and "computation" are related but distinct — sometimes you want them grouped (broad IR), sometimes not (precise QA). This tension shapes the stemming vs. lemmatization trade-off we explore next.
   </div>
 
-  <p>Consider the query "run" in a search engine. The documents in the index may contain:</p>
+  <p>A search for "run" may need to match all of:</p>
 
   <div class="token-sequence" style="font-size:0.95rem;line-height:2.5;">
     <span class="token-wrap"><span class="token-word pos-VERB">running</span><span class="token-pos pos-badge-VERB">VERB</span></span>
@@ -89,25 +87,25 @@
     <span class="token-wrap"><span class="token-word pos-ADJ">runnable</span><span class="token-pos pos-badge-ADJ">ADJ</span></span>
   </div>
 
-  <p>All six tokens share the same root. Without morphological processing, a simple string-match for "run" only retrieves documents containing the exact string "run". Stemming and lemmatization map all six to a single canonical form, dramatically improving recall.</p>
+  <p>Without morphological processing, a string-match for "run" misses the other five. Stemming and lemmatization map all six to a single canonical form, improving recall.</p>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
        SECTION 2: STEMMING
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Stemming</h2>
 
-  <p>Stemming is a <strong>crude heuristic process</strong> that chops off word endings based on a fixed set of rules, without any understanding of grammar or vocabulary. The output — the <em>stem</em> — need not be a real dictionary word. The goal is simply that all inflected (and some derived) forms of a word produce the same stem, so they index to the same bucket.</p>
+  <p>Stemming is a <strong>crude heuristic process</strong> that chops word endings by fixed rules, without grammar or vocabulary knowledge. The output — the <em>stem</em> — need not be a real word; the goal is that all inflected (and some derived) forms produce the same stem.</p>
 
   <h3>The Porter Stemmer</h3>
 
-  <p>The Porter Stemmer (Porter, 1980) remains the most widely cited English stemmer after more than four decades. It defines a series of transformation rules organised into five phases, applied in sequence. A key concept is the <strong>measure m</strong> — roughly the number of vowel-consonant sequences in the word stem, used to guard against over-aggressive stripping on short words.</p>
+  <p>The Porter Stemmer (Porter, 1980) applies transformation rules in five sequential phases. The key concept is <strong>measure m</strong> — the number of vowel-consonant (VC) sequences in the stem — used to guard against over-stripping short words.</p>
 
   <div class="concept-box">
     <h4>Measure m — quick definition</h4>
     <p>Denote a vowel as V and a consonant as C. The measure <em>m</em> of a word is the count of (VC) pairs in the pattern [C](VC)<sup>m</sup>[V]. For example: "tr" → m = 0; "tree" → m = 0; "troubles" → m = 1; "private" → m = 2; "oats" → m = 1. Rules guarded by "(m&gt;0)" only fire when the remaining stem is not trivially short.</p>
   </div>
 
-  <p>The five phases of Porter stemming (simplified) are shown below, each with representative examples:</p>
+  <p>The five phases (simplified), each with representative examples:</p>
 
   <div class="derivation">
     <div class="derivation-step">
@@ -159,7 +157,7 @@
 
   <h3>Snowball (Porter2)</h3>
 
-  <p>Snowball, also written by Porter, is a more careful revision of the original algorithm. It fixes several known errors (e.g., "generously" → "generous" rather than "generos"), handles irregular vowel patterns more accurately, and is implemented in many languages beyond English. NLTK ships both algorithms as <code>PorterStemmer</code> and <code>SnowballStemmer</code>.</p>
+  <p>Snowball (also by Porter) fixes known errors (e.g., "generously" → "generous" not "generos"), handles vowel patterns more accurately, and covers many languages beyond English. NLTK ships both as <code>PorterStemmer</code> and <code>SnowballStemmer</code>.</p>
 
   <h3>Over-stemming and Under-stemming</h3>
 
@@ -211,16 +209,14 @@ university      → Porter: univers        Snowball: univers
 universal       → Porter: univers        Snowball: univers</div>
   </div>
 
-  <p>Notice three things: (1) neither stemmer knows that "better" is the comparative of "good" — it takes no vocabulary; (2) Snowball correctly keeps the "ous" in "generous" while Porter strips it to "generos"; (3) both merge "university" and "universal" into "univers" — a classic over-stemming case.</p>
+  <p>Key: (1) neither stemmer maps "better" → "good" (no vocabulary); (2) Snowball keeps "generous" where Porter produces "generos"; (3) both merge "university" and "universal" into "univers" — classic over-stemming.</p>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
        SECTION 3: LEMMATIZATION
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Lemmatization</h2>
 
-  <p>Lemmatization takes a slower but fundamentally different approach. Instead of stripping characters by rule, it uses a <strong>morphological lexicon</strong> — a dictionary that maps inflected forms to their <em>lemma</em>, the canonical dictionary headword. The output is always a valid word.</p>
-
-  <p>Crucially, lemmatization benefits from knowing the word's part of speech. The word "better" has two lemmas depending on context:</p>
+  <p>Lemmatization uses a <strong>morphological lexicon</strong> to map inflected forms to their <em>lemma</em> (canonical dictionary headword), always producing a valid word. It requires POS context — "better" has two lemmas:</p>
 
   <table style="width:auto;margin:1rem 0;">
     <thead><tr><th>Surface form</th><th>POS</th><th>Lemma</th><th>Paradigm</th></tr></thead>
@@ -234,15 +230,15 @@ universal       → Porter: univers        Snowball: univers</div>
     </tbody>
   </table>
 
-  <p>A stemmer would produce "run" for both VERB and NOUN "running" (correct in the first case, wrong in the second). Lemmatization gets both right — but it requires a POS tagger upstream, making it slower and more complex.</p>
+  <p>A stemmer produces "run" for both VERB and NOUN uses of "running" (wrong for the noun). Lemmatization handles both correctly, but requires a POS tagger upstream.</p>
 
   <h3>WordNet Lemmatizer (NLTK)</h3>
 
-  <p>NLTK's <code>WordNetLemmatizer</code> uses the WordNet lexical database. You must supply the POS manually (or from a POS tagger). Without a POS argument it defaults to NOUN, which is often wrong for verbs.</p>
+  <p>NLTK's <code>WordNetLemmatizer</code> requires a POS argument; without it, defaults to NOUN (often wrong for verbs).</p>
 
   <h3>spaCy Lemmatization</h3>
 
-  <p>spaCy integrates lemmatization directly into its processing pipeline. After calling <code>nlp(text)</code>, each token exposes <code>token.lemma_</code>. spaCy uses its trained model to predict POS before lemmatizing, so no manual POS annotation is needed.</p>
+  <p>spaCy integrates lemmatization into its pipeline: <code>nlp(text)</code> gives each token a <code>token.lemma_</code>, with POS predicted automatically.</p>
 
   <!-- Code Snippet 2 -->
   <div class="code-snippet">
@@ -269,14 +265,14 @@ yesterday    POS: NOUN   Lemma: yesterday
 .            POS: PUNCT  Lemma: .</div>
   </div>
 
-  <p>Key observations: "wolves" → "wolf" (irregular plural handled correctly), "are"/"were" → "be" (auxiliary forms unified), "running" → "run" (with POS=VERB). A stemmer would leave "wolves" as "wolv" or "wolve" — not a real word.</p>
+  <p>"wolves" → "wolf" (irregular plural), "are"/"were" → "be" (auxiliaries unified), "running" → "run" (POS=VERB). A stemmer would produce "wolv" — not a real word.</p>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
        SECTION 4: TRADE-OFF COMPARISON
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Stemming vs. Lemmatization — The Trade-off</h2>
 
-  <p>There is no universally superior choice. The right tool depends on the task, the available compute budget, and the cost of errors.</p>
+  <p>The right tool depends on the task and compute budget.</p>
 
   <table class="comparison-table">
     <thead>
@@ -301,7 +297,7 @@ yesterday    POS: NOUN   Lemma: yesterday
 
   <div class="callout insight">
     <strong>Practical heuristic</strong>
-    If your task cares primarily about <em>recall</em> — finding all documents relevant to a query — and operates at a scale where speed matters, use stemming. If your task cares about <em>semantic precision</em> — correctly distinguishing "universal" from "university", or understanding that "better" is a comparative of "good" — use lemmatization. Many production systems use a two-stage pipeline: fast stemming for initial retrieval, then lemmatization for re-ranking or feature engineering.
+    Prioritise <em>recall</em> at scale? Use stemming. Need <em>semantic precision</em> (e.g., distinguishing "universal" from "university", or mapping "better" → "good")? Use lemmatization. Many production systems combine both: stemming for initial retrieval, lemmatization for re-ranking.
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
@@ -329,13 +325,11 @@ yesterday    POS: NOUN   Lemma: yesterday
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>The Noisy Channel Model</h2>
 
-  <p>You have seen how to normalise and reduce word forms. But NLP must also contend with a more adversarial kind of noise: human <em>typos</em>. When someone types "teh", they almost certainly meant "the". When someone types "recieve", they almost certainly meant "receive". How can a system decide this automatically?</p>
-
-  <p>Naive string matching fails immediately. The system must consider all possible intended words and weigh two competing factors: <em>how likely was the intended word to appear here?</em> and <em>how likely is this particular typo given that intended word?</em> The <strong>noisy channel model</strong> provides the mathematical framework.</p>
+  <p>Beyond word-form variation, NLP must handle <em>typos</em>: "teh" → "the", "recieve" → "receive". The <strong>noisy channel model</strong> provides the framework: weigh how likely the intended word is (<em>language model</em>) against how likely this particular typo is given that word (<em>error model</em>).</p>
 
   <h3>The Metaphor</h3>
 
-  <p>Imagine the writer has a perfect intended word <em>w</em> in mind. They attempt to transmit it through a noisy communication channel — their fingers on the keyboard. The channel corrupts the signal, and what arrives at the receiver (the spell checker) is the observed string <em>e</em> (the error). The task is to <em>decode</em> <em>e</em> back to the most probable intended word <em>w</em>.</p>
+  <p>The writer has intended word <em>w</em> and transmits it through a noisy channel (the keyboard). The spell checker receives corrupted string <em>e</em> and must decode back to the most probable <em>w</em>.</p>
 
   <div class="concept-box">
     <h4>Noisy Channel — Channel Model Derivation</h4>
@@ -356,24 +350,24 @@ yesterday    POS: NOUN   Lemma: yesterday
 
   <h3>The Error Model: Confusion Matrices</h3>
 
-  <p>The error model <span class="math-inline math-latex">P(e \mid w)</span> is estimated from a large corpus of spelling errors annotated with their corrections. For each edit operation (deletion, insertion, substitution, transposition), we count how often a particular character pair is involved:</p>
+  <p><span class="math-inline math-latex">P(e \mid w)</span> is estimated from annotated typo corpora. For each edit type, we count how often a particular character pair is involved:</p>
 
   <ul>
-    <li><strong>Substitution confusion</strong>: how often is character <em>x</em> typed as <em>y</em>? (e.g., "a" → "e" because of keyboard adjacency)</li>
-    <li><strong>Transposition confusion</strong>: how often are adjacent characters <em>xy</em> typed as <em>yx</em>? (e.g., "th" → "ht", giving "teh" from "the")</li>
-    <li><strong>Deletion confusion</strong>: how often is a character simply dropped?</li>
-    <li><strong>Insertion confusion</strong>: how often is a spurious character added?</li>
+    <li><strong>Substitution</strong>: character <em>x</em> typed as <em>y</em> (e.g., "a" → "e", keyboard adjacency)</li>
+    <li><strong>Transposition</strong>: adjacent <em>xy</em> typed as <em>yx</em> (e.g., "th" → "ht", producing "teh")</li>
+    <li><strong>Deletion</strong>: a character is dropped</li>
+    <li><strong>Insertion</strong>: a spurious character is added</li>
   </ul>
 
-  <p>These counts are normalised to produce probabilities. The overall <span class="math-inline math-latex">P(e \mid w)</span> is the product of per-edit probabilities along the optimal edit path.</p>
+  <p>Counts are normalised to probabilities; the overall <span class="math-inline math-latex">P(e \mid w)</span> is the product of per-edit probabilities along the optimal edit path.</p>
 
   <h3>Candidate Generation</h3>
 
-  <p>Searching over the entire vocabulary for every observed string is impractical. Instead, candidates are generated by finding all dictionary words within edit distance 1 or 2 of the observed string. This is exactly the edit distance computation from Module 1. In practice, about 80% of non-word errors are within edit distance 1 of the correct word (Damerau, 1964).</p>
+  <p>Candidates are all dictionary words within edit distance 1 or 2 of the observed string (Module 1). About 80% of non-word errors fall within edit distance 1 (Damerau, 1964).</p>
 
   <div class="callout warning">
     <strong>Real-word errors</strong>
-    The noisy channel model as presented handles <em>non-word</em> errors — typos that produce strings not in the dictionary ("teh"). It does not handle <em>real-word</em> errors where the typo happens to be a valid word ("their" → "there"). Handling those requires a language model strong enough to detect contextual implausibility — a topic for later modules.
+    This model only handles <em>non-word</em> errors (typos not in the dictionary, e.g., "teh"). It cannot correct <em>real-word</em> errors ("their" → "there") — those require a language model that detects contextual implausibility, covered in later modules.
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════
@@ -428,7 +422,7 @@ yesterday    POS: NOUN   Lemma: yesterday
             <tr><td><strong>bass</strong></td><td>SS → SS</td><td><strong>bass</strong></td><td>Ends in SS; no change (rule 3 fires before rule 4).</td></tr>
           </tbody>
         </table>
-        <p>Note that "cats" and "caresses" both work correctly. "ponies" → "poni" is a known Phase 1a simplification — later phases do not repair it in Porter (though Snowball handles it better). "bass" correctly stays unchanged, preventing the erroneous "ba".</p>
+        <p>"ponies" → "poni" is a known Phase 1a simplification not repaired by later Porter phases. "bass" correctly stays unchanged, preventing "ba".</p>
       </div>
     </div>
   </div>
@@ -474,7 +468,7 @@ yesterday    POS: NOUN   Lemma: yesterday
         </div>
         <p>Ranking: receive (0.0085) > relieve (0.00015) > retrieve (0.00004).</p>
         <p><strong>The model selects "receive"</strong> with a score of 0.0085 — nearly 57× higher than the next candidate.</p>
-        <p><em>Interpretation:</em> "receive" wins because it has <em>both</em> a high language model probability (it is a common word) <em>and</em> a high error model probability (the "ie/ei" transposition is a very common confusion). "relieve" is penalised by a low error model score — the path from "recieve" to "relieve" requires more/different edits. "retrieve" suffers on both components.</p>
+        <p><em>Interpretation:</em> "receive" wins on both components — it is common and the "ie/ei" transposition is a very frequent confusion. "relieve" and "retrieve" score poorly on the error model as they require more/different edits.</p>
       </div>
     </div>
   </div>
@@ -624,7 +618,7 @@ yesterday    POS: NOUN   Lemma: yesterday
        BRIDGE TO MODULE 3
        ═══════════════════════════════════════════════════════════════════════ -->
   <div class="bridge" style="margin-top:2.5rem;">
-    <strong>Bridge to Module 3.</strong> We can now reduce any surface word form to its canonical root — either a rough stem for fast indexing, or a precise lemma for semantically aware processing. But text understanding requires more than knowing what individual words mean in isolation — it requires understanding how words combine grammatically to form phrases and clauses. Module 3 introduces syntactic processing: how to assign grammatical roles (part-of-speech tags) to each token, and how to group tokens into meaningful phrases through shallow parsing (chunking).
+    <strong>Bridge to Module 3.</strong> We can reduce any word form to a stem or lemma. But understanding text also requires knowing how words combine grammatically. Module 3 covers part-of-speech tagging and shallow parsing (chunking).
   </div>
 
   <!-- NAVIGATION BUTTONS -->

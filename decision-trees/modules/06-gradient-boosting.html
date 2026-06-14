@@ -109,13 +109,13 @@
       <div class="step-content">
         <strong>Fit <span class="math-latex math-inline">h_1</span> to residuals; update to <span class="math-latex math-inline">F_1</span></strong>
         <div class="step-explanation">
-          Best stump splits at <span class="math-latex math-inline">x \leq 2.5</span>:
-          <br>Left leaf (<span class="math-latex math-inline">x \leq 2.5</span>): indices {1,2}, mean residual = (-3.36 + (-1.76))/2 = <strong>-2.56</strong>
-          <br>Right leaf (<span class="math-latex math-inline">x > 2.5</span>): indices {3,4,5}, mean residual = (-1.06 + 2.64 + 3.54)/3 = <strong>1.707</strong>
+          Best stump splits at <span class="math-latex math-inline">x \leq 3.5</span> (SS = 3.19, lowest of all candidate splits):
+          <br>Left leaf (<span class="math-latex math-inline">x \leq 3.5</span>): indices {1,2,3}, mean residual = (-3.36 + (-1.76) + (-1.06))/3 = <strong>-2.06</strong>
+          <br>Right leaf (<span class="math-latex math-inline">x > 3.5</span>): indices {4,5}, mean residual = (2.64 + 3.54)/2 = <strong>3.09</strong>
           <br><br>Update: <span class="math-latex math-inline">F_1(x) = 4.56 + 0.5 \cdot h_1(x)</span>
-          <br>Predictions: [4.56 + 0.5(-2.56), 4.56 + 0.5(-2.56), 4.56 + 0.5(1.707), 4.56 + 0.5(1.707), 4.56 + 0.5(1.707)]
-          <br>= [3.28, 3.28, 5.414, 5.414, 5.414]
-          <br><br>New residuals = [-2.08, -0.48, -1.914, 1.786, 2.686]
+          <br>Predictions: [4.56 + 0.5(-2.06), 4.56 + 0.5(-2.06), 4.56 + 0.5(-2.06), 4.56 + 0.5(3.09), 4.56 + 0.5(3.09)]
+          <br>= [3.530, 3.530, 3.530, 6.105, 6.105]
+          <br><br>New residuals = [-2.330, -0.730, -0.030, 1.095, 1.995]
         </div>
       </div>
     </div>
@@ -124,13 +124,13 @@
       <div class="step-content">
         <strong>Fit <span class="math-latex math-inline">h_2</span> to new residuals; update to <span class="math-latex math-inline">F_2</span></strong>
         <div class="step-explanation">
-          Best stump again splits at <span class="math-latex math-inline">x \leq 2.5</span>:
-          <br>Left leaf mean = (-2.08 + (-0.48))/2 = <strong>-1.28</strong>
-          <br>Right leaf mean = (-1.914 + 1.786 + 2.686)/3 = <strong>0.853</strong>
+          Best stump again splits at <span class="math-latex math-inline">x \leq 3.5</span>:
+          <br>Left leaf mean = (-2.330 + (-0.730) + (-0.030))/3 = <strong>-1.030</strong>
+          <br>Right leaf mean = (1.095 + 1.995)/2 = <strong>1.545</strong>
           <br><br>Update: <span class="math-latex math-inline">F_2(x) = F_1(x) + 0.5 \cdot h_2(x)</span>
-          <br>Predictions: [3.28 + 0.5(-1.28), 3.28 + 0.5(-1.28), 5.414 + 0.5(0.853), 5.414 + 0.5(0.853), 5.414 + 0.5(0.853)]
-          <br>= [2.64, 2.64, 5.840, 5.840, 5.840]
-          <br><br>New residuals = [-1.44, 0.16, -2.340, 1.360, 2.260]
+          <br>Predictions: [3.530 + 0.5(-1.030), 3.530 + 0.5(-1.030), 3.530 + 0.5(-1.030), 6.105 + 0.5(1.545), 6.105 + 0.5(1.545)]
+          <br>= [3.015, 3.015, 3.015, 6.878, 6.878]
+          <br><br>New residuals = [-1.815, -0.215, 0.485, 0.322, 1.222]
         </div>
       </div>
     </div>
@@ -158,30 +158,30 @@
         <td>4.56</td>
         <td>4.56</td>
         <td>4.56</td>
-        <td>6.79</td>
+        <td>7.00</td>
       </tr>
       <tr>
         <td>1</td>
-        <td>3.28</td>
-        <td>3.28</td>
-        <td>5.41</td>
-        <td>5.41</td>
-        <td>5.41</td>
-        <td>3.39</td>
+        <td>3.530</td>
+        <td>3.530</td>
+        <td>3.530</td>
+        <td>6.105</td>
+        <td>6.105</td>
+        <td>2.23</td>
       </tr>
       <tr>
         <td>2</td>
-        <td>2.64</td>
-        <td>2.64</td>
-        <td>5.84</td>
-        <td>5.84</td>
-        <td>5.84</td>
-        <td>1.82</td>
+        <td>3.015</td>
+        <td>3.015</td>
+        <td>3.015</td>
+        <td>6.878</td>
+        <td>6.878</td>
+        <td>1.03</td>
       </tr>
     </tbody>
   </table>
 
-  <p style="font-size:0.88rem;color:var(--text-muted);margin-top:-0.5rem;">Each iteration approximately halves the MSE. Predictions for x=1 and x=2 converge toward 1.2 and 2.8; predictions for x=3,4,5 converge toward 7.2 and 8.1.</p>
+  <p style="font-size:0.88rem;color:var(--text-muted);margin-top:-0.5rem;">Each iteration substantially reduces MSE. The optimal split x≤3.5 correctly separates low-target points (x=1,2,3; targets 1.2–3.5) from high-target points (x=4,5; targets 7.2–8.1). Predictions for x=1,2,3 converge toward their group mean (~2.5); predictions for x=4,5 converge toward theirs (~7.65).</p>
 
   <div class="callout insight">
     <strong>Why does this reduce bias?</strong>

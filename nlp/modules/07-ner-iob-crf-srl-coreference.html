@@ -40,9 +40,7 @@
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Named Entity Recognition (NER)</h2>
 
-  <p>Module 6 showed us how words acquire meaning through distributional context. But text also contains a special class of expressions that refer directly to real-world objects: <strong>named entities</strong>. A person's name, a company, a country, a date — these anchor text to the world outside the document. <strong>Named Entity Recognition (NER)</strong> is the task of automatically identifying such expressions and classifying them into predefined categories.</p>
-
-  <p>NER sits at the boundary between syntax and semantics. Unlike POS tagging, which assigns a grammatical class to every token, NER focuses on a subset of tokens that together form a meaningful real-world reference. "New York" is a single entity, not an adjective plus a noun; "Apple" the company is an organization, not the fruit.</p>
+  <p><strong>Named Entity Recognition (NER)</strong> identifies expressions that refer directly to real-world objects — people, companies, countries, dates — and classifies them into predefined categories. Unlike POS tagging, NER focuses on spans of tokens that form a single meaningful reference: "New York" is one GPE, "Apple" the company is one ORG.</p>
 
   <h3>Entity types in standard datasets</h3>
 
@@ -85,7 +83,7 @@
 
   <h3>NER as sequence labeling</h3>
 
-  <p>The critical insight for NER engineering is that it is a <strong>span identification problem</strong>, not a per-token classification problem. A single entity may span multiple whitespace-separated tokens: "Barack Obama" is one PERSON, "New York City" is one GPE, "United Nations" is one ORG.</p>
+  <p>NER is a <strong>span identification problem</strong>: a single entity may span multiple tokens ("Barack Obama" = one PERSON, "New York City" = one GPE).</p>
 
   <div class="concept-box">
     <h4>Example: entity spans in a sentence</h4>
@@ -100,7 +98,7 @@
     </p>
   </div>
 
-  <p>To handle multi-token entities within a per-token sequence labeling framework, we need a <strong>span encoding scheme</strong> — which is exactly what IOB tagging provides, covered next.</p>
+  <p>To handle multi-token entities in a per-token framework, we need a <strong>span encoding scheme</strong> — IOB tagging, covered next.</p>
 
   <h3>spaCy NER in practice</h3>
 
@@ -128,7 +126,7 @@ Monday                    → DATE     (Absolute or relative dates or periods)</
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>IOB / BIO Tagging Scheme</h2>
 
-  <p>Sequence labeling models assign one label to each token. But NER entities span multiple tokens. The solution is an encoding that converts span-level annotation into per-token labels. The standard is the <strong>BIO scheme</strong> (also called IOB2):</p>
+  <p>The <strong>BIO scheme</strong> (IOB2) converts span-level annotation into per-token labels:</p>
 
   <div class="derivation">
     <div class="derivation-step">
@@ -175,7 +173,7 @@ Monday                    → DATE     (Absolute or relative dates or periods)</
     <li><strong>S-TYPE</strong> — Single token entity (an entity that is exactly one token)</li>
   </ul>
 
-  <p>BIOES is more expressive: a model trained with BIOES can directly distinguish between a one-token entity (S) and the start of a multi-token entity (B). Many modern NER systems benefit from this additional label resolution. However, BIO remains the dominant choice in practice due to its simplicity.</p>
+  <p>BIOES lets a model directly distinguish one-token entities (S) from the start of a multi-token entity (B). BIO remains dominant in practice due to its simplicity.</p>
 
   <div class="callout note">
     <strong>Why IOB matters for modeling</strong>
@@ -234,30 +232,26 @@ Monday          B-DATE
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Conditional Random Fields (CRF) for Sequence Labeling</h2>
 
-  <p>Now that we have BIO tags, we need a model that predicts them. Why not use a simple per-token classifier — a logistic regression or neural network that outputs a label for each token independently?</p>
-
-  <p>The problem is <strong>label dependency</strong>. BIO has hard structural constraints:</p>
+  <p>A simple per-token classifier predicts each label in isolation, but BIO has hard structural constraints a per-token model cannot enforce:</p>
   <ul>
     <li><code>I-PERSON</code> can never follow <code>O</code></li>
     <li><code>I-PERSON</code> can never follow <code>B-ORG</code> or <code>I-ORG</code></li>
     <li>An entity span, once started with <code>B-X</code>, can only be continued with <code>I-X</code></li>
   </ul>
 
-  <p>A per-token classifier predicts each label in isolation — it has no mechanism to enforce these constraints. The prediction for position <em>i</em> ignores the prediction at position <em>i-1</em>. We need a model that scores entire label sequences jointly.</p>
-
   <h3>What is a CRF?</h3>
 
-  <p>A <strong>Conditional Random Field (CRF)</strong> is a discriminative undirected graphical model that models the conditional distribution of an entire label sequence given an entire input sequence:</p>
+  <p>A <strong>Conditional Random Field (CRF)</strong> models the conditional distribution of an entire label sequence given the input sequence:</p>
 
   <div class="math-block">
     <span class="math-latex math-block">P(\mathbf{y} \mid \mathbf{x}) = \frac{\exp\!\Bigl(\displaystyle\sum_{i=1}^{n} \sum_{k} \lambda_k f_k(y_{i-1},\, y_i,\, \mathbf{x},\, i)\Bigr)}{Z(\mathbf{x})}</span>
   </div>
 
-  <p>where <span class="math-inline math-latex">Z(\mathbf{x})</span> is the partition function (normalizer over all possible label sequences), <span class="math-inline math-latex">f_k</span> are <strong>feature functions</strong> that look at the current label <span class="math-inline math-latex">y_i</span>, the previous label <span class="math-inline math-latex">y_{i-1}</span>, the full input <span class="math-inline math-latex">\mathbf{x}</span>, and the position <span class="math-inline math-latex">i</span>, and <span class="math-inline math-latex">\lambda_k</span> are learned weights.</p>
+  <p>where <span class="math-inline math-latex">Z(\mathbf{x})</span> normalizes over all label sequences, <span class="math-inline math-latex">f_k</span> are feature functions over <span class="math-inline math-latex">(y_{i-1}, y_i, \mathbf{x}, i)</span>, and <span class="math-inline math-latex">\lambda_k</span> are learned weights.</p>
 
   <h3>Feature functions</h3>
 
-  <p>Feature functions are the expressive power of a CRF. For NER, typical features include:</p>
+  <p>Typical NER features include:</p>
 
   <div class="assumptions-grid">
     <div class="assumption-card">
@@ -285,13 +279,13 @@ Monday          B-DATE
 
   <h3>Decoding: Viterbi algorithm</h3>
 
-  <p>To find the most likely label sequence under the CRF, we use the <strong>Viterbi algorithm</strong> — a dynamic programming method that efficiently finds the highest-scoring path through a lattice of states. At each position <em>i</em>, for each possible label <span class="math-inline math-latex">y_i</span>, Viterbi computes the best score achievable up to position <em>i</em> ending in label <span class="math-inline math-latex">y_i</span>:</p>
+  <p>The <strong>Viterbi algorithm</strong> finds the highest-scoring label sequence via dynamic programming. At each position <em>i</em>, it computes the best score for reaching label <span class="math-inline math-latex">y_i</span>:</p>
 
   <div class="math-block">
     <span class="math-latex math-block">V_i(y) = \max_{y'} \Bigl[ V_{i-1}(y') + \sum_k \lambda_k f_k(y', y, \mathbf{x}, i) \Bigr]</span>
   </div>
 
-  <p>This is the same algorithm as used for HMMs — and that is no coincidence: both models are linear-chain graphical models over sequences.</p>
+  <p>This matches the HMM Viterbi recurrence — both are linear-chain graphical models.</p>
 
   <h3>CRF vs. HMM</h3>
 
@@ -345,9 +339,7 @@ Monday          B-DATE
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Semantic Role Labeling (SRL)</h2>
 
-  <p>NER tells us <em>what type of thing</em> an expression refers to. A complementary task asks a different question: <em>what role does each expression play in the event described by the sentence?</em> This is <strong>Semantic Role Labeling (SRL)</strong>.</p>
-
-  <p>SRL identifies the <strong>predicate–argument structure</strong> of each verb (predicate) in a sentence — who did what to whom, when, where, and how. It is based on two influential annotation frameworks:</p>
+  <p><strong>Semantic Role Labeling (SRL)</strong> identifies the <strong>predicate–argument structure</strong> of each verb — who did what to whom, when, where, and how. Two annotation frameworks underlie most SRL work:</p>
 
   <ul>
     <li><strong>FrameNet</strong> (Fillmore) — frames are event types with specific semantic roles (frame elements). The frame "Commerce_buy" has roles Buyer, Goods, Seller, Money.</li>
@@ -386,7 +378,7 @@ Monday          B-DATE
     </ul>
   </div>
 
-  <p>A single sentence can have multiple predicates, each with its own argument structure. "She <strong>bought</strong> a coffee and <strong>left</strong> quickly" contains two predicates: <em>bought</em> (with ARG0=She, ARG1=a coffee) and <em>left</em> (with ARG0=She, ARGM-MNR=quickly).</p>
+  <p>A sentence can have multiple predicates: "She <strong>bought</strong> a coffee and <strong>left</strong> quickly" yields <em>bought</em> (ARG0=She, ARG1=a coffee) and <em>left</em> (ARG0=She, ARGM-MNR=quickly).</p>
 
   <h3>SRL vs. NER</h3>
 
@@ -427,7 +419,7 @@ doc = nlp(<span class="py-str">"The dog chased the cat in the garden yesterday."
        ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Coreference Resolution</h2>
 
-  <p>NER identifies mentions of entities in text. SRL explains what role they play in events. But a single document often refers to the same real-world entity many times using very different expressions. <strong>Coreference resolution</strong> is the task of clustering all these mentions that refer to the same entity.</p>
+  <p><strong>Coreference resolution</strong> clusters all mentions in a document that refer to the same real-world entity, even when expressed differently.</p>
 
   <div class="concept-box">
     <h4>Example: three mentions, one person</h4>
@@ -454,8 +446,8 @@ doc = nlp(<span class="py-str">"The dog chased the cat in the garden yesterday."
   <h3>Coreference vs. anaphora</h3>
 
   <div class="callout note">
-    <strong>Coreference vs. anaphora — a subtle distinction</strong>
-    <strong>Anaphora</strong> is when an expression (the anaphor) depends for its interpretation on another expression (the antecedent). "John arrived late. <strong>He</strong> apologized." — "He" is anaphoric; it depends on "John" for its interpretation. <strong>Coreference</strong> is when two expressions refer to the same real-world entity. "The author of Hamlet wrote Othello too." — "the author of Hamlet" and Shakespeare (if mentioned) co-refer. Anaphora is a discourse relation; coreference is an ontological one. Most pronouns are both, but not all coreferences involve anaphora.
+    <strong>Coreference vs. anaphora</strong>
+    <strong>Anaphora</strong>: an expression depends on another for interpretation ("He apologized" — "He" depends on a prior antecedent). <strong>Coreference</strong>: two expressions refer to the same entity ("the author of Hamlet" and "Shakespeare"). Anaphora is a discourse relation; coreference is ontological. Most pronouns are both, but not all coreferences involve anaphora.
   </div>
 
   <h3>Coreference algorithms</h3>
@@ -465,21 +457,21 @@ doc = nlp(<span class="py-str">"The dog chased the cat in the garden yesterday."
       <div class="step-number">1</div>
       <div class="step-content">
         <strong>Hobbs algorithm (1978) — rule-based pronoun resolution</strong>
-        <div class="step-explanation">A hand-crafted tree-traversal algorithm that finds the syntactically most plausible antecedent for a pronoun by searching left-to-right and upward through parse trees. Fast and interpretable, but limited to pronouns and requires accurate parse trees.</div>
+        <div class="step-explanation">Tree-traversal algorithm searching left-to-right and upward for the most plausible antecedent. Fast and interpretable, but limited to pronouns and requires accurate parse trees.</div>
       </div>
     </div>
     <div class="derivation-step">
       <div class="step-number">2</div>
       <div class="step-content">
         <strong>Stanford CoreNLP sieve (2010) — deterministic multi-pass</strong>
-        <div class="step-explanation">Applies a cascade of increasingly permissive sieves in order of precision. Sieve 1: exact string match. Sieve 2: relaxed string match. Sieve 3: head word match. … Sieve 10: pronoun resolution. High precision at the cost of recall. Still widely used as a strong rule-based baseline.</div>
+        <div class="step-explanation">Cascade of increasingly permissive sieves (exact string match → head word match → pronoun resolution). High precision at the cost of recall; still a strong rule-based baseline.</div>
       </div>
     </div>
     <div class="derivation-step">
       <div class="step-number">3</div>
       <div class="step-content">
         <strong>Neural span-based models — end-to-end</strong>
-        <div class="step-explanation">Lee et al. (2017) showed that jointly learning mention detection and coreference scoring end-to-end outperforms pipeline approaches. The model encodes all candidate spans with a BiLSTM (or BERT), then scores all pairs of spans for coreference. State of the art on OntoNotes; requires large compute for inference.</div>
+        <div class="step-explanation">Lee et al. (2017): jointly learning mention detection and coreference scoring end-to-end outperforms pipelines. Encodes candidate spans with BiLSTM or BERT, then scores all span pairs. State of the art on OntoNotes.</div>
       </div>
     </div>
   </div>
@@ -548,7 +540,7 @@ doc = nlp(<span class="py-str">"The dog chased the cat in the garden yesterday."
           <span class="iob-token"><span class="iob-word">Francisco</span><span class="iob-tag I">I-GPE</span></span>
           <span class="iob-token"><span class="iob-word">.</span><span class="iob-tag O">O</span></span>
         </div>
-        <p style="margin-top:0.75rem;font-size:0.9rem;">Key observations: (1) "Apple" receives B-ORG (single-token entity — no I needed). (2) "Tim Cook" spans two tokens: B-PERSON then I-PERSON. (3) "San Francisco" similarly: B-GPE then I-GPE. (4) All non-entity tokens receive O. (5) In BIOES, "Apple" and "iPhone" would instead be S-ORG and S-PRODUCT respectively, and "Tim Cook"/"San Francisco" would end with E-PERSON/E-GPE.</p>
+        <p style="margin-top:0.75rem;font-size:0.9rem;">Note: single-token entities (Apple, iPhone) use only B (no I). Multi-token spans (Tim Cook, San Francisco) use B then I. In BIOES, single-token entities would be S-ORG / S-PRODUCT and multi-token spans would end with E-PERSON / E-GPE.</p>
       </div>
     </div>
   </div>
@@ -578,7 +570,7 @@ doc = nlp(<span class="py-str">"The dog chased the cat in the garden yesterday."
           </tbody>
         </table>
         <p>The pattern: <strong>an I-X tag may only follow B-X or I-X</strong> (same type X). Any transition to I-X from anything other than B-X or I-X is invalid. For k entity types, there are <span class="math-inline math-latex">2k^2 - 2k</span> invalid transitions (each of the k I-types cannot follow O or any of the k-1 B/I-tags of different types, minus the valid self-continuations).</p>
-        <p>In practice, a CRF learns to assign these transitions very large negative weights rather than hard-coding them, but the effect is equivalent: the Viterbi decoder will never select an invalid path.</p>
+        <p>In practice, the CRF learns very large negative weights for these transitions; the Viterbi decoder then never selects them.</p>
       </div>
     </div>
   </div>
@@ -732,7 +724,7 @@ doc = nlp(<span class="py-str">"The dog chased the cat in the garden yesterday."
        BRIDGE TO NEXT MODULE
        ═══════════════════════════════════════════════════════════════════════ -->
   <div class="bridge">
-    <strong>From semantic structure to numerical representation.</strong> We now have powerful tools for understanding text at the token, span, event, and discourse levels: NER to identify entities, IOB/CRF to label them as sequences, SRL to extract event structure, and coreference resolution to link mentions across a document. But machine learning models need text in numerical form. Module 8 introduces <strong>text representation</strong>: how to turn a document into a vector — starting from the simple Bag of Words model through TF-IDF weighting to unsupervised topic modeling with NMF and LDA.
+    <strong>From semantic structure to numerical representation.</strong> Module 8 introduces <strong>text representation</strong>: turning documents into vectors — from Bag of Words and TF-IDF to unsupervised topic modeling with NMF and LDA.
   </div>
 
   <div class="nav-buttons">

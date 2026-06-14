@@ -41,16 +41,7 @@
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>From Text to Numbers</h2>
 
-  <p>Module 7 showed us how to extract rich linguistic annotations: named entities, semantic roles, coreference chains. These annotations <em>describe</em> text beautifully — but most machine learning models cannot consume them directly. A neural network, a support vector machine, or a logistic regression classifier needs a fixed-length vector of numbers. Language is none of those things: it is variable-length, symbolic, and sequential.</p>
-
-  <p>The central challenge of text representation is bridging this gap. Every document — whether a tweet or a legal brief — must be mapped to a point in some numeric space, in a way that preserves the information we care about for downstream tasks.</p>
-
-  <div class="callout note">
-    <strong>The representation bottleneck</strong>
-    A single word like "bank" carries different meanings depending on context ("river bank" vs. "savings bank"). Any representation method must decide which aspects of text to preserve and which to discard. There is no free lunch: simpler representations are faster and more interpretable, but lose nuance.
-  </div>
-
-  <p>This module covers three increasingly sophisticated approaches, forming a natural progression:</p>
+  <p>ML models need fixed-length numeric vectors, but text is variable-length and symbolic. This module covers three approaches that bridge that gap:</p>
 
   <div class="assumptions-grid">
     <div class="assumption-card">
@@ -68,7 +59,7 @@
   </div>
 
   <div class="bridge">
-    <strong>Module 7 → Module 8.</strong> NLP analysis gives us rich annotations; ML models need vectors. The three approaches here all answer the same question from different angles: how do we turn a bag of words into a number that a machine can learn from?
+    <strong>Module 7 → Module 8.</strong> NLP gives us annotations; these three approaches turn words into numbers a machine can learn from.
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -76,7 +67,7 @@
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Bag of Words</h2>
 
-  <p>The <strong>Bag of Words (BoW)</strong> model represents a document as a vector of word counts, ignoring all word order and grammar. The name comes from a useful mental image: imagine throwing all the words in a document into a bag, shaking it, and then counting each unique word. The resulting count profile is the document's representation.</p>
+  <p>The <strong>Bag of Words (BoW)</strong> model represents a document as a vector of word counts, ignoring word order and grammar.</p>
 
   <h3>Step-by-Step Construction</h3>
 
@@ -136,23 +127,23 @@
   <div class="assumptions-grid">
     <div class="assumption-card">
       <h5>Sparse</h5>
-      <p>In a real corpus of 20,000 words, any document uses only a few hundred. Most entries in the vector are 0. This sparsity can be a strength (efficient storage) or a weakness (distance metrics behave poorly in high-dimensional sparse spaces).</p>
+      <p>In a 20,000-word corpus, any document uses only a few hundred. Most vector entries are 0 — efficient to store, but distance metrics behave poorly in high-dimensional sparse spaces.</p>
     </div>
     <div class="assumption-card">
       <h5>Order-independent</h5>
-      <p>"Dog bites man" and "man bites dog" have <em>identical</em> BoW representations. This is the model's defining limitation: all syntactic and word-order information is lost.</p>
+      <p>"Dog bites man" and "man bites dog" are identical under BoW — all syntactic and word-order information is lost.</p>
     </div>
     <div class="assumption-card">
       <h5>Dominated by frequent words</h5>
-      <p>"The" appears in every English document. Without correction, it dominates the count vector and drowns out meaningful terms. TF-IDF (Section 3) fixes this directly.</p>
+      <p>"The" appears in every document and dominates count vectors without correction. TF-IDF (Section 3) fixes this.</p>
     </div>
     <div class="assumption-card">
       <h5>Semantic blindness</h5>
-      <p>"Car" and "automobile" are different vocabulary entries despite being synonyms. BoW treats them as completely unrelated features. Word embeddings (Module 9) resolve this.</p>
+      <p>"Car" and "automobile" are unrelated features in BoW despite being synonyms. Word embeddings (Module 9) resolve this.</p>
     </div>
   </div>
 
-  <p>Despite these limitations, BoW remains extremely useful. It pairs naturally with Naive Bayes for text classification and spam filtering, where the independence assumption that BoW implies actually matches Naive Bayes's own assumptions — making the combination surprisingly effective in practice.</p>
+  <p>Despite these limitations, BoW pairs naturally with Naive Bayes — both assume word independence — making the combination effective for text classification and spam filtering.</p>
 
   <div class="code-snippet">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
@@ -186,11 +177,11 @@ print("BoW matrix:\n", X.toarray())
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>TF-IDF — The Weighting Solution</h2>
 
-  <p>Bag of Words gives equal weight to every word. But intuitively, "the" appearing 10 times in a document tells us almost nothing about its content, while "quantum" appearing even once tells us a great deal. <strong>TF-IDF</strong> (Term Frequency–Inverse Document Frequency) is the canonical fix: it down-weights words that appear everywhere and up-weights words that characterise specific documents.</p>
+  <p><strong>TF-IDF</strong> (Term Frequency–Inverse Document Frequency) down-weights words that appear everywhere ("the") and up-weights words that characterise specific documents ("quantum").</p>
 
   <h3>Term Frequency (TF)</h3>
 
-  <p>TF measures how often a term appears <em>within a single document</em>, normalised by document length so that longer documents are not unfairly penalised:</p>
+  <p>TF measures how often a term appears <em>within a single document</em>, normalised by document length:</p>
 
   <div class="math-block">
     <span class="math-latex math-block">\text{TF}(t, d) = \frac{\text{count}(t, d)}{|d|}</span>
@@ -200,13 +191,13 @@ print("BoW matrix:\n", X.toarray())
 
   <h3>Inverse Document Frequency (IDF)</h3>
 
-  <p>IDF measures how rare a term is <em>across the entire corpus</em>. Terms that appear in every document carry no discriminative power:</p>
+  <p>IDF measures how rare a term is <em>across the entire corpus</em>:</p>
 
   <div class="math-block">
     <span class="math-latex math-block">\text{IDF}(t) = \log\!\left(\frac{N}{\text{df}(t)}\right)</span>
   </div>
 
-  <p>where <span class="math-inline math-latex">N</span> is the total number of documents and <span class="math-inline math-latex">\text{df}(t)</span> is the number of documents containing term <span class="math-inline math-latex">t</span>. If a term appears in all <span class="math-inline math-latex">N</span> documents, <span class="math-inline math-latex">\text{IDF} = \log(1) = 0</span> — it contributes nothing.</p>
+  <p>where <span class="math-inline math-latex">N</span> = total documents, <span class="math-inline math-latex">\text{df}(t)</span> = documents containing <span class="math-inline math-latex">t</span>. If a term appears in all documents, <span class="math-inline math-latex">\text{IDF} = \log(1) = 0</span>.</p>
 
   <h3>TF-IDF Score</h3>
 
@@ -214,11 +205,11 @@ print("BoW matrix:\n", X.toarray())
     <span class="math-latex math-block">\text{TF-IDF}(t, d) = \text{TF}(t, d) \times \text{IDF}(t)</span>
   </div>
 
-  <p>A high TF-IDF score means the term appears frequently in <em>this document</em> but rarely in <em>other documents</em> — exactly the signal we want for document characterisation.</p>
+  <p>A high TF-IDF score means the term appears frequently in <em>this document</em> but rarely in <em>others</em>.</p>
 
   <div class="concept-box">
     <h4>Sklearn Smoothed IDF (Default)</h4>
-    <p>The standard formula divides by df(t), which causes a division-by-zero for terms unseen in training. Scikit-learn uses a smoothed version that also adds 1 to ensure no weight is exactly zero even for frequent terms:</p>
+    <p>Scikit-learn avoids division-by-zero with a smoothed variant that also prevents any weight from being exactly zero:</p>
     <div class="math-block" style="margin:0.75rem 0;">
       <span class="math-latex math-block">\text{IDF}_{\text{smooth}}(t) = \log\!\left(\frac{1 + N}{1 + \text{df}(t)}\right) + 1</span>
     </div>
@@ -230,23 +221,23 @@ print("BoW matrix:\n", X.toarray())
   <div class="assumptions-grid">
     <div class="assumption-card">
       <h5>"the" in any document</h5>
-      <p>High TF (very frequent in most documents) + Low IDF (df ≈ N, so log(N/df) ≈ 0) → <strong>Low TF-IDF</strong>. Stopword-like behaviour emerges automatically.</p>
+      <p>High TF + Low IDF (df ≈ N) → <strong>Low TF-IDF</strong>. Stopword suppression emerges automatically.</p>
     </div>
     <div class="assumption-card">
       <h5>"quantum" in a physics paper</h5>
-      <p>Medium TF (appears several times) + High IDF (only in a few documents) → <strong>High TF-IDF</strong>. This word characterises the document.</p>
+      <p>Medium TF + High IDF (rare in corpus) → <strong>High TF-IDF</strong>. Strong document signal.</p>
     </div>
     <div class="assumption-card">
       <h5>"neural" in a deep learning paper</h5>
-      <p>High TF + Medium IDF (fairly common in ML corpus) → <strong>Medium TF-IDF</strong>. Useful but not uniquely identifying.</p>
+      <p>High TF + Medium IDF (common in ML corpus) → <strong>Medium TF-IDF</strong>. Useful but not uniquely identifying.</p>
     </div>
     <div class="assumption-card">
       <h5>"LSTM" in one specific paper</h5>
-      <p>Low TF + Very High IDF (rare term) → <strong>High TF-IDF</strong>. Even one occurrence of a very rare term gets a strong weight.</p>
+      <p>Low TF + Very High IDF → <strong>High TF-IDF</strong>. Even a single occurrence of a very rare term gets strong weight.</p>
     </div>
   </div>
 
-  <p>TF-IDF acts as an automatic <em>feature selector</em>: it surfaces the words that actually characterise each document and suppresses the noise of common words — without requiring a handcrafted stopword list.</p>
+  <p>TF-IDF surfaces document-characterising words and suppresses common-word noise — without a handcrafted stopword list.</p>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <!-- WIDGET 1: LIVE TF-IDF CALCULATOR                                       -->
@@ -310,9 +301,7 @@ print("BoW matrix:\n", X.toarray())
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Document Similarity with TF-IDF</h2>
 
-  <p>Once every document is a TF-IDF vector, comparison becomes straightforward: compute the angle between vectors. This is the basis of almost all classical information retrieval systems — every search engine built before the deep learning era used some variant of this approach.</p>
-
-  <p>A search query is treated as a short "document" and embedded in the same TF-IDF vector space. The engine then finds the corpus documents with the highest cosine similarity to the query vector. This is fast (<span class="math-inline math-latex">O(N \cdot |V|)</span> for a brute-force scan), and even faster with inverted indices.</p>
+  <p>A search query is treated as a short document and embedded in the same TF-IDF space. The engine returns documents with the highest cosine similarity to the query — the basis of classical IR before deep learning. Brute-force scan is <span class="math-inline math-latex">O(N \cdot |V|)</span>; inverted indices make it faster.</p>
 
   <div class="concept-box">
     <h4>Cosine Similarity</h4>
@@ -325,7 +314,7 @@ print("BoW matrix:\n", X.toarray())
 
   <h3>BM25 — Beyond TF-IDF</h3>
 
-  <p><strong>BM25</strong> (Best Match 25) is the dominant improvement over vanilla TF-IDF in retrieval systems. It adds two important corrections: a saturation function on TF (doubling term frequency doesn't double relevance) and explicit document-length normalisation. BM25 is the default scoring function in Elasticsearch and Apache Solr. For this course it is sufficient to know that BM25 addresses TF-IDF's most practical shortcomings while staying within the same "bag of words" paradigm.</p>
+  <p><strong>BM25</strong> (Best Match 25) adds TF saturation (doubling term frequency doesn't double relevance) and explicit document-length normalisation. It is the default scorer in Elasticsearch and Solr, and the standard improvement over vanilla TF-IDF in production retrieval.</p>
 
   <div class="code-snippet">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
@@ -358,13 +347,11 @@ print(df.round(3))
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Topic Modeling with NMF</h2>
 
-  <p>Suppose you have 10,000 news articles. You want to know: what are they about? You cannot read them all. You have no labels. You need to <em>discover</em> the latent themes automatically — this is the topic modeling problem.</p>
-
-  <p>Topic modeling treats the problem as a form of dimensionality reduction: instead of representing a document as a vector over 20,000 vocabulary terms, represent it as a short vector over <em>K</em> discovered topics. Each topic is itself a distribution over terms — the top terms of a topic label it intuitively.</p>
+  <p>Topic modeling discovers latent themes in an unlabelled corpus by compressing a document's 20,000-term TF-IDF vector into a short vector over <em>K</em> topics, each defined by its top-weighted terms.</p>
 
   <h3>Non-negative Matrix Factorization (NMF)</h3>
 
-  <p>NMF decomposes the document-term matrix <span class="math-inline math-latex">V</span> (which might be the TF-IDF matrix) into two non-negative factor matrices:</p>
+  <p>NMF decomposes the document-term matrix <span class="math-inline math-latex">V</span> into two non-negative factor matrices:</p>
 
   <div class="math-block">
     <span class="math-latex math-block">V \approx W \times H \quad \text{where} \quad W, H \geq 0</span>
@@ -382,17 +369,17 @@ print(df.round(3))
     </table>
   </div>
 
-  <p>NMF is solved by minimising the reconstruction error subject to non-negativity:</p>
+  <p>NMF minimises reconstruction error subject to non-negativity:</p>
 
   <div class="math-block">
     <span class="math-latex math-block">\min_{W, H \geq 0} \;\|V - WH\|_F^2</span>
   </div>
 
-  <p>where <span class="math-inline math-latex">\|\cdot\|_F</span> is the Frobenius norm (sum of squared element-wise differences). The optimisation alternates between updating <span class="math-inline math-latex">W</span> with <span class="math-inline math-latex">H</span> fixed and vice versa — a multiplicative update rule that preserves non-negativity at every step.</p>
+  <p>where <span class="math-inline math-latex">\|\cdot\|_F</span> is the Frobenius norm. The optimisation alternates between updating <span class="math-inline math-latex">W</span> and <span class="math-inline math-latex">H</span> via a multiplicative update rule that preserves non-negativity.</p>
 
   <h3>Interpreting Topics</h3>
 
-  <p>Once NMF has converged, each row of <span class="math-inline math-latex">H</span> is a topic vector. The top-<em>k</em> terms with the highest weights in that row label the topic intuitively. For a tech corpus with 3 topics:</p>
+  <p>The top-<em>k</em> terms by weight in each row of <span class="math-inline math-latex">H</span> label the topic. For a tech corpus with 3 topics:</p>
 
   <div class="assumptions-grid" style="grid-template-columns:1fr 1fr 1fr;">
     <div class="assumption-card">
@@ -409,11 +396,11 @@ print(df.round(3))
     </div>
   </div>
 
-  <p>Each document is assigned topic weights from its row in <span class="math-inline math-latex">W</span>. Unlike hard clustering, NMF supports <em>mixed membership</em>: a document about neural machine translation might have high weights for both Topic 1 and Topic 2.</p>
+  <p>Each row of <span class="math-inline math-latex">W</span> gives a document's topic weights. NMF supports <em>mixed membership</em>: a document about neural machine translation can have high weights for both Topic 1 and Topic 2.</p>
 
   <h3>NMF vs. LDA</h3>
 
-  <p><strong>LDA</strong> (Latent Dirichlet Allocation) is the other widely used topic model. Both discover K topics from unlabelled text, but differ in key ways:</p>
+  <p><strong>LDA</strong> (Latent Dirichlet Allocation) is the other widely used topic model. Both discover K topics from unlabelled text:</p>
 
   <div class="concept-box">
     <h4>NMF vs. LDA at a Glance</h4>
@@ -510,7 +497,7 @@ for i, topic in enumerate(H):
             <tr><td><strong>D2</strong></td><td>0</td><td>0</td><td>1</td><td>1</td></tr>
           </tbody>
         </table>
-        <p>Notice that the two documents share no vocabulary words (after stopword removal). Their BoW vectors are orthogonal — cosine similarity = 0 — even though both are simple sentences about pets being in locations. This illustrates a weakness of BoW: synonymous or contextually similar sentences can appear maximally dissimilar.</p>
+        <p>The two documents share no vocabulary after stopword removal — their vectors are orthogonal (cosine similarity = 0) despite describing the same situation. This illustrates BoW's semantic blindness.</p>
       </div>
     </div>
   </div>
@@ -546,7 +533,7 @@ for i, topic in enumerate(H):
         <div class="math-block">
           <span class="math-latex math-block">\text{TF-IDF}_{\text{sklearn}} = 0.04 \times 1.693 = 0.0677</span>
         </div>
-        <p>The sklearn smoothed formula produces higher scores because it adds 1, preventing any IDF from being zero and biasing scores upward. When comparing TF-IDF values from different libraries, always check which IDF formula is in use.</p>
+        <p>The sklearn formula's +1 prevents any IDF from being zero. Always verify which IDF variant a library uses when comparing scores.</p>
       </div>
     </div>
   </div>
@@ -631,7 +618,7 @@ for i, topic in enumerate(H):
   <!-- BRIDGE TO MODULE 9                                                      -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="bridge" style="margin-top:2.5rem;">
-    <strong>Module 9: Word Embeddings.</strong> TF-IDF vectors treat each word as an independent dimension, so "king", "queen", "monarch", and "royalty" all occupy orthogonal axes in the vector space — despite being semantically related. Module 9 introduces <strong>word embeddings</strong>: dense, low-dimensional vectors learned from text that capture semantic relationships. The canonical example is the embedding arithmetic <strong>king − man + woman ≈ queen</strong> — something impossible to express in a TF-IDF space.
+    <strong>Module 9: Word Embeddings.</strong> In TF-IDF space "king", "queen", and "royalty" are orthogonal axes despite being semantically related. Module 9 introduces dense, low-dimensional <strong>word embeddings</strong> that capture semantic relationships — enabling arithmetic like <strong>king − man + woman ≈ queen</strong>.
   </div>
 
   <div class="nav-buttons">
