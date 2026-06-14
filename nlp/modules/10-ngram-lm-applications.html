@@ -41,23 +41,23 @@
   <h2>Bridge from Module 9 — Sequences of Words</h2>
 
   <div class="bridge">
-    <strong>From meaning to probability.</strong> Module 9 gave us word embeddings — dense vectors capturing what words <em>mean</em>. Now we ask a different question: how probable is a <em>sequence</em> of words? A language model assigns probability to sentences. This lets us rank hypotheses in speech recognition ("recognize speech" vs. "wreck a nice beach"), generate text, and evaluate NLP systems.
+    <strong>From meaning to probability.</strong> Module 9 gave us embeddings capturing what words <em>mean</em>. Now we ask: how probable is a <em>sequence</em> of words?
   </div>
 
-  <p>A language model is a probability distribution over sequences of words. Given a sentence \(w_1 w_2 \ldots w_n\), a language model tells us \(P(w_1 w_2 \ldots w_n)\) — how likely that sequence is in the language. This single capability unlocks a surprising range of applications.</p>
+  <p>A language model assigns a probability \(P(w_1 w_2 \ldots w_n)\) to any word sequence, enabling ranking, generation, and evaluation.</p>
 
   <div class="assumptions-grid">
     <div class="assumption-card">
       <h5>Speech Recognition</h5>
-      <p>\(P(\text{"I want to eat"}) > P(\text{"I wand two eat"})\) &mdash; pick the more probable transcription from among all acoustic hypotheses the recogniser generates.</p>
+      <p>\(P(\text{"I want to eat"}) > P(\text{"I wand two eat"})\) — pick the more probable acoustic hypothesis.</p>
     </div>
     <div class="assumption-card">
       <h5>Spell Correction</h5>
-      <p>The noisy channel model (Module 2) required a prior \(P(w)\) over word sequences. A language model provides exactly that prior, weighting corrections by how natural they sound.</p>
+      <p>The noisy channel (Module 2) needs a prior \(P(w)\) over word sequences — the language model provides it.</p>
     </div>
     <div class="assumption-card">
       <h5>Machine Translation</h5>
-      <p>Statistical MT generates many candidate translations; the language model scores each candidate by its fluency in the target language, helping select the most natural output.</p>
+      <p>The LM scores candidate translations by fluency in the target language.</p>
     </div>
   </div>
 
@@ -66,7 +66,7 @@
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>N-gram Language Models — The Core Idea</h2>
 
-  <p>How do we compute \(P(w_1 w_2 \ldots w_n)\)? We start with an exact formula, then introduce a practical approximation.</p>
+  <p>Start with the exact chain rule, then introduce the Markov approximation.</p>
 
   <div class="derivation">
     <div class="derivation-step">
@@ -74,13 +74,13 @@
       <div class="step-content">
         <strong>Chain Rule of Probability</strong>
         <div class="step-explanation">
-          Any joint probability can be decomposed exactly using the chain rule:
+          Exact decomposition:
         </div>
         <div class="math-block" style="margin-top:0.5rem;">
           \[P(w_1 w_2 \ldots w_n) = P(w_1) \cdot P(w_2 \mid w_1) \cdot P(w_3 \mid w_1 w_2) \cdots P(w_n \mid w_1 \ldots w_{n-1})\]
         </div>
         <div class="step-explanation">
-          This is exact — but the conditioning history grows without bound as the sentence gets longer. A model would need to remember every possible prefix, which is computationally and statistically intractable for large vocabularies.
+          Intractable for large vocabularies — the conditioning history grows without bound.
         </div>
       </div>
     </div>
@@ -117,7 +117,7 @@
           \[P(w_i \mid w_{i-1}) = \frac{C(w_{i-1}\, w_i)}{C(w_{i-1})}\]
         </div>
         <div class="step-explanation">
-          The numerator counts how often the bigram \(w_{i-1}\, w_i\) appeared; the denominator counts how often the conditioning word \(w_{i-1}\) appeared. The ratio is the relative frequency — the MLE estimate.
+          Numerator: bigram count; denominator: unigram count of the conditioning word. Ratio = relative frequency = MLE estimate.
         </div>
       </div>
     </div>
@@ -212,10 +212,8 @@
 
   <div class="callout warning">
     <strong>The Zero Problem</strong>
-    If a bigram never appeared in training, MLE gives it probability 0. Then ANY sentence containing that bigram has probability 0 — even perfectly grammatical ones. A model that assigns zero probability to valid sentences is useless for ranking or generation. This is the data sparsity problem: no training corpus is large enough to observe every possible word pair.
+    Unseen bigrams get probability 0 under MLE, making any sentence containing them probability 0. No corpus is large enough to observe every word pair — hence <strong>smoothing</strong> redistributes mass to unobserved events.
   </div>
-
-  <p>The solution is <strong>smoothing</strong> — redistributing some probability mass from observed events to unobserved ones.</p>
 
   <div class="derivation">
     <div class="derivation-step">
@@ -223,13 +221,10 @@
       <div class="step-content">
         <strong>Laplace (Add-1) Smoothing</strong>
         <div class="step-explanation">
-          Add 1 to every bigram count (including unseen ones). To keep probabilities summing to 1, add \(|V|\) (vocabulary size) to every unigram count:
+          Add 1 to every bigram count; add \(|V|\) to the denominator to keep probabilities summing to 1:
         </div>
         <div class="math-block" style="margin-top:0.5rem;">
           \[P_{\text{Laplace}}(w_i \mid w_{i-1}) = \frac{C(w_{i-1}\, w_i) + 1}{C(w_{i-1}) + |V|}\]
-        </div>
-        <div class="step-explanation">
-          Every bigram now has at least count 1. No sentence receives probability 0.
         </div>
       </div>
     </div>
@@ -294,9 +289,7 @@ print(mle_model.generate(7, text_seed=["I"]))</code></pre>
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Perplexity — Evaluating Language Models</h2>
 
-  <p>How do we compare two language models without running a full downstream task? The standard intrinsic metric is <strong>perplexity</strong>: measure how surprised the model is by a held-out test set.</p>
-
-  <p>For a test set \(W = w_1 w_2 \ldots w_N\):</p>
+  <p><strong>Perplexity</strong> measures how surprised a model is by a held-out test set \(W = w_1 w_2 \ldots w_N\):</p>
 
   <div class="math-block">
     \[PP(W) = P(w_1 w_2 \ldots w_N)^{-\frac{1}{N}} = \sqrt[N]{\frac{1}{P(w_1 w_2 \ldots w_N)}}\]
@@ -316,7 +309,7 @@ print(mle_model.generate(7, text_seed=["I"]))</code></pre>
 
   <div class="concept-box">
     <h4>Interpreting Perplexity</h4>
-    <p>Perplexity is the <strong>weighted average branching factor</strong> of the language — the number of equally likely words the model must choose among at each step. A perplexity of 100 means the model is "as confused as if it had to choose uniformly among 100 words at each position." Lower perplexity indicates a better model that assigns higher probability to real sentences. Typical values for word-level English language models range from 50 to 200 before modern neural methods.</p>
+    <p>Perplexity is the <strong>weighted average branching factor</strong>: the number of equally likely words the model considers at each step. Lower is better. Typical word-level English values: 50–200 for n-gram models, ~20 for GPT-3.</p>
   </div>
 
   <h3>Perplexity Across Model Families (Penn Treebank)</h3>
@@ -336,7 +329,7 @@ print(mle_model.generate(7, text_seed=["I"]))</code></pre>
   </table>
 
   <div class="callout warning">
-    <strong>Perplexity comparisons require identical conditions.</strong> Perplexity is only meaningfully comparable between models evaluated on the <em>same test set</em> with the <em>same vocabulary</em>. Never compare perplexity numbers across different datasets, different tokenizations, or different vocabulary sizes — the numbers will not be commensurate.
+    <strong>Perplexity comparisons require identical conditions.</strong> Only compare models on the <em>same test set</em>, <em>same vocabulary</em>, and <em>same tokenization</em> — numbers across different setups are not commensurate.
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -344,7 +337,7 @@ print(mle_model.generate(7, text_seed=["I"]))</code></pre>
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Text Generation with N-grams</h2>
 
-  <p>Once we have a language model, we can generate text by sampling. At each step, we look at the recent context and draw the next word from the conditional distribution the model provides.</p>
+  <p>Generate text by sampling the next word from the model's conditional distribution, then repeating.</p>
 
   <div class="derivation">
     <div class="derivation-step">
@@ -352,7 +345,7 @@ print(mle_model.generate(7, text_seed=["I"]))</code></pre>
       <div class="step-content">
         <strong>Greedy / Sampled Generation</strong>
         <div class="step-explanation">
-          For a bigram model: given the current word \(w_{i-1}\), sample \(w_i \sim P(\cdot \mid w_{i-1})\). For a trigram model: given \(w_{i-2}, w_{i-1}\), sample \(w_i \sim P(\cdot \mid w_{i-2}, w_{i-1})\). Repeat until reaching an end-of-sentence token or the desired length.
+          Bigram: sample \(w_i \sim P(\cdot \mid w_{i-1})\). Trigram: sample \(w_i \sim P(\cdot \mid w_{i-2}, w_{i-1})\). Repeat until \(\langle/s\rangle\) or desired length.
         </div>
       </div>
     </div>
@@ -361,7 +354,7 @@ print(mle_model.generate(7, text_seed=["I"]))</code></pre>
       <div class="step-content">
         <strong>The Loop Problem</strong>
         <div class="step-explanation">
-          Simple sampling often produces repetitive text. If "like cats" is frequent and "cats like" is also frequent, the model can enter a loop: "I like cats like cats like cats...". This happens because n-gram models have no long-range memory — they cannot detect that the same phrase has already appeared nearby.
+          N-gram models have no long-range memory, so high-frequency bigram cycles ("like cats" ↔ "cats like") produce repetitive output like "I like cats like cats like cats..."
         </div>
       </div>
     </div>
@@ -370,7 +363,7 @@ print(mle_model.generate(7, text_seed=["I"]))</code></pre>
       <div class="step-content">
         <strong>Remedies: Temperature and Top-k Sampling</strong>
         <div class="step-explanation">
-          <strong>Temperature sampling</strong> scales logits before softmax: high temperature flattens the distribution (more random), low temperature sharpens it (more deterministic). <strong>Top-k sampling</strong> restricts sampling to the k most probable next words, zeroing out the rest. Both techniques extend naturally to neural language models (GPT, etc.) and are used in production systems today.
+          <strong>Temperature</strong> scales logits before softmax (high = more random, low = more deterministic). <strong>Top-k</strong> restricts sampling to the k most probable next words. Both extend to neural LMs (GPT, etc.).
         </div>
       </div>
     </div>
@@ -413,14 +406,14 @@ print(result)</code></pre>
 
   <h3>6a. Extractive Summarization</h3>
 
-  <p>Extractive summarization selects the \(k\) most important sentences from a document and returns them verbatim. No new sentences are generated — the summary is literally a subset of the original text.</p>
+  <p>Extractive summarization selects the \(k\) most important sentences verbatim — no new text is generated.</p>
 
   <div class="concept-box">
     <h4>Three Approaches to Sentence Scoring</h4>
     <ul>
-      <li><strong>TF-IDF sentence scoring:</strong> Each sentence receives the average TF-IDF weight of its non-stop-word tokens (links directly back to Module 8). Sentences that concentrate high-TF-IDF terms score higher and are selected.</li>
-      <li><strong>Position heuristic:</strong> The first and last sentences of a document tend to be the most informative — introductions state the main point, conclusions restate it. A simple rule extracts these positions first.</li>
-      <li><strong>TextRank:</strong> Build a graph where nodes are sentences and edge weights are cosine similarities between sentence TF-IDF vectors. Run the PageRank algorithm on this graph. Sentences that are similar to many other sentences act as "hubs" and receive high scores — analogous to important web pages receiving many links.</li>
+      <li><strong>TF-IDF scoring:</strong> Average TF-IDF weight of non-stop tokens per sentence (Module 8). High-TF-IDF-dense sentences rank highest.</li>
+      <li><strong>Position heuristic:</strong> First and last sentences tend to be most informative; extract them first.</li>
+      <li><strong>TextRank:</strong> Graph of sentences with cosine-similarity edge weights; run PageRank. Sentences similar to many others score highest — analogous to highly-linked web pages.</li>
     </ul>
   </div>
 
@@ -467,15 +460,13 @@ print(extractive_summary(text, n_sentences=2))</code></pre>
 
   <h3>6b. Machine Translation — A Historical Arc</h3>
 
-  <p>Machine translation has undergone two paradigm shifts in seventy years. Understanding the arc reveals how each era's core ideas connect to the NLP concepts in this track.</p>
-
   <div class="derivation">
     <div class="derivation-step">
       <div class="step-number">1950s&ndash;1990s</div>
       <div class="step-content">
         <strong>Rule-Based Machine Translation (RBMT)</strong>
         <div class="step-explanation">
-          Hand-written grammar rules (phrase structure rules from Module 4) combined with bilingual dictionaries translate source sentences step by step: parse source, map to interlingua or transfer structure, generate target. RBMT systems were linguistically principled but brittle — every new language pair required years of expert effort, and the rules never covered colloquial or domain-specific language.
+          Hand-written grammar rules (Module 4) + bilingual dictionaries: parse source → map to transfer structure → generate target. Linguistically principled but brittle; every new language pair required years of expert effort.
         </div>
       </div>
     </div>
@@ -484,9 +475,9 @@ print(extractive_summary(text, n_sentences=2))</code></pre>
       <div class="step-content">
         <strong>Statistical Machine Translation (SMT)</strong>
         <div class="step-explanation">
-          Phrase-based SMT learned translation tables from parallel corpora (aligned source–target sentence pairs). The IBM models estimated \(P(\text{source} \mid \text{target})\) — a translation model. The full decoding objective was the noisy channel:
+          Learned phrase translation tables from parallel corpora. Decoding via the noisy channel:
           \[\hat{T} = \arg\max_T P(\text{source} \mid T) \times P(T)\]
-          where \(P(T)\) is a <em>language model</em> — exactly what this module builds. The language model ensured translations were fluent in the target language, even when the translation model chose unusual word orderings.
+          \(P(T)\) is a language model — exactly what this module builds — ensuring fluent target output.
         </div>
       </div>
     </div>
@@ -495,14 +486,14 @@ print(extractive_summary(text, n_sentences=2))</code></pre>
       <div class="step-content">
         <strong>Neural Machine Translation (NMT)</strong>
         <div class="step-explanation">
-          Encoder–decoder architectures with attention (Bahdanau et al., 2015) replaced phrase tables with learned continuous representations. Seq2Seq models encode the full source sentence into a vector; decoders generate target words one by one, attending to source positions. The 2017 Transformer architecture further replaced recurrence with multi-head self-attention, enabling parallelism and much longer context. State-of-the-art systems (Google Translate, DeepL, MarianMT, Helsinki-NLP) are all Transformer-based. Note: spaCy and NLTK do not perform translation — use MarianMT via HuggingFace or commercial APIs.
+          Encoder–decoder + attention (Bahdanau et al., 2015) replaced phrase tables with continuous representations. The 2017 Transformer swapped recurrence for multi-head self-attention, enabling parallelism and long context. All current systems (Google Translate, DeepL, MarianMT) are Transformer-based. Note: use MarianMT via HuggingFace for translation — spaCy/NLTK don't support it.
         </div>
       </div>
     </div>
   </div>
 
   <div class="callout insight">
-    <strong>Language Models in Statistical MT.</strong> The noisy channel framing of statistical MT uses a language model as \(P(\text{target})\) — exactly what you built in this module. Even modern neural systems are trained to maximise \(P(\text{target} \mid \text{source})\) on parallel corpora, which is still a form of language modeling. The n-gram LM you understand now is the direct conceptual ancestor of GPT-style autoregressive language models.
+    <strong>Language Models in Statistical MT.</strong> SMT's \(P(\text{target})\) term is exactly the n-gram LM from this module. Modern neural systems still maximize \(P(\text{target} \mid \text{source})\) — a form of language modeling — making the n-gram LM the direct conceptual ancestor of GPT-style autoregressive models.
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -587,15 +578,14 @@ print(extractive_summary(text, n_sentences=2))</code></pre>
       <span class="practice-difficulty easy">Easy</span>
     </div>
     <div class="practice-body">
-      <p>Given unigram probabilities \(P(I) = 0.2\), \(P(\text{like}) = 0.3\), \(P(\text{cats}) = 0.1\), compute \(P(\text{"I like cats"})\) using the unigram model.</p>
-      <p>Now consider that in the actual corpus, "I like cats" may appear rarely as a phrase even if each word is common. What does this reveal about the unigram assumption?</p>
+      <p>Given \(P(I) = 0.2\), \(P(\text{like}) = 0.3\), \(P(\text{cats}) = 0.1\), compute \(P(\text{"I like cats"})\) under the unigram model. What does the result reveal about the unigram assumption?</p>
       <button class="practice-toggle">Show solution</button>
       <div class="practice-solution">
         <p><strong>Unigram probability:</strong></p>
         <div class="math-block">
           \[P(\text{"I like cats"}) = P(I) \times P(\text{like}) \times P(\text{cats}) = 0.2 \times 0.3 \times 0.1 = 0.006\]
         </div>
-        <p><strong>Limitation:</strong> The unigram model treats words as independent — it ignores the fact that "I" is far more likely to be followed by "like" than by "cats". The true probability \(P(\text{"I like cats"})\) computed via the chain rule using actual bigram/trigram counts could be much higher or lower than 0.006 depending on actual co-occurrence patterns. The unigram model completely discards sequential structure.</p>
+        <p><strong>Limitation:</strong> The unigram model treats words as independent, discarding all sequential structure. The true chain-rule probability could differ substantially from 0.006 depending on actual co-occurrence patterns.</p>
       </div>
     </div>
   </div>
@@ -623,7 +613,7 @@ print(extractive_summary(text, n_sentences=2))</code></pre>
         <div class="math-block">
           \[P_{\text{Laplace}}(\text{dogs} \mid \text{like}) = \frac{C(\text{like, dogs}) + 1}{C(\text{like}) + |V|} = \frac{1 + 1}{3 + 4} = \frac{2}{7} \approx 0.286\]
         </div>
-        <p><strong>(c) Explanation:</strong> Laplace is lower than MLE for the observed bigram because probability mass has been redistributed to the three other bigrams beginning with "like" that were unseen (like-I, like-like, like-[/s]). Smoothing "steals" from observed counts to give non-zero probability to unseen events. Laplace becomes especially useful for unseen bigrams — MLE gives 0, Laplace gives \(\frac{1}{3+4} = \frac{1}{7} \approx 0.143\) — preventing the zero-probability catastrophe.</p>
+        <p><strong>(c) Explanation:</strong> Laplace is lower than MLE because mass is redistributed to unseen bigrams starting with "like" (like-I, like-like, etc.). For unseen bigrams, MLE gives 0; Laplace gives \(\frac{1}{3+4} = \frac{1}{7} \approx 0.143\) — preventing zero-probability sentences.</p>
       </div>
     </div>
   </div>
@@ -654,8 +644,7 @@ print(extractive_summary(text, n_sentences=2))</code></pre>
         <div class="math-block">
           \[P(W) = 2^{-600} \approx 4 \times 10^{-181}\]
         </div>
-        <p>This is an astronomically small number — far smaller than can be represented by any standard floating-point type (minimum positive float64 is ~\(5 \times 10^{-324}\)).</p>
-        <p><strong>(c) Why log probabilities?</strong> Raw probabilities of sequences underflow to zero in standard 64-bit floating-point arithmetic even for modest sentence lengths (products of hundreds of small fractions). Log probabilities turn products into sums — numerically stable, faster to compute, and easier to compare. All modern NLP systems operate in log space.</p>
+        <p><strong>(c) Why log probabilities?</strong> \(2^{-600}\) underflows standard float64. Log probabilities convert products to sums — numerically stable and easier to compare. All modern NLP systems operate in log space.</p>
       </div>
     </div>
   </div>
@@ -676,8 +665,8 @@ print(extractive_summary(text, n_sentences=2))</code></pre>
     </div>
     <button class="quiz-submit" data-q="q1" data-correct="b">Check</button>
     <div class="quiz-feedback" id="quiz-q1-feedback">
-      <div class="correct-msg">Correct! The Markov assumption truncates the conditioning history to the last \(k\) words, making the computation tractable. The chain rule computes exact probabilities without this assumption; smoothing handles zero-frequency n-grams; perplexity is computed after the model is built.</div>
-      <div class="incorrect-msg">Not quite. Option A describes the chain rule (exact, no assumption). Option C describes smoothing. Option D is perplexity evaluation. The Markov assumption specifically limits the context window to the last \(k\) words.</div>
+      <div class="correct-msg">Correct! The Markov assumption truncates the conditioning history to the last \(k\) words, making computation tractable.</div>
+      <div class="incorrect-msg">Not quite. A = chain rule (exact). C = smoothing. D = perplexity. The Markov assumption limits context to the last \(k\) words.</div>
     </div>
   </div>
 
@@ -692,8 +681,8 @@ print(extractive_summary(text, n_sentences=2))</code></pre>
     </div>
     <button class="quiz-submit" data-q="q2" data-correct="b">Check</button>
     <div class="quiz-feedback" id="quiz-q2-feedback">
-      <div class="correct-msg">Correct! Perplexity is \(P(W)^{-1/N}\) — as the model assigns higher probability \(P(W)\) to the test sequence, the perplexity decreases. A lower perplexity means the model is less "surprised" by the test data, indicating a better fit to the true distribution of the language.</div>
-      <div class="incorrect-msg">Not quite. Perplexity is inversely related to the probability the model assigns to the test text — higher model probability means lower perplexity, so lower perplexity signals better (less uncertain) predictions. Training data size and context length do not directly determine perplexity.</div>
+      <div class="correct-msg">Correct! Perplexity is \(P(W)^{-1/N}\) — higher \(P(W)\) means lower perplexity and better fit.</div>
+      <div class="incorrect-msg">Not quite. Perplexity is inversely related to model probability. Training data size and context length do not directly determine perplexity.</div>
     </div>
   </div>
 
@@ -708,8 +697,8 @@ print(extractive_summary(text, n_sentences=2))</code></pre>
     </div>
     <button class="quiz-submit" data-q="q3" data-correct="b">Check</button>
     <div class="quiz-feedback" id="quiz-q3-feedback">
-      <div class="correct-msg">Correct! Laplace smoothing adds 1 to every bigram count (including unseen ones, which were 0 and become 1) and adds \(|V|\) to the unigram denominator to ensure all probabilities still sum to 1. Option A is MLE without smoothing. Option C is backoff smoothing. Option D is a neural LM.</div>
-      <div class="incorrect-msg">Not quite. Option A is unsmoothed MLE — the zero problem we're solving. Option C describes backoff smoothing (a different technique). Option D is a neural language model approach. Laplace specifically adds 1 to all counts uniformly.</div>
+      <div class="correct-msg">Correct! Laplace adds 1 to every bigram count and \(|V|\) to the denominator so probabilities sum to 1. A = unsmoothed MLE. C = backoff. D = neural LM.</div>
+      <div class="incorrect-msg">Not quite. A = unsmoothed MLE (zero problem). C = backoff (different technique). D = neural LM. Laplace adds 1 to all counts uniformly.</div>
     </div>
   </div>
 
@@ -724,8 +713,8 @@ print(extractive_summary(text, n_sentences=2))</code></pre>
     </div>
     <button class="quiz-submit" data-q="q4" data-correct="b">Check</button>
     <div class="quiz-feedback" id="quiz-q4-feedback">
-      <div class="correct-msg">Correct! In the noisy channel formulation \(\hat{T} = \arg\max P(\text{source} \mid T) \times P(T)\), the translation model \(P(\text{source} \mid T)\) handles the word-level mapping, while the language model \(P(T)\) scores how natural and grammatically well-formed \(T\) is in the target language. Without the LM, translations might be technically accurate word-for-word but ungrammatical.</div>
-      <div class="incorrect-msg">Not quite. Translation itself is handled by the translation model \(P(\text{source} \mid \text{target})\). BLEU is an evaluation metric computed after translation, not part of the model. OOV handling is a separate vocabulary problem. The language model's role is fluency — it ensures the output sounds natural in the target language.</div>
+      <div class="correct-msg">Correct! In \(\hat{T} = \arg\max P(\text{source} \mid T) \times P(T)\), the translation model handles word mapping; the LM \(P(T)\) scores fluency in the target language.</div>
+      <div class="incorrect-msg">Not quite. Translation = translation model. BLEU = post-hoc evaluation metric. OOV = separate problem. The LM's role is target-language fluency.</div>
     </div>
   </div>
 
@@ -734,7 +723,7 @@ print(extractive_summary(text, n_sentences=2))</code></pre>
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="callout insight" style="margin-top:2.5rem;">
     <strong>You've completed the NLP Learning Track!</strong>
-    <p style="margin-top:0.5rem;">You've journeyed from raw text &rarr; tokens &rarr; morphology &rarr; syntax &rarr; semantics &rarr; representations &rarr; language models. The techniques in this track form the foundation for modern NLP. Transformers (BERT, GPT) build on all of these ideas: they use byte-pair encoding (Modules 1&ndash;2), contextual embeddings (Module 9), sequence modeling (this module), and attention instead of n-gram windows. Explore the next frontier: fine-tuning pre-trained transformers with HuggingFace's <code>transformers</code> library.</p>
+    <p style="margin-top:0.5rem;">You've covered raw text → tokens → morphology → syntax → semantics → representations → language models. Transformers (BERT, GPT) build on all of it: BPE (Modules 1–2), contextual embeddings (Module 9), sequence modeling (this module), and attention instead of n-gram windows. Next step: fine-tune pre-trained transformers with HuggingFace's <code>transformers</code> library.</p>
   </div>
 
   <div class="nav-buttons">

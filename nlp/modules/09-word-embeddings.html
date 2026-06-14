@@ -44,9 +44,7 @@
     <strong>Module 8 showed that TF-IDF gives each word a number — its importance in a document.</strong> But TF-IDF vectors are huge (|vocabulary| dimensions) and treat every word as orthogonal. Word embeddings solve both problems: dense low-dimensional vectors that encode semantic similarity.
   </div>
 
-  <p>Consider what TF-IDF actually produces. A vocabulary of 50,000 words means a 50,000-dimensional vector for every document. Almost all of those dimensions are zero for any given document — this is the sparsity problem. Worse, the cosine similarity between "dog" and "cat" is exactly the same as the cosine similarity between "dog" and "calculus": zero. The representation treats every word as a distinct, unrelated axis. Language doesn't work that way.</p>
-
-  <p>Word embeddings address both limitations simultaneously. Instead of a one-hot or TF-IDF vector, every word is assigned a dense real-valued vector, typically 100 to 300 dimensions, learned from the statistical patterns of a large corpus. Words used in similar contexts end up with similar vectors. The geometry of the embedding space encodes semantic relationships.</p>
+  <p>TF-IDF vectors are 50,000-dimensional and treat every word as orthogonal — "dog" and "cat" have zero cosine similarity, same as "dog" and "calculus". Word embeddings replace this with dense 100–300 dimensional vectors learned from corpus statistics, where similar contexts produce similar vectors.</p>
 
   <table>
     <thead>
@@ -95,39 +93,35 @@
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>The Distributional Hypothesis — Recap from Module 6</h2>
 
-  <p>Module 6 introduced the <strong>distributional hypothesis</strong>: "you shall know a word by the company it keeps" (Firth, 1957). If "dog" and "cat" regularly appear near words like "pet", "fur", "feed", "veterinarian", and "cuddle", they must be semantically related — even without any explicit definition. Module 6 operationalised this with <strong>pointwise mutual information (PMI)</strong> computed from raw co-occurrence counts: PMI(dog, pet) tells us how much more often these two words appear together than chance would predict.</p>
-
-  <p>The problem is that co-occurrence matrices and PMI vectors are still enormous and sparse. A vocabulary of 50,000 words produces a 50,000 × 50,000 co-occurrence matrix. Most cells are zero, and storing or computing with this matrix is expensive. <strong>Word embeddings are the learned, dense version of the same underlying idea.</strong> Instead of storing raw co-occurrence statistics, we train a model to compress all that distributional information into a compact d-dimensional vector — capturing the same semantic structure at a fraction of the cost.</p>
+  <p>Module 6 introduced the <strong>distributional hypothesis</strong>: "you shall know a word by the company it keeps" (Firth, 1957), operationalised via <strong>PMI</strong> over raw co-occurrence counts. The problem: a 50,000-word vocabulary produces a 50,000×50,000 co-occurrence matrix — enormous and sparse. <strong>Word embeddings are the learned, dense version of the same idea</strong>, compressing distributional statistics into a compact d-dimensional vector at a fraction of the cost.</p>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <!-- SECTION 3: WORD2VEC — THE CORE IDEA                                    -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Word2Vec — The Core Idea</h2>
 
-  <p>Word2vec (Mikolov et al., 2013) is not a single algorithm but a family of models that share the same insight: <em>train a shallow neural network to predict words from context</em>, then throw away the network and keep the weights. The weight matrix connecting the input to the hidden layer is the embedding table.</p>
-
-  <p>The intuition is powerful: if we train a model to predict the word "cat" given context ["the", "_", "sat", "on"], the model must learn an internal representation of "cat" that is useful for that prediction. A word that appears in similar contexts — "dog", "kitten", "hamster" — will naturally develop a similar internal representation. The network never learns explicit semantic rules; it discovers structure purely from co-occurrence patterns across billions of words.</p>
+  <p>Word2vec (Mikolov et al., 2013) trains a shallow neural network to predict words from context, then discards the network and keeps the weights — the input-to-hidden weight matrix IS the embedding table. Words appearing in similar contexts (e.g., "dog", "kitten", "hamster" all predicted by similar context windows) develop similar representations purely from co-occurrence patterns, with no explicit semantic rules.</p>
 
   <div class="derivation">
     <div class="derivation-step">
       <div class="step-number">1</div>
       <div class="step-content">
         <strong>Represent each word as a one-hot vector</strong>
-        <div class="step-explanation">Start with a vocabulary of |V| words. Each word is encoded as a one-hot vector of length |V| — exactly one dimension is 1, all others are 0. This is the input to the network. The vector for "dog" is all zeros except position 4,721 (or wherever "dog" appears in your vocabulary index).</div>
+        <div class="step-explanation">Each word is a one-hot vector of length |V| — one dimension is 1, all others are 0. This is the network input.</div>
       </div>
     </div>
     <div class="derivation-step">
       <div class="step-number">2</div>
       <div class="step-content">
         <strong>Multiply by weight matrix W to get the embedding</strong>
-        <div class="step-explanation">A weight matrix <strong>W</strong> of shape |V|&times;d maps the one-hot input to a dense d-dimensional hidden layer. Because the input is one-hot, multiplying by <strong>W</strong> simply <em>selects the row of W corresponding to that word</em>. This row IS the word embedding. The matrix <strong>W</strong> is what we are learning.</div>
+        <div class="step-explanation"><strong>W</strong> (shape |V|×d) maps the one-hot input to a d-dimensional hidden layer. Multiplying by a one-hot vector simply <em>selects the corresponding row of W</em> — that row IS the word embedding. <strong>W</strong> is what we learn.</div>
       </div>
     </div>
     <div class="derivation-step">
       <div class="step-number">3</div>
       <div class="step-content">
         <strong>Predict surrounding words (Skip-gram) or center word (CBOW)</strong>
-        <div class="step-explanation">A second weight matrix <strong>W'</strong> of shape d&times;|V| maps the hidden embedding back to a probability distribution over the vocabulary. In Skip-gram, this distribution is trained to predict context words given a center word. In CBOW, context word embeddings are averaged and the distribution predicts the missing center word. After training, <strong>W</strong> is the embedding table.</div>
+        <div class="step-explanation"><strong>W'</strong> (shape d×|V|) maps the hidden embedding to a probability distribution over the vocabulary. Skip-gram trains this to predict context words given a center word; CBOW averages context embeddings to predict the center. After training, <strong>W</strong> is the embedding table.</div>
       </div>
     </div>
   </div>
@@ -143,19 +137,19 @@
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Skip-gram Objective</h2>
 
-  <p>Let T be the number of word positions in the training corpus and c be the context window size (how many words to the left and right count as context). The Skip-gram objective maximises the average log-probability of each context word given its center word:</p>
+  <p>T = corpus positions, c = window size. Skip-gram maximises the average log-probability of each context word given its center word:</p>
 
   <div class="math-block">
     \[J(\theta) = -\frac{1}{T}\sum_{t=1}^{T}\sum_{-c \le j \le c,\, j \ne 0} \log P(w_{t+j} \mid w_t)\]
   </div>
 
-  <p>The negative sign converts maximisation into minimisation (we minimise loss). The conditional probability of observing context word <em>o</em> given center word <em>c</em> is computed with a softmax over all vocabulary words:</p>
+  <p>The conditional probability of context word <em>o</em> given center word <em>c</em> uses a softmax over the full vocabulary:</p>
 
   <div class="math-block">
     \[P(o \mid c) = \frac{\exp(u_o^\top v_c)}{\sum_{w=1}^{|V|} \exp(u_w^\top v_c)}\]
   </div>
 
-  <p>Here, \(v_c\) is the <strong>center word vector</strong> (a row of <strong>W</strong>) and \(u_o\) is the <strong>output (context) vector</strong> (a row of <strong>W'</strong>). Each word actually has two vectors — one for when it acts as a center word and one for when it acts as a context word. In practice, the two are either averaged or we simply use \(v_c\) and discard \(u_o\) after training.</p>
+  <p>\(v_c\) is the center word vector (row of <strong>W</strong>); \(u_o\) is the context vector (row of <strong>W'</strong>). Each word has two vectors; in practice we use \(v_c\) and discard \(u_o\) after training.</p>
 
   <div class="callout note">
     <strong>Negative Sampling</strong>: Computing the softmax denominator over |V| = 50,000 words at every training step is computationally prohibitive. <strong>Negative sampling</strong> approximates the objective by replacing the softmax with a simpler binary classification task: is this (center, context) pair real, or is it a noise pair? For each real training pair, k = 5&ndash;20 "negative" words are sampled (typically proportional to their frequency raised to the 3/4 power), and the model is trained to output a high score for the real pair and a low score for the noise pairs. This reduces each update from O(|V|) to O(k) operations — a 10,000&times; speedup.
@@ -166,15 +160,13 @@
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>GloVe — Global Vectors for Word Representation</h2>
 
-  <p>Word2vec trains on local context windows, processing one center word at a time. GloVe (Pennington et al., 2014) takes a different approach: pre-compute the full global co-occurrence matrix X (where \(X_{ij}\) is how many times word i appears in the context of word j across the entire corpus), then train vectors to predict the <em>logarithm</em> of these counts. This combines the statistical efficiency of global matrix methods (like PMI from Module 6) with the compact dense representations of word2vec.</p>
-
-  <p>The GloVe objective is:</p>
+  <p>GloVe (Pennington et al., 2014) pre-computes the full global co-occurrence matrix X (\(X_{ij}\) = times word i appears in context of word j), then trains vectors to predict \(\log X_{ij}\) — combining the statistical efficiency of global matrix methods (Module 6's PMI) with word2vec's compact representations. The objective:</p>
 
   <div class="math-block">
     \[J = \sum_{i,j=1}^{|V|} f(X_{ij})\left(w_i^\top \tilde{w}_j + b_i + \tilde{b}_j - \log X_{ij}\right)^2\]
   </div>
 
-  <p>Where \(w_i\) and \(\tilde{w}_j\) are word vectors for word i and context word j respectively, \(b_i\) and \(\tilde{b}_j\) are bias terms, and \(f(X_{ij})\) is a weighting function that downweights the contribution of very frequent co-occurrence pairs (to prevent common function words from dominating the objective):</p>
+  <p>\(w_i\), \(\tilde{w}_j\) are word/context vectors, \(b_i\), \(\tilde{b}_j\) are biases, and \(f(X_{ij})\) downweights very frequent pairs:</p>
 
   <div class="math-block">
     \[f(x) = \begin{cases} (x/x_{\max})^\alpha & \text{if } x < x_{\max} \\ 1 & \text{otherwise} \end{cases}\]
@@ -191,33 +183,21 @@
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>The Embedding Space — Geometry Encodes Meaning</h2>
 
-  <p>Well-trained word embeddings are not just compressed representations — the <em>geometric structure</em> of the embedding space encodes meaningful relationships. Three key properties emerge consistently across word2vec and GloVe models trained on large corpora:</p>
+  <p>Well-trained embeddings encode three geometric properties consistently across word2vec and GloVe:</p>
 
-  <p><strong>1. Semantic clustering.</strong> Words with similar meanings cluster together. In 300-dimensional space, "dog", "cat", "pet", "puppy", and "kitten" form a tight neighbourhood. "Ferrari", "Porsche", and "sedan" form a different neighbourhood. These clusters emerge without any explicit labels.</p>
+  <p><strong>1. Semantic clustering.</strong> Similar words cluster together — "dog", "cat", "puppy", "kitten" form one neighbourhood; "Ferrari", "Porsche", "sedan" form another, with no explicit labels.</p>
 
-  <p><strong>2. Syntactic and semantic directions.</strong> Certain directions in embedding space correspond to meaningful transformations. The classic example is the gender direction:</p>
+  <p><strong>2. Semantic directions.</strong> Directions in embedding space encode meaningful transformations. Classic gender example:</p>
 
   <div class="math-block">
     \[\text{king} - \text{man} + \text{woman} \approx \text{queen}\]
   </div>
 
-  <p>More formally, find the word \(w^*\) whose embedding is most similar to the target vector:</p>
+  <p>Formally: \(w^* = \underset{w \in V}{\arg\max}\;\cos(\text{emb}(w),\;\text{emb}(\text{king}) - \text{emb}(\text{man}) + \text{emb}(\text{woman}))\). The man→woman offset encodes a gender direction that generalises across domains. Similar patterns hold for capital cities (France→Paris, Germany→Berlin), verb tenses (walk→walked), and comparatives (big→bigger).</p>
 
-  <div class="math-block">
-    \[w^* = \underset{w \in V}{\arg\max}\;\cos(\text{emb}(w),\;\text{emb}(\text{king}) - \text{emb}(\text{man}) + \text{emb}(\text{woman}))\]
-  </div>
+  <p><strong>3. Cosine similarity measures semantic relatedness.</strong> \(\cos(\theta) = \frac{u \cdot v}{\|u\| \cdot \|v\|}\). Preferred over Euclidean distance because it is scale-invariant — frequent words may have larger-magnitude vectors from more gradient updates; cosine normalises this out.</p>
 
-  <p>This analogy arithmetic works because the offset from "man" to "woman" encodes a gender direction, and adding that offset to "king" moves you to the corresponding point in the female-royalty neighbourhood. Similar patterns hold for: capital cities (France&rarr;Paris, Germany&rarr;Berlin), verb tenses (walk&rarr;walked, run&rarr;ran), and comparative adjectives (big&rarr;bigger, good&rarr;better).</p>
-
-  <p><strong>3. Cosine similarity measures semantic relatedness.</strong> Two word vectors u and v are compared using:</p>
-
-  <div class="math-block">
-    \[\cos(\theta) = \frac{u \cdot v}{\|u\| \cdot \|v\|}\]
-  </div>
-
-  <p>Cosine similarity is preferred over Euclidean distance because it is scale-invariant — it measures the angle between vectors, not their magnitudes. A word that appears very frequently may have a large-magnitude vector simply because its embedding was updated more often; cosine similarity normalises this away.</p>
-
-  <p>Here are representative cosine similarity scores from a 300-dimensional GloVe model trained on Common Crawl (840B tokens):</p>
+  <p>Representative scores from 300-dim GloVe (Common Crawl, 840B tokens):</p>
 
   <table>
     <thead>
@@ -256,14 +236,14 @@
     </tbody>
   </table>
 
-  <p>The "happy / sad" row is worth pausing on. Antonyms score <em>higher</em> than you might expect — higher than "dog / car" — because they appear in nearly identical contexts: "I feel <strong>happy</strong>", "I feel <strong>sad</strong>"; "she was <strong>happy</strong>", "she was <strong>sad</strong>". Distributional semantics captures <em>contextual similarity</em>, not semantic opposition. This is a fundamental limitation we return to in the practice problems.</p>
+  <p>"happy / sad" scores higher than "dog / car" because antonyms share nearly identical contexts ("I feel ___", "she was ___"). Distributional semantics captures <em>contextual similarity</em>, not semantic opposition — a fundamental limitation explored in Practice Problem 3.</p>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <!-- SECTION 7: spaCy CODE SNIPPETS                                          -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Working with Word Embeddings in spaCy</h2>
 
-  <p>spaCy's medium and large English models ship with 300-dimensional GloVe vectors pre-loaded. Every <code>Token</code> object exposes its embedding through the <code>.vector</code> attribute, and similarity between any two spans is computed with <code>.similarity()</code>.</p>
+  <p>spaCy's medium/large English models ship with 300-dim GloVe vectors. Each <code>Token</code> exposes <code>.vector</code> and <code>.similarity()</code>.</p>
 
   <!-- Snippet 1 -->
   <div class="code-snippet">
@@ -421,7 +401,7 @@ print("man:king :: woman:?", results[:3])</code></pre>
         <div class="math-block">
           \[\cos(\theta) = \frac{1}{\sqrt{2} \cdot \sqrt{2}} = \frac{1}{2} = 0.5\]
         </div>
-        <p>A cosine similarity of 0.5 corresponds to a 60&deg; angle between the two vectors. These words share one context dimension (the third) out of two populated dimensions each, reflecting moderate but not strong relatedness.</p>
+        <p>Cosine similarity of 0.5 corresponds to a 60&deg; angle — moderate relatedness (one shared context dimension out of two each).</p>
       </div>
     </div>
   </div>
@@ -441,15 +421,14 @@ print("man:king :: woman:?", results[:3])</code></pre>
           <thead><tr><th>Index</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr></thead>
           <tbody><tr><td>Word</td><td>the</td><td>cat</td><td><strong>sat</strong></td><td>on</td><td>the</td><td>mat</td></tr></tbody>
         </table>
-        <p>"sat" is at index 2. With window size c = 2, we look at positions 2-2=0, 2-1=1, 2+1=3, 2+2=4 (skipping j=0 i.e. the center itself).</p>
-        <p>Training pairs generated (center, context):</p>
+        <p>"sat" is at index 2. Window c = 2 covers positions 0, 1, 3, 4. Training pairs (center, context):</p>
         <ul>
-          <li>(sat, the) &mdash; from position 0, offset j = &minus;2</li>
-          <li>(sat, cat) &mdash; from position 1, offset j = &minus;1</li>
-          <li>(sat, on) &mdash; from position 3, offset j = +1</li>
-          <li>(sat, the) &mdash; from position 4, offset j = +2</li>
+          <li>(sat, the) — offset j = &minus;2</li>
+          <li>(sat, cat) — offset j = &minus;1</li>
+          <li>(sat, on) — offset j = +1</li>
+          <li>(sat, the) — offset j = +2</li>
         </ul>
-        <p>So Skip-gram generates 4 training pairs from one center word with window size 2. Note that "the" appears twice as a context — both instances contribute separately. Across the full sentence, Skip-gram generates \(4 \times \text{(number of valid center positions)}\) training pairs (fewer at sentence boundaries).</p>
+        <p>4 pairs per center word; "the" contributes twice as both instances are separate. Positions near sentence boundaries generate fewer pairs.</p>
       </div>
     </div>
   </div>
@@ -464,24 +443,16 @@ print("man:king :: woman:?", results[:3])</code></pre>
       <p>Our similarity table shows that "happy" and "sad" have a cosine similarity of 0.49 — much higher than "happy" and "car" (roughly 0.15). Antonyms have opposite meanings, yet their vectors are relatively close. Explain this phenomenon. What does it reveal about the distributional hypothesis as a basis for word meaning? What types of semantic information <em>cannot</em> be recovered from distributional statistics alone?</p>
       <button class="practice-toggle">Show solution</button>
       <div class="practice-solution">
-        <p><strong>Why antonyms cluster together in embedding space:</strong></p>
-        <p>Word2vec and GloVe learn from distributional context — the words that appear around a target word. "Happy" and "sad" appear in virtually identical grammatical environments:</p>
-        <ul>
-          <li>"I feel <strong>happy</strong>" / "I feel <strong>sad</strong>"</li>
-          <li>"She was <strong>happy</strong> about the news" / "She was <strong>sad</strong> about the news"</li>
-          <li>"He looked <strong>happy</strong>" / "He looked <strong>sad</strong>"</li>
-        </ul>
-        <p>Both words co-occur with "feel", "was", "looked", "very", "seemed", emotional vocabulary, and contexts involving people and events. The contexts are so similar that the model assigns them nearby vectors. In contrast, "happy" and "car" almost never share context words — they appear in entirely different grammatical and topical environments, producing distant vectors.</p>
-        <p><strong>What this reveals about the distributional hypothesis:</strong></p>
-        <p>The distributional hypothesis captures <em>contextual similarity</em>, not <em>semantic opposition</em>. It answers the question "which words appear in the same situations?" — and synonyms and antonyms often share the same situations. The model learns that both "happy" and "sad" are emotions that describe people's states, without learning that one is positive and the other negative.</p>
-        <p><strong>What distributional semantics cannot recover without additional structure:</strong></p>
+        <p><strong>Why antonyms cluster:</strong> "Happy" and "sad" appear in identical grammatical environments ("I feel ___", "she was ___", "he looked ___"), co-occurring with the same emotion/people vocabulary. The model assigns them nearby vectors. "Happy" and "car" share almost no context words, producing distant vectors.</p>
+        <p>The distributional hypothesis captures <em>contextual similarity</em>, not <em>semantic opposition</em> — synonyms and antonyms often appear in the same situations; the model cannot distinguish positive from negative valence.</p>
+        <p><strong>What distributional semantics cannot recover:</strong></p>
         <ul>
           <li><strong>Semantic polarity / sentiment</strong>: Whether a word is positive or negative</li>
           <li><strong>Logical negation / opposition</strong>: That "happy" and "unhappy" are antonyms, not synonyms</li>
           <li><strong>Scalar relationships</strong>: That "warm" is between "cool" and "hot" on a temperature scale</li>
           <li><strong>World knowledge not reflected in co-occurrence</strong>: That "Paris" is north of "Marseille"</li>
         </ul>
-        <p>These limitations motivate <em>post-hoc retrofitting</em> (injecting WordNet synonym/antonym constraints into pre-trained embeddings) and <em>sentiment-aware training objectives</em> that go beyond raw co-occurrence statistics.</p>
+        <p>These limitations motivate <em>post-hoc retrofitting</em> (injecting WordNet antonym/synonym constraints) and sentiment-aware training objectives.</p>
       </div>
     </div>
   </div>

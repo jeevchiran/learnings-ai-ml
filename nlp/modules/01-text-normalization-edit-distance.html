@@ -40,9 +40,7 @@
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Why NLP? The Pipeline Idea</h2>
 
-  <p>A computer, at its core, sees text as a sequence of bytes. When you type "The quick brown fox", your machine stores 23 numbers. It has no idea that "fox" refers to an animal, that "quick" modifies it, or that this sentence is the beginning of a sentence that has tested typefaces since the nineteenth century. Bridging the gap between raw character sequences and meaning is the central problem of <strong>Natural Language Processing</strong>.</p>
-
-  <p>NLP does not solve this in one leap. Instead, it applies a sequence of transformations — a <strong>pipeline</strong> — each stage building on the last. Think of it as an assembly line: raw text enters one end, and progressively more structured, abstract representations emerge from the other.</p>
+  <p>Computers see text as bytes with no inherent meaning. Bridging the gap between raw character sequences and meaning is the central problem of <strong>Natural Language Processing</strong>, solved through a sequence of transformations — a <strong>pipeline</strong> — each stage building on the last.</p>
 
   <div class="concept-box">
     <h4>The NLP Pipeline</h4>
@@ -62,7 +60,7 @@
     <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:0;">Blue stages (Modules 1–2) are <em>lexical processing</em>: they work at the word level and produce clean, normalised tokens. Green stages (Modules 3–4) are <em>syntactic analysis</em>: they assign grammatical structure. Purple stages (Modules 5–10) are <em>semantic</em>: they assign meaning.</p>
   </div>
 
-  <p>Lexical processing is the foundation of this pipeline. Every later stage — parsing, named-entity recognition, machine translation — consumes tokens produced by the lexical layer. If that layer is noisy, inconsistent, or lossy, errors compound downstream. This is the "garbage in, garbage out" principle applied to language: a parser that receives inconsistently cased, un-normalised tokens must work far harder (and makes more mistakes) than one that receives clean input.</p>
+  <p>Lexical processing is the foundation: every later stage consumes its tokens, so errors here compound downstream ("garbage in, garbage out").</p>
 
   <div class="callout note">
     <strong>Why lexical processing matters more than it looks</strong>
@@ -72,24 +70,24 @@
   <div class="assumptions-grid">
     <div class="assumption-card">
       <h5>Spell checking</h5>
-      <p>Correcting "accomodation" to "accommodation" requires comparing candidate strings. Edit distance — the topic of this module's second half — is the algorithmic core of every spell checker from word processors to search engines.</p>
+      <p>Edit distance — covered in this module's second half — is the algorithmic core of every spell checker.</p>
     </div>
     <div class="assumption-card">
       <h5>Search &amp; retrieval</h5>
-      <p>A search engine normalises queries and documents to the same canonical form so that "running", "runs", and "ran" can all match a query for "run". Without normalisation, recall drops sharply.</p>
+      <p>Normalising queries and documents to the same canonical form lets "running", "runs", and "ran" all match a query for "run"; without it, recall drops sharply.</p>
     </div>
     <div class="assumption-card">
       <h5>Machine translation</h5>
-      <p>Pre-processing tokenizes and normalises source text before it enters a neural network. Inconsistent tokenization across train and inference degrades translation quality for rare words and morphologically complex languages.</p>
+      <p>Inconsistent tokenization between training and inference degrades translation quality, especially for rare words and morphologically complex languages.</p>
     </div>
     <div class="assumption-card">
       <h5>Sentiment analysis</h5>
-      <p>A sentiment classifier trained on lower-cased text will struggle if inference receives mixed-case input. Normalising to a consistent case during training <em>and</em> inference avoids a category of vocabulary mismatch errors.</p>
+      <p>A classifier trained on lower-cased text will fail on mixed-case inference input. Consistent normalisation at both stages avoids vocabulary mismatch.</p>
     </div>
   </div>
 
   <div class="bridge">
-    <strong>Structure of this module.</strong> We cover the pipeline in two halves. Sections 2–3 examine tokenization and text normalisation: the practical steps that convert raw text into clean tokens. Sections 4–6 develop the theory of edit distance: the mathematical tool that underlies spell correction, fuzzy matching, and sequence alignment. An interactive widget ties the two halves together.
+    Sections 2–3 cover tokenization and normalisation; Sections 4–6 develop edit distance. An interactive widget ties both halves together.
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -97,22 +95,20 @@
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Tokenization</h2>
 
-  <p>Before any processing can begin, we must decide what the basic units of text are. A <strong>token</strong> is the atomic unit the rest of the pipeline works with. The process of splitting text into tokens is <strong>tokenization</strong>. This sounds trivial — just split on spaces — but the subtleties are significant.</p>
-
-  <p>Tokens are typically one of three granularities:</p>
+  <p>A <strong>token</strong> is the atomic unit the pipeline works with; <strong>tokenization</strong> is the process of splitting text into tokens. Splitting on spaces sounds trivial, but the subtleties are significant. Tokens come in three granularities:</p>
 
   <div class="assumptions-grid">
     <div class="assumption-card">
       <h5>Word tokens</h5>
-      <p>The most natural unit. "I love NLP" → ["I", "love", "NLP"]. Works well for English but poorly for agglutinative languages like Turkish or Finnish, where a single "word" can encode an entire English sentence.</p>
+      <p>Most natural; works well for English but poorly for agglutinative languages (Turkish, Finnish) where one word encodes a full English sentence.</p>
     </div>
     <div class="assumption-card">
       <h5>Subword tokens</h5>
-      <p>Used by modern neural models (BERT, GPT). "unhappiness" → ["un", "##happi", "##ness"]. Balances vocabulary size with coverage: rare words are split into known pieces, eliminating unknown-word problems.</p>
+      <p>Used by BERT, GPT. "unhappiness" → ["un", "##happi", "##ness"]. Balances vocabulary size with coverage by splitting rare words into known pieces.</p>
     </div>
     <div class="assumption-card">
       <h5>Character tokens</h5>
-      <p>Vocabulary is trivially small (26 letters + punctuation). Handles any word including neologisms and misspellings. The downside: sequences become very long, making context modelling harder.</p>
+      <p>Trivially small vocabulary; handles any word including misspellings. Downside: very long sequences make context modelling harder.</p>
     </div>
   </div>
 
@@ -134,7 +130,7 @@
     </ul>
   </div>
 
-  <p>spaCy is an industrial-strength NLP library that handles all these edge cases out of the box. Its tokenizer first applies language-specific prefix/suffix/infix rules, then a dictionary of special cases (contractions, abbreviations), producing linguistically sensible tokens:</p>
+  <p>spaCy handles these edge cases by applying language-specific prefix/suffix/infix rules, then a dictionary of special cases (contractions, abbreviations):</p>
 
   <div class="code-snippet">
     <div class="code-snippet-header">
@@ -150,10 +146,10 @@ tokens = [token.text <span class="py-kw">for</span> token <span class="py-kw">in
     <div class="output-block">['Do', "n't", 'stop', 'me', 'now', '!', 'I', "'m", 'having', 'such', 'a', 'good', 'time', '.']</div>
   </div>
 
-  <p>Notice that "Don't" becomes ["Do", "n't"] — the contraction is split at the clitic boundary, which is the linguistically correct choice. The period at the end of the sentence is its own token, separated from "time". This is consistent with Penn Treebank convention and means downstream tools like POS taggers receive clean punctuation tokens.</p>
+  <p>"Don't" splits at the clitic boundary ["Do", "n't"]; the sentence-final period is its own token — Penn Treebank convention ensuring clean input for downstream POS taggers.</p>
 
   <div class="bridge">
-    <strong>From tokens to normalised tokens.</strong> spaCy gives us a list of strings. But "Apple", "apple", and "APPLE" are three distinct strings with the same meaning. The next step — normalisation — collapses such surface variation into a canonical form.
+    Tokenization gives us a list of strings, but "Apple", "apple", and "APPLE" are still three distinct strings. Normalisation collapses such surface variation into a canonical form.
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -161,14 +157,14 @@ tokens = [token.text <span class="py-kw">for</span> token <span class="py-kw">in
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Text Normalization Steps</h2>
 
-  <p>Text normalization is not a single operation but a pipeline of small transformations, each motivated by a specific type of noise. The order matters: lowercasing before punctuation removal is standard; removing stopwords before stemming makes the stemmer faster.</p>
+  <p>Text normalization is a pipeline of small transformations, each targeting a specific type of noise. Order matters: lowercase before punctuation removal; remove stopwords before stemming.</p>
 
   <div class="derivation">
     <div class="derivation-step">
       <div class="step-number">1</div>
       <div class="step-content">
         <strong>Lowercasing</strong>
-        <div class="step-explanation">Convert all characters to lowercase: "NLP" → "nlp", "Running" → "running". This collapses case variants of the same word into one vocabulary entry, dramatically reducing vocabulary size. A vocabulary of 100 000 mixed-case tokens might shrink to 60 000 after lowercasing.</div>
+        <div class="step-explanation">Convert all characters to lowercase: "NLP" → "nlp", "Running" → "running". Collapses case variants into one vocabulary entry — a 100 000-token mixed-case vocabulary might shrink to 60 000.</div>
         <div class="callout warning" style="margin-top:0.75rem;font-size:0.88rem;">
           <strong>When lowercasing hurts</strong>
           "US" (United States) and "us" (first-person plural pronoun) become identical. "Apple" (company) and "apple" (fruit) collapse. For named-entity recognition and word-sense disambiguation tasks, case is a crucial disambiguation signal. Modern neural models typically skip lowercasing and let the model learn case-sensitive representations.
@@ -179,21 +175,21 @@ tokens = [token.text <span class="py-kw">for</span> token <span class="py-kw">in
       <div class="step-number">2</div>
       <div class="step-content">
         <strong>Punctuation and special character removal</strong>
-        <div class="step-explanation">Strip punctuation marks, HTML tags, and non-alphabetic symbols. "Hello, world!" → "Hello world". Reduces vocabulary by eliminating punctuation-attached variants ("end." ≠ "end" to a string matcher). However, punctuation carries semantic weight in some domains: a smiley face ":)" is sentiment-bearing; a medical text's parentheses enclose important qualifiers. Remove punctuation with domain awareness.</div>
+        <div class="step-explanation">Strip punctuation marks, HTML tags, and non-alphabetic symbols: "Hello, world!" → "Hello world". Eliminates punctuation-attached variants ("end." ≠ "end" to a string matcher). Exception: punctuation is semantic in some domains — ":)" conveys sentiment; medical parentheses enclose qualifiers.</div>
       </div>
     </div>
     <div class="derivation-step">
       <div class="step-number">3</div>
       <div class="step-content">
         <strong>Number normalisation</strong>
-        <div class="step-explanation">Replace numeric tokens with a placeholder such as <code>NUM</code> or <code>0</code>. "The cost was $3,499.99" → "The cost was NUM". This prevents the vocabulary from bloating with thousands of unique number strings that share the same semantic role (quantity). Alternatively, normalise to a canonical form ("three thousand" → "3000"). For tasks where the exact value matters (financial analysis, arithmetic reasoning), keep numbers intact.</div>
+        <div class="step-explanation">Replace numeric tokens with a placeholder: "The cost was $3,499.99" → "The cost was NUM". Prevents vocabulary bloat from unique number strings. Alternatively normalise to a canonical form ("three thousand" → "3000"). Keep numbers intact for tasks where exact value matters (financial analysis, arithmetic reasoning).</div>
       </div>
     </div>
     <div class="derivation-step">
       <div class="step-number">4</div>
       <div class="step-content">
         <strong>Stop word removal</strong>
-        <div class="step-explanation">Remove high-frequency function words — "the", "a", "is", "in", "of" — that occur in almost every document and carry little topical information. NLTK provides a curated list of 179 English stopwords. Removing them reduces feature dimensionality and noise for tasks like document classification and topic modelling.</div>
+        <div class="step-explanation">Remove high-frequency function words ("the", "a", "is", "in", "of") that carry little topical information. NLTK provides 179 English stopwords. Reduces feature dimensionality for classification and topic modelling.</div>
         <div class="callout note" style="margin-top:0.75rem;font-size:0.88rem;">
           <strong>Not all tasks benefit from stopword removal</strong>
           Sentiment analysis needs "not", "no", and "never" — all common stopwords. Question answering needs "who", "when", "where". Coreference resolution needs "he", "she", "they". Always consider whether your task is stopword-sensitive before removing them.
@@ -221,7 +217,7 @@ filtered = [t <span class="py-kw">for</span> t <span class="py-kw">in</span> tok
     <div class="output-block">['quick', 'brown', 'fox', 'jumps', 'lazy', 'dog']</div>
   </div>
 
-  <p>The function words "the" (×2) and "over" are removed, leaving only the content-bearing nouns and adjectives. This is a lossless compression of topical signal: the five remaining tokens are exactly what a topic model or classifier needs to detect that this sentence is about animals.</p>
+  <p>The function words "the" (×2) and "over" are removed; the five remaining content tokens are what a classifier needs to detect the topic.</p>
 
   <p>Here is the effect of the full normalisation pipeline quantified:</p>
 
@@ -239,7 +235,7 @@ filtered = [t <span class="py-kw">for</span> t <span class="py-kw">in</span> tok
   </table>
 
   <div class="bridge">
-    <strong>Normalised tokens are still surface forms.</strong> After normalization, "cats" and "cat" remain distinct strings, as do "running", "runs", and "ran". Module 2 introduces stemming and lemmatization — the morphological reduction that maps these inflected forms to their shared root. But before that, we need a fundamental tool that appears in spell correction, fuzzy matching, and sequence alignment: <em>edit distance</em>.
+    After normalization, "cats"/"cat" and "running"/"runs"/"ran" are still distinct strings. Module 2 handles that via stemming and lemmatization — but first we need <em>edit distance</em>, the tool underlying spell correction, fuzzy matching, and sequence alignment.
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
@@ -247,26 +243,24 @@ filtered = [t <span class="py-kw">for</span> t <span class="py-kw">in</span> tok
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <h2>Edit Distance — The Core Idea</h2>
 
-  <p>Spell checkers face a deceptively simple problem: the user typed "accomodation". What did they mean? The answer requires comparing the misspelled word to every word in the dictionary and finding which dictionary word requires the <em>fewest changes</em> to produce the typo. This notion of "fewest changes" is formalised as <strong>edit distance</strong>.</p>
-
-  <p>Edit distance has applications far beyond spell checking:</p>
+  <p>Given a misspelling like "accomodation", a spell checker finds the dictionary word requiring the <em>fewest single-character changes</em> to match it. This count is formalised as <strong>edit distance</strong>, with applications far beyond spell checking:</p>
 
   <div class="assumptions-grid">
     <div class="assumption-card">
       <h5>Spell correction</h5>
-      <p>The noisy channel model (Module 2) ranks correction candidates by their edit distance to the observed typo combined with their prior probability in the language. Edit distance is the channel model.</p>
+      <p>The noisy channel model (Module 2) ranks candidates by edit distance to the typo combined with language prior probability.</p>
     </div>
     <div class="assumption-card">
       <h5>DNA sequence alignment</h5>
-      <p>Bioinformatics uses a generalised edit distance (the Smith-Waterman / Needleman-Wunsch algorithms) to align DNA strands, where insertions, deletions, and mutations correspond directly to the three edit operations.</p>
+      <p>Smith-Waterman / Needleman-Wunsch algorithms use generalised edit distance to align DNA strands; insertions, deletions, and mutations map directly to the three edit operations.</p>
     </div>
     <div class="assumption-card">
       <h5>Fuzzy string matching</h5>
-      <p>Search-as-you-type, autocomplete, and record deduplication (is "J. Smith" the same person as "John Smith"?) all rank candidates by edit distance. The Python <code>fuzzywuzzy</code> and <code>rapidfuzz</code> libraries implement this.</p>
+      <p>Autocomplete and record deduplication rank candidates by edit distance. Python's <code>rapidfuzz</code> library implements this efficiently.</p>
     </div>
     <div class="assumption-card">
       <h5>Machine translation evaluation</h5>
-      <p>The TER (Translation Edit Rate) metric scores how many word-level edits are needed to convert a machine translation into the reference translation — directly applying edit distance at the word level.</p>
+      <p>TER (Translation Edit Rate) counts the word-level edits needed to convert a machine translation into the reference — edit distance at the word level.</p>
     </div>
   </div>
 
@@ -289,7 +283,7 @@ filtered = [t <span class="py-kw">for</span> t <span class="py-kw">in</span> tok
 
   <h3>Intuition: "kitten" → "sitting"</h3>
 
-  <p>Let's walk through the transformation from "kitten" to "sitting" manually, without any algorithm, to build intuition for what edit distance means.</p>
+  <p>Manual walkthrough of "kitten" → "sitting":</p>
 
   <div class="derivation">
     <div class="derivation-step">
@@ -315,7 +309,7 @@ filtered = [t <span class="py-kw">for</span> t <span class="py-kw">in</span> tok
     </div>
   </div>
 
-  <p>Three operations: two substitutions and one insertion. Therefore <span class="math-inline math-latex">\text{lev}(\text{"kitten"}, \text{"sitting"}) = 3</span>. But how do we know this is <em>minimum</em>? Perhaps there is a sequence of two operations we missed? This is where the dynamic programming algorithm becomes essential — it provably finds the minimum over all possible operation sequences.</p>
+  <p>Two substitutions + one insertion = <span class="math-inline math-latex">\text{lev}(\text{"kitten"}, \text{"sitting"}) = 3</span>. To <em>prove</em> this is minimum — not just one valid sequence — we need the DP algorithm, which searches all possible operation sequences.</p>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <!-- SECTION 5: LEVENSHTEIN DISTANCE — THE DP SOLUTION                    -->
@@ -324,9 +318,7 @@ filtered = [t <span class="py-kw">for</span> t <span class="py-kw">in</span> tok
 
   <h3>Why Not Brute Force?</h3>
 
-  <p>A naive approach would enumerate every possible sequence of edit operations and find the shortest one. How many sequences are there? At each step we can insert, delete, or substitute — roughly three choices. The string length can grow or shrink at each step. The search tree is exponential in depth: approximately <span class="math-inline math-latex">O(3^{\max(m,n)})</span> paths, where <span class="math-inline math-latex">m = |s|</span> and <span class="math-inline math-latex">n = |t|</span>. For strings of length 10, that is already over 59 000 paths. For length 20, over 3.5 billion. Brute force is completely infeasible.</p>
-
-  <p>The key observation is that this exponential blowup arises from <strong>overlapping subproblems</strong>: the same sub-alignment between prefixes of <span class="math-inline math-latex">s</span> and <span class="math-inline math-latex">t</span> is recomputed many times. Dynamic programming stores each subproblem's answer once, reducing complexity from exponential to polynomial.</p>
+  <p>A naive approach enumerates all operation sequences — roughly <span class="math-inline math-latex">O(3^{\max(m,n)})</span> paths. For length-20 strings that exceeds 3.5 billion paths. The blowup comes from <strong>overlapping subproblems</strong>: the same prefix-pair alignment is recomputed many times. Dynamic programming stores each subproblem once, reducing complexity to polynomial.</p>
 
   <h3>The Recurrence Relation</h3>
 
@@ -451,9 +443,7 @@ filtered = [t <span class="py-kw">for</span> t <span class="py-kw">in</span> tok
     </ul>
   </div>
 
-  <p>During backtrace, at each cell <span class="math-inline math-latex">[i,j]</span> we check which of the three predecessor cells could have generated the current value, and move to that cell. When multiple predecessors give the same minimum, any choice yields a valid optimal alignment (there may be multiple optimal alignments).</p>
-
-  <p>The sequence of cells on the backtrace path, read from top-left to bottom-right, gives the complete edit script: every diagonal step is either a match or substitution, every upward step is a deletion, and every leftward step is an insertion.</p>
+  <p>At each cell <span class="math-inline math-latex">[i,j]</span>, move to whichever predecessor produced the current value. Multiple predecessors with the same minimum are all valid — there may be several optimal alignments. Reading the path top-left to bottom-right gives the full edit script: diagonal = match/substitution, up = deletion, left = insertion.</p>
 
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <!-- INTERACTIVE WIDGET                                                    -->
@@ -727,8 +717,7 @@ filtered = [t <span class="py-kw">for</span> t <span class="py-kw">in</span> tok
   <!-- BRIDGE TO MODULE 2                                                    -->
   <!-- ═══════════════════════════════════════════════════════════════════════ -->
   <div class="bridge" style="margin-top:2rem;">
-    <strong>What's next: morphology and probabilistic spell correction.</strong>
-    We can now convert raw text into clean, normalised tokens. But tokens like "running", "runs", and "ran" are all surface forms of the same root "run" — yet our normaliser treats them as three distinct vocabulary entries. Module 2 introduces <em>morphological analysis</em>: stemming (aggressively stripping suffixes) and lemmatization (linguistically accurate root reduction). It also shows how edit distance and token frequency combine into the <em>noisy channel model</em> — the probabilistic framework that turns spell checking from a string-matching heuristic into a principled inference problem.
+    <strong>What's next: morphology and probabilistic spell correction.</strong> "Running", "runs", and "ran" are still three separate entries in our vocabulary. Module 2 introduces stemming and lemmatization to map them to a shared root, and shows how edit distance combines with token frequency in the <em>noisy channel model</em> — turning spell checking into principled probabilistic inference.
   </div>
 
   <div class="nav-buttons">
