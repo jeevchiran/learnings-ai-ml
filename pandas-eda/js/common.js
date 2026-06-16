@@ -766,15 +766,16 @@ function computeHistogramBins(data, col, binCount) {
   var vals = data.map(function (r) { return r[col]; }).filter(function (v) { return v !== null && v !== undefined; });
   var min = Math.min.apply(null, vals);
   var max = Math.max.apply(null, vals);
-  var width = (max - min) / binCount;
+  var safeBinCount = Math.max(1, binCount);
+  var width = (max - min) / safeBinCount;
   var bins = [];
-  for (var i = 0; i < binCount; i++) {
+  for (var i = 0; i < safeBinCount; i++) {
     var binStart = min + i * width;
     var binEnd = binStart + width;
     bins.push({ binStart: binStart, binEnd: binEnd, count: 0 });
   }
   vals.forEach(function (v) {
-    var idx = Math.min(binCount - 1, Math.floor((v - min) / width));
+    var idx = width === 0 ? 0 : Math.min(safeBinCount - 1, Math.max(0, Math.floor((v - min) / width)));
     bins[idx].count++;
   });
   return bins;

@@ -1,7 +1,7 @@
 const assert = require('assert');
 const {
   TAXI_SAMPLE_DATA, computeMissingRatio, computeIQRBounds, applyFillna,
-  filterInvalid, decomposeDatetime, computeCorrelationMatrix, buildPivotTable
+  filterInvalid, decomposeDatetime, computeHistogramBins, computeCorrelationMatrix, buildPivotTable
 } = require('./common.js');
 
 const ratios = computeMissingRatio(TAXI_SAMPLE_DATA, ['passenger_count', 'RatecodeID', 'airport_fee']);
@@ -40,5 +40,14 @@ assert.ok(corr.fare_amount.total_amount > 0.99);
 const pivot = buildPivotTable(TAXI_SAMPLE_DATA, 'PUBorough', 'payment_type', 'fare_amount', 'mean');
 assert.strictEqual(pivot['Staten Island'].card, 399);
 assert.strictEqual(pivot['Bronx'].card, null);
+
+const constantCol = [{id:1,x:5},{id:2,x:5},{id:3,x:5}];
+const constBins = computeHistogramBins(constantCol, 'x', 4);
+assert.strictEqual(constBins.reduce(function(a,b){return a+b.count;}, 0), 3);
+assert.strictEqual(constBins[0].count, 3);
+
+const zeroBinBins = computeHistogramBins(TAXI_SAMPLE_DATA, 'fare_amount', 0);
+assert.strictEqual(zeroBinBins.length, 1);
+assert.strictEqual(zeroBinBins[0].count, 30);
 
 console.log('All common.js helper checks passed.');
