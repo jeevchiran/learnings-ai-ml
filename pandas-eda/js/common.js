@@ -184,17 +184,15 @@ function initCodeCopy() {
 }
 
 // ── DOM ready ──────────────────────────────────────────────────────────────────
-if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', function () {
-    initTabs();
-    initTheme();
-    renderMath();
-    initPractice();
-    initQuiz();
-    initHamburger();
-    initCodeCopy();
-  });
-}
+document.addEventListener('DOMContentLoaded', function () {
+  initTabs();
+  initTheme();
+  renderMath();
+  initPractice();
+  initQuiz();
+  initHamburger();
+  initCodeCopy();
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // General utilities
@@ -849,19 +847,4 @@ function renderDataFrameTable(rows, cols) {
   });
   html += '</tbody></table>';
   return html;
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    TAXI_SAMPLE_DATA: TAXI_SAMPLE_DATA,
-    computeMissingRatio: computeMissingRatio,
-    computeIQRBounds: computeIQRBounds,
-    applyFillna: applyFillna,
-    filterInvalid: filterInvalid,
-    decomposeDatetime: decomposeDatetime,
-    computeHistogramBins: computeHistogramBins,
-    computeCorrelationMatrix: computeCorrelationMatrix,
-    buildPivotTable: buildPivotTable,
-    renderDataFrameTable: renderDataFrameTable
-  };
 }
