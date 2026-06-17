@@ -150,8 +150,8 @@ plt.<span class="py-fn">show</span>()</pre>
     <!-- Mode toggle -->
     <div class="widget-controls" style="margin-bottom:1rem;">
       <span style="font-weight:600;margin-right:0.5rem;">Mode:</span>
-      <button class="tab active" id="btn-mode-scatter" onclick="bivSetMode('scatter')">Scatter Plot</button>
-      <button class="tab" id="btn-mode-heatmap" onclick="bivSetMode('heatmap')">Correlation Heatmap</button>
+      <button id="btn-mode-scatter" onclick="bivSetMode('scatter')">Scatter Plot</button>
+      <button class="secondary" id="btn-mode-heatmap" onclick="bivSetMode('heatmap')">Correlation Heatmap</button>
     </div>
 
     <!-- ── Scatter controls ── -->
@@ -174,7 +174,7 @@ plt.<span class="py-fn">show</span>()</pre>
           </select>
         </div>
       </div>
-      <button class="nav-btn" onclick="bivRenderScatter()" style="margin-bottom:1.25rem;">Plot</button>
+      <div class="widget-controls" style="margin-bottom:1.25rem;"><button onclick="bivRenderScatter()">Plot</button></div>
       <div id="biv-scatter-plot" style="width:100%;height:340px;"></div>
       <div id="biv-pearson-result" style="margin-top:1rem;"></div>
     </div>
@@ -182,7 +182,7 @@ plt.<span class="py-fn">show</span>()</pre>
     <!-- ── Heatmap controls ── -->
     <div id="heatmap-controls" style="display:none;">
       <p style="margin-bottom:0.75rem;color:var(--text-secondary);font-size:0.9rem;">Columns: <code>fare_amount</code>, <code>trip_distance</code>, <code>tip_amount</code>, <code>passenger_count</code></p>
-      <button class="nav-btn" onclick="bivRenderHeatmap()" style="margin-bottom:1.25rem;">Compute</button>
+      <div class="widget-controls" style="margin-bottom:1.25rem;"><button onclick="bivRenderHeatmap()">Compute</button></div>
       <div id="biv-heatmap-table" style="overflow-x:auto;"></div>
     </div>
 
@@ -389,8 +389,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
   window.bivSetMode = function (mode) {
     bivMode = mode;
-    document.getElementById('btn-mode-scatter').classList.toggle('active', mode === 'scatter');
-    document.getElementById('btn-mode-heatmap').classList.toggle('active', mode === 'heatmap');
+    document.getElementById('btn-mode-scatter').classList.toggle('secondary', mode !== 'scatter');
+    document.getElementById('btn-mode-heatmap').classList.toggle('secondary', mode !== 'heatmap');
     document.getElementById('scatter-controls').style.display = mode === 'scatter' ? '' : 'none';
     document.getElementById('heatmap-controls').style.display = mode === 'heatmap' ? '' : 'none';
   };
