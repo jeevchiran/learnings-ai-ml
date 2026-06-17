@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 9: Capstone — End-to-End EDA Workflow</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-eda-foundations.html">1. EDA Foundations</a>
+    <a href="02-missing-values.html">2. Missing Values</a>
+    <a href="03-data-quality-invalid-values.html">3. Data Quality &amp; Invalid Values</a>
+    <a href="04-outlier-detection-iqr.html">4. Outlier Detection (IQR)</a>
+    <a href="05-datetime-feature-engineering.html">5. Datetime &amp; Feature Engineering</a>
+    <a href="06-univariate-visualization.html">6. Univariate Visualization</a>
+    <a href="07-bivariate-analysis.html">7. Bivariate Analysis</a>
+    <a href="08-multivariate-analysis.html">8. Multivariate Analysis</a>
+    <a href="09-capstone-eda-workflow.html" class="active">9. Capstone</a>
+  </nav>
+
+  <header>
+    <h1>Module 9: Capstone — End-to-End EDA Workflow</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: THE EDA PIPELINE                                           -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>The EDA Pipeline</h2>
+
+  <div class="concept-box">
+    <p>A real EDA project follows a repeatable pipeline. Each step builds on the previous one — you cannot meaningfully detect outliers if you have not removed invalid values first, and you cannot trust a correlation matrix if the data still contains data-entry errors. The nine steps below map directly to Modules 1–8 of this track.</p>
+  </div>
+
+  <div style="margin: 1.5rem 0;">
+    <div class="pipeline-step complete">
+      <span class="step-badge">1</span>
+      <div>
+        <strong>Load &amp; Inspect</strong>
+        <span style="margin-left:0.5rem;font-size:0.82rem;color:var(--text-secondary);">Module 1 — shape, dtypes, head()</span>
+      </div>
+    </div>
+    <div class="pipeline-step complete">
+      <span class="step-badge">2</span>
+      <div>
+        <strong>Detect Missing Values</strong>
+        <span style="margin-left:0.5rem;font-size:0.82rem;color:var(--text-secondary);">Module 2 — isnull().sum(), missing ratio</span>
+      </div>
+    </div>
+    <div class="pipeline-step complete">
+      <span class="step-badge">3</span>
+      <div>
+        <strong>Remove Invalid Data</strong>
+        <span style="margin-left:0.5rem;font-size:0.82rem;color:var(--text-secondary);">Module 3 — negative fares, zero distances</span>
+      </div>
+    </div>
+    <div class="pipeline-step complete">
+      <span class="step-badge">4</span>
+      <div>
+        <strong>Detect &amp; Treat Outliers</strong>
+        <span style="margin-left:0.5rem;font-size:0.82rem;color:var(--text-secondary);">Module 4 — IQR fences, outlier count</span>
+      </div>
+    </div>
+    <div class="pipeline-step complete">
+      <span class="step-badge">5</span>
+      <div>
+        <strong>Engineer Features</strong>
+        <span style="margin-left:0.5rem;font-size:0.82rem;color:var(--text-secondary);">Module 5 — hour, day_of_week, duration_min</span>
+      </div>
+    </div>
+    <div class="pipeline-step complete">
+      <span class="step-badge">6</span>
+      <div>
+        <strong>Visualize Distributions</strong>
+        <span style="margin-left:0.5rem;font-size:0.82rem;color:var(--text-secondary);">Module 6 — histogram, boxplot, KDE</span>
+      </div>
+    </div>
+    <div class="pipeline-step complete">
+      <span class="step-badge">7</span>
+      <div>
+        <strong>Analyze Relationships</strong>
+        <span style="margin-left:0.5rem;font-size:0.82rem;color:var(--text-secondary);">Module 7 — scatter, Pearson r, heatmap</span>
+      </div>
+    </div>
+    <div class="pipeline-step complete">
+      <span class="step-badge">8</span>
+      <div>
+        <strong>Multivariate Deep Dive</strong>
+        <span style="margin-left:0.5rem;font-size:0.82rem;color:var(--text-secondary);">Module 8 — pivot table, color-encoded scatter</span>
+      </div>
+    </div>
+    <div class="pipeline-step active">
+      <span class="step-badge">9</span>
+      <div>
+        <strong>Summarize Findings</strong>
+        <span style="margin-left:0.5rem;font-size:0.82rem;color:var(--text-secondary);">Capstone — synthesize insights, write up</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout note">
+    <strong>Order matters.</strong> Outlier detection must come after removing invalid values — a negative fare of <code>-$12.50</code> would distort the IQR bounds and push the lower fence further negative, hiding genuine outliers. Always clean before you analyze.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2: GUIDED WALKTHROUGH WIDGET                                  -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Guided Walkthrough</h2>
+
+  <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:1rem;">
+    Step through the full EDA pipeline one stage at a time. Each step shows the live result computed from <code>TAXI_SAMPLE_DATA</code> plus the equivalent pandas code.
+  </p>
+
+  <div class="widget-container">
+
+    <!-- Progress indicator -->
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;">
+      <span id="step-counter" style="font-weight:600;font-size:0.95rem;">Step 1 / 7</span>
+      <div style="flex:1;height:6px;border-radius:3px;background:var(--border-color);overflow:hidden;">
+        <div id="step-progress" style="height:100%;background:var(--accent-blue,#2563eb);border-radius:3px;transition:width 0.3s ease;width:14.3%;"></div>
+      </div>
+    </div>
+
+    <!-- Step title -->
+    <div id="step-title" style="font-size:1.05rem;font-weight:700;margin-bottom:0.75rem;color:var(--accent-blue,#2563eb);">
+      Step 1 — Load &amp; Inspect
+    </div>
+
+    <!-- Code equivalent -->
+    <div id="step-code-block" style="margin-bottom:1rem;">
+      <div class="code-snippet" style="margin-bottom:0;">
+        <div class="code-snippet-header">
+          <span class="code-snippet-label">Equivalent pandas code</span>
+          <button class="code-copy-btn">Copy</button>
+        </div>
+        <pre id="step-code-pre"></pre>
+      </div>
+    </div>
+
+    <!-- Output area -->
+    <div id="step-output" style="overflow-x:auto;margin-bottom:1rem;"></div>
+
+    <!-- Insight callout -->
+    <div id="step-insight" style="margin-bottom:1rem;"></div>
+
+    <!-- Navigation buttons -->
+    <div style="display:flex;gap:0.75rem;">
+      <button class="nav-btn prev" id="step-prev-btn" onclick="walkthroughPrev()" disabled>Previous</button>
+      <button class="nav-btn" id="step-next-btn" onclick="walkthroughNext()">Next Step</button>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 3: FULL EDA NOTEBOOK                                          -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Full EDA Notebook (Code)</h2>
+
+  <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:1rem;">
+    The complete EDA in one flowing code block — exactly what a real Jupyter notebook would look like. Each section corresponds to one pipeline step.
+  </p>
+
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python — complete EDA notebook</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-kw">import</span> pandas <span class="py-kw">as</span> pd
+<span class="py-kw">import</span> matplotlib.pyplot <span class="py-kw">as</span> plt
+<span class="py-kw">import</span> seaborn <span class="py-kw">as</span> sns
+
+<span class="py-comment"># ── 1. Load ──────────────────────────────────────────────────────────────────</span>
+df = pd.<span class="py-fn">read_csv</span>(<span class="py-str">'nyc_taxi_sample.csv'</span>)
+<span class="py-fn">print</span>(df.shape)          <span class="py-comment"># (30, 11)</span>
+<span class="py-fn">print</span>(df.dtypes)
+<span class="py-fn">print</span>(df.head())
+
+<span class="py-comment"># ── 2. Missing values ────────────────────────────────────────────────────────</span>
+<span class="py-fn">print</span>(df.<span class="py-fn">isnull</span>().<span class="py-fn">sum</span>())
+<span class="py-fn">print</span>(df.<span class="py-fn">isnull</span>().<span class="py-fn">mean</span>() * <span class="py-num">100</span>)   <span class="py-comment"># percentage missing per column</span>
+<span class="py-comment"># passenger_count: 6.67%  |  RatecodeID: 6.67%  |  airport_fee: 6.67%</span>
+
+<span class="py-comment"># ── 3. Invalid values ────────────────────────────────────────────────────────</span>
+df = df[df[<span class="py-str">'fare_amount'</span>] &gt;= <span class="py-num">0</span>]     <span class="py-comment"># remove negative fares  (ids 7, 15)</span>
+df = df[df[<span class="py-str">'trip_distance'</span>] &gt; <span class="py-num">0</span>]   <span class="py-comment"># remove zero-distance trips (ids 5, 11, 20, 30)</span>
+<span class="py-fn">print</span>(<span class="py-fn">f</span><span class="py-str">"Rows after cleaning: {len(df)}"</span>)   <span class="py-comment"># 24</span>
+
+<span class="py-comment"># ── 4. Outliers (IQR) ────────────────────────────────────────────────────────</span>
+Q1 = df[<span class="py-str">'fare_amount'</span>].<span class="py-fn">quantile</span>(<span class="py-num">0.25</span>)
+Q3 = df[<span class="py-str">'fare_amount'</span>].<span class="py-fn">quantile</span>(<span class="py-num">0.75</span>)
+IQR = Q3 - Q1
+lower, upper = Q1 - <span class="py-num">1.5</span> * IQR, Q3 + <span class="py-num">1.5</span> * IQR
+outliers = df[(df[<span class="py-str">'fare_amount'</span>] &lt; lower) | (df[<span class="py-str">'fare_amount'</span>] &gt; upper)]
+<span class="py-fn">print</span>(<span class="py-fn">f</span><span class="py-str">"Outliers: {len(outliers)}"</span>)         <span class="py-comment"># 3  (ids 6, 18, 26)</span>
+
+<span class="py-comment"># ── 5. Feature engineering ───────────────────────────────────────────────────</span>
+df[<span class="py-str">'tpep_pickup_datetime'</span>]  = pd.<span class="py-fn">to_datetime</span>(df[<span class="py-str">'tpep_pickup_datetime'</span>])
+df[<span class="py-str">'tpep_dropoff_datetime'</span>] = pd.<span class="py-fn">to_datetime</span>(df[<span class="py-str">'tpep_dropoff_datetime'</span>])
+df[<span class="py-str">'hour'</span>]         = df[<span class="py-str">'tpep_pickup_datetime'</span>].dt.hour
+df[<span class="py-str">'day_of_week'</span>]  = df[<span class="py-str">'tpep_pickup_datetime'</span>].dt.dayofweek
+df[<span class="py-str">'duration_min'</span>] = (
+    df[<span class="py-str">'tpep_dropoff_datetime'</span>] - df[<span class="py-str">'tpep_pickup_datetime'</span>]
+).dt.total_seconds() / <span class="py-num">60</span>
+
+<span class="py-comment"># ── 6. Distributions ─────────────────────────────────────────────────────────</span>
+df[<span class="py-str">'fare_amount'</span>].<span class="py-fn">hist</span>(bins=<span class="py-num">10</span>)
+plt.<span class="py-fn">title</span>(<span class="py-str">'Fare Amount Distribution'</span>)
+plt.<span class="py-fn">xlabel</span>(<span class="py-str">'fare_amount ($)'</span>)
+plt.<span class="py-fn">show</span>()
+
+<span class="py-comment"># ── 7. Correlation ───────────────────────────────────────────────────────────</span>
+<span class="py-fn">print</span>(df[[<span class="py-str">'fare_amount'</span>, <span class="py-str">'trip_distance'</span>, <span class="py-str">'tip_amount'</span>]].<span class="py-fn">corr</span>().<span class="py-fn">round</span>(<span class="py-num">2</span>))
+
+<span class="py-comment"># ── 8. Multivariate ──────────────────────────────────────────────────────────</span>
+sns.<span class="py-fn">scatterplot</span>(
+    data=df,
+    x=<span class="py-str">'trip_distance'</span>,
+    y=<span class="py-str">'fare_amount'</span>,
+    hue=<span class="py-str">'RatecodeID'</span>
+)
+plt.<span class="py-fn">title</span>(<span class="py-str">'Distance vs Fare by Rate Code'</span>)
+plt.<span class="py-fn">show</span>()</pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 4: QUIZ                                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Quiz</h2>
+
+  <div class="quiz-block">
+    <div class="quiz-block-header">Module 9 — Capstone Check</div>
+
+    <!-- Q1 -->
+    <div class="quiz-question">
+      <p>1. After removing negative fares AND zero-distance trips from the 30-row dataset, how many rows remain?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>26</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">B</span>
+          <span>25</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">C</span>
+          <span>24</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>22</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. 2 rows have negative fares (ids 7 and 15) and 4 rows have zero trip distance (ids 5, 11, 20, 30). These 6 removals are independent — no row violates both conditions — leaving 30 − 6 = 24 rows.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. Two rows have negative fares (ids 7, 15) and four rows have zero trip distance (ids 5, 11, 20, 30). These sets don't overlap, so 30 − 2 − 4 = 24 rows remain.</div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="quiz-question">
+      <p>2. Which finding best explains why <code>fare_amount</code> and <code>trip_distance</code> don't have r = 1.0?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>The dataset is too small</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">B</span>
+          <span>Fares are rounded to whole dollars</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">C</span>
+          <span>Flat-rate airport trips (RatecodeID=2) break the distance–fare linear relationship</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Missing values reduce correlation</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. Airport flat-rate trips (RatecodeID=2) charge $45 or $52 regardless of exact distance. These trips mix a completely different pricing rule into the dataset, breaking the otherwise near-linear distance–fare relationship observed in metered (RatecodeID=1) rides.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. The primary cause is the fare regime mismatch: RatecodeID=2 trips use flat-rate pricing ($45/$52) independent of distance, while RatecodeID=1 trips are metered per mile. Mixing two pricing rules in the same scatter plot makes the correlation appear weaker than it really is within each regime.</div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="quiz-question">
+      <p>3. You run <code>df['fare_amount'].mean()</code> and get $26. The median is $11.75. Which is more useful for reporting "typical NYC taxi fare"?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>Mean — it uses all data</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">B</span>
+          <span>Median — it is robust to the $399 outlier pulling mean up</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>Both equally useful</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Neither — use mode</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. The mean is sensitive to extreme values; a single $399 fare (id 26, a data anomaly) pulls the mean far above what most riders pay. The median splits the distribution in half and is unaffected by how extreme the top or bottom values are — making it a much better summary of "typical" fare.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. Using all data is not always a virtue for descriptive statistics. A single $399 fare (id 26) inflates the mean to $26, even though the vast majority of trips cost under $20. The median at $11.75 is unaffected by this single outlier and better describes what a typical passenger pays.</div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="quiz-question">
+      <p>4. In the EDA pipeline, why should outlier detection come AFTER removing invalid values?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>Pandas requires this order</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">B</span>
+          <span>Invalid values (negative fares) would distort IQR bounds if included</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>Outliers can't be computed from missing data</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>The order doesn't matter</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. If you compute Q1 on data that still contains <code>-$12.50</code> fares, Q1 drops, the IQR shrinks or shifts, and the lower fence moves further negative — potentially letting genuinely invalid values survive the outlier filter. Always remove known invalid values before applying statistical outlier detection.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. Pandas doesn't enforce any order — the constraint is statistical. A negative fare of -$12.50 lowers Q1 and distorts the IQR, shifting both fences. This can hide the invalid rows from outlier detection (they fall "within fences") while also flagging legitimate high-fare rows as outliers. Clean first, then analyze.</div>
+    </div>
+
+    <!-- Q5 -->
+    <div class="quiz-question">
+      <p>5. Which module's technique would you use to investigate "Do airport trips (RatecodeID=2) have different tip patterns across passenger counts"?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>Module 2 — Missing Values</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">B</span>
+          <span>Module 6 — Univariate Visualization</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>Module 7 — Bivariate Analysis</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">D</span>
+          <span>Module 8 — Multivariate Analysis (pivot table with RatecodeID × passenger_count)</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. This question involves three variables simultaneously: tip_amount (the outcome), RatecodeID (one grouping dimension), and passenger_count (another grouping dimension). A pivot table from Module 8 — <code>df.pivot_table(values='tip_amount', index='RatecodeID', columns='passenger_count', aggfunc='mean')</code> — is exactly the right tool.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. Missing Values (Module 2) handles nulls. Univariate visualization (Module 6) examines one column at a time. Bivariate analysis (Module 7) handles two variables. This question has three variables — tip, RatecodeID, and passenger_count — which requires the multivariate pivot table technique from Module 8.</div>
+    </div>
+
+  </div>
+
+  <div class="nav-buttons">
+    <a href="08-multivariate-analysis.html" class="nav-btn prev">Previous: Module 8 — Multivariate Analysis</a>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // WALKTHROUGH WIDGET — step definitions
+  // ═══════════════════════════════════════════════════════════════════════
+
+  var STEPS = [
+    {
+      title: 'Step 1 — Load &amp; Inspect',
+      code:
+        'df = pd.<span class="py-fn">read_csv</span>(<span class="py-str">\'nyc_taxi_sample.csv\'</span>)\n' +
+        '<span class="py-fn">print</span>(df.shape)   <span class="py-comment"># (30, 11)</span>\n' +
+        '<span class="py-fn">print</span>(df.head())',
+      render: function () {
+        var tableHtml = renderDataFrameTable(
+          TAXI_SAMPLE_DATA.slice(0, 5),
+          ['fare_amount', 'trip_distance', 'passenger_count', 'RatecodeID', 'tip_amount']
+        );
+        return (
+          '<p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:0.5rem;">Showing head(5) of 30 rows × 11 columns</p>' +
+          tableHtml +
+          '<div class="output-block" style="margin-top:0.75rem;">shape = (30, 11)</div>'
+        );
+      },
+      insight: '<div class="callout note"><strong>Insight:</strong> The dataset has 30 rows and 11 columns. We can already see numeric columns (fare_amount, trip_distance), a categorical flag (RatecodeID), and what looks like a null in passenger_count on row id=9.</div>'
+    },
+    {
+      title: 'Step 2 — Missing Values',
+      code:
+        '<span class="py-fn">print</span>(df.<span class="py-fn">isnull</span>().<span class="py-fn">sum</span>())\n' +
+        '<span class="py-fn">print</span>(df.<span class="py-fn">isnull</span>().<span class="py-fn">mean</span>() * <span class="py-num">100</span>)   <span class="py-comment"># percentage</span>',
+      render: function () {
+        var cols = ['passenger_count', 'RatecodeID', 'airport_fee'];
+        var result = computeMissingRatio(TAXI_SAMPLE_DATA, cols);
+        var html = '<table class="data-table"><thead><tr><th>Column</th><th>Missing count</th><th>Missing %</th></tr></thead><tbody>';
+        cols.forEach(function (c) {
+          var pct = result[c];
+          var count = Math.round(pct * TAXI_SAMPLE_DATA.length / 100);
+          var highlight = pct > 0 ? ' style="color:var(--red,#dc2626);font-weight:600;"' : '';
+          html += '<tr><td><code>' + c + '</code></td><td' + highlight + '>' + count + '</td><td' + highlight + '>' + pct.toFixed(2) + '%</td></tr>';
+        });
+        html += '</tbody></table>';
+        return html;
+      },
+      insight: '<div class="callout note"><strong>Insight:</strong> Three columns each have exactly 2 nulls (6.67% of 30 rows): <code>passenger_count</code>, <code>RatecodeID</code>, and <code>airport_fee</code>. Missing rate is low enough that imputation or row-dropping are both viable strategies.</div>'
+    },
+    {
+      title: 'Step 3 — Remove Invalid Data',
+      code:
+        'df = df[df[<span class="py-str">\'fare_amount\'</span>] &gt;= <span class="py-num">0</span>]   <span class="py-comment"># remove negative fares</span>\n' +
+        'df = df[df[<span class="py-str">\'trip_distance\'</span>] &gt; <span class="py-num">0</span>] <span class="py-comment"># remove zero-distance trips</span>\n' +
+        '<span class="py-fn">print</span>(<span class="py-fn">f</span><span class="py-str">"Rows after cleaning: {len(df)}"</span>)  <span class="py-comment"># 24</span>',
+      render: function () {
+        var rules = [
+          { col: 'fare_amount', op: 'negative' },
+          { col: 'trip_distance', op: 'zero' }
+        ];
+        var result = filterInvalid(TAXI_SAMPLE_DATA, rules);
+        var html = '<div class="output-block">';
+        html += 'Before cleaning: ' + result.before + ' rows\n';
+        html += 'Rows removed:    ' + result.removedIds.length + '  (ids: ' + result.removedIds.join(', ') + ')\n';
+        html += 'After cleaning:  ' + result.after + ' rows';
+        html += '</div>';
+
+        // Break down by rule
+        var negIds = TAXI_SAMPLE_DATA.filter(function (r) { return r.fare_amount < 0; }).map(function (r) { return r.id; });
+        var zeroIds = TAXI_SAMPLE_DATA.filter(function (r) { return r.trip_distance === 0; }).map(function (r) { return r.id; });
+        html += '<table class="data-table" style="margin-top:0.75rem;"><thead><tr><th>Rule</th><th>Condition</th><th>Removed IDs</th><th>Count</th></tr></thead><tbody>';
+        html += '<tr><td>Negative fare</td><td><code>fare_amount &lt; 0</code></td><td>' + negIds.join(', ') + '</td><td>' + negIds.length + '</td></tr>';
+        html += '<tr><td>Zero distance</td><td><code>trip_distance == 0</code></td><td>' + zeroIds.join(', ') + '</td><td>' + zeroIds.length + '</td></tr>';
+        html += '</tbody></table>';
+        return html;
+      },
+      insight: '<div class="callout note"><strong>Insight:</strong> 2 rows have negative fares (data errors — likely refund records or system glitches). 4 rows have zero trip distance (likely cancelled trips where the meter started but the ride did not happen). These are invalid data points, not outliers — they must be removed before statistical analysis.</div>'
+    },
+    {
+      title: 'Step 4 — Outlier Detection (IQR)',
+      code:
+        'Q1 = df[<span class="py-str">\'fare_amount\'</span>].<span class="py-fn">quantile</span>(<span class="py-num">0.25</span>)\n' +
+        'Q3 = df[<span class="py-str">\'fare_amount\'</span>].<span class="py-fn">quantile</span>(<span class="py-num">0.75</span>)\n' +
+        'IQR = Q3 - Q1\n' +
+        'lower, upper = Q1 - <span class="py-num">1.5</span> * IQR, Q3 + <span class="py-num">1.5</span> * IQR\n' +
+        'outliers = df[(df[<span class="py-str">\'fare_amount\'</span>] &lt; lower) | (df[<span class="py-str">\'fare_amount\'</span>] &gt; upper)]\n' +
+        '<span class="py-fn">print</span>(<span class="py-fn">f</span><span class="py-str">"Outliers: {len(outliers)}"</span>)',
+      render: function () {
+        var bounds = computeIQRBounds(TAXI_SAMPLE_DATA, 'fare_amount', 1.5);
+        var html = '<table class="data-table"><thead><tr><th>Statistic</th><th>Value</th></tr></thead><tbody>';
+        html += '<tr><td>Q1 (25th percentile)</td><td>$' + bounds.q1.toFixed(2) + '</td></tr>';
+        html += '<tr><td>Q3 (75th percentile)</td><td>$' + bounds.q3.toFixed(2) + '</td></tr>';
+        html += '<tr><td>IQR</td><td>$' + bounds.iqr.toFixed(2) + '</td></tr>';
+        html += '<tr><td>Lower fence (Q1 − 1.5×IQR)</td><td>$' + bounds.lower.toFixed(2) + '</td></tr>';
+        html += '<tr><td>Upper fence (Q3 + 1.5×IQR)</td><td>$' + bounds.upper.toFixed(2) + '</td></tr>';
+        html += '<tr class="outlier-point"><td>Outlier count</td><td>' + bounds.outlierIds.length + '  (ids: ' + bounds.outlierIds.join(', ') + ')</td></tr>';
+        html += '</tbody></table>';
+        return html;
+      },
+      insight: '<div class="callout note"><strong>Insight:</strong> 3 fare outliers detected. Ids 6 and 18 are airport flat-rate trips (RatecodeID=2) at $45 and $52 — these are legitimate fares, not errors. Id 26 ($399) is a genuine anomaly likely caused by a meter malfunction or misentry. Context matters: not all outliers are errors.</div>'
+    },
+    {
+      title: 'Step 5 — Feature Engineering',
+      code:
+        'df[<span class="py-str">\'hour\'</span>] = df[<span class="py-str">\'tpep_pickup_datetime\'</span>].dt.hour\n' +
+        'df[<span class="py-str">\'day_of_week\'</span>] = df[<span class="py-str">\'tpep_pickup_datetime\'</span>].dt.dayofweek\n' +
+        'df[<span class="py-str">\'duration_min\'</span>] = (\n' +
+        '    df[<span class="py-str">\'tpep_dropoff_datetime\'</span>] - df[<span class="py-str">\'tpep_pickup_datetime\'</span>]\n' +
+        ').dt.total_seconds() / <span class="py-num">60</span>',
+      render: function () {
+        var hours = {};
+        var days = {};
+        TAXI_SAMPLE_DATA.forEach(function (r) {
+          var dt = decomposeDatetime(r.pickup, r.dropoff);
+          hours[dt.hour] = (hours[dt.hour] || 0) + 1;
+          days[dt.dayName] = (days[dt.dayName] || 0) + 1;
+        });
+
+        var html = '<p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:0.5rem;">Hour-of-day distribution (all 30 rows):</p>';
+        html += '<table class="data-table"><thead><tr><th>Hour</th><th>Trip count</th></tr></thead><tbody>';
+        Object.keys(hours).sort(function (a, b) { return Number(a) - Number(b); }).forEach(function (h) {
+          html += '<tr><td>' + h + ':00</td><td>' + hours[h] + '</td></tr>';
+        });
+        html += '</tbody></table>';
+
+        html += '<p style="font-size:0.88rem;color:var(--text-secondary);margin:0.75rem 0 0.5rem;">Day-of-week distribution:</p>';
+        html += '<table class="data-table"><thead><tr><th>Day</th><th>Trip count</th></tr></thead><tbody>';
+        var dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        dayOrder.forEach(function (d) {
+          if (days[d]) html += '<tr><td>' + d + '</td><td>' + days[d] + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        return html;
+      },
+      insight: '<div class="callout note"><strong>Insight:</strong> All 30 rides occurred across just 2 days (Monday 2023-03-06 and Tuesday 2023-03-07) and span the hours 7:00–20:00. Pickup activity peaks during morning and evening rush hours. With a larger dataset, <code>hour</code> and <code>day_of_week</code> become powerful predictors of demand and fare.</div>'
+    },
+    {
+      title: 'Step 6 — Correlation Summary',
+      code:
+        'corr = df[[<span class="py-str">\'fare_amount\'</span>, <span class="py-str">\'trip_distance\'</span>, <span class="py-str">\'tip_amount\'</span>]].<span class="py-fn">corr</span>().<span class="py-fn">round</span>(<span class="py-num">2</span>)\n' +
+        '<span class="py-fn">print</span>(corr)',
+      render: function () {
+        var cols = ['fare_amount', 'trip_distance', 'tip_amount'];
+        var matrix = computeCorrelationMatrix(TAXI_SAMPLE_DATA, cols);
+
+        // Color scale helper: -1→red, 0→white, 1→blue
+        function corrColor(v) {
+          if (v >= 0) {
+            var r = Math.round(255 - v * (255 - 37));
+            var g = Math.round(255 - v * (255 - 99));
+            var b = Math.round(255 - v * (255 - 235));
+            return 'rgb(' + r + ',' + g + ',' + b + ')';
+          } else {
+            var t = Math.abs(v);
+            var r2 = Math.round(255 - t * (255 - 220));
+            var g2 = Math.round(255 - t * (255 - 38));
+            var b2 = Math.round(255 - t * (255 - 38));
+            return 'rgb(' + r2 + ',' + g2 + ',' + b2 + ')';
+          }
+        }
+
+        var html = '<table class="data-table"><thead><tr><th></th>';
+        cols.forEach(function (c) { html += '<th>' + escHtml(c) + '</th>'; });
+        html += '</tr></thead><tbody>';
+        cols.forEach(function (row) {
+          html += '<tr><th style="font-weight:600;text-align:left;padding:0.5rem 0.75rem;">' + escHtml(row) + '</th>';
+          cols.forEach(function (col) {
+            var v = matrix[row][col];
+            var bg = corrColor(v);
+            var textColor = Math.abs(v) > 0.5 ? '#fff' : 'inherit';
+            html += '<td style="text-align:center;padding:0.5rem 0.75rem;background:' + bg + ';color:' + textColor + ';font-weight:600;">' + v.toFixed(2) + '</td>';
+          });
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+        return html;
+      },
+      insight: '<div class="callout note"><strong>Insight:</strong> <code>fare_amount</code> and <code>trip_distance</code> show strong positive correlation, but not r=1.0 — flat-rate airport trips confound the relationship. <code>tip_amount</code> correlates with <code>fare_amount</code> because tips are typically a fixed percentage of fare. The diagonal is always 1.0 (a variable correlates perfectly with itself).</div>'
+    },
+    {
+      title: 'Step 7 — Key Findings',
+      code: '<span class="py-comment"># Synthesis — no single function; judgement from all prior steps</span>',
+      render: function () {
+        var findings = [
+          {
+            n: 1,
+            text: '<strong>fare_amount is right-skewed</strong> — median ($11.75) is a better "typical fare" than mean ($26+), which is pulled up by a single $399 anomaly.'
+          },
+          {
+            n: 2,
+            text: '<strong>2 rows have negative fares</strong> (ids 7, 15) — data errors, not real transactions. Removed before analysis.'
+          },
+          {
+            n: 3,
+            text: '<strong>4 rows have zero trip distance</strong> (ids 5, 11, 20, 30) — likely cancelled trips where meter started but ride did not complete.'
+          },
+          {
+            n: 4,
+            text: '<strong>RatecodeID=2 trips explain high-fare outliers</strong> — flat-rate $45/$52 airport fares (ids 6, 18) fall above the IQR fence but are legitimate data, not errors.'
+          },
+          {
+            n: 5,
+            text: '<strong>fare_amount and trip_distance show strong positive correlation</strong> — but confounded by the flat-rate pricing regime. Segment by RatecodeID to see the true per-mile relationship.'
+          }
+        ];
+        var html = '<div style="display:flex;flex-direction:column;gap:0.6rem;">';
+        findings.forEach(function (f) {
+          html +=
+            '<div style="display:flex;gap:0.75rem;align-items:flex-start;padding:0.75rem;border:1px solid var(--border-color);border-radius:6px;">' +
+            '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:1.6rem;height:1.6rem;border-radius:50%;background:var(--accent-blue,#2563eb);color:#fff;font-size:0.8rem;font-weight:700;">' + f.n + '</span>' +
+            '<p style="margin:0;font-size:0.9rem;line-height:1.5;">' + f.text + '</p>' +
+            '</div>';
+        });
+        html += '</div>';
+        return html;
+      },
+      insight: '<div class="callout note"><strong>You have completed the full EDA pipeline.</strong> These 5 findings form the executive summary of a real EDA report — each one is backed by a specific technique from Modules 1–8 and a quantitative observation from the data.</div>'
+    }
+  ];
+
+  var currentStep = 0;
+
+  function renderStep(idx) {
+    var step = STEPS[idx];
+
+    // Title
+    document.getElementById('step-title').innerHTML = step.title;
+
+    // Code
+    document.getElementById('step-code-pre').innerHTML = step.code;
+
+    // Output
+    document.getElementById('step-output').innerHTML = step.render();
+
+    // Insight
+    document.getElementById('step-insight').innerHTML = step.insight || '';
+
+    // Counter & progress bar
+    document.getElementById('step-counter').textContent = 'Step ' + (idx + 1) + ' / ' + STEPS.length;
+    document.getElementById('step-progress').style.width = (((idx + 1) / STEPS.length) * 100).toFixed(1) + '%';
+
+    // Button states
+    document.getElementById('step-prev-btn').disabled = idx === 0;
+    var nextBtn = document.getElementById('step-next-btn');
+    if (idx === STEPS.length - 1) {
+      nextBtn.textContent = 'Done';
+      nextBtn.disabled = true;
+    } else {
+      nextBtn.textContent = 'Next Step';
+      nextBtn.disabled = false;
+    }
+
+    // Reinitialise code copy buttons inside the widget
+    document.querySelectorAll('#step-code-block .code-copy-btn').forEach(function (btn) {
+      btn.onclick = function () {
+        var pre = btn.closest('.code-snippet').querySelector('pre');
+        if (!pre) return;
+        navigator.clipboard.writeText(pre.innerText || pre.textContent).then(function () {
+          btn.textContent = 'Copied!';
+          setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+        }).catch(function () { btn.textContent = 'Copy'; });
+      };
+    });
+  }
+
+  window.walkthroughNext = function () {
+    if (currentStep < STEPS.length - 1) {
+      currentStep++;
+      renderStep(currentStep);
+    }
+  };
+
+  window.walkthroughPrev = function () {
+    if (currentStep > 0) {
+      currentStep--;
+      renderStep(currentStep);
+    }
+  };
+
+  // Initial render
+  renderStep(0);
+
+  // ── escHtml (local copy for safety) ──────────────────────────────────────
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+});
+</script>
+</body>
+</html>
