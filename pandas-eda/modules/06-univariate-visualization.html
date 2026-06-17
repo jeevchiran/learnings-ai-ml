@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 6: Univariate Visualization</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-eda-foundations.html">1. EDA Foundations</a>
+    <a href="02-missing-values.html">2. Missing Values</a>
+    <a href="03-data-quality-invalid-values.html">3. Data Quality &amp; Invalid Values</a>
+    <a href="04-outlier-detection-iqr.html">4. Outlier Detection (IQR)</a>
+    <a href="05-datetime-feature-engineering.html">5. Datetime &amp; Feature Engineering</a>
+    <a href="06-univariate-visualization.html" class="active">6. Univariate Visualization</a>
+    <a href="07-bivariate-analysis.html">7. Bivariate Analysis</a>
+    <a href="08-multivariate-analysis.html">8. Multivariate Analysis</a>
+    <a href="09-capstone-eda-workflow.html">9. Capstone</a>
+  </nav>
+
+  <header>
+    <h1>Module 6: Univariate Visualization</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: WHAT / WHY / HOW                                           -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>What, Why, and How</h2>
+
+  <div class="concept-box">
+    <h4>WHAT: Charts for a single variable</h4>
+    <p>Univariate visualization means looking at <strong>one column at a time</strong> — examining its shape, spread, and any unusual features before bringing other variables into the picture. The three workhorses are:</p>
+    <ul>
+      <li><strong>Histogram</strong> — divides the value range into equal-width bins and counts how many rows fall into each. Reveals whether the data clusters, spreads, or has multiple peaks.</li>
+      <li><strong>KDE curve (Kernel Density Estimate)</strong> — a smooth continuous approximation of the histogram shape. Not sensitive to bin count; instead depends on a bandwidth parameter.</li>
+      <li><strong>Box plot</strong> — shows the five-number summary (min, Q1, median, Q3, max) and marks individual outliers beyond the Tukey fences. Compact enough to stack many columns side by side.</li>
+    </ul>
+  </div>
+
+  <div class="concept-box">
+    <h4>WHY: Raw numbers hide distribution structure</h4>
+    <p>A column's mean and standard deviation give you a two-number summary, but they cannot tell you whether the data is <strong>symmetric, skewed, bimodal, or uniform</strong>. Two datasets can have identical means and identical variances yet look completely different when plotted. Visualization reveals structure that statistics alone hide.</p>
+    <p>In this taxi dataset the difference is dramatic:</p>
+    <ul>
+      <li><code>fare_amount</code>: mean ~$26, but the median is ~$11.75. A single $399 outlier drags the mean far from where most fares sit. The histogram shows a compact cluster at $3–$20 with a lone spike near $400.</li>
+      <li><code>trip_distance</code>: median is about 3 miles, but one trip records 120 miles — a probable data error that shifts the mean and inflates the standard deviation.</li>
+      <li><code>passenger_count</code>: only values 1–6 exist (plus some nulls). A histogram instantly reveals this is a discrete distribution with mode = 1.</li>
+    </ul>
+  </div>
+
+  <div class="concept-box">
+    <h4>HOW: Three pandas / seaborn patterns</h4>
+    <p>All three chart types require <code>import matplotlib.pyplot as plt</code> and optionally <code>import seaborn as sns</code>.</p>
+    <div class="derivation">
+      <div class="derivation-step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <strong>Histogram via pandas</strong>
+          <div class="step-explanation"><code>df['fare_amount'].hist(bins=10, figsize=(8,4))</code> — the <code>bins</code> parameter controls granularity. Fewer bins smooth over detail; more bins can make sparse regions look noisy.</div>
+        </div>
+      </div>
+      <div class="derivation-step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <strong>KDE curve via pandas</strong>
+          <div class="step-explanation"><code>df['fare_amount'].plot(kind='kde')</code> — produces a smooth density curve. Unlike a histogram, the area under the curve integrates to 1 (it estimates probability density, not counts).</div>
+        </div>
+      </div>
+      <div class="derivation-step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <strong>Box plot via pandas</strong>
+          <div class="step-explanation"><code>df.boxplot(column='fare_amount')</code> — whiskers sit at the IQR fences (k=1.5 by default) and individual points beyond the whiskers are plotted as circles. Instantly shows median, spread, and outliers.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2: CODE WALKTHROUGH                                            -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Code Walkthrough</h2>
+
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python — histogram with matplotlib</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-comment"># Histogram</span>
+df[<span class="py-str">'fare_amount'</span>].<span class="py-fn">hist</span>(bins=<span class="py-num">10</span>, figsize=(<span class="py-num">8</span>, <span class="py-num">4</span>))
+plt.<span class="py-fn">xlabel</span>(<span class="py-str">'Fare Amount ($)'</span>)
+plt.<span class="py-fn">title</span>(<span class="py-str">'Distribution of Fare Amounts'</span>)
+plt.<span class="py-fn">show</span>()</pre>
+    <div class="output-block">Bar chart: most values between $3–$20, one isolated bar near $399</div>
+  </div>
+
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python — KDE curve</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-comment"># KDE — smooth density estimate</span>
+df[<span class="py-str">'fare_amount'</span>].<span class="py-fn">plot</span>(kind=<span class="py-str">'kde'</span>)
+plt.<span class="py-fn">xlabel</span>(<span class="py-str">'Fare Amount ($)'</span>)
+plt.<span class="py-fn">show</span>()</pre>
+    <div class="output-block">Smooth curve — heavy left peak near $6–$15, long right tail past $50</div>
+  </div>
+
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python — seaborn histplot with KDE overlay</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-comment">import seaborn as sns</span>
+sns.<span class="py-fn">histplot</span>(df[<span class="py-str">'fare_amount'</span>], bins=<span class="py-num">10</span>, kde=<span class="py-kw">True</span>)
+plt.<span class="py-fn">xlabel</span>(<span class="py-str">'Fare Amount ($)'</span>)
+plt.<span class="py-fn">show</span>()</pre>
+    <div class="output-block">Bars + overlaid smooth density curve in one call</div>
+  </div>
+
+  <div class="callout note">
+    <strong>The <code>kde=True</code> overlay is powerful for bin-count sensitivity.</strong>
+    When you have a small sample, histogram shape can change dramatically as you slide the bin count up or down. Adding <code>kde=True</code> puts a smooth density curve on top — it is not affected by bin boundaries and shows the overall shape independently. Use both together to distinguish real structure from binning artifacts.
+  </div>
+
+  <div class="bridge">
+    The widget below lets you explore these three columns with either a histogram (adjustable bin count) or a box plot, and shows the summary statistics in real time.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- INTERACTIVE WIDGET                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Interactive: Distribution Explorer</h2>
+
+  <div class="widget-container">
+
+    <!-- Column selector -->
+    <div class="widget-controls" style="margin-bottom:0.75rem;">
+      <span style="font-weight:600;margin-right:0.5rem;">Column:</span>
+      <button class="tab active" id="btn-col-fare" onclick="distSetCol('fare_amount')">fare_amount</button>
+      <button class="tab" id="btn-col-dist" onclick="distSetCol('trip_distance')">trip_distance</button>
+      <button class="tab" id="btn-col-pass" onclick="distSetCol('passenger_count')">passenger_count</button>
+    </div>
+
+    <!-- Bin count slider (only relevant for histogram) -->
+    <div class="widget-controls" id="bin-slider-row" style="flex-direction:column;align-items:flex-start;gap:0.4rem;margin-bottom:0.75rem;">
+      <label style="font-weight:600;">Bin count: <span id="bin-label">10</span></label>
+      <input type="range" id="bin-slider" min="5" max="30" step="1" value="10"
+             style="width:280px;"
+             oninput="document.getElementById('bin-label').textContent=this.value;">
+    </div>
+
+    <!-- Chart type toggle -->
+    <div class="widget-controls" style="margin-bottom:1rem;">
+      <span style="font-weight:600;margin-right:0.5rem;">Chart type:</span>
+      <button class="tab active" id="btn-chart-hist" onclick="distSetChart('histogram')">Histogram</button>
+      <button class="tab" id="btn-chart-box" onclick="distSetChart('boxplot')">Box Plot</button>
+    </div>
+
+    <!-- Plot button -->
+    <button class="nav-btn" id="dist-plot-btn" onclick="distRender()" style="margin-bottom:1.25rem;">Plot</button>
+
+    <!-- Plotly chart -->
+    <div id="dist-plot" style="width:100%;height:340px;"></div>
+
+    <!-- Stats summary panel -->
+    <div id="dist-stats" class="stat-row" style="margin-top:1rem;flex-wrap:wrap;gap:0.5rem;"></div>
+
+    <!-- Skewness note -->
+    <div id="dist-skew-note" style="margin-top:0.75rem;"></div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- PRACTICE PROBLEMS                                                     -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1: Easy -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: Right-skewed distribution and mean vs. median</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>What does a right-skewed distribution mean for the relationship between mean and median?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>In a right-skewed distribution, the tail extends to the <strong>right</strong> (toward higher values). The mean is pulled in the direction of the tail, so <strong>mean &gt; median</strong>.</p>
+        <p>Intuition: the few very large values contribute disproportionately to the arithmetic average but do not move the median (which only depends on rank order). For <code>fare_amount</code>, the $399 outlier drags the mean up to ~$26 while the median stays near $11.75 — a difference of ~$14, almost entirely caused by that single row.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2: Medium -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: Trade-off of increasing bin count</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>If you increase bin count from 5 to 30 for <code>fare_amount</code>, what trade-off do you make?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>With 5 bins you get a <strong>smoother but coarser</strong> picture — structural features like the gap between $20–$399 are hidden inside wide bins, and each bin has more counts so bars look stable.</p>
+        <p>With 30 bins you get <strong>more granularity but noisier bars</strong> — in a 30-row sample, many bins will contain 0 or 1 data points, making it hard to distinguish real patterns from sampling noise. The bin near $399 will be a single isolated bar far to the right regardless, but the main cluster ($3–$25) will fragment into choppy peaks.</p>
+        <p>The practical guideline: start around <code>bins = sqrt(n)</code> (~5–6 for 30 rows), then adjust. Adding a KDE overlay removes sensitivity to this choice entirely.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3: Hard -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: Choosing the right central tendency measure for fare_amount</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>The <code>fare_amount</code> mean is ~$26 but the median is ~$11.75. Should you use mean or median to represent the "typical fare"? Why?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>Use the <strong>median</strong> (~$11.75) to represent the typical fare in this sample.</p>
+        <p>The mean (~$26) is distorted by a single $399 record that is almost certainly a meter malfunction. A passenger paying a typical NYC taxi fare does not pay $26 — they pay somewhere in the $6–$20 range. The median, being the middle-ranked value, is immune to this outlier: removing or capping ID 26 barely changes the median but cuts the mean roughly in half.</p>
+        <p>Wider principle: whenever a distribution is right-skewed and the tail is produced by outliers or data errors rather than the true data-generating process, the median is a more robust measure of center. If the high values were legitimate (e.g., long-distance fares), you'd need to decide whether "typical" means "most common" (median) or "expected value for a random trip" (mean) — two valid but different questions.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- MCQ QUIZ                                                              -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Quiz</h2>
+
+  <div class="quiz-block">
+    <div class="quiz-block-header">Module 6 — Check Your Understanding</div>
+
+    <!-- Q1 -->
+    <div class="quiz-question">
+      <p>1. A histogram shows <code>fare_amount</code> is right-skewed. This means:</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>Most fares are high</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">B</span>
+          <span>A few very high fares pull the mean above the median</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>The data has errors</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>All fares are equal</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. Right skew means the distribution has a long tail to the right. The bulk of values cluster at the low end; a small number of high values drag the arithmetic mean rightward above the median. Most fares in this dataset are $3–$20.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. Right skew means the tail extends to the right (high values), so most data sits at the low end — most fares are actually low. The key consequence is mean &gt; median, because the few large values inflate the average without moving the rank-based median.</div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="quiz-question">
+      <p>2. What does bin count affect in a histogram?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>The total count of data points</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">B</span>
+          <span>The granularity of the distribution view</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>The mean value</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Whether outliers are included</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. Bin count controls how finely the value range is divided. Fewer bins smooth the picture; more bins reveal finer structure but introduce noise when sample size is small. The underlying data does not change — only how it is grouped.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. The total data count is fixed regardless of how many bins you choose. Bin count only affects how the existing values are grouped into intervals — the granularity of what you see, not what is there.</div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="quiz-question">
+      <p>3. Which chart best shows median, IQR, and outliers simultaneously?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>Histogram</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">B</span>
+          <span>KDE curve</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">C</span>
+          <span>Box plot</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Bar chart</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. The box plot is designed precisely for this: the box spans Q1–Q3 (the IQR), the line inside the box marks the median, the whiskers extend to the Tukey fences, and individual points beyond the whiskers are plotted as outliers. All five of those facts are encoded in a single compact chart.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. Histograms show shape and count; KDE curves show shape as density. Neither encodes the five-number summary directly. Bar charts are for categorical counts. The box plot is the chart specifically built to display Q1, median, Q3, whiskers, and outliers in one view.</div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="quiz-question">
+      <p>4. <code>df['col'].plot(kind='kde')</code> produces:</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>A bar chart of counts</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">B</span>
+          <span>A scatter plot</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>A pie chart</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">D</span>
+          <span>A smooth density curve estimate</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. KDE (Kernel Density Estimate) places a small smooth kernel function at each data point and sums them, producing a continuous curve. The y-axis is probability density (area under curve = 1), not counts. The advantage over a histogram is that the shape does not depend on arbitrary bin boundaries.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. <code>kind='kde'</code> specifically requests a Kernel Density Estimate — a smooth continuous curve approximating the distribution's shape. It is not a bar chart (that would be <code>kind='bar'</code>), not a scatter (that is <code>kind='scatter'</code>), and not a pie chart.</div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- BRIDGE TO MODULE 7                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="bridge" style="margin-top:2rem;">
+    <strong>What's next: relationships between two variables.</strong> Univariate charts answer "what does this column look like?" — but not "does it move together with another column?" Module 7 adds a second variable: scatter plots, correlation coefficients, and grouped comparisons that reveal whether fare amount grows with trip distance, and whether borough choice predicts price.
+  </div>
+
+  <div class="nav-buttons">
+    <a href="05-datetime-feature-engineering.html" class="nav-btn prev">Previous: Module 5 — Datetime &amp; Feature Engineering</a>
+    <a href="07-bivariate-analysis.html" class="nav-btn">Next: Module 7 — Bivariate Analysis</a>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DISTRIBUTION EXPLORER WIDGET
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // State
+  var distCol = 'fare_amount';
+  var distChart = 'histogram';
+
+  window.distSetCol = function (col) {
+    distCol = col;
+    document.getElementById('btn-col-fare').classList.toggle('active', col === 'fare_amount');
+    document.getElementById('btn-col-dist').classList.toggle('active', col === 'trip_distance');
+    document.getElementById('btn-col-pass').classList.toggle('active', col === 'passenger_count');
+  };
+
+  window.distSetChart = function (type) {
+    distChart = type;
+    document.getElementById('btn-chart-hist').classList.toggle('active', type === 'histogram');
+    document.getElementById('btn-chart-box').classList.toggle('active', type === 'boxplot');
+    // Show/hide bin slider based on chart type
+    document.getElementById('bin-slider-row').style.display = (type === 'histogram') ? '' : 'none';
+  };
+
+  // ── Compute basic stats ─────────────────────────────────────────────────
+  function computeStats(data, col) {
+    var vals = data
+      .map(function (r) { return r[col]; })
+      .filter(function (v) { return v !== null && v !== undefined; })
+      .sort(function (a, b) { return a - b; });
+    var n = vals.length;
+    var sum = vals.reduce(function (a, b) { return a + b; }, 0);
+    var mn = sum / n;
+    var med = quantileSorted(vals, 0.5);
+    var variance = vals.reduce(function (acc, v) { return acc + (v - mn) * (v - mn); }, 0) / n;
+    var std = Math.sqrt(variance);
+    return {
+      n: n,
+      mean: mn,
+      median: med,
+      std: std,
+      min: vals[0],
+      max: vals[n - 1]
+    };
+  }
+
+  window.distRender = function () {
+    var binCount = parseInt(document.getElementById('bin-slider').value, 10);
+    var stats = computeStats(TAXI_SAMPLE_DATA, distCol);
+
+    // ── Render chart ────────────────────────────────────────────────────
+    var traces, layout;
+
+    if (distChart === 'histogram') {
+      var bins = computeHistogramBins(TAXI_SAMPLE_DATA, distCol, binCount);
+      var xLabels = bins.map(function (b) {
+        return b.binStart.toFixed(1) + '–' + b.binEnd.toFixed(1);
+      });
+      var yCounts = bins.map(function (b) { return b.count; });
+
+      traces = [{
+        x: xLabels,
+        y: yCounts,
+        type: 'bar',
+        marker: { color: 'rgba(37,99,235,0.75)', line: { color: '#1d4ed8', width: 1 } },
+        name: distCol
+      }];
+
+      layout = plotlyLayout({
+        title: { text: distCol + ' — Histogram (' + binCount + ' bins)', font: { size: 13 } },
+        xaxis: { title: distCol, tickangle: -35 },
+        yaxis: { title: 'Count' },
+        bargap: 0.05,
+        showlegend: false
+      });
+
+    } else {
+      // Box plot
+      var vals = TAXI_SAMPLE_DATA
+        .map(function (r) { return r[distCol]; })
+        .filter(function (v) { return v !== null && v !== undefined; });
+
+      traces = [{
+        y: vals,
+        type: 'box',
+        boxpoints: 'all',
+        jitter: 0.4,
+        pointpos: 0,
+        name: distCol,
+        marker: { color: '#2563eb', size: 5, opacity: 0.6 },
+        line: { color: '#2563eb' },
+        fillcolor: 'rgba(37,99,235,0.10)'
+      }];
+
+      layout = plotlyLayout({
+        title: { text: distCol + ' — Box Plot', font: { size: 13 } },
+        yaxis: { title: distCol },
+        xaxis: { visible: false },
+        showlegend: false
+      });
+    }
+
+    Plotly.react('dist-plot', traces, layout, PLOTLY_CONFIG);
+
+    // ── Stats summary panel ─────────────────────────────────────────────
+    var statsDiv = document.getElementById('dist-stats');
+    statsDiv.innerHTML =
+      '<div class="stat-card"><span>Mean</span><strong>' + stats.mean.toFixed(2) + '</strong></div>' +
+      '<div class="stat-card"><span>Median</span><strong>' + stats.median.toFixed(2) + '</strong></div>' +
+      '<div class="stat-card"><span>Std Dev</span><strong>' + stats.std.toFixed(2) + '</strong></div>' +
+      '<div class="stat-card"><span>Min</span><strong>' + stats.min.toFixed(2) + '</strong></div>' +
+      '<div class="stat-card"><span>Max</span><strong>' + stats.max.toFixed(2) + '</strong></div>';
+
+    // ── Skewness direction note ─────────────────────────────────────────
+    var skewDiv = document.getElementById('dist-skew-note');
+    var skewText, skewClass;
+    if (Math.abs(stats.mean - stats.median) < 0.01) {
+      skewText = 'Mean ≈ Median — the distribution appears roughly symmetric.';
+      skewClass = 'callout note';
+    } else if (stats.mean > stats.median) {
+      skewText = 'Mean (' + stats.mean.toFixed(2) + ') &gt; Median (' + stats.median.toFixed(2) + ') — the distribution is <strong>right-skewed</strong> (tail extends toward higher values).';
+      skewClass = 'callout warning';
+    } else {
+      skewText = 'Mean (' + stats.mean.toFixed(2) + ') &lt; Median (' + stats.median.toFixed(2) + ') — the distribution is <strong>left-skewed</strong> (tail extends toward lower values).';
+      skewClass = 'callout warning';
+    }
+    skewDiv.innerHTML = '<div class="' + skewClass + '">' + skewText + '</div>';
+  };
+
+  // Initial render
+  distRender();
+
+});
+</script>
+</body>
+</html>
