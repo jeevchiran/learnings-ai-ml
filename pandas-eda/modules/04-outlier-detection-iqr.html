@@ -155,8 +155,8 @@ df_capped[<span class="py-str">'fare_amount'</span>] = df_capped[<span class="py
     <!-- Column selector -->
     <div class="widget-controls" style="margin-bottom:0.75rem;">
       <span style="font-weight:600;margin-right:0.5rem;">Column:</span>
-      <button class="tab active" id="btn-col-fare" onclick="iqrSetCol('fare_amount')">fare_amount</button>
-      <button class="tab" id="btn-col-dist" onclick="iqrSetCol('trip_distance')">trip_distance</button>
+      <button id="btn-col-fare" onclick="iqrSetCol('fare_amount')">fare_amount</button>
+      <button class="secondary" id="btn-col-dist" onclick="iqrSetCol('trip_distance')">trip_distance</button>
     </div>
 
     <!-- k-multiplier slider -->
@@ -170,12 +170,14 @@ df_capped[<span class="py-str">'fare_amount'</span>] = df_capped[<span class="py
     <!-- Treatment toggle -->
     <div class="widget-controls" style="margin-bottom:1rem;">
       <span style="font-weight:600;margin-right:0.5rem;">Treatment:</span>
-      <button class="tab active" id="btn-treat-remove" onclick="iqrSetTreatment('remove')">Remove</button>
-      <button class="tab" id="btn-treat-cap" onclick="iqrSetTreatment('cap')">Cap (Winsorize)</button>
+      <button id="btn-treat-remove" onclick="iqrSetTreatment('remove')">Remove</button>
+      <button class="secondary" id="btn-treat-cap" onclick="iqrSetTreatment('cap')">Cap (Winsorize)</button>
     </div>
 
     <!-- Apply button -->
-    <button class="nav-btn" id="iqr-apply-btn" onclick="iqrRender()" style="margin-bottom:1.25rem;">Apply</button>
+    <div class="widget-controls" style="margin-bottom:1.25rem;">
+      <button onclick="iqrRender()">Apply</button>
+    </div>
 
     <!-- Stats box -->
     <div id="iqr-stats" class="stat-row" style="margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;"></div>
@@ -383,15 +385,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
   window.iqrSetCol = function (col) {
     iqrCol = col;
-    document.getElementById('btn-col-fare').classList.toggle('active', col === 'fare_amount');
-    document.getElementById('btn-col-dist').classList.toggle('active', col === 'trip_distance');
+    document.getElementById('btn-col-fare').classList.toggle('secondary', col !== 'fare_amount');
+    document.getElementById('btn-col-dist').classList.toggle('secondary', col !== 'trip_distance');
     iqrRender();
   };
 
   window.iqrSetTreatment = function (t) {
     iqrTreatment = t;
-    document.getElementById('btn-treat-remove').classList.toggle('active', t === 'remove');
-    document.getElementById('btn-treat-cap').classList.toggle('active', t === 'cap');
+    document.getElementById('btn-treat-remove').classList.toggle('secondary', t !== 'remove');
+    document.getElementById('btn-treat-cap').classList.toggle('secondary', t !== 'cap');
     iqrRender();
   };
 

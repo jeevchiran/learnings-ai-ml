@@ -150,9 +150,9 @@ plt.<span class="py-fn">show</span>()</pre>
     <!-- Column selector -->
     <div class="widget-controls" style="margin-bottom:0.75rem;">
       <span style="font-weight:600;margin-right:0.5rem;">Column:</span>
-      <button class="tab active" id="btn-col-fare" onclick="distSetCol('fare_amount')">fare_amount</button>
-      <button class="tab" id="btn-col-dist" onclick="distSetCol('trip_distance')">trip_distance</button>
-      <button class="tab" id="btn-col-pass" onclick="distSetCol('passenger_count')">passenger_count</button>
+      <button id="btn-col-fare" onclick="distSetCol('fare_amount')">fare_amount</button>
+      <button class="secondary" id="btn-col-dist" onclick="distSetCol('trip_distance')">trip_distance</button>
+      <button class="secondary" id="btn-col-pass" onclick="distSetCol('passenger_count')">passenger_count</button>
     </div>
 
     <!-- Bin count slider (only relevant for histogram) -->
@@ -166,12 +166,12 @@ plt.<span class="py-fn">show</span>()</pre>
     <!-- Chart type toggle -->
     <div class="widget-controls" style="margin-bottom:1rem;">
       <span style="font-weight:600;margin-right:0.5rem;">Chart type:</span>
-      <button class="tab active" id="btn-chart-hist" onclick="distSetChart('histogram')">Histogram</button>
-      <button class="tab" id="btn-chart-box" onclick="distSetChart('boxplot')">Box Plot</button>
+      <button id="btn-chart-hist" onclick="distSetChart('histogram')">Histogram</button>
+      <button class="secondary" id="btn-chart-box" onclick="distSetChart('boxplot')">Box Plot</button>
     </div>
 
     <!-- Plot button -->
-    <button class="nav-btn" id="dist-plot-btn" onclick="distRender()" style="margin-bottom:1.25rem;">Plot</button>
+    <div class="widget-controls" style="margin-bottom:1.25rem;"><button onclick="distRender()">Plot</button></div>
 
     <!-- Plotly chart -->
     <div id="dist-plot" style="width:100%;height:340px;"></div>
@@ -376,15 +376,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
   window.distSetCol = function (col) {
     distCol = col;
-    document.getElementById('btn-col-fare').classList.toggle('active', col === 'fare_amount');
-    document.getElementById('btn-col-dist').classList.toggle('active', col === 'trip_distance');
-    document.getElementById('btn-col-pass').classList.toggle('active', col === 'passenger_count');
+    document.getElementById('btn-col-fare').classList.toggle('secondary', col !== 'fare_amount');
+    document.getElementById('btn-col-dist').classList.toggle('secondary', col !== 'trip_distance');
+    document.getElementById('btn-col-pass').classList.toggle('secondary', col !== 'passenger_count');
   };
 
   window.distSetChart = function (type) {
     distChart = type;
-    document.getElementById('btn-chart-hist').classList.toggle('active', type === 'histogram');
-    document.getElementById('btn-chart-box').classList.toggle('active', type === 'boxplot');
+    document.getElementById('btn-chart-hist').classList.toggle('secondary', type !== 'histogram');
+    document.getElementById('btn-chart-box').classList.toggle('secondary', type !== 'boxplot');
     // Show/hide bin slider based on chart type
     document.getElementById('bin-slider-row').style.display = (type === 'histogram') ? '' : 'none';
   };

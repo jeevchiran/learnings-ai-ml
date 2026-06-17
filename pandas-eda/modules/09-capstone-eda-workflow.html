@@ -156,9 +156,9 @@
     <div id="step-insight" style="margin-bottom:1rem;"></div>
 
     <!-- Navigation buttons -->
-    <div style="display:flex;gap:0.75rem;">
-      <button class="nav-btn prev" id="step-prev-btn" onclick="walkthroughPrev()" disabled>Previous</button>
-      <button class="nav-btn" id="step-next-btn" onclick="walkthroughNext()">Next Step</button>
+    <div class="widget-controls">
+      <button class="secondary" id="step-prev-btn" onclick="walkthroughPrev()" disabled style="opacity:0.45;">Previous</button>
+      <button id="step-next-btn" onclick="walkthroughNext()">Next Step</button>
     </div>
 
   </div>
@@ -615,14 +615,18 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('step-progress').style.width = (((idx + 1) / STEPS.length) * 100).toFixed(1) + '%';
 
     // Button states
-    document.getElementById('step-prev-btn').disabled = idx === 0;
+    var prevBtn = document.getElementById('step-prev-btn');
+    prevBtn.disabled = idx === 0;
+    prevBtn.style.opacity = idx === 0 ? '0.45' : '1';
     var nextBtn = document.getElementById('step-next-btn');
     if (idx === STEPS.length - 1) {
       nextBtn.textContent = 'Done';
       nextBtn.disabled = true;
+      nextBtn.style.opacity = '0.45';
     } else {
       nextBtn.textContent = 'Next Step';
       nextBtn.disabled = false;
+      nextBtn.style.opacity = '1';
     }
 
     // Reinitialise code copy buttons inside the widget
