@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 5: Datetime Parsing &amp; Feature Engineering</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-eda-foundations.html">1. EDA Foundations</a>
+    <a href="02-missing-values.html">2. Missing Values</a>
+    <a href="03-data-quality-invalid-values.html">3. Data Quality &amp; Invalid Values</a>
+    <a href="04-outlier-detection-iqr.html">4. Outlier Detection (IQR)</a>
+    <a href="05-datetime-feature-engineering.html" class="active">5. Datetime &amp; Feature Engineering</a>
+    <a href="06-univariate-visualization.html">6. Univariate Visualization</a>
+    <a href="07-bivariate-analysis.html">7. Bivariate Analysis</a>
+    <a href="08-multivariate-analysis.html">8. Multivariate Analysis</a>
+    <a href="09-capstone-eda-workflow.html">9. Capstone</a>
+  </nav>
+
+  <header>
+    <h1>Module 5: Datetime Parsing &amp; Feature Engineering</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: WHAT / WHY / HOW                                           -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>What, Why, and How</h2>
+
+  <div class="concept-box">
+    <h4>WHAT: Parsing Datetimes into Structured Features</h4>
+    <p>A raw datetime string like <code>"2023-03-06 08:15:00"</code> carries rich information — the hour of day, the day of week, the elapsed duration between events — but it sits in the column as an opaque blob of text. <strong>Datetime feature engineering</strong> is the act of parsing that string into a proper datetime type and then extracting the numeric signals hidden inside.</p>
+    <p>The three most valuable signals from taxi trip datetimes are:</p>
+    <ul>
+      <li><strong>Hour of day</strong> (0–23) — captures the within-day demand cycle</li>
+      <li><strong>Day of week</strong> (0=Monday, 6=Sunday in pandas convention) — captures weekend vs. weekday patterns</li>
+      <li><strong>Trip duration</strong> (minutes) — derived by subtracting pickup from dropoff, exposing how long each trip actually ran</li>
+    </ul>
+  </div>
+
+  <div class="concept-box">
+    <h4>WHY: Raw Strings Are Useless for Models and Aggregations</h4>
+    <p>You cannot compute <code>mean("2023-03-06 08:15:00")</code> — it is a string. You cannot group by "rush hour" unless you first extract the hour. Models trained on the raw string would either fail or — worse — silently treat it as a categorical label, missing all temporal structure.</p>
+    <p>Once you extract <code>hour</code> and <code>day_of_week</code>, patterns emerge immediately:</p>
+    <ul>
+      <li><strong>Rush hour demand</strong>: rides spike at 8–9 AM and 5–7 PM</li>
+      <li><strong>Weekend shift</strong>: Saturday/Sunday trips tend to be longer and later at night</li>
+      <li><strong>Duration outliers</strong>: row 24 shows a 45-minute trip with a suspicious 120-mile distance — computing duration flags it immediately</li>
+    </ul>
+    <p style="margin-bottom:0;">In ML pipelines, raw datetime strings must be converted before any feature can be computed. Extracting these features is not optional — it is the gateway to the entire time dimension of the data.</p>
+  </div>
+
+  <div class="concept-box">
+    <h4>HOW: <code>pd.to_datetime()</code> and the <code>.dt</code> Accessor</h4>
+    <div class="derivation">
+      <div class="derivation-step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <strong>Parse the column</strong>
+          <div class="step-explanation">Convert the string column to <code>datetime64</code> dtype. Pandas auto-detects common formats; pass <code>format=</code> for speed on large data.</div>
+        </div>
+      </div>
+      <div class="derivation-step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <strong>Extract scalar features via <code>.dt</code></strong>
+          <div class="step-explanation">The <code>.dt</code> accessor unlocks sub-components: <code>.dt.hour</code>, <code>.dt.dayofweek</code>, <code>.dt.month</code>, <code>.dt.is_weekend</code>, and dozens more — each returns a full column of integers.</div>
+        </div>
+      </div>
+      <div class="derivation-step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <strong>Compute duration as a timedelta</strong>
+          <div class="step-explanation">Subtracting two datetime columns gives a <code>timedelta64</code> column. Chain <code>.dt.total_seconds() / 60</code> to get minutes as a float.</div>
+        </div>
+      </div>
+      <div class="derivation-step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <strong>Group and aggregate</strong>
+          <div class="step-explanation">Once features are numeric, <code>df.groupby('hour').size()</code> immediately gives rides-per-hour. Temporal patterns become visible in one line.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2: CODE WALKTHROUGH                                            -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Code Walkthrough</h2>
+
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python — parse datetime strings and extract features</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-comment"># Step 1: parse string columns → datetime64</span>
+df[<span class="py-str">'tpep_pickup_datetime'</span>]  = pd.<span class="py-fn">to_datetime</span>(df[<span class="py-str">'tpep_pickup_datetime'</span>])
+df[<span class="py-str">'tpep_dropoff_datetime'</span>] = pd.<span class="py-fn">to_datetime</span>(df[<span class="py-str">'tpep_dropoff_datetime'</span>])
+
+<span class="py-comment"># Step 2: extract scalar features via .dt accessor</span>
+df[<span class="py-str">'hour'</span>]        = df[<span class="py-str">'tpep_pickup_datetime'</span>].dt.<span class="py-fn">hour</span>        <span class="py-comment"># 0–23</span>
+df[<span class="py-str">'day_of_week'</span>] = df[<span class="py-str">'tpep_pickup_datetime'</span>].dt.<span class="py-fn">dayofweek</span>   <span class="py-comment"># 0=Monday</span>
+
+<span class="py-comment"># Step 3: compute trip duration in minutes</span>
+df[<span class="py-str">'duration_min'</span>] = (
+    df[<span class="py-str">'tpep_dropoff_datetime'</span>] - df[<span class="py-str">'tpep_pickup_datetime'</span>]
+).dt.<span class="py-fn">total_seconds</span>() / <span class="py-num">60</span>
+
+<span class="py-fn">print</span>(df[[<span class="py-str">'tpep_pickup_datetime'</span>, <span class="py-str">'hour'</span>, <span class="py-str">'day_of_week'</span>, <span class="py-str">'duration_min'</span>]].<span class="py-fn">head</span>(<span class="py-num">4</span>))</pre>
+    <div class="output-block">   tpep_pickup_datetime  hour  day_of_week  duration_min
+0   2023-03-06 08:15:00     8            0          17.0
+1   2023-03-06 08:42:00     8            0          13.0
+2   2023-03-06 09:05:00     9            0          25.0
+3   2023-03-06 09:50:00     9            0          20.0</div>
+  </div>
+
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python — aggregate: rides by hour and by day of week</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-comment"># Rides by hour of day</span>
+rides_by_hour = df.<span class="py-fn">groupby</span>(<span class="py-str">'hour'</span>).<span class="py-fn">size</span>().<span class="py-fn">reset_index</span>(name=<span class="py-str">'count'</span>)
+<span class="py-fn">print</span>(rides_by_hour)
+
+<span class="py-comment"># Rides by day of week</span>
+day_map = {<span class="py-num">0</span>:<span class="py-str">'Monday'</span>, <span class="py-num">1</span>:<span class="py-str">'Tuesday'</span>, <span class="py-num">2</span>:<span class="py-str">'Wednesday'</span>,
+           <span class="py-num">3</span>:<span class="py-str">'Thursday'</span>, <span class="py-num">4</span>:<span class="py-str">'Friday'</span>, <span class="py-num">5</span>:<span class="py-str">'Saturday'</span>, <span class="py-num">6</span>:<span class="py-str">'Sunday'</span>}
+df[<span class="py-str">'day_name'</span>] = df[<span class="py-str">'day_of_week'</span>].<span class="py-fn">map</span>(day_map)
+rides_by_day = df.<span class="py-fn">groupby</span>(<span class="py-str">'day_name'</span>).<span class="py-fn">size</span>()</pre>
+    <div class="output-block">   hour  count
+0      7      1
+1      8      4
+2      9      4
+3     10      3
+4     11      3
+5     12      3
+6     13      4
+7     14      4
+8     17      2
+9     18      1
+10    19      1
+11    20      2</div>
+  </div>
+
+  <div class="callout note">
+    <strong>Duration formula</strong> — the arithmetic is simple but the types matter.
+    <div style="margin:0.5rem 0 0.25rem 1rem;">
+      <div class="math-latex math-block">\text{duration\_min} = \frac{t_{\text{dropoff}} - t_{\text{pickup}}}{60}</div>
+    </div>
+    Subtracting two <code>datetime64</code> columns yields a <code>timedelta64</code>. Calling <code>.dt.total_seconds()</code> converts the timedelta to a float in seconds; dividing by 60 gives minutes. Without the <code>pd.to_datetime()</code> step first, the subtraction would fail — you cannot subtract strings.
+  </div>
+
+  <div class="bridge">
+    The widget below lets you explore every row of the taxi dataset: pick any trip, see how its raw timestamps decompose into hour, day-of-week, and duration — and see the aggregate patterns that emerge across all 30 trips.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- INTERACTIVE WIDGET                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Interactive: Datetime Feature Extractor</h2>
+
+  <div class="widget-container">
+
+    <!-- Row picker -->
+    <div class="widget-controls" style="margin-bottom:1rem;gap:0.75rem;align-items:center;">
+      <span style="font-weight:600;">Trip:</span>
+      <button class="nav-btn" id="dt-prev-btn" onclick="dtPrev()" style="padding:0.3rem 0.8rem;">&#8592; Prev</button>
+      <span id="dt-row-label" style="font-weight:600;min-width:5rem;text-align:center;">Row 1 / 30</span>
+      <button class="nav-btn" id="dt-next-btn" onclick="dtNext()" style="padding:0.3rem 0.8rem;">Next &#8594;</button>
+    </div>
+
+    <!-- Breakdown card -->
+    <div id="dt-breakdown" style="margin-bottom:1.5rem;"></div>
+
+    <!-- Aggregate section header -->
+    <h3 style="margin-bottom:0.75rem;font-size:1rem;font-weight:700;border-bottom:1px solid var(--border);padding-bottom:0.4rem;">Aggregate View — All 30 Trips</h3>
+
+    <!-- Two aggregate tables side by side -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;" id="dt-aggregate-grid">
+
+      <!-- Table 1: Rides by Hour -->
+      <div>
+        <p style="font-weight:600;margin-bottom:0.5rem;">Rides by Hour of Day</p>
+        <div id="dt-hour-table"></div>
+      </div>
+
+      <!-- Table 2: Rides by Day of Week -->
+      <div>
+        <p style="font-weight:600;margin-bottom:0.5rem;">Rides by Day of Week</p>
+        <div id="dt-day-table"></div>
+      </div>
+
+    </div><!-- /aggregate-grid -->
+
+  </div><!-- /widget-container -->
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- PRACTICE PROBLEMS                                                     -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1: Easy -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: Converting a String Column</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>What pandas method converts a string column to datetime dtype so that the <code>.dt</code> accessor becomes available?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><code>pd.to_datetime(df['col'])</code></p>
+        <p>This parses the string column and returns a new Series with <code>datetime64[ns]</code> dtype. You then assign it back: <code>df['col'] = pd.to_datetime(df['col'])</code>. Once the dtype is datetime, <code>df['col'].dt.hour</code>, <code>df['col'].dt.dayofweek</code>, and all other <code>.dt</code> sub-accessors become available. Attempting <code>.dt.hour</code> on a string column raises an <code>AttributeError</code>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2: Medium -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: Computing Duration</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>If <code>tpep_pickup_datetime</code> is <code>2023-01-15 08:32:00</code> and <code>tpep_dropoff_datetime</code> is <code>2023-01-15 09:05:00</code>, what is the trip duration in minutes?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><strong>33 minutes</strong></p>
+        <p>09:05 − 08:32 = 33 minutes. In pandas: <code>(df['tpep_dropoff_datetime'] - df['tpep_pickup_datetime']).dt.total_seconds() / 60</code> returns <code>33.0</code>. The subtraction of two <code>datetime64</code> columns yields a <code>timedelta64</code>; <code>.dt.total_seconds()</code> converts to a float of seconds (1980.0), and dividing by 60 gives minutes.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3: Hard -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: Why Extract Temporal Features?</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>Why is <code>dt.dayofweek</code> more useful for ML than the raw date string? Name two temporal features you would derive for a demand forecasting model.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p><code>dt.dayofweek</code> returns a number (0–6) that encodes <em>recurrent</em> weekly structure. The raw date string "2023-03-06" is a unique identifier — a model trained on it learns nothing about Mondays in general, only about that specific Monday. The integer 0 (Monday) appears every week, so the model can generalise across dates with the same weekday structure.</p>
+        <p>Two strong features for demand forecasting:</p>
+        <ul>
+          <li><strong><code>hour</code></strong> — captures the intra-day demand curve (morning commute, lunch lull, evening peak). Optionally encode cyclically: <code>sin(2π·hour/24)</code> and <code>cos(2π·hour/24)</code> so hour 23 is numerically close to hour 0.</li>
+          <li><strong><code>is_weekend</code></strong> — a boolean flag (<code>day_of_week &gt;= 5</code>) collapses the 7-day week into two demand regimes (workday vs. leisure day) that behave very differently in most transportation datasets.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- MCQ QUIZ                                                              -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Quiz</h2>
+
+  <div class="quiz-block">
+    <div class="quiz-block-header">Module 5 — Check Your Understanding</div>
+
+    <!-- Q1 -->
+    <div class="quiz-question">
+      <p>1. What does <code>pd.to_datetime()</code> return?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>A list of strings</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">B</span>
+          <span>A Series with <code>datetime64</code> dtype</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>A Unix timestamp integer</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>A Python <code>datetime</code> object</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. <code>pd.to_datetime()</code> returns a pandas Series (or Index) with <code>datetime64[ns]</code> dtype. This unlocks the <code>.dt</code> accessor and enables timedelta arithmetic between columns. Passing a single string returns a single <code>Timestamp</code>, but on a column it returns a full Series.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. <code>pd.to_datetime(col)</code> returns a pandas Series with <code>datetime64[ns]</code> dtype — not strings, not raw Unix integers, and not plain Python <code>datetime</code> objects (though each element is representable as one). The dtype change is what enables <code>.dt.hour</code> and timedelta subtraction.</div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="quiz-question">
+      <p>2. In pandas, <code>dt.dayofweek</code> returns 0 for:</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>Sunday</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">B</span>
+          <span>Monday</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>Saturday</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>The first day of the dataset</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. Pandas follows the ISO 8601 convention: 0 = Monday, 1 = Tuesday, …, 6 = Sunday. This differs from Python's <code>datetime.weekday()</code> (same convention) but differs from JavaScript's <code>Date.getDay()</code> which returns 0 for Sunday. Watch for this discrepancy when bridging Python and JS code.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. Pandas uses ISO convention: 0 = Monday, 6 = Sunday. JavaScript's <code>Date.getDay()</code> does return 0 for Sunday — a common source of off-by-one bugs when converting between the two. In pandas, <code>is_weekend</code> is therefore <code>dayofweek &gt;= 5</code>.</div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="quiz-question">
+      <p>3. Why extract <code>hour</code> and <code>day_of_week</code> as separate features?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>To reduce file size</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">B</span>
+          <span>To convert strings to numbers</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">C</span>
+          <span>To expose cyclical temporal patterns that models can learn</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Because pandas requires it for <code>groupby</code></span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. The raw date string "2023-03-06" is unique — a model learns nothing reusable from it. But <code>hour=8</code> appears every day: the model discovers that 8 AM is consistently high-demand. Cyclical features like <code>hour</code> and <code>day_of_week</code> encode recurrent patterns that generalise across dates — that is their fundamental value.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. The core reason is pattern generalisation: a raw date string is a unique label (not reusable), but <code>hour=8</code> appears every single day — the model learns that 8 AM is high-demand in general. Extracting these features converts one-time identifiers into recurring signals. String-to-number conversion is a side effect, not the reason.</div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="quiz-question">
+      <p>4. Trip duration is computed as:</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span><code>df['hour'].diff()</code></span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">B</span>
+          <span><code>df['dropoff'] - df['pickup']</code> (gives a string)</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">C</span>
+          <span><code>(df['dropoff'] - df['pickup']).dt.total_seconds() / 60</code></span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span><code>pd.duration(df['dropoff'], df['pickup'])</code></span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. Subtracting two <code>datetime64</code> columns gives a <code>timedelta64</code> column. The <code>.dt.total_seconds()</code> accessor converts that to float seconds, and dividing by 60 gives minutes. The key prerequisite is that both columns must already be <code>datetime64</code> — if they are still strings, the subtraction will raise a <code>TypeError</code>.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. <code>df['hour'].diff()</code> computes differences between consecutive hour values (not duration). Subtracting string columns gives a <code>TypeError</code>, not a string result — you must parse with <code>pd.to_datetime()</code> first. There is no <code>pd.duration()</code> function. The correct chain is: parse both columns → subtract → <code>.dt.total_seconds() / 60</code>.</div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- BRIDGE TO MODULE 6                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="bridge" style="margin-top:2rem;">
+    <strong>What's next: seeing the data.</strong> You have cleaned missing values, caught invalid values, flagged outliers, and engineered time features. Module 6 puts all of these cleaned columns under a microscope with <strong>univariate visualisation</strong> — histograms, KDE curves, and bar charts that reveal the shape of each variable's distribution.
+  </div>
+
+  <div class="nav-buttons">
+    <a href="04-outlier-detection-iqr.html" class="nav-btn prev">Previous: Module 4 — Outlier Detection (IQR)</a>
+    <a href="06-univariate-visualization.html" class="nav-btn">Next: Module 6 — Univariate Visualization</a>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DATETIME FEATURE EXTRACTOR WIDGET
+  // ═══════════════════════════════════════════════════════════════════════
+
+  var currentRow = 0; // 0-based index into TAXI_SAMPLE_DATA
+
+  // ── Row navigation ────────────────────────────────────────────────────
+  window.dtPrev = function () {
+    if (currentRow > 0) { currentRow--; dtRender(); }
+  };
+  window.dtNext = function () {
+    if (currentRow < TAXI_SAMPLE_DATA.length - 1) { currentRow++; dtRender(); }
+  };
+
+  // ── Render breakdown card for selected row ────────────────────────────
+  function dtRender() {
+    var row = TAXI_SAMPLE_DATA[currentRow];
+    var pickupStr  = row.pickup;
+    var dropoffStr = row.dropoff;
+    var dec = decomposeDatetime(pickupStr, dropoffStr);
+
+    // Update row label
+    document.getElementById('dt-row-label').textContent =
+      'Row ' + (currentRow + 1) + ' / ' + TAXI_SAMPLE_DATA.length;
+
+    // Enable / disable nav buttons
+    document.getElementById('dt-prev-btn').disabled = currentRow === 0;
+    document.getElementById('dt-next-btn').disabled = currentRow === TAXI_SAMPLE_DATA.length - 1;
+
+    // Breakdown card HTML
+    var html =
+      '<table class="data-table" style="max-width:600px;">' +
+      '<thead><tr><th>Field</th><th>Value</th></tr></thead>' +
+      '<tbody>' +
+      '<tr><td><code>tpep_pickup_datetime</code></td><td>' + escHtml(pickupStr) + '</td></tr>' +
+      '<tr><td><code>tpep_dropoff_datetime</code></td><td>' + escHtml(dropoffStr) + '</td></tr>' +
+      '<tr style="background:rgba(37,99,235,0.06)"><td><code>hour</code></td><td><strong>' + dec.hour + '</strong></td></tr>' +
+      '<tr style="background:rgba(37,99,235,0.06)"><td><code>day_of_week</code> (pandas: 0=Mon)</td><td><strong>' + dec.dayOfWeek + ' — ' + dec.dayName + '</strong></td></tr>' +
+      '<tr style="background:rgba(37,99,235,0.06)"><td><code>duration_min</code></td><td><strong>' + dec.durationMinutes.toFixed(1) + ' min</strong></td></tr>' +
+      '</tbody></table>';
+
+    document.getElementById('dt-breakdown').innerHTML = html;
+  }
+
+  // ── Pre-compute aggregate tallies ─────────────────────────────────────
+
+  // Hour tally
+  var hourCounts = {};
+  // Day tally — initialise all 7 days at 0
+  var dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  var dayCounts = {};
+  dayOrder.forEach(function (d) { dayCounts[d] = 0; });
+
+  TAXI_SAMPLE_DATA.forEach(function (row) {
+    var dec = decomposeDatetime(row.pickup, row.dropoff);
+    hourCounts[dec.hour] = (hourCounts[dec.hour] || 0) + 1;
+    dayCounts[dec.dayName] = (dayCounts[dec.dayName] || 0) + 1;
+  });
+
+  // Max counts for scaling bars
+  var hourMax = Math.max.apply(null, Object.keys(hourCounts).map(function (h) { return hourCounts[h]; }));
+  var dayMax  = Math.max.apply(null, dayOrder.map(function (d) { return dayCounts[d]; }));
+
+  // ── Render hour table ─────────────────────────────────────────────────
+  function buildHourTable() {
+    var hours = Object.keys(hourCounts)
+      .map(Number)
+      .sort(function (a, b) { return a - b; });
+
+    var html = '<table class="data-table"><thead><tr><th>Hour</th><th>Count</th><th style="min-width:120px;">Bar</th></tr></thead><tbody>';
+    hours.forEach(function (h) {
+      var cnt = hourCounts[h];
+      var pct = Math.round((cnt / hourMax) * 100);
+      var label = h < 12 ? (h === 0 ? '12 AM' : h + ' AM') : (h === 12 ? '12 PM' : (h - 12) + ' PM');
+      html +=
+        '<tr>' +
+        '<td>' + label + '</td>' +
+        '<td><strong>' + cnt + '</strong></td>' +
+        '<td>' +
+          '<div style="background:var(--border);border-radius:3px;overflow:hidden;height:14px;">' +
+            '<div style="width:' + pct + '%;height:100%;background:var(--accent-blue);border-radius:3px;transition:width 0.3s;"></div>' +
+          '</div>' +
+        '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('dt-hour-table').innerHTML = html;
+  }
+
+  // ── Render day-of-week table ──────────────────────────────────────────
+  function buildDayTable() {
+    var html = '<table class="data-table"><thead><tr><th>Day</th><th>Count</th><th style="min-width:100px;">Bar</th></tr></thead><tbody>';
+    dayOrder.forEach(function (day) {
+      var cnt = dayCounts[day];
+      var pct = dayMax > 0 ? Math.round((cnt / dayMax) * 100) : 0;
+      var barColor = cnt === 0 ? 'var(--border)' : 'var(--accent-blue)';
+      html +=
+        '<tr>' +
+        '<td>' + day + '</td>' +
+        '<td><strong>' + cnt + '</strong></td>' +
+        '<td>' +
+          '<div style="background:var(--border);border-radius:3px;overflow:hidden;height:14px;">' +
+            '<div style="width:' + pct + '%;height:100%;background:' + barColor + ';border-radius:3px;transition:width 0.3s;"></div>' +
+          '</div>' +
+        '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('dt-day-table').innerHTML = html;
+  }
+
+  // ── Responsive: stack tables on narrow screens ────────────────────────
+  function maybeStackGrid() {
+    var grid = document.getElementById('dt-aggregate-grid');
+    if (!grid) return;
+    if (window.innerWidth < 640) {
+      grid.style.gridTemplateColumns = '1fr';
+    } else {
+      grid.style.gridTemplateColumns = '1fr 1fr';
+    }
+  }
+  window.addEventListener('resize', maybeStackGrid);
+  maybeStackGrid();
+
+  // ── Initial render ────────────────────────────────────────────────────
+  dtRender();
+  buildHourTable();
+  buildDayTable();
+
+});
+</script>
+</body>
+</html>
