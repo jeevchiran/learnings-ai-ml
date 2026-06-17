@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 7: Bivariate Analysis</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="../js/common.js"></script>
+</head>
+<body>
+<div class="container">
+
+  <nav class="module-nav-bar">
+    <a href="../index.html">Track Home</a>
+    <a href="01-eda-foundations.html">1. EDA Foundations</a>
+    <a href="02-missing-values.html">2. Missing Values</a>
+    <a href="03-data-quality-invalid-values.html">3. Data Quality &amp; Invalid Values</a>
+    <a href="04-outlier-detection-iqr.html">4. Outlier Detection (IQR)</a>
+    <a href="05-datetime-feature-engineering.html">5. Datetime &amp; Feature Engineering</a>
+    <a href="06-univariate-visualization.html">6. Univariate Visualization</a>
+    <a href="07-bivariate-analysis.html" class="active">7. Bivariate Analysis</a>
+    <a href="08-multivariate-analysis.html">8. Multivariate Analysis</a>
+    <a href="09-capstone-eda-workflow.html">9. Capstone</a>
+  </nav>
+
+  <header>
+    <h1>Module 7: Bivariate Analysis</h1>
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <button class="theme-toggle">Dark mode</button>
+      <button class="menu-toggle" aria-label="Open navigation menu"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: WHAT / WHY / HOW                                           -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>What, Why, and How</h2>
+
+  <div class="concept-box">
+    <h4>WHAT: Examining how two variables relate</h4>
+    <p>Bivariate analysis looks at <strong>pairs of variables simultaneously</strong> — how one changes in relation to another. The core tools are:</p>
+    <ul>
+      <li><strong>Scatter plot</strong> — plots each observation as a point at (x, y). Reveals the direction, strength, and shape of any relationship, including non-linear curves or clusters.</li>
+      <li><strong>Grouped box plot</strong> — shows a separate box plot for each category. Useful when one variable is categorical (e.g., payment_type) and the other is numeric (e.g., fare_amount).</li>
+      <li><strong>Pearson correlation coefficient (r)</strong> — a single number summarizing the strength and direction of a linear relationship. Ranges from −1 (perfect negative) to +1 (perfect positive); 0 means no linear association.</li>
+      <li><strong>Correlation matrix</strong> — extends Pearson r to every pair of numeric columns simultaneously, displayed as a grid.</li>
+    </ul>
+  </div>
+
+  <div class="concept-box">
+    <h4>WHY: Bivariate analysis reveals predictive signals and confounders</h4>
+    <p>Knowing a column's distribution in isolation tells you nothing about whether it predicts something else. Bivariate analysis answers questions like:</p>
+    <ul>
+      <li>Does <code>trip_distance</code> predict <code>fare_amount</code>? (Feature selection for a regression model)</li>
+      <li>Do card-paying passengers tip more than cash passengers? (Group comparison)</li>
+      <li>Are there variables that seem correlated only because both depend on a third variable? (Confounder detection)</li>
+    </ul>
+    <p>In this dataset, <code>fare_amount</code> and <code>trip_distance</code> have a strong positive relationship for metered rides — but airport flat-rate fares (RatecodeID=2) and the $399 meter error row break that pattern. Bivariate analysis surfaces these complications before you build a model.</p>
+  </div>
+
+  <div class="concept-box">
+    <h4>HOW: Scatter plots, df.corr(), and Pearson r</h4>
+    <p>The Pearson correlation formula quantifies linear association:</p>
+    <div class="math-latex math-block">r = \frac{\sum(x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum(x_i - \bar{x})^2 \cdot \sum(y_i - \bar{y})^2}}</div>
+    <p style="margin-top:0.75rem;">The numerator is the covariance (how x and y deviate together); the denominator normalises by the product of standard deviations, bounding r between −1 and +1.</p>
+    <div class="derivation">
+      <div class="derivation-step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <strong>Scatter plot via pandas</strong>
+          <div class="step-explanation"><code>df.plot.scatter(x='trip_distance', y='fare_amount', alpha=0.5)</code> — each row becomes a point. <code>alpha</code> makes overlapping points visible by reducing opacity.</div>
+        </div>
+      </div>
+      <div class="derivation-step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <strong>Correlation matrix via pandas</strong>
+          <div class="step-explanation"><code>df[cols].corr()</code> — returns a symmetric DataFrame where each cell is the Pearson r between the row column and column column. The diagonal is always 1.0.</div>
+        </div>
+      </div>
+      <div class="derivation-step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <strong>Seaborn heatmap</strong>
+          <div class="step-explanation"><code>sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', center=0)</code> — colours each cell by its r value: warm (red) for positive, cool (blue) for negative, white at zero.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2: CODE WALKTHROUGH                                            -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Code Walkthrough</h2>
+
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python — scatter plot</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-comment"># Scatter plot</span>
+df.<span class="py-fn">plot</span>.<span class="py-fn">scatter</span>(x=<span class="py-str">'trip_distance'</span>, y=<span class="py-str">'fare_amount'</span>, alpha=<span class="py-num">0.5</span>, figsize=(<span class="py-num">8</span>, <span class="py-num">5</span>))
+plt.<span class="py-fn">title</span>(<span class="py-str">'Trip Distance vs Fare Amount'</span>)
+plt.<span class="py-fn">show</span>()</pre>
+    <div class="output-block">Points cluster along a rising line from bottom-left to upper-right — with two outliers: the $399 row and the 120-mile trip</div>
+  </div>
+
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python — correlation matrix</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-comment"># Correlation matrix</span>
+corr_matrix = df[[<span class="py-str">'fare_amount'</span>, <span class="py-str">'trip_distance'</span>, <span class="py-str">'tip_amount'</span>, <span class="py-str">'passenger_count'</span>]].<span class="py-fn">corr</span>()
+<span class="py-fn">print</span>(corr_matrix.<span class="py-fn">round</span>(<span class="py-num">2</span>))</pre>
+    <div class="output-block">4×4 symmetric table; diagonal all 1.00; fare_amount–trip_distance cell shows a large positive value distorted by the $399 outlier</div>
+  </div>
+
+  <div class="code-snippet">
+    <div class="code-snippet-header">
+      <span class="code-snippet-label">Python — seaborn heatmap</span>
+      <button class="code-copy-btn">Copy</button>
+    </div>
+    <pre><span class="py-kw">import</span> seaborn <span class="py-kw">as</span> sns
+sns.<span class="py-fn">heatmap</span>(corr_matrix, annot=<span class="py-kw">True</span>, cmap=<span class="py-str">'coolwarm'</span>, center=<span class="py-num">0</span>)
+plt.<span class="py-fn">title</span>(<span class="py-str">'Correlation Heatmap'</span>)
+plt.<span class="py-fn">show</span>()</pre>
+    <div class="output-block">Grid of coloured cells — strong-positive cells are deep red, near-zero cells are white, negative cells shade blue</div>
+  </div>
+
+  <div class="callout warning">
+    <strong>Correlation does not imply causation.</strong> <code>fare_amount</code> and <code>trip_distance</code> correlate because longer trips cost more — but a third variable (RatecodeID=2 flat-rate fares for airport trips) breaks this for some rows: the fare is fixed at $45 or $52 regardless of the exact distance. Always ask <em>why</em> a correlation exists before acting on it.
+  </div>
+
+  <div class="bridge">
+    The interactive widget below lets you plot any pair of columns as a scatter with live Pearson r, or compute the full correlation heatmap table in one click.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- INTERACTIVE WIDGET                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Interactive: Bivariate Explorer</h2>
+
+  <div class="widget-container">
+
+    <!-- Mode toggle -->
+    <div class="widget-controls" style="margin-bottom:1rem;">
+      <span style="font-weight:600;margin-right:0.5rem;">Mode:</span>
+      <button class="tab active" id="btn-mode-scatter" onclick="bivSetMode('scatter')">Scatter Plot</button>
+      <button class="tab" id="btn-mode-heatmap" onclick="bivSetMode('heatmap')">Correlation Heatmap</button>
+    </div>
+
+    <!-- ── Scatter controls ── -->
+    <div id="scatter-controls">
+      <div class="widget-controls" style="flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+        <div>
+          <label style="font-weight:600;display:block;margin-bottom:0.3rem;">X axis:</label>
+          <select id="x-col-select" style="padding:0.35rem 0.5rem;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:0.9rem;">
+            <option value="trip_distance" selected>trip_distance</option>
+            <option value="fare_amount">fare_amount</option>
+            <option value="passenger_count">passenger_count</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-weight:600;display:block;margin-bottom:0.3rem;">Y axis:</label>
+          <select id="y-col-select" style="padding:0.35rem 0.5rem;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:0.9rem;">
+            <option value="fare_amount" selected>fare_amount</option>
+            <option value="trip_distance">trip_distance</option>
+            <option value="tip_amount">tip_amount</option>
+          </select>
+        </div>
+      </div>
+      <button class="nav-btn" onclick="bivRenderScatter()" style="margin-bottom:1.25rem;">Plot</button>
+      <div id="biv-scatter-plot" style="width:100%;height:340px;"></div>
+      <div id="biv-pearson-result" style="margin-top:1rem;"></div>
+    </div>
+
+    <!-- ── Heatmap controls ── -->
+    <div id="heatmap-controls" style="display:none;">
+      <p style="margin-bottom:0.75rem;color:var(--text-secondary);font-size:0.9rem;">Columns: <code>fare_amount</code>, <code>trip_distance</code>, <code>tip_amount</code>, <code>passenger_count</code></p>
+      <button class="nav-btn" onclick="bivRenderHeatmap()" style="margin-bottom:1.25rem;">Compute</button>
+      <div id="biv-heatmap-table" style="overflow-x:auto;"></div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- PRACTICE PROBLEMS                                                     -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Practice</h2>
+
+  <!-- Problem 1: Easy -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 1: Interpreting r = 0</h4>
+      <span class="practice-difficulty easy">Easy</span>
+    </div>
+    <div class="practice-body">
+      <p>What does a Pearson r of 0 mean?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>r = 0 means there is <strong>no linear relationship</strong> between the two variables. When one variable increases, the other shows no systematic tendency to increase or decrease.</p>
+        <p>Critically, r = 0 does <em>not</em> mean the variables are unrelated. A perfect U-shaped (quadratic) relationship would also produce r ≈ 0 because positive and negative deviations cancel out in the formula. Always plot the scatter before concluding independence — a non-linear pattern can have r near zero while the variables are strongly associated.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 2: Medium -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 2: Why is fare_amount vs trip_distance not r = 1.0?</h4>
+      <span class="practice-difficulty medium">Medium</span>
+    </div>
+    <div class="practice-body">
+      <p>NYC taxi fare is calculated from distance, yet <code>fare_amount</code> vs <code>trip_distance</code> does not achieve r = 1.0. Why not?</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>Several factors add variance beyond distance:</p>
+        <ul>
+          <li><strong>Flat-rate airport fares</strong> (RatecodeID=2, rows 6 and 18): fare is $45/$52 regardless of the exact mileage — a fixed amount that breaks the distance-to-price proportionality.</li>
+          <li><strong>The $399 meter error</strong> (row 26): a 6.7-mile trip with a $399 fare is almost certainly a meter malfunction. This single point pulls the correlation away from the metered-trip pattern.</li>
+          <li><strong>Negative fares</strong> (rows 7, 15): refunds or voids recorded as negative amounts have no valid relationship to distance.</li>
+          <li><strong>Tolls and surcharges</strong>: these are included in total_amount but not in fare_amount, yet the flat surcharge amounts vary by route.</li>
+          <li><strong>Time-based metering</strong>: slow traffic adds time-based charges, so two trips of the same distance can have different fares depending on traffic speed.</li>
+        </ul>
+        <p>The lesson: even when you know a causal mechanism (distance drives fare), real-world data adds enough noise through exceptions and errors that r &lt; 1.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem 3: Hard -->
+  <div class="practice">
+    <div class="practice-header">
+      <h4>Problem 3: Using the correlation matrix for feature selection</h4>
+      <span class="practice-difficulty hard">Hard</span>
+    </div>
+    <div class="practice-body">
+      <p>Describe how you would use the correlation matrix to do feature selection for a model predicting <code>tip_amount</code>.</p>
+      <button class="practice-toggle">Show solution</button>
+      <div class="practice-solution">
+        <p>A systematic approach:</p>
+        <ol>
+          <li><strong>Look at the tip_amount row/column</strong> — check the absolute r value between tip_amount and every other numeric column. Features with |r| close to 0 contribute little predictive power via linear mechanisms; features with |r| &gt; 0.4 are candidates to include.</li>
+          <li><strong>Check inter-feature correlations</strong> — if two candidate features are highly correlated with each other (e.g., r &gt; 0.85), keeping both adds redundancy without information gain, and may cause multicollinearity in linear models. Drop the one with the lower correlation to the target.</li>
+          <li><strong>Interpret the findings</strong> — <code>fare_amount</code> and <code>trip_distance</code> likely have moderate positive r with tip_amount because higher fares typically receive larger tip amounts. <code>passenger_count</code> likely shows near-zero r, making it a weak linear predictor.</li>
+          <li><strong>Go beyond Pearson r</strong> — the correlation matrix only captures linear associations. A categorical feature like <code>payment_type</code> (card vs cash) could be a strong predictor even though it does not appear in a Pearson matrix. Use point-biserial correlation or group means to evaluate such features separately.</li>
+          <li><strong>Validate with domain knowledge</strong> — cash passengers cannot be tipped electronically (tip_amount is 0 for all cash rows in this dataset), so payment_type is a near-deterministic predictor that a correlation matrix would not flag as numeric.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- MCQ QUIZ                                                              -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <h2>Quiz</h2>
+
+  <div class="quiz-block">
+    <div class="quiz-block-header">Module 7 — Check Your Understanding</div>
+
+    <!-- Q1 -->
+    <div class="quiz-question">
+      <p>1. A Pearson r of −0.8 indicates:</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>No relationship</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">B</span>
+          <span>Weak negative relationship</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">C</span>
+          <span>Strong negative linear relationship</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Perfect non-linear relationship</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. r = −0.8 is close to −1 (perfect negative linear), meaning as x increases, y decreases strongly and proportionally. By convention: |r| &gt; 0.7 = strong, 0.4–0.7 = moderate, &lt; 0.4 = weak. The negative sign indicates the direction (inverse), and 0.8 is in the strong range.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. The magnitude of r (0.8) tells you strength — it is close to 1, meaning strong. The negative sign tells you direction — as x increases, y tends to decrease. r = 0 would mean no relationship; |r| &lt; 0.4 would mean weak. r only measures linear association, so "non-linear" is not what the value encodes.</div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="quiz-question">
+      <p>2. What is the correlation of any variable with itself?</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>0</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">B</span>
+          <span>−1</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">C</span>
+          <span>1.0</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Undefined</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. The Pearson formula for corr(x, x) simplifies to the covariance of x with itself divided by its own variance — which equals 1. This is why the diagonal of a correlation matrix is always 1.00, and is a quick sanity check that the computation is correct.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. Plug x into the Pearson formula as both variables: numerator becomes sum of (x−mean)² which equals the variance; denominator becomes sqrt(variance * variance) = variance. The ratio is 1. Every variable perfectly predicts itself — that is r = 1.</div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="quiz-question">
+      <p>3. A scatter plot shows a curved (non-linear) pattern but Pearson r ≈ 0. This means:</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>The variables are unrelated</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">B</span>
+          <span>Pearson r only captures linear relationships; non-linear association exists</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>The data has errors</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>You need more data points</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. Pearson r is specifically a measure of linear association. A perfect U-shape (y = x²) produces r = 0 because the positive slope on one side cancels the negative slope on the other. This is why "always look at the scatter plot" is rule one — a low r does not mean independence.</div>
+      <div class="quiz-feedback wrong-fb">Not quite. The scatter plot tells you a strong relationship exists — it is curved. Pearson r ≈ 0 just means no linear relationship. The two facts together reveal that the association is non-linear, not that it is absent. Spearman rank correlation or polynomial regression would capture this better.</div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="quiz-question">
+      <p>4. In pandas, <code>df.corr()</code> computes:</p>
+      <div class="quiz-options">
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">A</span>
+          <span>Covariance matrix</span>
+        </div>
+        <div class="quiz-option" data-correct="true">
+          <span class="opt-letter">B</span>
+          <span>Pearson correlation matrix for all numeric columns</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">C</span>
+          <span>Spearman correlation only</span>
+        </div>
+        <div class="quiz-option" data-correct="false">
+          <span class="opt-letter">D</span>
+          <span>Chi-squared statistics</span>
+        </div>
+      </div>
+      <div class="quiz-feedback correct-fb">Correct. <code>df.corr()</code> defaults to method='pearson' and operates on all numeric columns, returning a symmetric n×n DataFrame. To get covariance use <code>df.cov()</code>; for Spearman use <code>df.corr(method='spearman')</code>. Chi-squared is for categorical independence tests, unrelated to corr().</div>
+      <div class="quiz-feedback wrong-fb">Not quite. <code>df.corr()</code> is not the covariance matrix (that is <code>df.cov()</code>) — it normalises covariance by standard deviations, giving bounded r values. It defaults to Pearson; Spearman requires <code>method='spearman'</code>. Chi-squared is a completely separate test for categorical data.</div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- BRIDGE TO MODULE 8                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="bridge" style="margin-top:2rem;">
+    <strong>What's next: moving from pairs to many variables at once.</strong> Bivariate analysis shows you how two variables relate — but most real datasets have dozens of columns interacting simultaneously. Module 8 introduces multivariate analysis: pair plots, grouped heatmaps, and pivot tables that let you examine three or more dimensions together.
+  </div>
+
+  <div class="nav-buttons">
+    <a href="06-univariate-visualization.html" class="nav-btn prev">Previous: Module 6 — Univariate Visualization</a>
+    <a href="08-multivariate-analysis.html" class="nav-btn">Next: Module 8 — Multivariate Analysis</a>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // BIVARIATE EXPLORER WIDGET
+  // ═══════════════════════════════════════════════════════════════════════
+
+  var bivMode = 'scatter';
+
+  window.bivSetMode = function (mode) {
+    bivMode = mode;
+    document.getElementById('btn-mode-scatter').classList.toggle('active', mode === 'scatter');
+    document.getElementById('btn-mode-heatmap').classList.toggle('active', mode === 'heatmap');
+    document.getElementById('scatter-controls').style.display = mode === 'scatter' ? '' : 'none';
+    document.getElementById('heatmap-controls').style.display = mode === 'heatmap' ? '' : 'none';
+  };
+
+  // ── Pearson interpretation label ────────────────────────────────────────
+  function interpretR(r) {
+    var abs = Math.abs(r);
+    var dir = r >= 0 ? 'positive' : 'negative';
+    var strength;
+    if (abs >= 0.7) strength = 'Strong';
+    else if (abs >= 0.4) strength = 'Moderate';
+    else strength = 'Weak';
+    return strength + ' ' + dir;
+  }
+
+  // ── Scatter plot render ─────────────────────────────────────────────────
+  window.bivRenderScatter = function () {
+    var xCol = document.getElementById('x-col-select').value;
+    var yCol = document.getElementById('y-col-select').value;
+
+    // Extract paired values (skip nulls)
+    var pairs = TAXI_SAMPLE_DATA.filter(function (r) {
+      return r[xCol] !== null && r[xCol] !== undefined &&
+             r[yCol] !== null && r[yCol] !== undefined;
+    });
+
+    var xVals = pairs.map(function (r) { return r[xCol]; });
+    var yVals = pairs.map(function (r) { return r[yCol]; });
+    var ids   = pairs.map(function (r) { return 'id=' + r.id; });
+
+    var trace = {
+      x: xVals,
+      y: yVals,
+      text: ids,
+      hovertemplate: xCol + ': %{x}<br>' + yCol + ': %{y}<br>%{text}<extra></extra>',
+      type: 'scatter',
+      mode: 'markers',
+      marker: {
+        color: 'rgba(37,99,235,0.65)',
+        size: 8,
+        line: { color: '#1d4ed8', width: 1 }
+      },
+      name: xCol + ' vs ' + yCol
+    };
+
+    var layout = plotlyLayout({
+      title: { text: xCol + ' vs ' + yCol, font: { size: 13 } },
+      xaxis: { title: xCol },
+      yaxis: { title: yCol },
+      showlegend: false
+    });
+
+    Plotly.react('biv-scatter-plot', [trace], layout, PLOTLY_CONFIG);
+
+    // Pearson r
+    var r = pearsonPair(TAXI_SAMPLE_DATA, xCol, yCol);
+    var interp = interpretR(r);
+    var rDiv = document.getElementById('biv-pearson-result');
+    var strengthClass = Math.abs(r) >= 0.7 ? 'callout note' :
+                        Math.abs(r) >= 0.4 ? 'callout warning' : 'callout';
+    rDiv.innerHTML =
+      '<div class="' + strengthClass + '">' +
+        '<strong>Pearson r = ' + r.toFixed(3) + '</strong> &mdash; ' + interp + ' linear relationship.' +
+        ' (' + pairs.length + ' valid pairs)' +
+      '</div>';
+  };
+
+  // ── Correlation heatmap render ──────────────────────────────────────────
+  window.bivRenderHeatmap = function () {
+    var cols = ['fare_amount', 'trip_distance', 'tip_amount', 'passenger_count'];
+    var matrix = computeCorrelationMatrix(TAXI_SAMPLE_DATA, cols);
+
+    // Build HTML table with color-coded cells
+    var html = '<table class="data-table" style="border-collapse:collapse;width:auto;margin:0 auto;">';
+    // Header row
+    html += '<thead><tr><th style="padding:0.5rem 0.75rem;"></th>';
+    cols.forEach(function (c) {
+      html += '<th style="padding:0.5rem 0.75rem;text-align:center;font-size:0.8rem;">' + c + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+    // Data rows
+    cols.forEach(function (rowCol) {
+      html += '<tr><th style="padding:0.5rem 0.75rem;text-align:right;font-size:0.8rem;white-space:nowrap;">' + rowCol + '</th>';
+      cols.forEach(function (colCol) {
+        var r = matrix[rowCol][colCol];
+        var bg = cellColor(r);
+        var textColor = Math.abs(r) > 0.5 ? '#fff' : 'var(--text-primary)';
+        html += '<td style="padding:0.55rem 0.75rem;text-align:center;background:' + bg + ';color:' + textColor + ';font-weight:600;font-size:0.9rem;border:1px solid var(--border-color);min-width:80px;">' +
+          r.toFixed(2) + '</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    html += '<p style="margin-top:0.75rem;font-size:0.82rem;color:var(--text-secondary);">Green = strong positive &nbsp;|&nbsp; White = near zero &nbsp;|&nbsp; Red = negative</p>';
+
+    document.getElementById('biv-heatmap-table').innerHTML = html;
+  };
+
+  // ── Cell colour helper ──────────────────────────────────────────────────
+  // r in [-1, 1] → CSS color. Green for positive, red for negative.
+  function cellColor(r) {
+    if (r >= 0) {
+      // 0 → white, 1 → green (#16a34a)
+      var g = Math.round(r * 255);
+      var intensity = Math.round(r * 163);
+      return 'rgba(' + (255 - Math.round(r * 200)) + ',' + (164 + Math.round(r * 50)) + ',' + (255 - Math.round(r * 200)) + ',' + (0.15 + r * 0.75) + ')';
+    } else {
+      // 0 → white, -1 → red (#dc2626)
+      var abs = Math.abs(r);
+      return 'rgba(220,' + Math.round(38 + (1 - abs) * 150) + ',' + Math.round(38 + (1 - abs) * 150) + ',' + (0.15 + abs * 0.75) + ')';
+    }
+  }
+
+  // Initial render
+  bivRenderScatter();
+
+});
+</script>
+</body>
+</html>
