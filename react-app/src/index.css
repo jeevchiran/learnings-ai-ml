@@ -618,3 +618,41 @@ button { font-family: inherit; }
 @media (max-width: 768px) {
   .module-mdx { padding: 16px 14px 32px; }
 }
+
+/* ── QuizCard ────────────────────────────────────────── */
+.lc-quiz {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 16px 0;
+  background: var(--bg-card);
+}
+
+.lc-quiz-q {
+  font-weight: 600;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+.lc-quiz-opts { display: flex; flex-direction: column; gap: 6px; }
+
+.lc-quiz-opt {
+  text-align: left;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.12s;
+}
+
+.lc-quiz-opt:hover:not(:disabled) { background: var(--bg-hover); }
+.lc-quiz-opt.correct { border-color: var(--success); background: color-mix(in srgb, var(--success) 10%, var(--bg)); }
+.lc-quiz-opt.wrong   { border-color: #ef4444; background: color-mix(in srgb, #ef4444 10%, var(--bg)); }
+.lc-quiz-opt:disabled { cursor: default; }
+
+.lc-quiz-result { margin-top: 10px; font-size: 0.85rem; font-weight: 600; }
+.lc-quiz-result.correct { color: var(--success); }
+.lc-quiz-result.wrong   { color: #ef4444; }
