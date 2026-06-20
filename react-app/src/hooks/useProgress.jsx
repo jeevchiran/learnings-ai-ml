@@ -14,6 +14,10 @@ function useProgress() {
     refresh(() => storage.markComplete(id));
   }, [refresh]);
 
+  const toggleComplete = useCallback((id) => {
+    refresh(() => storage.toggleComplete(id));
+  }, [refresh]);
+
   const toggleBookmark = useCallback((id) => {
     refresh(() => storage.toggleBookmark(id));
   }, [refresh]);
@@ -31,7 +35,7 @@ function useProgress() {
     total: moduleIds.length,
   }), [data]);
 
-  return { data, markComplete, toggleBookmark, setLastVisited, isCompleted, isBookmarked, getLastVisited, getTrackProgress };
+  return { data, markComplete, toggleComplete, toggleBookmark, setLastVisited, isCompleted, isBookmarked, getLastVisited, getTrackProgress };
 }
 
 export function ProgressProvider({ children }) {
