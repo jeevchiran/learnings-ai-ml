@@ -1,5 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import mdx from '@mdx-js/rollup'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
 import { resolve, join, extname } from 'path'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
@@ -17,7 +20,6 @@ function serveTrackFiles() {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         let url = (req.url ?? '').split('?')[0]
-        // strip base prefix so /learnings-ai-ml-main/etl-pyspark/... → /etl-pyspark/...
         if (url.startsWith(BASE)) url = '/' + url.slice(BASE.length)
         const isTrack = TRACK_DIRS.some(d => url.startsWith('/' + d + '/'))
         if (!isTrack) { next(); return }
@@ -31,13 +33,20 @@ function serveTrackFiles() {
 }
 
 export default defineConfig({
-  base: BASE,   // must match GitHub repo name: jeevchiran/learnings-ai-ml
-  plugins: [react(), serveTrackFiles()],
+  plugins: [
+    // MDX must come before react() so JSX transform sees compiled MDX
+    mdx({ remarkPlugins: [remarkMath], rehypePlugins: [rehypeKatex] }),
+    react(),
+    serveTrackFiles(),
+  ],
+  base: BASE,
   build: {
     outDir: resolve(__dirname, 'dist'),
     emptyOutDir: true,
   },
   test: {
-    environment: 'node',
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/__tests__/setup.js'],
   },
 })
