@@ -5,7 +5,7 @@ export default function QuizCard({ question, options, correct }) {
   const solved = selected === correct
 
   function pick(i) {
-    if (solved) return
+    if (selected !== null) return
     setSelected(i)
   }
 
@@ -18,7 +18,7 @@ export default function QuizCard({ question, options, correct }) {
           if (selected !== null && i === correct) cls += ' correct'
           if (selected === i && i !== correct) cls += ' wrong'
           return (
-            <button key={i} className={cls} onClick={() => pick(i)} disabled={solved}>
+            <button key={i} className={cls} onClick={() => pick(i)} disabled={selected !== null}>
               {opt}
             </button>
           )

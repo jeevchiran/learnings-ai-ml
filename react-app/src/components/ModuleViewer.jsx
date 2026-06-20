@@ -24,7 +24,7 @@ function useMDXContent(mod) {
     } else {
       setChecked(true)
     }
-  }, [mod?.id])
+  }, [mod?.id, mod?.coursePath])
 
   return { Content, checked }
 }

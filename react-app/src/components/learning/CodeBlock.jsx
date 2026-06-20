@@ -3,10 +3,11 @@ import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { useState, useEffect } from 'react'
 
-export default function CodeBlock({ children, lang = 'python', className }) {
-  // MDX passes lang as className="language-python"
-  const language = lang || (className?.replace('language-', '') ?? 'text')
-  const [dark, setDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark')
+export default function CodeBlock({ children, lang, className }) {
+  const language = lang || className?.replace('language-', '') || 'python'
+  const [dark, setDark] = useState(() => {
+    try { return document.documentElement.getAttribute('data-theme') === 'dark' } catch { return false }
+  })
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -16,7 +17,7 @@ export default function CodeBlock({ children, lang = 'python', className }) {
   }, [])
 
   function copy() {
-    navigator.clipboard.writeText(String(children).trimEnd())
+    try { navigator.clipboard.writeText(String(children).trimEnd()) } catch {}
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
