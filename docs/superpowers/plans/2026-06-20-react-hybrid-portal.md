@@ -1096,7 +1096,11 @@ export default function App() {
     setDark(d => {
       const next = !d;
       document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
-      try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch {}
+      try {
+        localStorage.setItem('theme', next ? 'dark' : 'light');
+        // broadcast to ModuleViewer so it can sync the iframe
+        window.dispatchEvent(new CustomEvent('theme-change', { detail: { dark: next } }));
+      } catch {}
       return next;
     });
   }, []);
@@ -1507,12 +1511,18 @@ git commit -m "feat: add dashboard with track cards, progress bars, and stats"
 - [ ] **Step 1: Replace `react-app/src/components/ModuleViewer.jsx`**
 
 ```jsx
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { moduleById, getPrevNext } from '../data/courses.js'
 import { useProgressContext } from '../hooks/useProgress.jsx'
 
 const BASE = import.meta.env.BASE_URL;
+
+function syncIframeTheme(iframe, dark) {
+  try {
+    iframe?.contentDocument?.documentElement?.setAttribute('data-theme', dark ? 'dark' : 'light');
+  } catch {}
+}
 
 export default function ModuleViewer() {
   const { moduleId } = useParams();
@@ -1520,6 +1530,17 @@ export default function ModuleViewer() {
   const { isCompleted, isBookmarked, markComplete, toggleBookmark, setLastVisited } = useProgressContext();
   const iframeRef = useRef(null);
   const autoTimerRef = useRef(null);
+
+  // mirror shell dark mode; App.jsx broadcasts 'theme-change' on toggle
+  const [dark, setDark] = useState(() => {
+    try { return localStorage.getItem('theme') === 'dark'; } catch { return false; }
+  });
+
+  useEffect(() => {
+    function handler(e) { setDark(e.detail.dark); }
+    window.addEventListener('theme-change', handler);
+    return () => window.removeEventListener('theme-change', handler);
+  }, []);
 
   const mod = moduleById[moduleId];
   const { prev, next } = getPrevNext(moduleId);
@@ -1538,6 +1559,16 @@ export default function ModuleViewer() {
 
     return () => clearTimeout(autoTimerRef.current);
   }, [moduleId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // sync iframe theme whenever dark state changes or iframe src changes
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    function onLoad() { syncIframeTheme(iframe, dark); }
+    iframe.addEventListener('load', onLoad);
+    syncIframeTheme(iframe, dark); // sync immediately if already loaded
+    return () => iframe.removeEventListener('load', onLoad);
+  }, [dark, moduleId]);
 
   const handleMarkComplete = useCallback(() => {
     clearTimeout(autoTimerRef.current);
@@ -1752,7 +1783,7 @@ Wait 1-2 min, then visit `https://jeevchiran.github.io/learnings-ai-ml-main/`. T
 | Completion: "Mark complete" button + 30s auto | Task 8 |
 | Bookmarks: star icon, localStorage | Tasks 4 + 6 + 8 |
 | Read time: static estimate | Task 3 (courses.js) |
-| Dark mode (shell independent from iframe) | Task 2 (CSS) + Task 5 (App) |
+| Dark mode sync shell → iframe (contentDocument + theme-change event) | Task 5 (App, event dispatch) + Task 8 (ModuleViewer, listener + sync) |
 | iframe with existing HTML, correct path in dev + prod | Task 8 + Task 1 (vite.config) |
 | GitHub Actions deploy copying track dirs | Task 9 |
 | Base path `/learnings-ai-ml-main/` | Task 1 (vite.config) |
