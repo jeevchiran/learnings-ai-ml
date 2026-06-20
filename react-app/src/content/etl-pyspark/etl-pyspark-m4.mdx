@@ -1,0 +1,203 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+In Module 3, we worked with RDDs — Spark's low-level API using tuples and lambdas. DataFrames provide a higher-level, schema-aware interface with automatic optimizations through the Catalyst query planner.
+
+## PySpark DataFrame vs Pandas DataFrame
+
+Both PySpark and Pandas DataFrames represent the same concept: tabular data with named columns. The difference lies in their execution model.
+
+| Feature | PySpark DataFrame | Pandas DataFrame |
+|---------|-------------------|-----------------|
+| Execution | Lazy (builds DAG) | Eager (runs immediately) |
+| Scale | Distributed across cluster | Single machine, fits in RAM |
+| Mutability | Immutable (transforms return new DF) | Mutable (in-place operations) |
+| Optimization | Catalyst optimizer | None (manual) |
+| Use case | Big data (GBs-TBs) | Small-medium data (MBs-GBs) |
+
+## Side-by-Side Comparisons
+
+### Reading CSV
+
+**PySpark:**
+
+```python
+df = spark.read.csv("students.csv", header=True, inferSchema=True)
+df.show(3)
+```
+
+**Pandas:**
+
+```python
+import pandas as pd
+
+data = {
+    'student_id': [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010],
+    'name': ['Alice Chen', 'Bob Martinez', 'Carol Johnson', 'David Kim', 'Eva Patel',
+             'Frank Wilson', 'Grace Lee', 'Henry Brown', 'Iris Davis', 'Jack Thompson'],
+    'major': ['Computer Science', 'Data Science', 'Mathematics', 'Computer Science', 'Data Science',
+              'Statistics', 'Computer Science', 'Mathematics', 'Data Science', 'Statistics'],
+    'year': [3, 2, 4, 1, 3, 2, 4, 1, 2, 3],
+    'gpa': [3.8, 3.5, 3.9, 3.2, 3.7, 3.4, 3.6, 2.9, 3.3, 3.1]
+}
+df = pd.DataFrame(data)
+print(df.head(3))
+```
+
+### Selecting Columns
+
+**PySpark:**
+
+```python
+df.select("name", "major", "gpa").show(5)
+```
+
+**Pandas:**
+
+```python
+print(df[["name", "major", "gpa"]])
+```
+
+### Filtering Rows
+
+**PySpark:**
+
+```python
+df.filter(df.gpa > 3.5).show()
+```
+
+**Pandas:**
+
+```python
+print(df[df["gpa"] > 3.5])
+```
+
+### Adding a Computed Column
+
+**PySpark:**
+
+```python
+from pyspark.sql.functions import col
+
+df_with_pct = df.withColumn("gpa_pct", col("gpa") / 4.0 * 100)
+df_with_pct.show(5)
+```
+
+**Pandas:**
+
+```python
+df["gpa_pct"] = df["gpa"] / 4.0 * 100
+print(df[["name", "gpa", "gpa_pct"]])
+```
+
+### Grouping and Aggregation
+
+**PySpark:**
+
+```python
+from pyspark.sql.functions import avg, count
+
+df.groupBy("major").agg(avg("gpa"), count("*")).show()
+```
+
+**Pandas:**
+
+```python
+result = df.groupby("major").agg({"gpa": "mean", "student_id": "count"})
+print(result)
+```
+
+## Practice Problems
+
+**Recall — Problem 1**
+
+Write both PySpark and Pandas code to select name and GPA where year == 3.
+
+**PySpark:**
+
+```python
+df.filter(df.year == 3).select("name", "gpa").show()
+```
+
+**Pandas:**
+
+```python
+result = df[df["year"] == 3][["name", "gpa"]]
+print(result)
+```
+
+**Apply — Problem 2**
+
+In both APIs, group by major and compute the mean GPA.
+
+**PySpark:**
+
+```python
+from pyspark.sql.functions import avg
+
+df.groupBy("major").agg(avg("gpa")).show()
+```
+
+**Pandas:**
+
+```python
+result = df.groupby("major")["gpa"].mean()
+print(result)
+```
+
+**Stretch — Problem 3**
+
+Add a column `gpa_category` ('high' if GPA > 3.5, else 'standard') in both PySpark and Pandas.
+
+**PySpark:**
+
+```python
+from pyspark.sql.functions import when, col
+
+df_cat = df.withColumn(
+    "gpa_category",
+    when(col("gpa") > 3.5, "high").otherwise("standard")
+)
+df_cat.show(5)
+```
+
+**Pandas:**
+
+```python
+import numpy as np
+
+df["gpa_category"] = np.where(df["gpa"] > 3.5, "high", "standard")
+print(df[["name", "gpa", "gpa_category"]])
+```
+
+**Stretch — Problem 4**
+
+Load the student data and compute average GPA by major.
+
+```python
+import pandas as pd
+
+data = {
+    'student_id': [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010],
+    'name': ['Alice Chen', 'Bob Martinez', 'Carol Johnson', 'David Kim', 'Eva Patel',
+             'Frank Wilson', 'Grace Lee', 'Henry Brown', 'Iris Davis', 'Jack Thompson'],
+    'major': ['Computer Science', 'Data Science', 'Mathematics', 'Computer Science', 'Data Science',
+              'Statistics', 'Computer Science', 'Mathematics', 'Data Science', 'Statistics'],
+    'year': [3, 2, 4, 1, 3, 2, 4, 1, 2, 3],
+    'gpa': [3.8, 3.5, 3.9, 3.2, 3.7, 3.4, 3.6, 2.9, 3.3, 3.1]
+}
+df = pd.DataFrame(data)
+
+avg_gpa_by_major = df.groupby("major")["gpa"].mean()
+print("Average GPA by major:")
+print(avg_gpa_by_major)
+```
+
+<Bridge>
+DataFrames give us a structured, optimized API. But sometimes you want to query data using familiar SQL syntax instead of method chains. Next, we'll register DataFrames as SQL tables and query them directly.
+</Bridge>
+
+<QuizCard
+  question="When would you choose PySpark over Pandas?"
+  options={['Dataset fits in RAM on one machine', 'Dataset is 500GB across a cluster', 'You need interactive plotting', 'You need fast iteration in a notebook']}
+  correct={1}
+/>

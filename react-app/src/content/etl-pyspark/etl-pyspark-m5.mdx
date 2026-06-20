@@ -1,0 +1,199 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+In Module 4, we compared PySpark and Pandas DataFrame APIs. Both use method chaining for transformations. Now we'll use a third approach: writing SQL queries directly against our DataFrames.
+
+## Registering DataFrames as SQL Tables
+
+PySpark lets you query DataFrames using standard SQL. The first step is to register a DataFrame as a temporary view, which makes it accessible by name in SQL statements.
+
+- `df.createOrReplaceTempView("table_name")` creates a session-scoped SQL table. It exists only for the duration of the Spark session and is not persisted to disk.
+- `spark.sql("SELECT ...")` executes a SQL query against registered views and returns the result as a new DataFrame.
+
+```python
+# Register the students DataFrame as a temp view
+df.createOrReplaceTempView("students")
+
+# Query it with SQL
+result = spark.sql("SELECT * FROM students")
+result.show()
+```
+
+## Basic SQL Queries
+
+Once a DataFrame is registered as a view, you can use familiar SQL clauses: `SELECT` to choose columns, `WHERE` to filter rows, and `ORDER BY` to sort results.
+
+```python
+result = spark.sql("""
+    SELECT name, gpa
+    FROM students
+    WHERE gpa > 3.5
+    ORDER BY gpa DESC
+""")
+result.show()
+```
+
+## Aggregation in SQL
+
+SQL aggregation functions like `COUNT`, `AVG`, `SUM`, and `MAX` work with `GROUP BY` to summarize data. The `HAVING` clause filters groups after aggregation (similar to how `WHERE` filters rows before aggregation).
+
+```python
+result = spark.sql("""
+    SELECT major,
+           COUNT(*) as student_count,
+           AVG(gpa) as avg_gpa
+    FROM students
+    GROUP BY major
+    HAVING AVG(gpa) > 3.3
+""")
+result.show()
+```
+
+## Joins in SQL
+
+To join data from multiple DataFrames, register each one as a temp view and then write a standard SQL JOIN. This is identical to writing joins in any relational database.
+
+```python
+# Register both DataFrames as temp views
+students_df.createOrReplaceTempView("students")
+enrollments_df.createOrReplaceTempView("enrollments")
+
+result = spark.sql("""
+    SELECT s.name, e.course_name, e.grade
+    FROM students s
+    JOIN enrollments e ON s.student_id = e.student_id
+    WHERE e.grade > 85
+""")
+result.show()
+```
+
+## Subqueries and CTEs
+
+For more complex logic, SQL supports subqueries (nested SELECT statements) and Common Table Expressions (CTEs using the `WITH` clause). Both let you break a query into logical steps.
+
+### Subquery: students above average GPA
+
+```python
+result = spark.sql("""
+    SELECT name, gpa
+    FROM students
+    WHERE gpa > (SELECT AVG(gpa) FROM students)
+""")
+result.show()
+```
+
+### CTE: same logic, more readable
+
+```python
+result = spark.sql("""
+    WITH avg_stats AS (
+        SELECT AVG(gpa) as avg_gpa FROM students
+    )
+    SELECT s.name, s.gpa, a.avg_gpa
+    FROM students s, avg_stats a
+    WHERE s.gpa > a.avg_gpa
+""")
+result.show()
+```
+
+## Live Demo: SQL-like Operations in Pandas
+
+Pandas offers methods that mirror SQL operations. The `.query()` method works like WHERE, `.merge()` works like JOIN, and `.groupby()` works like GROUP BY.
+
+```python
+import pandas as pd
+
+students = pd.DataFrame({
+    'student_id': [1001, 1002, 1003, 1004, 1005],
+    'name': ['Alice Chen', 'Bob Martinez', 'Carol Johnson', 'David Kim', 'Eva Patel'],
+    'major': ['Computer Science', 'Data Science', 'Mathematics', 'Computer Science', 'Data Science'],
+    'gpa': [3.8, 3.5, 3.9, 3.2, 3.7]
+})
+
+enrollments = pd.DataFrame({
+    'student_id': [1001, 1001, 1002, 1003, 1005],
+    'course_name': ['Data Structures', 'Algorithms', 'Machine Learning', 'Linear Algebra', 'Big Data'],
+    'grade': [88, 92, 85, 91, 83]
+})
+
+# SQL-like: SELECT with WHERE
+print("Students with GPA > 3.5:")
+print(students.query("gpa > 3.5")[["name", "gpa"]])
+
+# SQL-like: JOIN
+print("\nJoined data:")
+joined = students.merge(enrollments, on="student_id")
+print(joined[["name", "course_name", "grade"]])
+
+# SQL-like: GROUP BY with aggregation
+print("\nAverage grade per student:")
+avg_grades = joined.groupby("name")["grade"].mean().reset_index()
+print(avg_grades)
+```
+
+## Practice Problems
+
+**Recall — Problem 1**
+
+Register the enrollments DataFrame as a temp view and write a SQL query to SELECT all rows WHERE grade > 85.
+
+```python
+# Register the enrollments DataFrame as a temp view
+enrollments_df.createOrReplaceTempView("enrollments")
+
+# Write a SQL query to get rows where grade > 85
+result = spark.sql("""
+    SELECT student_id, course_name, grade
+    FROM enrollments
+    WHERE grade > 85
+""")
+result.show()
+```
+
+**Apply — Problem 2**
+
+JOIN students and enrollments on student_id, and SELECT name, course_name, grade. Order by grade descending.
+
+```python
+students_df.createOrReplaceTempView("students")
+enrollments_df.createOrReplaceTempView("enrollments")
+
+result = spark.sql("""
+    SELECT s.name, e.course_name, e.grade
+    FROM students s
+    JOIN enrollments e ON s.student_id = e.student_id
+    ORDER BY e.grade DESC
+""")
+result.show()
+```
+
+**Stretch — Problem 3**
+
+Write a CTE that computes each student's average grade across all courses, then SELECT only students with average grade > 80.
+
+```python
+students_df.createOrReplaceTempView("students")
+enrollments_df.createOrReplaceTempView("enrollments")
+
+result = spark.sql("""
+    WITH student_averages AS (
+        SELECT s.name, AVG(e.grade) as avg_grade
+        FROM students s
+        JOIN enrollments e ON s.student_id = e.student_id
+        GROUP BY s.name
+    )
+    SELECT name, avg_grade
+    FROM student_averages
+    WHERE avg_grade > 80
+""")
+result.show()
+```
+
+<Bridge>
+SQL and the DataFrame API cover most data operations. But sometimes you need custom logic — a calculation or classification that doesn't exist as a built-in function. That's where User-Defined Functions come in.
+</Bridge>
+
+<QuizCard
+  question="What does createOrReplaceTempView do?"
+  options={['Saves data to disk', 'Registers the DataFrame as a queryable SQL table in the Spark session', 'Creates a persistent database table', 'Converts DataFrame to RDD']}
+  correct={1}
+/>

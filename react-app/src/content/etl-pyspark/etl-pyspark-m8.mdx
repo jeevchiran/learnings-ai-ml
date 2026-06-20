@@ -1,0 +1,107 @@
+import { ConceptBox, Bridge, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+In Module 7, we cleaned our messy dataset — removed nulls, duplicates, fixed casing, and filtered invalid values. Now we explore the clean data to understand what we're working with.
+</Bridge>
+
+## Schema Inspection
+
+Before any analysis, know what you're working with. Schema inspection tells you column names, data types, and nullable flags.
+
+<CodeBlock language="python">
+{`students_df.printSchema()
+# root
+#  |-- student_id: integer (nullable = false)
+#  |-- name: string (nullable = true)
+#  |-- major: string (nullable = true)
+#  |-- year: integer (nullable = true)
+#  |-- gpa: double (nullable = true)
+
+print("dtypes:", students_df.dtypes)
+print("columns:", students_df.columns)`}
+</CodeBlock>
+
+## Descriptive Statistics
+
+PySpark provides two methods for quick statistical summaries:
+
+- `df.describe()` — count, mean, stddev, min, max for numeric columns
+- `df.summary()` — everything in describe() plus percentiles (25%, 50%, 75%)
+
+<CodeBlock language="python">
+{`students_df.describe().show()
+# +-------+----------+------+--------+
+# |summary|student_id|  year|     gpa|
+# +-------+----------+------+--------+
+# |  count|        50|    50|      50|
+# |   mean|   1025.50|  2.48|    3.45|
+# | stddev|    14.58 |  1.12|    0.31|
+# |    min|      1001|     1|    2.80|
+# |    max|      1050|     4|    3.95|
+# +-------+----------+------+--------+
+
+# For percentiles, use summary()
+students_df.summary().show()`}
+</CodeBlock>
+
+<ConceptBox title="describe() vs summary()">
+`describe()` does not show the median (50th percentile) by default — use `summary()` for that. `summary()` also includes "25%" and "75%" rows, giving you the full IQR (interquartile range) for detecting outliers.
+</ConceptBox>
+
+## Value Counts and Distributions
+
+For categorical columns, understand how values are distributed:
+
+<CodeBlock language="python">
+{`# Frequency count per category
+students_df.groupBy("major").count().orderBy("count", ascending=False).show()
+# +-----+-----+
+# |major|count|
+# +-----+-----+
+# |   CS|   15|
+# |   DS|   14|
+# | Math|   11|
+# | Stat|   10|
+# +-----+-----+
+
+# Count distinct values
+print("Distinct years:", students_df.select("year").distinct().count())`}
+</CodeBlock>
+
+## Sampling
+
+When working with large datasets, grab a subset for quick inspection:
+
+<CodeBlock language="python">
+{`# Random 20% sample (seed for reproducibility)
+students_df.sample(fraction=0.2, seed=42).show()
+
+# First 5 rows as list of Row objects
+rows = students_df.take(5)
+
+# Limit to 10 rows and display as table
+students_df.limit(10).show()`}
+</CodeBlock>
+
+## Cross-tabulation
+
+Cross-tabulation creates a pivot-table-like frequency matrix showing how two categorical variables relate:
+
+<CodeBlock language="python">
+{`# How many CS students are in year 3?
+students_df.crosstab("major", "year").show()
+# +-----------+---+---+---+---+
+# |major_year |  1|  2|  3|  4|
+# +-----------+---+---+---+---+
+# |         CS|  3|  4|  4|  4|
+# |         DS|  2|  4|  4|  4|
+# |       Math|  3|  2|  3|  3|
+# |       Stat|  2|  3|  3|  2|
+# +-----------+---+---+---+---+`}
+</CodeBlock>
+
+<QuizCard
+  question="What does df.describe() NOT show by default?"
+  options={['Mean', 'Standard deviation', 'Median (50th percentile)', 'Count']}
+  correct={2}
+/>
