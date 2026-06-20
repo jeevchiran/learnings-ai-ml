@@ -7,7 +7,7 @@ import { existsSync, createReadStream } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot  = resolve(__dirname, '..')
-const BASE      = '/learnings-ai-ml-main/'
+const BASE      = '/learnings-ai-ml/'
 const TRACK_DIRS = ['etl-pyspark', 'Regression', 'hypothesis-testing', 'clustering', 'decision-trees', 'nlp', 'pandas-eda']
 const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' }
 
@@ -31,7 +31,7 @@ function serveTrackFiles() {
 }
 
 export default defineConfig({
-  base: BASE,
+  base: BASE,   // must match GitHub repo name: jeevchiran/learnings-ai-ml
   plugins: [react(), serveTrackFiles()],
   build: {
     outDir: resolve(__dirname, 'dist'),
