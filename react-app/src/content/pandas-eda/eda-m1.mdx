@@ -1,0 +1,147 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+# EDA Foundations & First Look
+
+## Why This Topic?
+
+You can't clean what you don't understand. Before dropping a single missing value or capping a single outlier, every analyst starts in the same place: looking at the raw shape of the data. Skip this step and every later decision — which column to fix, which fill strategy to use, which rows to drop — is a guess instead of a judgment call.
+
+The dataset used throughout this track is a small sample of NYC yellow-taxi trips: **30 rows, 12 columns**, drawn from a single day in March 2023. This mirrors the source notebook's own strategy of hourly-sampling a much larger trip log down to a size that's easy to inspect by eye — small enough to print in full, large enough to already contain a missing value, a zero-distance trip, and a fare that shouldn't be possible.
+
+<ConceptBox title="The dataset, end to end">
+Each row is one taxi trip. Columns cover identifiers (`id`), timestamps (`pickup`, `dropoff`), trip facts (`passenger_count`, `trip_distance`, `RatecodeID`, `payment_type`), money (`fare_amount`, `tip_amount`, `total_amount`, `airport_fee`), and geography (`PUBorough`, `DOBorough`). Every module in this track reuses this exact sample.
+</ConceptBox>
+
+<Bridge>
+Before touching any of that, we need the five methods every pandas session opens with: `.shape`, `.dtypes`, `.head()`, `.info()`, and `.describe()`.
+</Bridge>
+
+## What / How — First-Look Methods
+
+Every pandas exploratory session starts with the same handful of calls. Each answers a different question about the DataFrame, and together they form a quick "vitals check" before any cleaning begins.
+
+<DerivationSteps>
+<DerivationStep number={1} title=".shape — how big is this?">
+Returns a tuple `(n_rows, n_columns)`. The very first thing to check: does the row count match what you expected to load? Did a join silently multiply or drop rows?
+</DerivationStep>
+<DerivationStep number={2} title=".dtypes — what type is each column?">
+Returns the storage type pandas inferred for every column: `int64`, `float64`, `object` (usually strings), `datetime64`, and so on. A column you expect to be numeric but that shows up as `object` usually means it contains stray text or mixed formatting.
+</DerivationStep>
+<DerivationStep number={3} title=".head(n) — what does a row actually look like?">
+Prints the first `n` rows (default 5). Numbers and dtypes are abstract; seeing real values grounds your intuition for what "normal" looks like in this dataset.
+</DerivationStep>
+<DerivationStep number={4} title=".info() — dtypes and completeness together">
+Combines `.dtypes` with a non-null count per column and total memory usage. This is the fastest way to spot missing data: if a column's non-null count is less than the row count, it has nulls.
+</DerivationStep>
+<DerivationStep number={5} title=".describe() — summary statistics">
+For numeric columns: count, mean, std, min, the 25/50/75% quantiles, and max. This is where shape problems (skew) and correctness problems (impossible values) first become visible — often before you've looked at a single row.
+</DerivationStep>
+</DerivationSteps>
+
+Run the first check — confirm the dataset is the size we expect:
+
+```python
+import pandas as pd
+df = pd.read_parquet("yellow_tripdata_2023-03_sample.parquet")
+print(df.shape)
+```
+
+```
+(30, 12)
+```
+
+30 rows confirms we have the expected sample; 12 columns confirms no columns were dropped or merged unexpectedly during loading. Now look at one numeric column's summary statistics in detail:
+
+```python
+print(df.describe()[['fare_amount']])
+```
+
+```
+       fare_amount
+count        30.00
+mean          26.17
+std           71.57
+min          -12.50
+25%            6.125
+50%           11.75
+75%           19.125
+max          399.00
+```
+
+**The mean is more than double the median.** Mean fare (26.17) is more than double the median fare (11.75). When mean and median diverge this much, it's a strong hint the column is **right-skewed** — a few extreme values are pulling the average up while the median, which only cares about the middle-ranked value, stays low. Flag this now; Module 4 (Outlier Detection) explains exactly which rows are responsible and why.
+
+**`min` is negative.** The minimum fare is **-12.50**. A taxi fare cannot be negative — this isn't a distribution quirk like skew, it's a data error (likely a refund or trip-correction record that leaked into the fare column). Module 3 (Data Quality & Invalid Values) deals with rows like this directly.
+
+<Bridge>
+Reading these five outputs by hand is fine for one column. The widget below lets you flip between all five views of the full 30-row sample on demand.
+</Bridge>
+
+## Practice
+
+### Problem 1: Reading `.shape`
+
+`df.shape` returns `(30, 12)`. What do the two numbers mean?
+
+**Solution:** **30** rows — one per taxi trip in the sample. **12** columns — one per recorded field per trip (timestamps, fare amounts, passenger count, borough, and so on). `.shape` always returns `(n_rows, n_columns)` in that order, matching NumPy's array-shape convention that pandas builds on.
+
+### Problem 2: Mean vs. Median Gap
+
+Given mean = 26.17 and median = 11.75 for `fare_amount`, what does the gap suggest about the distribution's shape, and which row do you suspect is driving it?
+
+**Solution:** The distribution is **right-skewed**: a few very large fares pull the mean well above the median, while the median — being robust to outliers, since it only depends on rank order — stays close to where most of the data sits. The dataset's **max (399.00)** is the prime suspect. One $399 fare sitting among mostly $3–$30 fares pulls the mean up substantially, while the median barely moves because it only looks at the middle-ranked value.
+
+### Problem 3: Why Is `RatecodeID` a Float?
+
+`.info()` reports `RatecodeID` as `float64`, even though rate codes are small whole numbers (1, 2, 3...). Why would pandas store whole numbers as floats?
+
+**Solution:** The column has **missing values** (`NaN`), and NumPy's `int64` dtype has no representation for `NaN` — only floating-point dtypes can hold it (`NaN` is an IEEE-754 float concept). When pandas builds a column that mixes whole numbers with missing values, it silently **upcasts** the entire column to `float64` so the nulls have somewhere to live.
+
+```python
+print(pd.array([1, 2, None]))
+```
+
+```
+<IntegerArray>
+[1, 2, <NA>]
+Length: 3, dtype: Int64
+```
+
+Even pandas's own nullable `Int64` extension type (capital "I") needs a special sentinel `<NA>` to do this — the plain NumPy-backed `int64` (lowercase "i") that `read_parquet` defaults to cannot represent missingness at all, so it falls back to `float64` and uses `NaN` instead.
+
+## Quiz
+
+### Module 1 — Check Your Understanding
+
+**1. What does `df.shape` return?**
+- A: (rows, columns) ✓
+- B: (columns, rows)
+- C: The total cell count
+- D: The column names
+
+**2. Which single method shows dtypes *and* non-null counts together?**
+- A: .describe()
+- B: .head()
+- C: .info() ✓
+- D: .shape
+
+**3. By default, when a DataFrame mixes numeric and text columns, `.describe()` summarizes:**
+- A: All columns, numeric and text alike
+- B: Only the numeric columns ✓
+- C: Only the text columns
+- D: Only the index
+
+**4. Why is `fare_amount`'s mean (26.17) so much higher than its median (11.75) in this sample?**
+- A: The sample size (30 rows) is too small for mean and median to agree
+- B: A few large outlier fares pull the mean up; the median is robust to outliers ✓
+- C: pandas rounds the median down by convention
+- D: Mean and median are always different for floating-point columns
+
+<Bridge>
+**What's next: how much data is actually here?** `.describe()` already flagged something off — a $399 fare and a negative one. Before trusting any of these numbers, find out how much of the data is even there to compute on. Module 2 starts with missing values.
+</Bridge>
+
+<QuizCard
+  question="What does df.shape return?"
+  options={['A list of column names', 'A tuple (rows, columns)', 'The data types of each column', 'Summary statistics']}
+  correct={1}
+/>
