@@ -2,8 +2,31 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { moduleById, getPrevNext, courses } from '../data/courses.js'
 import { useProgressContext } from '../hooks/useProgress.jsx'
+import MDXRenderer from './MDXRenderer.jsx'
 
 const BASE = import.meta.env.BASE_URL;
+
+// Eagerly resolve all MDX files at build time
+const mdxModules = import.meta.glob('../content/**/*.mdx')
+
+function useMDXContent(mod) {
+  const [Content, setContent] = useState(null)
+  const [checked, setChecked] = useState(false)
+
+  useEffect(() => {
+    setContent(null)
+    setChecked(false)
+    if (!mod) { setChecked(true); return }
+    const key = `../content/${mod.coursePath}/${mod.id}.mdx`
+    if (mdxModules[key]) {
+      mdxModules[key]().then(m => { setContent(() => m.default); setChecked(true) })
+    } else {
+      setChecked(true)
+    }
+  }, [mod?.id])
+
+  return { Content, checked }
+}
 
 function syncIframeTheme(iframe, dark) {
   try {
@@ -30,6 +53,7 @@ export default function ModuleViewer() {
   }, []);
 
   const mod  = moduleById[moduleId];
+  const { Content, checked } = useMDXContent(mod);
   const { prev, next } = getPrevNext(moduleId);   // global sequential (topbar)
   const done    = isCompleted(moduleId);
   const starred = isBookmarked(moduleId);
@@ -129,13 +153,18 @@ export default function ModuleViewer() {
         }
       </div>
 
-      <iframe
-        ref={iframeRef}
-        src={iframeSrc}
-        className="module-iframe"
-        title={mod.title}
-        allow="storage-access *"
-      />
+      {!checked
+        ? <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading…</div>
+        : Content
+          ? <div className="module-mdx-wrap" style={{ flex: 1, overflowY: 'auto' }}><MDXRenderer Content={Content} /></div>
+          : <iframe
+              ref={iframeRef}
+              src={iframeSrc}
+              className="module-iframe"
+              title={mod.title}
+              allow="storage-access *"
+            />
+      }
 
       <div className="module-bottom-nav">
         <div className="bottom-nav-row">
