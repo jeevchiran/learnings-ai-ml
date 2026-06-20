@@ -1,0 +1,143 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+**Doctor analogy.** A doctor who asks twenty questions before making a diagnosis may memorize every patient they have ever seen, giving perfect accuracy on past cases. But facing a new patient with a slightly different presentation, they fail — they are reciting memorized rules rather than reasoning. Conversely, a doctor who asks only two questions misses crucial nuance. The right number of questions is somewhere in between: enough to capture the real signal, not so many that noise gets memorized. Tree depth plays exactly the same role.
+</Bridge>
+
+## 1. Advantages of Decision Trees
+
+<ConceptBox title="Interpretability">
+A tree can be visualized and explained to a non-expert. The path from the root to any leaf is a conjunction of human-readable rules: "Income > 50,000 AND Education = Graduate AND Age < 35 → Approve." Neural networks have no analogous representation — their decisions emerge from millions of interacting weights that resist any concise summary.
+</ConceptBox>
+
+<ConceptBox title="No Feature Scaling Required">
+Trees split on thresholds, not distances. A feature with range [0, 1,000,000] receives identical treatment to one with range [0, 1] because the algorithm only asks "is the value above or below a threshold?" Standardization and normalization are unnecessary preprocessing steps.
+</ConceptBox>
+
+<ConceptBox title="Handles Mixed Data Types Natively">
+Continuous features use threshold splits; categorical features use subset splits. Both can appear in the same tree. As shown in Module 3, the impurity calculation is identical in both cases — only the candidate split generation differs.
+</ConceptBox>
+
+<ConceptBox title="Captures Feature Interactions Automatically">
+The condition "Income > 50,000 *and* Age < 30" is encoded by the path through two consecutive internal nodes. A linear model would require the analyst to manually add an Income × Age interaction term; the tree discovers it during training without any specification.
+</ConceptBox>
+
+<ConceptBox title="Robust to Irrelevant Features">
+If feature $j$ carries no discriminative signal, it will never appear in any split, and its presence in the feature matrix causes no degradation. This stands in contrast to regularized linear models, which must explicitly shrink irrelevant coefficients toward zero.
+</ConceptBox>
+
+<ConceptBox title="Fast Inference">
+Classifying a single sample requires traversing one root-to-leaf path: $O(\text{depth})$. For a balanced tree trained on $n$ samples, the maximum depth is $O(\log n)$, giving $O(\log n)$ prediction time regardless of the number of features.
+</ConceptBox>
+
+## 2. Limitations of Decision Trees
+
+<ConceptBox title="High Variance">
+Small perturbations in the training data can produce drastically different tree structures. Because the greedy algorithm commits to a split at each node without reconsidering earlier decisions, a different ordering of tied splits, or a single mislabeled point near a decision boundary, can flip the entire tree topology. Two training sets that differ by one point can yield trees with no split in common.
+</ConceptBox>
+
+<ConceptBox title="Overfitting">
+A fully grown tree can assign a distinct leaf to every training sample, driving training error to zero. A depth-$d$ binary tree has at most $2^d$ leaves. Setting $d = \lceil \log_2 n \rceil$ gives at least $n$ leaves, enough for one sample each. The result is a lookup table, not a generalizing model.
+</ConceptBox>
+
+<ConceptBox title="Greedy Algorithm — No Global Optimality Guarantee">
+CART finds the locally optimal split at each node in polynomial time. Finding the globally optimal tree (minimum misclassification on the training set, over all possible trees of a given size) is NP-hard. The greedy choice can be suboptimal: a slightly impure first split might unlock a perfectly pure second-level partition, whereas the greedy "best" first split forecloses that possibility.
+</ConceptBox>
+
+<ConceptBox title="Axis-Aligned Decision Boundaries Only">
+Every split is of the form "feature $j$ ≤ threshold," which is a hyperplane parallel to the $j$-th axis. If the true decision boundary is diagonal — for example, $x_1 + x_2 > 5$ — the tree must approximate it with a staircase of many axis-aligned splits, requiring exponentially more depth to achieve the same accuracy as a single linear classifier.
+</ConceptBox>
+
+## 3. Bias-Variance Tradeoff in Trees
+
+For prediction error on a new point $x$:
+
+$$\text{Expected Error}(x) = \text{Bias}^2(x) + \text{Variance}(x) + \text{Irreducible Noise}$$
+
+In the tree context:
+- **Deep trees (small bias, high variance):** The tree memorizes the training data perfectly (zero training error) but its structure changes dramatically with small data perturbations.
+- **Shallow trees (high bias, low variance):** The tree is stable across different training sets, but it cannot capture complex patterns.
+
+**Optimal depth lies in between.** The two principled strategies for finding it are pre-pruning and post-pruning.
+
+## 4. Pre-Pruning (Early Stopping)
+
+Pre-pruning stops tree growth before full depth by enforcing constraints during training:
+
+| Parameter | Effect | Trade-off |
+|-----------|--------|-----------|
+| `max_depth` | Limits tree depth | Simple but crude — all subtrees capped at same depth |
+| `min_samples_split` | Minimum samples needed to split a node | Prevents splits on tiny node populations |
+| `min_samples_leaf` | Minimum samples required in each leaf | Ensures all leaves have statistical support |
+| `min_impurity_decrease` | Minimum gain to accept a split | Directly thresholds GiniGain/entropy gain |
+
+**Advantage:** Computationally cheap — stops early instead of building then pruning.
+
+**Disadvantage:** Myopic — stops even when a split with small immediate gain would enable large gains deeper in the tree.
+
+## 5. Cost-Complexity Post-Pruning (CCP)
+
+Post-pruning grows the full tree first, then removes subtrees that do not justify their complexity. The **cost-complexity criterion** introduces a regularization parameter $\alpha \geq 0$:
+
+$$R_\alpha(T) = R(T) + \alpha \cdot |T|$$
+
+where:
+- $R(T)$ = misclassification rate of tree $T$ on the training set
+- $|T|$ = number of leaf nodes in $T$  
+- $\alpha$ = complexity penalty per leaf
+
+For $\alpha = 0$: no penalty, full tree minimises $R_\alpha$. As $\alpha$ increases, more leaves are penalised, and simpler trees become optimal.
+
+### The Pruning Algorithm
+
+<DerivationSteps>
+<DerivationStep number={1} title="Grow the full unpruned tree T₀.">
+Train to maximum depth (or until nodes are pure). This gives the most complex possible tree.
+</DerivationStep>
+
+<DerivationStep number={2} title="For each internal node t, compute its effective alpha.">
+The effective alpha of node $t$ is the value of $\alpha$ at which replacing the subtree rooted at $t$ with a single leaf becomes cost-neutral:
+
+$$\alpha_{\text{eff}}(t) = \frac{R(t) - R(T_t)}{|T_t| - 1}$$
+
+where $R(t)$ is the misclassification rate if we collapse $t$ to a leaf, $R(T_t)$ is the rate of the subtree rooted at $t$, and $|T_t|$ is the number of leaves in that subtree.
+
+A low effective alpha means the subtree provides little improvement per leaf — it is the first candidate for pruning.
+</DerivationStep>
+
+<DerivationStep number={3} title="Prune the node with the lowest effective alpha.">
+Collapse the subtree with $\alpha_{\text{eff}}(t) = \min_t \alpha_{\text{eff}}(t)$ to a leaf. This produces a new (simpler) tree $T_1$.
+</DerivationStep>
+
+<DerivationStep number={4} title="Repeat to generate the full pruning sequence.">
+Continue pruning (always the weakest link — the node with minimum $\alpha_{\text{eff}}$) until the tree collapses to the root. This generates a sequence of nested trees:
+
+$$T_0 \supset T_1 \supset T_2 \supset \cdots \supset T_{\text{root}}$$
+
+each with a corresponding $\alpha$ threshold. As $\alpha$ increases, consecutive trees in this sequence become optimal.
+</DerivationStep>
+
+<DerivationStep number={5} title="Select α by cross-validation.">
+Evaluate the validation error of each tree in the sequence using $k$-fold cross-validation. Select the $\alpha$ that minimises validation error. In scikit-learn, `DecisionTreeClassifier(ccp_alpha=α)` implements this.
+</DerivationStep>
+</DerivationSteps>
+
+<ConceptBox title="Interactive Widget: Pruning Visualizer">
+This widget shows the pruning sequence for a small tree. As you increase the $\alpha$ slider, internal nodes with low effective alpha are progressively replaced by leaves (shown greyed out). The training error vs. validation error chart shows where the optimal $\alpha$ lies.
+
+Note: interactive widget replaced with static description. See the original HTML file for the JS/canvas implementation.
+</ConceptBox>
+
+## 6. Practical Decision Checklist
+
+- Start with `max_depth=None` to see full tree depth and training accuracy.
+- Use `min_samples_leaf ≥ 5` as a baseline guard against tiny leaves.
+- Apply cost-complexity pruning via cross-validated `ccp_alpha` for principled depth control.
+- Check feature importances to confirm the tree uses meaningful signals.
+- If variance is still high after pruning, move to ensemble methods (Module 5: Random Forests, Module 6: Gradient Boosting).
+
+<QuizCard
+  question="A decision tree achieves 100% training accuracy but 62% validation accuracy. Which limitation is most directly responsible?"
+  options={['Axis-aligned decision boundaries cannot represent the true class boundary', 'The greedy algorithm chose a suboptimal first split', 'The tree has overfitted — it memorized training noise rather than learning generalizable patterns', 'Irrelevant features inflated the training accuracy']}
+  correct={2}
+/>

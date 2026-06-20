@@ -1,0 +1,194 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+**From algorithms to parameters.** Modules 5 and 6 derived the Random Forest variance formula $\text{Var}(F) = \rho\sigma^2 + \frac{(1-\rho)\sigma^2}{B}$ and the GB update rule $F_m = F_{m-1} + \eta h_m$. Every major hyperparameter in both algorithms corresponds directly to a term in one of these formulas. This module makes those correspondences explicit and translates them into practical tuning recipes.
+</Bridge>
+
+## 1. The Tuning Mindset
+
+Hyperparameter tuning is not a matter of randomly turning knobs until validation accuracy improves. Before adjusting any hyperparameter, ask: "Am I trying to reduce **bias**, reduce **variance**, or reduce **computation**?"
+
+<ConceptBox title="The Organizing Principle">
+- **Hyperparameters that control model complexity** → control the bias-variance tradeoff
+- **Hyperparameters that control randomness** → reduce variance
+- **Hyperparameters that control computation** → secondary — affect training cost, not fundamental quality
+
+When your model underfits (high train error, high test error): **reduce bias** — increase model complexity. When your model overfits (low train error, high test error): **reduce variance** — reach for regularization, sampling, or depth controls.
+</ConceptBox>
+
+## 2. Random Forest Hyperparameters
+
+Random forests have a relatively small set of important hyperparameters. Because the ensemble mechanism (bagging + feature randomness) is the primary tool for variance reduction, individual trees are allowed to grow without aggressive regularization.
+
+| Parameter | Default | Controls | Increase → | Decrease → |
+|-----------|---------|---------|-----------|-----------|
+| `n_estimators` | 100 | Ensemble size | More stable, diminishing returns | Higher variance |
+| `max_depth` | None (full) | Tree complexity | Lower bias, higher variance | Higher bias, lower variance |
+| `max_features` | "sqrt" | Feature randomness | Higher correlation, lower bias | Lower correlation, lower variance |
+| `min_samples_leaf` | 1 | Leaf size | Lower variance, higher bias | Lower bias, higher variance |
+| `bootstrap` | True | OOB + decorrelation | Enables OOB error estimate | No bootstrap |
+
+### n_estimators (B) — The Ensemble Size
+
+From Module 5: $\text{Var}(F_B) = \rho\sigma^2 + \frac{(1-\rho)\sigma^2}{B}$
+
+Increasing $B$ reduces the second term, which represents the variance reducible by averaging. The first term $\rho\sigma^2$ is the irreducible correlation floor — no amount of additional trees eliminates it. This is why returns diminish after roughly 100–200 trees.
+
+**Practical guidance:** Use OOB error to diagnose convergence. Start at B=200, plot OOB error vs B, stop at the elbow.
+
+### max_features (m_try) — The Correlation Dial
+
+`max_features` is the primary dial for controlling tree correlation $\rho$. Smaller $m$ forces trees to use different features, reducing correlation but also increasing individual tree bias. The ensemble variance formula shows the tension: lower $\rho$ is always good, but lower $m$ also raises $\sigma^2$.
+
+For classification: $\sqrt{p}$ is the empirically validated default. For regression: $p/3$. **This is usually the single most impactful hyperparameter to tune in a random forest.**
+
+### max_depth — Full Trees Are Usually Best
+
+In random forests, grow full trees (`max_depth=None`). Averaging across many trees controls ensemble variance even when individual trees are deep. Limiting depth adds bias to individual trees — and since the ensemble's bias equals the average tree bias, this directly hurts performance.
+
+### min_samples_leaf — Smooth Regularization
+
+`min_samples_leaf` prevents splits when either resulting leaf would have fewer than the specified samples. The effect is analogous to kernel smoothing: larger leaf size averages more training points, reducing variance at the cost of resolution. Try {1, 5, 10, 20}. Larger values benefit noisy data.
+
+## 3. Gradient Boosting Hyperparameters
+
+Gradient boosting is substantially more sensitive to hyperparameter choices than random forests. The additive construction means overfitting compounds across iterations.
+
+### The Critical Interaction: learning_rate × n_estimators
+
+The total "capacity" of the model to fit the data is proportional to:
+
+$$\text{Total contribution} \approx \eta \cdot M \cdot \bar{h}$$
+
+**If you halve η from 0.1 to 0.05, you need roughly double M to reach the same fitting level.**
+
+<ConceptBox title="Common Mistake: Tuning These Independently">
+Never treat learning_rate and n_estimators as separate parameters. Their product determines effective model capacity. Setting a small learning_rate without increasing n_estimators produces an underfitted model. Setting a large learning_rate without decreasing n_estimators produces an overfitted one. Always adjust them together.
+</ConceptBox>
+
+| Parameter | Default | Bias effect | Variance effect | Tune range |
+|-----------|---------|------------|-----------------|------------|
+| `n_estimators` (M) | 100 | bias ↓ | variance ↑ (without ES) | 100–2000 |
+| `learning_rate` (η) | 0.1 | — | variance ↓ | 0.01–0.3 |
+| `max_depth` | 3 | bias ↓ | variance ↑ | 2–8 |
+| `subsample` | 1.0 | slight ↑ | variance ↓ | 0.5–1.0 |
+| `colsample_bytree` | 1.0 | slight ↑ | variance ↓ | 0.5–1.0 |
+| `min_child_weight` | 1 | bias ↑ | variance ↓ | 1–20 |
+| `reg_lambda` (λ) | 1 | bias ↑ | variance ↓ | 0.1–100 |
+
+### max_depth — Keep Trees Shallow
+
+Unlike random forests where full trees are standard, gradient boosting works best with shallow trees (depth 2–6). Shallow trees force the ensemble to build up complexity gradually across iterations. The interaction with n_estimators: shallower trees need more iterations. Typical range: {2, 3, 4, 5, 6}.
+
+### subsample — Row Sampling per Iteration
+
+Use a random fraction $s \in (0, 1]$ of training samples (without replacement) to fit each tree. This is the "stochastic" in stochastic gradient boosting. Values below 0.5 introduce too much noise; the sweet spot is typically 0.6–0.8.
+
+### XGBoost Regularization (reg_lambda, reg_alpha)
+
+XGBoost adds L2 (Ridge) and L1 (Lasso) penalties on leaf weights:
+
+$$w_j^* = -\frac{\sum_{i \in I_j} g_i}{\sum_{i \in I_j} h_i + \lambda}$$
+
+where $\lambda$ is the L2 regularization weight. The default $\lambda = 1$ already provides meaningful regularization. Start with $\alpha = 0$ (no L1) and tune $\lambda$ in {0.1, 1, 10, 100}.
+
+## 4. Practical Tuning Recipes
+
+### For Random Forests
+
+<DerivationSteps>
+<DerivationStep number={1} title="Establish a baseline.">
+Start with: `n_estimators=200, max_features='sqrt', max_depth=None, min_samples_leaf=1`. Compute OOB error and test error to characterize the bias-variance situation.
+</DerivationStep>
+
+<DerivationStep number={2} title="Diagnose n_estimators via OOB curve.">
+Plot OOB error as a function of B from 10 to 300. Stop adding trees at the elbow where improvement becomes marginal (typically < 0.1% per 50 additional trees).
+</DerivationStep>
+
+<DerivationStep number={3} title="Grid search max_features.">
+With p features, search over: {max(1, ⌊√p/2⌋), ⌊√p⌋, ⌊2√p⌋}. For regression also try p/3. This is usually the single most impactful change.
+</DerivationStep>
+
+<DerivationStep number={4} title="Grid search min_samples_leaf.">
+Try {1, 5, 10, 20}. If OOB error improves with min_samples_leaf > 1, the data is noisy or features have measurement error.
+</DerivationStep>
+</DerivationSteps>
+
+### For Gradient Boosting
+
+<DerivationSteps>
+<DerivationStep number={1} title="Set robust regularization defaults.">
+Start with: `subsample=0.8, colsample_bytree=0.8, max_depth=4, learning_rate=0.1`. These provide moderate regularization that prevents severe overfitting across most datasets.
+</DerivationStep>
+
+<DerivationStep number={2} title="Find n_estimators via early stopping.">
+For the fixed learning_rate=0.1, use early stopping on a held-out 15–20% validation set. Run up to M_max=1000 iterations. Record the optimal M* at the validation loss minimum.
+</DerivationStep>
+
+<DerivationStep number={3} title="Test the budget equivalence with lower learning_rate.">
+Try `learning_rate=0.05` with approximately 2 × M* iterations. Compare validation performance. Smaller learning rates often generalize better at the cost of computation.
+</DerivationStep>
+
+<DerivationStep number={4} title="Grid search max_depth.">
+Search {2, 3, 4, 5, 6} with early stopping re-run for each value. Depth 3–4 is the most common optimum for tabular data.
+</DerivationStep>
+
+<DerivationStep number={5} title="Fine-tune regularization parameters last.">
+Only after max_depth and the learning_rate/n_estimators budget are settled, fine-tune min_child_weight, subsample, colsample_bytree, and reg_lambda. Their marginal impact is smaller than the structural choices above, but cumulatively significant.
+</DerivationStep>
+</DerivationSteps>
+
+## 5. Early Stopping
+
+Early stopping is the most practical tool for preventing overfitting in gradient boosting.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Partition the data.">
+Reserve 10–20% of training data as a validation set. This data is not used for fitting the trees — only for monitoring generalization.
+</DerivationStep>
+
+<DerivationStep number={2} title="Monitor validation loss at each iteration.">
+After each tree is added, evaluate the ensemble's loss on the validation set. Record the iteration m* with the lowest validation loss.
+</DerivationStep>
+
+<DerivationStep number={3} title="Apply patience / tolerance.">
+Stop training when validation loss has not improved for `early_stopping_rounds` consecutive iterations (typically 10–50). Use the model at m*, not the final iteration. This tolerates short plateaus without stopping prematurely.
+</DerivationStep>
+
+<DerivationStep number={4} title="Report the optimal iteration count.">
+The iteration m* at which the model stopped is the effective n_estimators for that learning_rate. This eliminates the need to grid-search n_estimators separately.
+</DerivationStep>
+</DerivationSteps>
+
+```python
+import xgboost as xgb
+
+model = xgb.XGBClassifier(
+    n_estimators=1000,          # max iterations; early stopping will halt sooner
+    learning_rate=0.05,
+    max_depth=4,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    early_stopping_rounds=50,   # stop if no improvement for 50 rounds
+    eval_metric='logloss'
+)
+
+model.fit(
+    X_train, y_train,
+    eval_set=[(X_val, y_val)],
+    verbose=100
+)
+print(f"Best iteration: {model.best_iteration}")
+```
+
+<ConceptBox title="Interactive Widget: Tuning Explorer">
+This widget shows train error and validation error curves as you adjust learning_rate, max_depth, n_estimators, and subsample for both Random Forest and Gradient Boosting. The bias-variance decomposition is shown explicitly at each hyperparameter setting.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+<QuizCard
+  question="You set learning_rate=0.05 instead of 0.1 in your gradient boosting model, keeping n_estimators the same. What will most likely happen?"
+  options={['Model accuracy improves because smaller steps are always better', 'The model underfits — smaller steps with the same number of iterations means the model cannot reach the same fitting level', 'Training becomes faster because each step requires less computation', 'Variance increases because the model is more sensitive to individual training points']}
+  correct={1}
+/>
