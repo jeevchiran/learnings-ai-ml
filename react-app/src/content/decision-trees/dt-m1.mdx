@@ -177,7 +177,7 @@ A regression tree is built on the following 1D dataset:
 
 **Part B:** A second split is added at $x \leq 4.0$ within the right subtree ($x > 2.5$). Recompute all leaf predictions and the new training MSE.
 
-**Solution Part A:** Left leaf ($x \leq 2.5$): samples {x=1, y=2.1} and {x=2, y=2.9}. Prediction = mean = $(2.1 + 2.9)/2 = 2.5$. Right leaf ($x > 2.5$): samples {x=3, y=7.2}, {x=4, y=8.1}, {x=5, y=7.8}. Prediction = mean = $(7.2 + 8.1 + 7.8)/3 = 7.7$. For $x = 3.5$: $3.5 > 2.5$, so the tree predicts **7.7**.
+**Solution Part A:** Left leaf ($x \leq 2.5$): samples (x=1, y=2.1) and (x=2, y=2.9). Prediction = mean = $(2.1 + 2.9)/2 = 2.5$. Right leaf ($x > 2.5$): samples (x=3, y=7.2), (x=4, y=8.1), (x=5, y=7.8). Prediction = mean = $(7.2 + 8.1 + 7.8)/3 = 7.7$. For $x = 3.5$: $3.5 > 2.5$, so the tree predicts **7.7**.
 
 $$\text{MSE} = \frac{1}{5}\left[(2.1-2.5)^2 + (2.9-2.5)^2 + (7.2-7.7)^2 + (8.1-7.7)^2 + (7.8-7.7)^2\right] = \frac{0.74}{5} = 0.148$$
 
