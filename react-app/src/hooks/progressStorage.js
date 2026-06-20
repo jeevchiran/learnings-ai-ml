@@ -23,6 +23,14 @@ export function markComplete(id) {
   return data;
 }
 
+export function toggleComplete(id) {
+  const data = load();
+  const wasComplete = Boolean(data[id]?.completed);
+  data[id] = { ...data[id], completed: !wasComplete };
+  save(data);
+  return data;
+}
+
 export function toggleBookmark(id) {
   const data = load();
   data[id] = { ...data[id], bookmarked: !data[id]?.bookmarked };

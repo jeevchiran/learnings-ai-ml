@@ -319,7 +319,10 @@ button { font-family: inherit; }
 .topbar-btn.done-btn {
   color: var(--success);
   border-color: var(--success);
+  cursor: pointer;
 }
+
+.topbar-btn.done-btn:hover { background: var(--bg-hover); }
 
 .topbar-star {
   font-size: 1rem;

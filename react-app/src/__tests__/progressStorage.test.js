@@ -10,7 +10,7 @@ const localStorageMock = {
 
 vi.stubGlobal('localStorage', localStorageMock);
 
-const { load, save, markComplete, toggleBookmark, setLastVisited } =
+const { load, save, markComplete, toggleComplete, toggleBookmark, setLastVisited } =
   await import('../hooks/progressStorage.js');
 
 describe('progressStorage', () => {
@@ -37,6 +37,13 @@ describe('progressStorage', () => {
     const result = markComplete('module-1');
     expect(result['module-1'].bookmarked).toBe(true);
     expect(result['module-1'].completed).toBe(true);
+  });
+
+  it('toggleComplete flips completed state', () => {
+    const on  = toggleComplete('module-1');
+    expect(on['module-1'].completed).toBe(true);
+    const off = toggleComplete('module-1');
+    expect(off['module-1'].completed).toBe(false);
   });
 
   it('toggleBookmark flips bookmark state', () => {

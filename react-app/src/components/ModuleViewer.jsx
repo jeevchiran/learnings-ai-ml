@@ -14,7 +14,7 @@ function syncIframeTheme(iframe, dark) {
 export default function ModuleViewer() {
   const { moduleId } = useParams();
   const navigate = useNavigate();
-  const { isCompleted, isBookmarked, markComplete, toggleBookmark, setLastVisited } = useProgressContext();
+  const { isCompleted, isBookmarked, markComplete, toggleComplete, toggleBookmark, setLastVisited } = useProgressContext();
   const iframeRef    = useRef(null);
   const autoTimerRef = useRef(null);
 
@@ -56,6 +56,11 @@ export default function ModuleViewer() {
     clearTimeout(autoTimerRef.current);
     markComplete(moduleId);
   }, [moduleId, markComplete]);
+
+  const handleToggleComplete = useCallback(() => {
+    clearTimeout(autoTimerRef.current);
+    toggleComplete(moduleId);
+  }, [moduleId, toggleComplete]);
 
   if (!mod) {
     return (
@@ -110,7 +115,7 @@ export default function ModuleViewer() {
         </button>
 
         {done
-          ? <button className="topbar-btn done-btn" disabled>✓ Done</button>
+          ? <button className="topbar-btn done-btn" onClick={handleToggleComplete}>✓ Done</button>
           : <button className="topbar-btn complete-btn" onClick={handleMarkComplete}>Mark complete</button>
         }
       </div>
