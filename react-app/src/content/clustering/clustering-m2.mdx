@@ -1,0 +1,272 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+## Why Distance?
+
+<Bridge>
+**Connecting to Module 1.** K-means assigns each data point to its "nearest" centroid. But nearest by what measure? The choice of distance metric is not arbitrary — it determines the shape of clusters the algorithm can find, the geometry of the Voronoi cells, and what the centroid update formula means.
+</Bridge>
+
+Consider two points in 2D: **(2, 3)** and **(5, 7)**. How far apart are they? Physically, this is the straight-line distance — the length of the hypotenuse you would draw between them on graph paper. We call this *Euclidean distance*. But different problems call for different notions of distance.
+
+A taxi in Manhattan cannot drive diagonally through city blocks — it must travel along the grid, so the relevant distance is the sum of horizontal and vertical displacement. A text document is not a geometric point, so the angle between term-frequency vectors often matters more than their magnitudes. **The distance metric should match the problem structure.**
+
+<ConceptBox title="Three questions a distance metric answers">
+- **Shape:** What do "circles" (equidistant sets) look like in this metric? Round (Euclidean), diamond-shaped (Manhattan), or sector-shaped (cosine)?
+- **Centroid:** What point minimises the total distance to a set of points? Mean (Euclidean), median (Manhattan), or something else?
+- **Scale sensitivity:** Does squashing a feature by a constant change which points are nearest neighbours?
+</ConceptBox>
+
+## Euclidean Distance
+
+In 2D, Euclidean distance follows directly from the Pythagorean theorem. Given two points $a = (a_1, a_2)$ and $b = (b_1, b_2)$, form a right triangle with legs $(b_1 - a_1)$ and $(b_2 - a_2)$. The hypotenuse is the straight-line distance:
+
+$$d_E(a, b) = \sqrt{(a_1 - b_1)^2 + (a_2 - b_2)^2}$$
+
+Generalising to $p$ dimensions, we sum the squared coordinate differences across all dimensions:
+
+$$d_E(a, b) = \sqrt{\sum_{j=1}^{p} (a_j - b_j)^2} = \|a - b\|_2$$
+
+This is the **L2 norm** of the vector $(a - b)$. It is the default distance used in K-means.
+
+<ConceptBox title="Properties of Euclidean distance">
+- **Symmetric:** $d(a, b) = d(b, a)$
+- **Non-negative:** $d(a, b) \geq 0$, with equality if and only if $a = b$
+- **Triangle inequality:** $d(a, c) \leq d(a, b) + d(b, c)$
+- **Rotation invariant:** distances are unchanged when you rotate the coordinate system
+- **NOT scale invariant:** features with larger numeric ranges dominate the distance computation. Always standardise features before running K-means.
+</ConceptBox>
+
+### Worked example
+
+Compute $d_E\bigl((1, 4),\, (4, 8)\bigr)$:
+
+<DerivationSteps>
+<DerivationStep number={1} title="Subtract coordinates in each dimension">
+
+$$d_E = \sqrt{(4 - 1)^2 + (8 - 4)^2}$$
+</DerivationStep>
+<DerivationStep number={2} title="Square each difference">
+
+$$= \sqrt{3^2 + 4^2} = \sqrt{9 + 16}$$
+</DerivationStep>
+<DerivationStep number={3} title="Take the square root">
+
+$$= \sqrt{25} = 5$$
+
+The straight-line distance is 5. This is a 3-4-5 right triangle.
+</DerivationStep>
+</DerivationSteps>
+
+## Manhattan Distance
+
+Named for the grid layout of Manhattan streets: a taxi cannot drive diagonally — it must travel along axes. The Manhattan distance (also called the L1 norm or taxicab distance) sums the absolute differences in each coordinate:
+
+$$d_M(a, b) = \sum_{j=1}^{p} |a_j - b_j| = \|a - b\|_1$$
+
+### Worked example
+
+Using the same points $(1, 4)$ and $(4, 8)$:
+
+$$d_M = |4 - 1| + |8 - 4| = 3 + 4 = 7$$
+
+The Manhattan distance (7) is greater than the Euclidean distance (5). This is always the case: the straight line is the shortest path, so $d_E \leq d_M$ always holds.
+
+<ConceptBox title="When to use Manhattan distance">
+- **Less sensitive to outliers:** squaring amplifies large differences; taking absolute values does not.
+- **Diamond-shaped balls:** the set of points equidistant from a centre forms a diamond (rotated square) instead of a circle.
+- **Sparse, high-dimensional data:** text mining, genomics — the curse of dimensionality is less severe under L1.
+- **Appropriate minimiser is the median:** using Manhattan distance in K-means changes the optimal centroid update to the coordinate-wise median (the K-medians algorithm).
+</ConceptBox>
+
+## Cosine Similarity and Cosine Distance
+
+For text documents and high-dimensional sparse vectors, the *direction* of a vector matters more than its magnitude. A 10-word document and a 1000-word document on the same topic should be considered "close" — even though their L2 norms differ enormously. Cosine similarity measures the cosine of the angle between two vectors:
+
+$$\cos(\theta) = \frac{a \cdot b}{\|a\|_2\, \|b\|_2} = \frac{\displaystyle\sum_j a_j b_j}{\displaystyle\sqrt{\sum_j a_j^2} \cdot \sqrt{\sum_j b_j^2}}$$
+
+The range is $[-1, 1]$. A value of 1 means the vectors point in exactly the same direction; 0 means they are orthogonal; −1 means they point in opposite directions. Cosine *distance* is defined as $1 - \cos(\theta)$, so it lies in $[0, 2]$.
+
+### Worked example: same direction, different magnitudes
+
+Let $A = (1, 2)$ and $B = (2, 4)$. B is just A scaled by 2.
+
+$$d_E(A, B) = \sqrt{(2-1)^2 + (4-2)^2} = \sqrt{1 + 4} \approx 2.24$$
+
+$$\cos(\theta) = \frac{(1)(2) + (2)(4)}{\sqrt{1^2+2^2}\cdot\sqrt{2^2+4^2}} = \frac{2 + 8}{\sqrt{5} \cdot \sqrt{20}} = \frac{10}{10} = 1.0$$
+
+Euclidean distance says they are 2.24 apart; cosine distance says they are 0 apart (identical direction). Which is correct depends on your problem.
+
+> **Cosine distance and K-means do not mix cleanly.** K-means with Euclidean distance uses the arithmetic mean as the centroid update — this is mathematically optimal. For cosine distance, the optimal centroid is the mean of unit-normalised vectors, then re-normalised. If you swap in cosine distance without changing the update step, you get an algorithm that does not converge to a true optimum.
+
+## The Centroid: Mean of a Cluster
+
+The centroid of a set of points $S = \{x_1, \ldots, x_n\}$ is their arithmetic mean:
+
+$$\mu = \frac{1}{n} \sum_{i=1}^{n} x_i$$
+
+In 2D, this is simply the mean of the x-coordinates paired with the mean of the y-coordinates. Physically, the centroid is the *balance point*: if you placed equal unit weights at each data point on a rigid weightless sheet, the centroid is where you would need to place a finger to keep it balanced.
+
+### Why the centroid is the correct update in K-means
+
+This is the key mathematical result of this module. The K-means update step minimises the within-cluster sum of squared Euclidean distances. For a fixed cluster $C_k$, we seek the point $\mu_k$ that minimises:
+
+$$f(\mu_k) = \sum_{i \in C_k} \|x_i - \mu_k\|^2$$
+
+<DerivationSteps>
+<DerivationStep number={1} title="Expand the squared norm">
+
+$$f(\mu_k) = \sum_{i \in C_k} \sum_{j=1}^{p} (x_{ij} - \mu_{kj})^2$$
+
+The dimensions are independent, so we can minimise coordinate by coordinate.
+</DerivationStep>
+<DerivationStep number={2} title="Take the partial derivative and set to zero">
+
+$$\frac{\partial f}{\partial \mu_k} = -2 \sum_{i \in C_k} (x_i - \mu_k) = 0$$
+
+The derivative of $(x_i - \mu_k)^2$ with respect to $\mu_k$ is $-2(x_i - \mu_k)$.
+</DerivationStep>
+<DerivationStep number={3} title="Rearrange to solve for the centroid">
+
+$$\sum_{i \in C_k} x_i = |C_k|\, \mu_k \quad \Rightarrow \quad \mu_k = \frac{1}{|C_k|} \sum_{i \in C_k} x_i$$
+
+The arithmetic mean is the *exact* minimiser of the squared-distance objective.
+</DerivationStep>
+<DerivationStep number={4} title="Verify it is a minimum">
+
+$$\frac{\partial^2 f}{\partial \mu_k^2} = 2\,|C_k| > 0$$
+
+Positive second derivative confirms the critical point is a minimum.
+</DerivationStep>
+</DerivationSteps>
+
+> **Why Euclidean distance and the arithmetic mean are inseparable.** The derivation above only works because we squared the distances. Squaring makes $f(\mu_k)$ a convex quadratic in $\mu_k$, so its unique minimiser is the arithmetic mean. If you use a different distance metric, the optimal centroid changes too. These two choices — Euclidean distance and arithmetic mean update — are mathematically one design decision, not two.
+
+### Why Manhattan distance gives the median, not the mean
+
+For the L1 objective in one dimension, $g(\mu) = \sum_{i=1}^{n} |x_i - \mu|$, the function is piecewise linear. Moving $\mu$ by a small amount $\delta$ changes $g$ by $\delta(\text{count left of }\mu - \text{count right of }\mu)$. This slope is zero — and thus $g$ is minimised — exactly when equal numbers of points lie on each side of $\mu$. That is the definition of the **median**. The variant of K-means that uses L1 distance and median updates is called **K-medians**.
+
+## Feature Scaling and Its Importance
+
+Because Euclidean distance squares coordinate differences, features with larger numeric ranges dominate. Consider a dataset with features "age" (range 0–80) and "income" (range 0–100,000). A difference of 1 in income contributes the same as a difference of 1 in age, but income differences in practice are thousands of times larger — so income will completely dwarf age in any distance computation.
+
+### Standard scaling (Z-score normalisation)
+
+Subtract the feature mean and divide by the feature standard deviation:
+
+$$x_j' = \frac{x_j - \bar{x}_j}{s_j}$$
+
+After scaling, each feature has mean 0 and standard deviation 1, so all features contribute equally to Euclidean distance.
+
+### Min-max scaling
+
+$$x_j' = \frac{x_j - \min_j}{\max_j - \min_j}$$
+
+This maps each feature to the interval [0, 1]. It is sensitive to outliers (a single extreme value compresses all other values), so Z-score scaling is generally preferred for K-means.
+
+> **Always scale your features before running K-means.** Failure to scale means the algorithm clusters by whichever feature happens to have the largest numeric range — often a meaningless accident of units.
+
+### Worked example
+
+Two people: A = (age=10, income=50,000) and B = (age=70, income=51,000). Their income differs by only $1,000 but their age differs by 60 years.
+
+**Without scaling:**
+
+$$d_E(A, B) = \sqrt{(70-10)^2 + (51000-50000)^2} = \sqrt{3600 + 1{,}000{,}000} \approx 1001.8$$
+
+The income difference of 1,000 contributes almost all of the distance. Age is irrelevant.
+
+**After Z-score scaling** (assume age: $\bar{x}=40,\; s=20$; income: $\bar{x}=50500,\; s=500$):
+
+$$A' = \!\left(\frac{10-40}{20},\, \frac{50000-50500}{500}\right) = (-1.5,\; -1.0)$$
+
+$$B' = \!\left(\frac{70-40}{20},\, \frac{51000-50500}{500}\right) = (1.5,\; 1.0)$$
+
+$$d_E(A', B') = \sqrt{(1.5-(-1.5))^2 + (1.0-(-1.0))^2} = \sqrt{9 + 4} \approx 3.61$$
+
+Now age and income contribute equally. The distance reflects the true structure of the data.
+
+## Interactive: Compare Distance Metrics
+
+<ConceptBox title="Interactive Widget">
+This widget demonstrates the difference between Euclidean distance, Manhattan distance, and cosine similarity. It shows both the straight-line (Euclidean) path and the L-shaped (Manhattan) path between two adjustable points, with all three distance metrics updating in real time. The key takeaway is that Euclidean distance is always less than or equal to Manhattan distance, and cosine distance measures angle rather than magnitude.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+## Interactive: Centroid as the Balance Point
+
+<ConceptBox title="Interactive Widget">
+This widget demonstrates that the centroid (arithmetic mean) is the point that minimises the within-cluster sum of squares. Moving the candidate centroid away from the true centroid always increases WCSS. The key takeaway is that the arithmetic mean is the unique optimal centroid under Euclidean distance.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+## Interactive: Why Scaling Matters
+
+<ConceptBox title="Interactive Widget">
+This widget shows K-means applied to a synthetic dataset with "age" (range 0–80) and "income" (range 0–100,000). Without scaling, K-means draws horizontal bands because the income axis dominates Euclidean distance. After Z-score scaling, K-means recovers the true diagonal clusters. The key takeaway is that unscaled features cause K-means to cluster by the feature with the largest numeric range, not by meaningful structure.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+## Practice
+
+**Problem 1 — Distance computation**
+
+Compute the Euclidean distance and Manhattan distance between $A = (3, 4)$ and $B = (7, 1)$. Which is larger, and why must that always be the case?
+
+**Solution:**
+
+$$d_E = \sqrt{(7-3)^2 + (1-4)^2} = \sqrt{16 + 9} = \sqrt{25} = 5$$
+
+$$d_M = |7-3| + |1-4| = 4 + 3 = 7$$
+
+**Manhattan is larger.** The straight line (Euclidean path) is the shortest possible path between any two points. Any path that travels along axes — the Manhattan path — must be at least as long. Formally: $d_E(a,b) \leq d_M(a,b)$ for all $a, b \in \mathbb{R}^p$, which follows from the Cauchy-Schwarz inequality applied to the norm inequality $\|v\|_2 \leq \|v\|_1$.
+
+---
+
+**Problem 2 — Centroid minimises squared distances**
+
+A cluster contains the points $(0,0)$, $(4,0)$, $(2,4)$.
+
+(a) Find the centroid $\mu$. (b) Compute $\sum_i \|x_i - \mu\|^2$ for both the true centroid and the alternative $\mu' = (3, 2)$. Confirm the centroid gives the smaller value.
+
+**Solution:**
+
+**(a) Centroid:**
+
+$$\mu = \left(\frac{0+4+2}{3},\; \frac{0+0+4}{3}\right) = \left(2,\; \frac{4}{3}\right)$$
+
+**(b) WCSS at the true centroid:** $\approx 18.67$. WCSS at $\mu' = (3, 2)$: $= 13 + 5 + 5 = 23$. Since $18.67 < 23$, the true centroid achieves the smaller WCSS.
+
+---
+
+**Problem 3 — Prove L2 uses mean, L1 uses median**
+
+**Part A (L2).** Prove that for the objective $f(\mu) = \sum_{i=1}^{n} \|x_i - \mu\|^2$, the minimiser is the arithmetic mean $\mu^* = \frac{1}{n}\sum_i x_i$.
+
+**Part B (L1, 1D).** For the objective $g(\mu) = \sum_{i=1}^{n} |x_i - \mu|$, show that the minimiser is the median.
+
+**Solution:**
+
+**Part A:** Expand by adding and subtracting the sample mean $\bar{x}$:
+
+$$\|x_i - \mu\|^2 = \|(x_i - \bar{x}) + (\bar{x} - \mu)\|^2 = \|x_i - \bar{x}\|^2 + 2(x_i-\bar{x})^\top(\bar{x}-\mu) + \|\bar{x}-\mu\|^2$$
+
+Summing over $i$: the cross term vanishes because $\sum_i(x_i-\bar{x}) = 0$, giving:
+
+$$f(\mu) = \sum_{i=1}^n \|x_i - \bar{x}\|^2 + n\|\bar{x} - \mu\|^2$$
+
+The first term is constant. The second term is zero when $\mu = \bar{x}$. Therefore the unique minimiser is $\mu^* = \bar{x}$. $\square$
+
+**Part B:** The subgradient at a point $\mu$ not equal to any $x_i$ is:
+
+$$g'(\mu) = \#\{x_i < \mu\} - \#\{x_i > \mu\}$$
+
+The minimum occurs where this equals 0 — where equal numbers of points lie on each side. This is exactly the definition of the **median**. $\square$
+
+<QuizCard
+  question="Why must features be standardised before running K-means?"
+  options={['K-means cannot handle continuous features without normalisation', 'Features with larger numeric ranges dominate Euclidean distance, causing the algorithm to cluster by scale rather than structure', 'Standardisation makes K-means converge faster by reducing the number of iterations', 'K-means uses cosine distance internally, which requires unit-norm vectors']}
+  correct={1}
+/>
