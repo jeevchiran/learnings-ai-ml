@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { moduleById, getPrevNext } from '../data/courses.js'
+import { moduleById, getPrevNext, courses } from '../data/courses.js'
 import { useProgressContext } from '../hooks/useProgress.jsx'
 
 const BASE = import.meta.env.BASE_URL;
@@ -30,9 +30,18 @@ export default function ModuleViewer() {
   }, []);
 
   const mod  = moduleById[moduleId];
-  const { prev, next } = getPrevNext(moduleId);
+  const { prev, next } = getPrevNext(moduleId);   // global sequential (topbar)
   const done    = isCompleted(moduleId);
   const starred = isBookmarked(moduleId);
+
+  // within-track and track-jump navigation for bottom nav
+  const course      = mod ? courses.find(c => c.id === mod.courseId) : null;
+  const courseIdx   = course ? courses.indexOf(course) : -1;
+  const modIdx      = course ? course.modules.findIndex(m => m.id === moduleId) : -1;
+  const prevInTrack = course && modIdx > 0 ? course.modules[modIdx - 1] : null;
+  const nextInTrack = course && modIdx < course.modules.length - 1 ? course.modules[modIdx + 1] : null;
+  const prevTrack   = courseIdx > 0 ? courses[courseIdx - 1] : null;
+  const nextTrack   = courseIdx < courses.length - 1 ? courses[courseIdx + 1] : null;
 
   // record visit + start 30s auto-complete timer
   useEffect(() => {
@@ -129,23 +138,47 @@ export default function ModuleViewer() {
       />
 
       <div className="module-bottom-nav">
-        <button
-          className="bottom-nav-btn"
-          onClick={() => prev && navigate(`/module/${prev.id}`)}
-          disabled={!prev}
-        >
-          ← {prev?.title ?? 'Start'}
-        </button>
-        <span className="bottom-nav-center">
-          {mod.moduleNumber} / {mod.totalInCourse}
-        </span>
-        <button
-          className="bottom-nav-btn"
-          onClick={() => next && navigate(`/module/${next.id}`)}
-          disabled={!next}
-        >
-          {next?.title ?? 'End'} →
-        </button>
+        <div className="bottom-nav-row">
+          <button
+            className="bottom-nav-btn"
+            onClick={() => prevInTrack && navigate(`/module/${prevInTrack.id}`)}
+            disabled={!prevInTrack}
+          >
+            ← {prevInTrack?.title ?? ''}
+          </button>
+          <span className="bottom-nav-center">
+            {mod.moduleNumber} / {mod.totalInCourse}
+          </span>
+          <button
+            className="bottom-nav-btn"
+            onClick={() => nextInTrack && navigate(`/module/${nextInTrack.id}`)}
+            disabled={!nextInTrack}
+          >
+            {nextInTrack?.title ?? ''} →
+          </button>
+        </div>
+
+        <div className="bottom-nav-row bottom-nav-tracks">
+          <button
+            className="bottom-nav-btn track-jump-btn"
+            onClick={() => prevTrack && navigate(`/module/${prevTrack.modules[0].id}`)}
+            disabled={!prevTrack}
+            style={{ '--track-color': prevTrack?.color }}
+          >
+            ↖ {prevTrack?.title ?? ''}
+          </button>
+          <span className="bottom-nav-center" style={{ color: course?.color, fontWeight: 600 }}>
+            {course?.title}
+          </span>
+          <button
+            className="bottom-nav-btn track-jump-btn"
+            onClick={() => nextTrack && navigate(`/module/${nextTrack.modules[0].id}`)}
+            disabled={!nextTrack}
+            style={{ '--track-color': nextTrack?.color }}
+          >
+            {nextTrack?.title ?? ''} ↗
+          </button>
+        </div>
       </div>
     </div>
   );
