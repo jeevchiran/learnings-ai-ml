@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { moduleById, getPrevNext, courses } from '../data/courses.js'
 import { useProgressContext } from '../hooks/useProgress.jsx'
 import MDXRenderer from './MDXRenderer.jsx'
@@ -107,7 +108,13 @@ export default function ModuleViewer() {
   const iframeSrc = `${BASE}${mod.coursePath}/modules/${mod.file}`;
 
   return (
-    <div className="module-viewer">
+    <motion.div
+      className="module-viewer"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+    >
       <div className="module-topbar">
         <div className="module-breadcrumb">
           <span role="button" style={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
@@ -209,6 +216,6 @@ export default function ModuleViewer() {
           </button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

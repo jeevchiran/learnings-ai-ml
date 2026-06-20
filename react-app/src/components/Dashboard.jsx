@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { courses, allModules } from '../data/courses.js'
 import { useProgressContext } from '../hooks/useProgress.jsx'
 
@@ -21,7 +22,13 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="dashboard">
+    <motion.div
+      className="dashboard"
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+    >
       <h1 className="dashboard-heading">AI/ML Learning Portal</h1>
       <p className="dashboard-sub">Self-paced interactive courses for data science and engineering.</p>
 
@@ -70,6 +77,6 @@ export default function Dashboard() {
           );
         })}
       </div>
-    </div>
+    </motion.div>
   );
 }
