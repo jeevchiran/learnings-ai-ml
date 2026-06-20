@@ -1,0 +1,158 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+Parse trees capture grammatical structure but are silent about meaning — NP and VP labels say nothing about what concepts or actions are involved. **Lexical semantics** bridges this gap by formalizing how individual words encode meaning and relate to each other.
+</Bridge>
+
+## Semantic Relations Between Words
+
+<ConceptBox title="Six Foundational Semantic Relations">
+- **Synonymy** — similar meaning: *couch / sofa*, *begin / start*. Perfect synonymy is rare — synonyms differ in connotation, register, or collocation.
+- **Antonymy** — opposite meaning, three subtypes: *complementary* (alive/dead — no middle), *gradable* (hot/cold — admit degrees), *converse* (buy/sell — two perspectives on one relation).
+- **Hyponymy & Hypernymy** — the IS-A hierarchy: "dog" is a *hyponym* of "animal"; "animal" is a *hypernym* of "dog". Transitive: poodle → dog → animal → organism.
+- **Holonymy & Meronymy** — the PART-OF relation: finger is a *meronym* of hand. A wheel is part of a car (meronymy), not a kind of car (hyponymy).
+- **Polysemy** — one word, multiple *related* senses: "head" — body part, organizational leader, head of a river — all connected by a core notion of "topmost/primary".
+- **Homonymy** — one word form, completely *unrelated* meanings: "bank" (financial institution, Old French *banque*) vs. "bank" (river bank, Old Norse *bakki*) — converged in spelling by historical accident.
+</ConceptBox>
+
+**Polysemy vs. homonymy matters for disambiguation.** Polysemous senses share conceptual structure, so context clues that resolve one sense often help others. Homonyms share nothing — disambiguating "bank" requires completely independent evidence for each sense.
+
+## WordNet
+
+WordNet is a lexical database for English that organizes words into **synsets** — synonym sets — and encodes semantic relations between them.
+
+<ConceptBox title="The Synset: WordNet's Core Unit">
+Each synset represents a single concept and contains:
+- **Lemmas**: the set of synonymous word forms expressing this concept
+- **Gloss**: a short natural-language definition
+- **Example sentences**: usage examples
+- **Relations**: hypernyms, hyponyms, holonyms, meronyms, antonyms — pointing to other synsets
+
+Example: synset `car.n.01` has lemmas {car, auto, automobile, motorcar} and gloss "a motor vehicle with four wheels; usually propelled by an internal combustion engine".
+</ConceptBox>
+
+Naming convention: `word.pos.nn` where `nn` is the sense number — `bank.n.01` is the financial institution, `bank.n.09` is the river bank.
+
+<CodeBlock language="python">
+{`from nltk.corpus import wordnet as wn
+
+synsets = wn.synsets('bank')
+for syn in synsets:
+    print(f"Synset: {syn.name()}")
+    print(f"  Definition: {syn.definition()}")
+    print(f"  Hypernyms: {[h.name() for h in syn.hypernyms()]}")
+# Synset: bank.n.01
+#   Definition: a financial institution that accepts deposits ...
+#   Hypernyms: ['depository_financial_institution.n.01']
+#
+# Synset: bank.n.09
+#   Definition: sloping land (especially the slope beside a body of water)
+#   Hypernyms: ['slope.n.01']
+
+# Hypernym chain (IS-A ladder) for dog:
+dog = wn.synset('dog.n.01')
+print([s.name() for s in dog.hypernym_paths()[0]])
+# ['entity.n.01', 'physical_entity.n.01', 'object.n.01', 'whole.n.02',
+#  'living_thing.n.01', 'organism.n.01', 'animal.n.01', 'chordate.n.01',
+#  'vertebrate.n.01', 'mammal.n.01', 'carnivore.n.01', 'canine.n.02', 'dog.n.01']`}
+</CodeBlock>
+
+## Word Sense Disambiguation
+
+**Word Sense Disambiguation (WSD)** is the task of determining, given a word in context, which of its dictionary senses is intended.
+
+<ConceptBox title="WSD is AI-Complete">
+Solving WSD perfectly requires full world knowledge and common-sense reasoning. "He saw her duck" — bird or action? — can only be resolved with physical context. No finite rule set covers all cases.
+</ConceptBox>
+
+Wrong sense selection cascades through downstream systems: MT maps Spanish "banco" to bank or bench depending on context; QA "What does the bank regulate?" requires the financial sense; IE needs "plant" = manufacturing facility, not vegetation.
+
+### Knowledge-Based WSD: The Lesk Algorithm
+
+The simplest knowledge-based method (Lesk, 1986) exploits WordNet gloss overlap:
+
+<DerivationSteps>
+<DerivationStep number={1} title="Extract context words.">
+Take surrounding words within a window (typically the sentence). Remove stopwords and punctuation. What remains is the context set.
+</DerivationStep>
+
+<DerivationStep number={2} title="Retrieve candidate synsets.">
+Look up the target word in WordNet. Each synset it belongs to is a candidate sense. For "bank" (noun), there are 10 candidate synsets.
+</DerivationStep>
+
+<DerivationStep number={3} title="Compute gloss overlap.">
+For each candidate synset, count how many words in its gloss (definition) also appear in the context set. This is the overlap score.
+</DerivationStep>
+
+<DerivationStep number={4} title="Select argmax.">
+Choose the synset with the highest overlap score. In ties, fall back to the most frequent sense (MFS baseline).
+</DerivationStep>
+</DerivationSteps>
+
+**Example.** Sentence: "He went to the bank to deposit his salary." Target: "bank".
+
+| Synset | Gloss (excerpt) | Overlap with {went, deposit, salary} |
+|--------|----------------|--------------------------------------|
+| bank.n.01 | *financial institution that accepts **deposits** and channels money into lending* | 1 (**deposit**) |
+| bank.n.09 | *sloping land beside a body of water* | 0 |
+
+→ Lesk selects `bank.n.01` (financial institution). ✓
+
+<ConceptBox title="Limitations of Lesk">
+- Gloss overlap is sparse — many synsets have short glosses with few content words
+- **Extended Lesk** also overlaps hyponym/hypernym glosses for richer coverage
+- Knowledge-based methods fall significantly short of supervised WSD systems (which use annotated sense-tagged corpora)
+- Modern systems use contextual embeddings (BERT) for WSD directly
+</ConceptBox>
+
+### Supervised WSD
+
+With sense-tagged training data (e.g., SemEval benchmarks, SenseEval), supervised classifiers treat WSD as multi-class classification. Features include:
+
+- Surrounding words in a context window (bag-of-words)
+- POS tags of surrounding words
+- Syntactic relations (subject-of, object-of)
+
+Modern state-of-the-art: fine-tune a pre-trained transformer on sense-tagged data.
+
+<CodeBlock language="python">
+{`from nltk.corpus import wordnet as wn
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+
+def lesk(word, sentence):
+    """Simplified Lesk algorithm using NLTK WordNet."""
+    context = set(w.lower() for w in word_tokenize(sentence) 
+                  if w.lower() not in stopwords.words('english'))
+    
+    best_synset = None
+    best_overlap = -1
+    
+    for synset in wn.synsets(word):
+        # Tokenize the gloss (definition)
+        gloss = set(w.lower() for w in word_tokenize(synset.definition()))
+        overlap = len(context & gloss)
+        
+        if overlap > best_overlap:
+            best_overlap = overlap
+            best_synset = synset
+    
+    return best_synset
+
+sentence = "He went to the bank to deposit his salary."
+result = lesk("bank", sentence)
+print(result.name(), ":", result.definition())
+# bank.n.01 : a financial institution that accepts deposits ...`}
+</CodeBlock>
+
+<ConceptBox title="Interactive Widget: WordNet Hierarchy Explorer">
+Select a word to explore its synsets, hypernym chain (upward to entity.n.01), and direct hyponyms. Try: dog, car, bank, tree, bird, see, run.
+
+Note: interactive widget replaced with static description. See the original HTML file for the JS implementation.
+</ConceptBox>
+
+<QuizCard
+  question="The Lesk algorithm selects the sense of a word by finding the synset whose gloss has the maximum overlap with the sentence context. 'He opened an account at the bank.' Which synset would it prefer, and why?"
+  options={['bank.n.09 (river bank) — because "opened" and "at" appear in its gloss', 'bank.n.01 (financial institution) — because context words like "account" appear in its gloss about deposits and financial services', 'No disambiguation is possible — "bank" is too ambiguous for Lesk to resolve', 'The most frequent sense baseline is used — Lesk fails on homonyms']}
+  correct={1}
+/>
