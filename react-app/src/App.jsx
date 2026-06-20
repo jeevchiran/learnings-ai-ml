@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { HashRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route, Link } from 'react-router-dom'
 import { ProgressProvider } from './hooks/useProgress.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import Dashboard from './components/Dashboard.jsx'
@@ -31,7 +31,7 @@ export default function App() {
       <ProgressProvider>
         <div className="mobile-header">
           <button className="icon-btn" onClick={openSidebar} aria-label="Open menu">☰</button>
-          <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>AI/ML Portal</span>
+          <Link to="/" style={{ fontWeight: 700, fontSize: '0.9rem', color: 'inherit', textDecoration: 'none' }}>AI/ML Portal</Link>
           <button className="icon-btn" onClick={toggleDark} style={{ marginLeft: 'auto' }}>
             {dark ? '☀' : '◑'}
           </button>
