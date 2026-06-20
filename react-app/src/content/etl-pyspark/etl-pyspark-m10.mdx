@@ -1,0 +1,167 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+In Module 9, we built complex transformations — joins, aggregations, pivots, and window functions. These pipelines can be expensive. This final module covers how to make them fast using caching and broadcast variables.
+</Bridge>
+
+## When to Cache
+
+Spark's lazy evaluation means every time you call an action on a DataFrame, Spark re-executes the entire lineage of transformations from the source data. This is fine for one-off computations, but wasteful when the same DataFrame feeds multiple downstream operations.
+
+<ConceptBox title="The Three Caching Candidates">
+Cache a DataFrame when:
+1. **Reused DataFrames** — same DataFrame feeds multiple downstream operations
+2. **Iterative algorithms** — ML training loops that read the same training data on each iteration
+3. **Expensive intermediates** — result of a heavy join, complex aggregation, or multi-step cleaning pipeline
+
+If a DataFrame is used exactly once, caching wastes memory without benefit.
+</ConceptBox>
+
+## cache() vs persist()
+
+`cache()` is shorthand for `persist(StorageLevel.MEMORY_ONLY)`. `persist()` gives you control over the storage level:
+
+| Storage level | Memory use | Disk use | Behavior |
+|--------------|------------|----------|----------|
+| `MEMORY_ONLY` | High | None | Fastest; partitions that don't fit are recomputed |
+| `MEMORY_AND_DISK` | Medium | Spill | Safe default; partitions spill to disk instead of recomputing |
+| `DISK_ONLY` | None | High | Slowest; all data on disk, useful to preserve memory |
+| `MEMORY_ONLY_SER` | Low | None | Stores serialized bytes; less memory, CPU overhead to deserialize |
+
+<CodeBlock language="python">
+{`from pyspark import StorageLevel
+
+# Cache after expensive join
+joined_df = students_df.join(enrollments_df, "student_id")
+joined_df.cache()  # shorthand for MEMORY_ONLY
+
+# or explicitly choose storage level:
+joined_df.persist(StorageLevel.MEMORY_AND_DISK)
+
+# First action materializes the cache (slow)
+joined_df.count()
+
+# Subsequent actions read from cache (fast)
+joined_df.filter(col("grade") > 85).show(5)
+joined_df.groupBy("major").avg("grade").show()`}
+</CodeBlock>
+
+## Unpersisting
+
+When done with a cached DataFrame, call `unpersist()` to free memory. Important for long-running jobs and notebook sessions where cached data can accumulate:
+
+<CodeBlock language="python">
+{`joined_df.unpersist()
+# DataFrame still exists — subsequent actions recompute from lineage`}
+</CodeBlock>
+
+## Broadcast Variables
+
+When joining a large DataFrame with a small one, Spark's default strategy shuffles data across the network. Broadcast joins solve this: the small table is sent to every worker node, so each partition of the large table does a local lookup without any shuffle.
+
+<ConceptBox title="When to Broadcast">
+Good candidates for broadcast:
+- Lookup tables and dimension tables
+- Configuration mappings  
+- Any DataFrame under approximately 100 MB
+
+Never broadcast a large table — it creates memory pressure on every executor and can cause OOM errors.
+</ConceptBox>
+
+<CodeBlock language="python">
+{`from pyspark.sql.functions import broadcast
+
+# Small lookup table (course metadata)
+courses = spark.createDataFrame([
+    ("CS101", "Computer Science", 3),
+    ("DS101", "Data Science", 3),
+    ("MA101", "Mathematics", 4),
+    ("ST101", "Statistics", 3)
+], ["course_id", "department", "credits"])
+
+# Broadcast hint: small table sent to all workers
+# No shuffle of the large enrollments_df
+enriched = enrollments_df.join(broadcast(courses), "course_id")
+enriched.show(5)
+# +----------+---------+----------+----------------+-------+
+# |student_id|course_id|  semester|      department|credits|
+# +----------+---------+----------+----------------+-------+
+# |      1001|    CS101|   Fall 24|Computer Science|      3|`}
+</CodeBlock>
+
+## Accumulator Variables
+
+Accumulators let you aggregate values across worker nodes — counting events, summing metrics, or tracking errors during distributed processing.
+
+**Rules:**
+- Workers can only `add()` to an accumulator (cannot read it)
+- Only the driver can read the final value
+- May update more than once if tasks are retried — use for monitoring, not critical logic
+
+<CodeBlock language="python">
+{`# Create accumulators on the driver
+invalid_count = sc.accumulator(0)
+total_count = sc.accumulator(0)
+
+def process_record(row):
+    total_count.add(1)
+    if row["grade"] is None or row["grade"] < 0:
+        invalid_count.add(1)
+    return row
+
+enrollments_df.foreach(process_record)
+
+# Driver reads final values after action completes
+print(f"Total records: {total_count.value}")
+print(f"Invalid records: {invalid_count.value}")
+print(f"Invalid rate: {invalid_count.value / total_count.value * 100:.1f}%")`}
+</CodeBlock>
+
+## Putting It Together — Full ETL Pipeline
+
+<DerivationSteps>
+<DerivationStep number={1} title="Read raw data and infer schema.">
+```python
+raw_df = spark.read.csv("grades_messy.csv", header=True, inferSchema=True)
+```
+</DerivationStep>
+
+<DerivationStep number={2} title="Clean: deduplicate, null-filter, range-filter, normalize text.">
+```python
+cleaned_df = (
+    raw_df
+    .dropDuplicates(["enrollment_id"])
+    .filter(col("student_id").isNotNull())
+    .filter((col("grade") >= 0) & (col("grade") <= 100))
+    .withColumn("course_name", trim(initcap(col("course_name"))))
+)
+```
+</DerivationStep>
+
+<DerivationStep number={3} title="Cache the cleaned result — it feeds multiple aggregations.">
+```python
+cleaned_df.cache()
+cleaned_df.count()  # materialize
+```
+</DerivationStep>
+
+<DerivationStep number={4} title="Broadcast-join with small lookup table.">
+```python
+enriched_df = cleaned_df.join(broadcast(course_lookup), "course_id")
+```
+</DerivationStep>
+
+<DerivationStep number={5} title="Run aggregations on cached data, then unpersist.">
+```python
+enriched_df.groupBy("major").avg("grade").show()
+enriched_df.groupBy("semester").count().show()
+cleaned_df.unpersist()
+```
+</DerivationStep>
+</DerivationSteps>
+
+<QuizCard
+  question="A DataFrame is the result of an expensive 5-table join. You need to run 4 different aggregations on it. What should you do?"
+  options={['Run the 4 aggregations one by one — Spark will optimize each query independently', 'Cache the DataFrame after the join, run all 4 aggregations, then unpersist — the join executes once, all aggregations read from cache', 'Use broadcast() on the largest table to speed up the join', 'Use DISK_ONLY storage level so the result persists across Spark sessions']}
+  correct={1}
+/>

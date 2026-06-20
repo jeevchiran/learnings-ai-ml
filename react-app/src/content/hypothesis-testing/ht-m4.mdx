@@ -1,0 +1,125 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+**Why does this matter?** A marketing team at an e-commerce company wants to know which of two email subject lines drives more clicks. They randomly send version A to 200 subscribers and version B to another 200. Version A achieves a 12% click rate; version B achieves 15%. The difference is 3 percentage points. But could this difference have arisen by chance alone, even if both subject lines are equally effective?
+
+To answer rigorously, the team runs a two-sample hypothesis test — the same statistical framework used in clinical trials, quality control, and academic research whenever we compare two groups.
+</Bridge>
+
+## 1. The Two-Sample Framework
+
+In Module 3 we compared a single sample mean x̄ to a fixed reference value μ₀. Two-sample tests shift this question fundamentally: rather than anchoring to a fixed external value, we now compare the means of **two independent populations** directly against each other. The parameter of interest is the **difference in means**: μ₁ − μ₂.
+
+The general two-sample hypothesis structure is:
+
+$$H_0 : \mu_1 - \mu_2 = \delta_0 \quad \text{(usually } \delta_0 = 0\text{, testing for no difference)}$$
+
+$$H_1 : \mu_1 - \mu_2 \neq \delta_0 \quad \text{(or } > \delta_0 \text{ or } < \delta_0\text{)}$$
+
+The test statistic follows the general principle from earlier modules: estimator minus hypothesized value, divided by the standard error of the estimator:
+
+$$\text{Test statistic} = \dfrac{(\bar{X}_1 - \bar{X}_2) - \delta_0}{\text{SE}(\bar{X}_1 - \bar{X}_2)}$$
+
+<ConceptBox title="Independence Assumption">
+Two-sample tests require the two groups to be **independent**. The observations in group 1 must have nothing to do with observations in group 2: knowing the value of any observation in group 1 must give you no information about any observation in group 2. In practice, this is guaranteed by random assignment.
+
+If this assumption is violated — for example, because the same subjects appear in both groups (before-and-after measurements, matched pairs) — the two-sample t-test is invalid. The appropriate method in that case is the **paired t-test**, covered in Module 5.
+</ConceptBox>
+
+## 2. Two-Population Z-Test (Known Population Standard Deviations)
+
+If both population standard deviations σ₁ and σ₂ are known, the analysis is exact. By the properties of independent normal random variables, the sampling distribution of the difference in sample means is:
+
+$$\bar{X}_1 - \bar{X}_2 \sim N\!\left(\mu_1 - \mu_2,\; \dfrac{\sigma_1^2}{n_1} + \dfrac{\sigma_2^2}{n_2}\right)$$
+
+This follows from the variance addition rule: $\text{Var}(\bar{X}_1 - \bar{X}_2) = \sigma_1^2/n_1 + \sigma_2^2/n_2$. Standardizing under H₀ yields the two-sample Z statistic:
+
+$$Z = \dfrac{(\bar{X}_1 - \bar{X}_2) - \delta_0}{\sqrt{\dfrac{\sigma_1^2}{n_1} + \dfrac{\sigma_2^2}{n_2}}}$$
+
+Under H₀, $Z \sim N(0,1)$. In practice, population standard deviations are almost never known precisely. The two-sample Z-test is primarily a pedagogical stepping stone to the t-test developed in the next section.
+
+## 3. Two-Sample Independent t-Test (Unknown Standard Deviations)
+
+In the realistic case where σ₁ and σ₂ are unknown, we substitute the sample standard deviations s₁ and s₂. This introduces additional uncertainty and the resulting test statistic no longer follows an exact standard normal distribution — it follows approximately a Student's t distribution.
+
+### Standard Error
+
+$$\text{SE}(\bar{X}_1 - \bar{X}_2) = \sqrt{\dfrac{s_1^2}{n_1} + \dfrac{s_2^2}{n_2}}$$
+
+### Welch's t Statistic
+
+$$t = \dfrac{(\bar{X}_1 - \bar{X}_2) - \delta_0}{\sqrt{\dfrac{s_1^2}{n_1} + \dfrac{s_2^2}{n_2}}}$$
+
+### Welch-Satterthwaite Degrees of Freedom
+
+The t statistic above does not follow an exact Student's t distribution for any integer degrees of freedom. The effective degrees of freedom ν is given by:
+
+$$\nu \approx \dfrac{\left(\dfrac{s_1^2}{n_1} + \dfrac{s_2^2}{n_2}\right)^2}{\dfrac{\left(s_1^2/n_1\right)^2}{n_1 - 1} + \dfrac{\left(s_2^2/n_2\right)^2}{n_2 - 1}}$$
+
+In practice, ν is rounded down to the nearest integer before looking up critical values. Note that ν always lies between $\min(n_1,n_2)-1$ and $n_1+n_2-2$.
+
+<ConceptBox title="Welch vs. Pooled: Which Should You Use?">
+An older approach — the pooled two-sample t-test — assumes equal population variances and estimates their common value by pooling the two sample variances. This is invalid whenever the variances are unequal, which is common in practice. Welch's t-test does not require equal variances. Statistical simulation studies have demonstrated that Welch's test maintains correct Type I error rates even when variances differ substantially. **Modern statistical practice recommends Welch's t-test as the default for two independent samples.**
+
+As n₁, n₂ → ∞, the t distribution approaches the standard normal, and the two-sample t-test converges in behavior to the two-sample Z-test.
+</ConceptBox>
+
+## 4. A/B Testing as a Two-Sample Hypothesis Test
+
+A/B testing — ubiquitous in technology, marketing, and product development — is simply a two-sample hypothesis test applied to a randomized experiment. Group A (the control) represents the current version; group B (the treatment) represents a proposed change.
+
+When the outcome variable is binary — a user either clicks or does not — the appropriate statistic is the **two-proportion Z-test**. Let $\hat{p}_A = x_A / n_A$ and $\hat{p}_B = x_B / n_B$ be the observed click rates in groups A and B. The hypotheses are:
+
+$$H_0 : p_A = p_B \quad \text{vs} \quad H_1 : p_A \neq p_B$$
+
+Under H₀, both groups share a common unknown proportion p. We estimate this pooled proportion by combining all successes across both groups:
+
+$$\hat{p} = \dfrac{n_A \hat{p}_A + n_B \hat{p}_B}{n_A + n_B}$$
+
+Using this pooled estimate in the standard error, the test statistic is:
+
+$$Z = \dfrac{\hat{p}_A - \hat{p}_B}{\sqrt{\hat{p}(1-\hat{p})\left(\dfrac{1}{n_A} + \dfrac{1}{n_B}\right)}}$$
+
+Under H₀ with sufficiently large samples (normal approximation adequate when $n_A\hat{p}, n_A(1-\hat{p}), n_B\hat{p}, n_B(1-\hat{p}) \geq 5$), $Z \sim N(0,1)$.
+
+<ConceptBox title="Statistical Significance vs. Practical Significance in A/B Tests">
+A foundational principle that practitioners frequently violate: **statistical significance is not the same as practical significance.** With a sufficiently large sample, virtually any difference, no matter how negligible in magnitude, will produce a p-value below any threshold.
+
+Always supplement the p-value with an effect size measure (Cohen's d for means, or the raw difference in proportions for binary outcomes) and report the **confidence interval for the difference**. The confidence interval makes the uncertainty visible in a way that the binary reject/fail-to-reject decision obscures.
+</ConceptBox>
+
+## 5. Effect Size: Cohen's d
+
+Statistical significance tells you whether a difference is unlikely to be zero. It does not tell you whether the difference is large enough to matter. Effect size fills this gap by quantifying the magnitude of the difference in standardized units.
+
+For two-sample comparisons of means, **Cohen's d** is defined as the difference in means divided by a pooled within-group standard deviation:
+
+$$d = \dfrac{|\bar{X}_1 - \bar{X}_2|}{s_p} \quad \text{where } s_p = \sqrt{\dfrac{(n_1-1)s_1^2 + (n_2-1)s_2^2}{n_1+n_2-2}}$$
+
+<DerivationSteps>
+<DerivationStep number="S" title="Small effect: d ≈ 0.2">
+The two distributions overlap substantially. The difference is real but modest — visible in aggregate data but not readily apparent in individual cases. Example: the height difference between 15- and 16-year-old males in a large population study.
+</DerivationStep>
+
+<DerivationStep number="M" title="Medium effect: d ≈ 0.5">
+Moderate separation between groups, visible to a careful observer. This is the rough magnitude of typical treatment effects in social science research. Example: the effect of a structured reading intervention on test scores.
+</DerivationStep>
+
+<DerivationStep number="L" title="Large effect: d ≈ 0.8">
+Clear, substantial separation between groups. The effect is obvious even to an untrained eye examining the raw data. Example: the difference in grip strength between trained athletes and sedentary adults.
+</DerivationStep>
+</DerivationSteps>
+
+Cohen himself emphasized that these benchmarks are rough guidelines, not universal standards. What constitutes a practically important effect depends entirely on the domain and the consequences of the decision.
+
+<ConceptBox title="Interactive Widget: Two-Distribution Overlap Visualizer">
+This widget lets you adjust two group parameters (means, standard deviations, sample sizes) to visualize how the overlap between sampling distributions relates to detectable differences. Increasing sample size narrows the sampling distributions and makes the same raw difference easier to detect.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+<QuizCard
+  question="In Welch's two-sample t-test, why is the pooled t-test generally NOT recommended as the default?"
+  options={['It requires both samples to have the same size', 'It assumes equal population variances, which is often violated and leads to incorrect Type I error rates', 'It uses the normal distribution instead of the t distribution', 'It cannot be applied when sample sizes are large']}
+  correct={1}
+/>

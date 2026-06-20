@@ -1,0 +1,169 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+# Multivariate Analysis
+
+## What, Why, and How
+
+<ConceptBox title="WHAT: Examining how 3+ variables interact simultaneously">
+Multivariate analysis goes beyond pairs of columns to examine **how three or more variables interact at once**. The core tools are:
+
+- **Pivot table** — a cross-tabulation that places one variable on rows, another on columns, and summarises a third variable (e.g., mean, sum, count) in each cell. The pandas function is `df.pivot_table()`.
+- **Multi-level groupby** — `df.groupby([col1, col2]).agg()` groups by two (or more) keys simultaneously and returns a Series with a MultiIndex, giving you every combination of group values.
+- **Color-encoded scatter plot** — a standard scatter plot (x vs y) where point color encodes a third categorical variable. Three dimensions of information in one chart: position-x, position-y, and hue.
+- **Faceted plots** — seaborn's `FacetGrid` repeats the same chart once per category value, creating a grid of small multiples that let you compare a relationship across subgroups.
+</ConceptBox>
+
+<ConceptBox title="WHY: Real phenomena are multivariate — two variables are rarely enough">
+Bivariate analysis answers "does A relate to B?" But most real-world questions are richer:
+
+- Does `fare_amount` depend on `trip_distance` *and* `RatecodeID` *and* time of day — all at once?
+- Do higher `passenger_count` trips earn systematically different tips across different rate codes?
+- Is the bivariate correlation between distance and fare actually a masking of two completely different fare regimes (metered vs flat-rate) that behave differently?
+
+In Module 7 we saw that `fare_amount` and `trip_distance` correlate well for metered rides — but airport flat-rate trips (RatecodeID=2) break that pattern. The only way to see this clearly is to introduce RatecodeID as a **third variable**.
+</ConceptBox>
+
+<ConceptBox title="HOW: pivot_table, multi-level groupby, and color-encoded scatter">
+<DerivationSteps>
+<DerivationStep number={1} title="Pivot table via pandas">
+`df.pivot_table(values='fare_amount', index='RatecodeID', columns='passenger_count', aggfunc='mean')` — rows = unique RatecodeID values, columns = unique passenger_count values, each cell = mean fare for that combination. `aggfunc` can also be `'sum'`, `'count'`, `np.median`, or a custom lambda.
+</DerivationStep>
+<DerivationStep number={2} title="Multi-level groupby">
+`df.groupby(['RatecodeID', 'passenger_count'])['fare_amount'].mean().unstack()` — produces the same result as the pivot table when aggfunc is mean. The `.unstack()` call pivots the inner index level into columns, turning the flat MultiIndex Series into a 2-D DataFrame.
+</DerivationStep>
+<DerivationStep number={3} title="Color-encoded scatter (seaborn)">
+`sns.scatterplot(data=df, x='trip_distance', y='fare_amount', hue='RatecodeID', palette='tab10', alpha=0.7)` — each unique RatecodeID gets a distinct color from the palette. Points belonging to different rate codes visually separate into clusters, revealing the third-variable effect instantly.
+</DerivationStep>
+</DerivationSteps>
+</ConceptBox>
+
+## Code Walkthrough
+
+```python
+# Pivot table: mean fare by RatecodeID × passenger_count
+pivot = df.pivot_table(
+    values='fare_amount',
+    index='RatecodeID',
+    columns='passenger_count',
+    aggfunc='mean'
+).round(2)
+print(pivot)
+```
+
+```
+passenger_count     1      2      3      4
+RatecodeID
+1                 9.82  14.30  18.00  25.00
+2                45.00  52.00    NaN    NaN
+```
+
+```python
+# Same result via groupby + unstack
+df.groupby(['RatecodeID', 'passenger_count'])['fare_amount'].mean().unstack()
+```
+
+```
+Returns a 2-D DataFrame identical to pivot_table with aggfunc='mean'. Use groupby when you need multiple aggregations in one pass (e.g., .agg(['mean', 'std', 'count']))
+```
+
+```python
+import seaborn as sns
+sns.scatterplot(
+    data=df,
+    x='trip_distance',
+    y='fare_amount',
+    hue='RatecodeID',
+    palette='tab10',
+    alpha=0.7
+)
+plt.title('trip_distance vs fare_amount, coloured by RatecodeID')
+plt.show()
+```
+
+```
+RatecodeID=1 points (metered) scatter along a rising diagonal; RatecodeID=2 points (flat-rate airport) cluster at upper-right at fixed $45/$52 regardless of exact distance
+```
+
+**NaN cells in pivot tables are informative, not errors.** A NaN in a pivot table cell means no row matched that row×column combination — e.g., RatecodeID=2 with passenger_count=3 never occurred in the sample. Always check whether NaN means "missing data" or "that combination does not exist."
+
+<Bridge>
+The widgets below let you build pivot tables with any value field and aggregation, and plot the color-encoded scatter that reveals how RatecodeID creates two completely different fare regimes.
+</Bridge>
+
+## Practice
+
+### Problem 1: Pivot table aggregation function
+
+What pandas function creates a cross-tabulation of means, and what parameter controls the aggregation?
+
+**Solution:** `df.pivot_table(values=..., index=..., columns=..., aggfunc='mean')`. The `aggfunc` parameter controls how values in each cell are combined. Common options:
+
+- `'mean'` — average of all matching rows
+- `'sum'` — total of all matching rows
+- `'count'` — number of matching rows (useful for seeing how many observations back each cell)
+- `np.median`, `np.std`, or a custom lambda for other statistics
+
+The equivalent using groupby: `df.groupby([index_col, col_col])[value_col].mean().unstack()`.
+
+### Problem 2: Interpreting the color-encoded scatter
+
+In the color-encoded scatter (trip_distance vs fare_amount, colored by RatecodeID), why do RatecodeID=2 points cluster differently from RatecodeID=1 points?
+
+**Solution:** RatecodeID=2 trips are **flat-rate airport fares**. NYC taxi rules fix the fare to Manhattan from JFK at $52 and to Newark (EWR) at $45 — regardless of the exact mileage driven on that specific trip. The fare does not grow with distance the way metered (RatecodeID=1) fares do.
+
+This means:
+
+- RatecodeID=2 points sit at constant y-values ($45 or $52) even though their x-values (trip_distance) vary.
+- RatecodeID=1 points follow a rising diagonal because each additional mile adds a metered increment to the fare.
+
+The "third variable" RatecodeID is a *confounder*: without it, the bivariate scatter shows a messy cluster in the upper-right that looks like a noisy extension of the metered pattern, when in reality it is an entirely different pricing rule.
+
+### Problem 3: Designing a multivariate hypothesis test
+
+You hypothesise that high passenger_count trips have lower average tip_amount per person. Design a multivariate analysis using our dataset to confirm or refute this hypothesis.
+
+**Solution:** A systematic approach:
+
+1. **Filter to card payments only** — cash trips have tip_amount=0 by definition (not electronically captured), which would confound the comparison. Use `df[df.payment_type == 'card']`.
+2. **Compute per-person tip** — add a derived column: `df['tip_per_person'] = df['tip_amount'] / df['passenger_count']`. Watch for NaN when passenger_count is null.
+3. **Groupby passenger_count** — `df.groupby('passenger_count')['tip_per_person'].agg(['mean', 'count'])`. The count column tells you how many trips back each mean.
+4. **Build a pivot table for a multivariate view** — `df.pivot_table(values='tip_per_person', index='passenger_count', columns='RatecodeID', aggfunc='mean')`. This reveals whether the pattern holds within each rate code.
+5. **Interpret cautiously** — with only 30 rows, most passenger_count groups have very few observations. State the finding as directional, not conclusive.
+
+## Quiz
+
+### Module 8 — Check Your Understanding
+
+**1. A pivot table with `aggfunc='mean'` shows:**
+- A: Total sum per group
+- B: Count of rows per group
+- C: Average value per row×column combination ✓
+- D: Median per group
+
+**2. In a color-encoded scatter plot, a third variable is encoded as:**
+- A: Point size only
+- B: X-axis position
+- C: Point color (hue) ✓
+- D: Line style
+
+**3. Why is multivariate analysis harder to interpret than bivariate?**
+- A: It requires more data
+- B: Computers cannot handle it
+- C: Interactions between variables can mask or amplify pairwise relationships ✓
+- D: It is not harder — just use more charts
+
+**4. `df.groupby(['RatecodeID','passenger_count'])['fare_amount'].mean()` returns:**
+- A: A scalar value
+- B: A flat list
+- C: A Series with a MultiIndex ✓
+- D: A pivot table
+
+<Bridge>
+**What's next: putting it all together in a full EDA workflow.** You have now worked through every major EDA technique — missing values, invalid data, outliers, datetime features, univariate distributions, bivariate correlations, and multivariate interactions. Module 9 (Capstone) walks you through a complete end-to-end EDA on the taxi dataset, applying all techniques in sequence and producing a concise findings report.
+</Bridge>
+
+<QuizCard
+  question="What does df.pivot_table(values='fare_amount', index='RatecodeID', columns='passenger_count', aggfunc='mean') produce?"
+  options={['A list of fare amounts', 'A 2-D table of mean fares for each RatecodeID × passenger_count combination', 'A scatter plot', 'A correlation matrix']}
+  correct={1}
+/>

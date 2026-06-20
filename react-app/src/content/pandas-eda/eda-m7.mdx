@@ -1,0 +1,152 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+# Bivariate Analysis
+
+## What, Why, and How
+
+<ConceptBox title="WHAT: Examining how two variables relate">
+Bivariate analysis looks at **pairs of variables simultaneously** — how one changes in relation to another. The core tools are:
+
+- **Scatter plot** — plots each observation as a point at (x, y). Reveals the direction, strength, and shape of any relationship, including non-linear curves or clusters.
+- **Grouped box plot** — shows a separate box plot for each category. Useful when one variable is categorical (e.g., payment_type) and the other is numeric (e.g., fare_amount).
+- **Pearson correlation coefficient (r)** — a single number summarizing the strength and direction of a linear relationship. Ranges from −1 (perfect negative) to +1 (perfect positive); 0 means no linear association.
+- **Correlation matrix** — extends Pearson r to every pair of numeric columns simultaneously, displayed as a grid.
+</ConceptBox>
+
+<ConceptBox title="WHY: Bivariate analysis reveals predictive signals and confounders">
+Knowing a column's distribution in isolation tells you nothing about whether it predicts something else. Bivariate analysis answers questions like:
+
+- Does `trip_distance` predict `fare_amount`? (Feature selection for a regression model)
+- Do card-paying passengers tip more than cash passengers? (Group comparison)
+- Are there variables that seem correlated only because both depend on a third variable? (Confounder detection)
+
+In this dataset, `fare_amount` and `trip_distance` have a strong positive relationship for metered rides — but airport flat-rate fares (RatecodeID=2) and the $399 meter error row break that pattern. Bivariate analysis surfaces these complications before you build a model.
+</ConceptBox>
+
+<ConceptBox title="HOW: Scatter plots, df.corr(), and Pearson r">
+The Pearson correlation formula quantifies linear association:
+
+$$r = \frac{\sum(x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum(x_i - \bar{x})^2 \cdot \sum(y_i - \bar{y})^2}}$$
+
+The numerator is the covariance (how x and y deviate together); the denominator normalises by the product of standard deviations, bounding r between −1 and +1.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Scatter plot via pandas">
+`df.plot.scatter(x='trip_distance', y='fare_amount', alpha=0.5)` — each row becomes a point. `alpha` makes overlapping points visible by reducing opacity.
+</DerivationStep>
+<DerivationStep number={2} title="Correlation matrix via pandas">
+`df[cols].corr()` — returns a symmetric DataFrame where each cell is the Pearson r between the row column and column column. The diagonal is always 1.0.
+</DerivationStep>
+<DerivationStep number={3} title="Seaborn heatmap">
+`sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', center=0)` — colours each cell by its r value: warm (red) for positive, cool (blue) for negative, white at zero.
+</DerivationStep>
+</DerivationSteps>
+</ConceptBox>
+
+## Code Walkthrough
+
+```python
+# Scatter plot
+df.plot.scatter(x='trip_distance', y='fare_amount', alpha=0.5, figsize=(8, 5))
+plt.title('Trip Distance vs Fare Amount')
+plt.show()
+```
+
+```
+Points cluster along a rising line from bottom-left to upper-right — with two outliers: the $399 row and the 120-mile trip
+```
+
+```python
+# Correlation matrix
+corr_matrix = df[['fare_amount', 'trip_distance', 'tip_amount', 'passenger_count']].corr()
+print(corr_matrix.round(2))
+```
+
+```
+4×4 symmetric table; diagonal all 1.00; fare_amount–trip_distance cell shows a large positive value distorted by the $399 outlier
+```
+
+```python
+import seaborn as sns
+sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', center=0)
+plt.title('Correlation Heatmap')
+plt.show()
+```
+
+```
+Grid of coloured cells — strong-positive cells are deep red, near-zero cells are white, negative cells shade blue
+```
+
+**Correlation does not imply causation.** `fare_amount` and `trip_distance` correlate because longer trips cost more — but a third variable (RatecodeID=2 flat-rate fares for airport trips) breaks this for some rows: the fare is fixed at $45 or $52 regardless of the exact distance. Always ask *why* a correlation exists before acting on it.
+
+<Bridge>
+The interactive widget below lets you plot any pair of columns as a scatter with live Pearson r, or compute the full correlation heatmap table in one click.
+</Bridge>
+
+## Practice
+
+### Problem 1: Interpreting r = 0
+
+What does a Pearson r of 0 mean?
+
+**Solution:** r = 0 means there is **no linear relationship** between the two variables. When one variable increases, the other shows no systematic tendency to increase or decrease. Critically, r = 0 does *not* mean the variables are unrelated. A perfect U-shaped (quadratic) relationship would also produce r ≈ 0 because positive and negative deviations cancel out in the formula. Always plot the scatter before concluding independence — a non-linear pattern can have r near zero while the variables are strongly associated.
+
+### Problem 2: Why is fare_amount vs trip_distance not r = 1.0?
+
+NYC taxi fare is calculated from distance, yet `fare_amount` vs `trip_distance` does not achieve r = 1.0. Why not?
+
+**Solution:** Several factors add variance beyond distance:
+
+- **Flat-rate airport fares** (RatecodeID=2, rows 6 and 18): fare is $45/$52 regardless of the exact mileage — a fixed amount that breaks the distance-to-price proportionality.
+- **The $399 meter error** (row 26): a 6.7-mile trip with a $399 fare is almost certainly a meter malfunction. This single point pulls the correlation away from the metered-trip pattern.
+- **Negative fares** (rows 7, 15): refunds or voids recorded as negative amounts have no valid relationship to distance.
+- **Time-based metering**: slow traffic adds time-based charges, so two trips of the same distance can have different fares depending on traffic speed.
+
+### Problem 3: Using the correlation matrix for feature selection
+
+Describe how you would use the correlation matrix to do feature selection for a model predicting `tip_amount`.
+
+**Solution:** A systematic approach:
+
+1. **Look at the tip_amount row/column** — check the absolute r value between tip_amount and every other numeric column. Features with |r| close to 0 contribute little predictive power via linear mechanisms; features with |r| > 0.4 are candidates to include.
+2. **Check inter-feature correlations** — if two candidate features are highly correlated with each other (e.g., r > 0.85), keeping both adds redundancy without information gain, and may cause multicollinearity in linear models.
+3. **Interpret the findings** — `fare_amount` and `trip_distance` likely have moderate positive r with tip_amount because higher fares typically receive larger tip amounts. `passenger_count` likely shows near-zero r, making it a weak linear predictor.
+4. **Go beyond Pearson r** — the correlation matrix only captures linear associations. A categorical feature like `payment_type` (card vs cash) could be a strong predictor even though it does not appear in a Pearson matrix.
+
+## Quiz
+
+### Module 7 — Check Your Understanding
+
+**1. A Pearson r of −0.8 indicates:**
+- A: No relationship
+- B: Weak negative relationship
+- C: Strong negative linear relationship ✓
+- D: Perfect non-linear relationship
+
+**2. What is the correlation of any variable with itself?**
+- A: 0
+- B: −1
+- C: 1.0 ✓
+- D: Undefined
+
+**3. A scatter plot shows a curved (non-linear) pattern but Pearson r ≈ 0. This means:**
+- A: The variables are unrelated
+- B: Pearson r only captures linear relationships; non-linear association exists ✓
+- C: The data has errors
+- D: You need more data points
+
+**4. In pandas, `df.corr()` computes:**
+- A: Covariance matrix
+- B: Pearson correlation matrix for all numeric columns ✓
+- C: Spearman correlation only
+- D: Chi-squared statistics
+
+<Bridge>
+**What's next: moving from pairs to many variables at once.** Bivariate analysis shows you how two variables relate — but most real datasets have dozens of columns interacting simultaneously. Module 8 introduces multivariate analysis: pair plots, grouped heatmaps, and pivot tables that let you examine three or more dimensions together.
+</Bridge>
+
+<QuizCard
+  question="Pearson r ranges from −1 to +1. What does r = 0 indicate?"
+  options={['Perfect negative linear relationship', 'No linear relationship between the variables', 'Perfect positive linear relationship', 'The variables are completely unrelated in every sense']}
+  correct={1}
+/>

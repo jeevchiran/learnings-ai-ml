@@ -1,0 +1,152 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+Module 9 gave us embeddings capturing what words *mean*. Now we ask: how probable is a *sequence* of words? A **language model** assigns a probability $P(w_1 w_2 \ldots w_n)$ to any word sequence, enabling ranking, generation, and evaluation of fluency.
+</Bridge>
+
+## Applications of Language Models
+
+<ConceptBox title="Three Foundational Applications">
+- **Speech Recognition** — $P(\text{"I want to eat"}) > P(\text{"I wand two eat"})$ — pick the more probable acoustic hypothesis
+- **Spell Correction** — the noisy channel (Module 2) needs a prior $P(w)$ over word sequences; the LM provides it
+- **Machine Translation** — the LM scores candidate translations by fluency in the target language
+</ConceptBox>
+
+## N-gram Language Models — The Core Idea
+
+<DerivationSteps>
+<DerivationStep number={1} title="Chain Rule of Probability.">
+Exact decomposition:
+
+$$P(w_1 w_2 \ldots w_n) = P(w_1) \cdot P(w_2 \mid w_1) \cdot P(w_3 \mid w_1 w_2) \cdots P(w_n \mid w_1 \ldots w_{n-1})$$
+
+Intractable for large vocabularies — the conditioning history grows without bound.
+</DerivationStep>
+
+<DerivationStep number={2} title="Markov Assumption.">
+Approximate by looking back only $k$ words:
+
+$$P(w_i \mid w_1 \ldots w_{i-1}) \approx P(w_i \mid w_{i-k} \ldots w_{i-1})$$
+
+- **Unigram** ($k=0$): $P(w_1 \ldots w_n) \approx \prod_i P(w_i)$ — words are independent
+- **Bigram** ($k=1$): $P(w_1 \ldots w_n) \approx \prod_i P(w_i \mid w_{i-1})$
+- **Trigram** ($k=2$): $P(w_1 \ldots w_n) \approx \prod_i P(w_i \mid w_{i-2}\, w_{i-1})$
+</DerivationStep>
+
+<DerivationStep number={3} title="Maximum Likelihood Estimation (MLE).">
+For a bigram model, estimate probabilities by counting:
+
+$$P(w_i \mid w_{i-1}) = \frac{C(w_{i-1}\, w_i)}{C(w_{i-1})}$$
+
+Numerator: bigram count. Denominator: unigram count of the conditioning word.
+</DerivationStep>
+</DerivationSteps>
+
+### Worked Example — Building a Bigram Model
+
+Training corpus (4 sentences): "I like cats", "I like dogs", "dogs like cats", "cats like dogs"
+
+Bigram counts (with sentence boundary tokens `<s>` and `</s>`):
+
+| | \</s\> | I | like | cats | dogs |
+|-|-------|---|------|------|------|
+| **\<s\>** | 0 | 2 | 0 | 1 | 1 |
+| **I** | 0 | 0 | 2 | 0 | 0 |
+| **like** | 0 | 0 | 0 | 2 | 2 |
+| **cats** | 1 | 0 | 1 | 0 | 0 |
+| **dogs** | 1 | 0 | 1 | 0 | 0 |
+
+Computing P("I like dogs"):
+
+$$P(\text{"I like dogs"}) = P(I \mid \langle s\rangle) \times P(\text{like} \mid I) \times P(\text{dogs} \mid \text{like}) \times P(\langle/s\rangle \mid \text{dogs})$$
+
+$$= \frac{2}{4} \times \frac{2}{2} \times \frac{2}{4} \times \frac{1}{2} = 0.5 \times 1.0 \times 0.5 \times 0.5 = 0.125$$
+
+## Data Sparsity and Smoothing
+
+<ConceptBox title="The Zero Problem">
+Unseen bigrams get probability 0 under MLE, making any sentence containing them probability 0. No corpus is large enough to observe every word pair — **smoothing** redistributes probability mass to unobserved events.
+</ConceptBox>
+
+**Laplace (Add-1) Smoothing** — add 1 to every bigram count before normalizing:
+
+$$P_{\text{Laplace}}(w_i \mid w_{i-1}) = \frac{C(w_{i-1}\, w_i) + 1}{C(w_{i-1}) + |V|}$$
+
+Adding 1 to the denominator for each vocabulary word ensures no zero probabilities.
+
+**Kneser-Ney Smoothing** (best in practice) — backs off to a lower-order model and uses a novel continuation probability: the number of unique left contexts a word appears in (not its raw frequency). Words like "Francisco" appear often but only after "San" — they should have low continuation probability.
+
+## Perplexity — Evaluating Language Models
+
+**Perplexity** measures how well a language model predicts a test set. Lower perplexity = better model.
+
+$$\text{PP}(W) = P(w_1 w_2 \ldots w_N)^{-1/N} = \sqrt[N]{\frac{1}{P(w_1 w_2 \ldots w_N)}}$$
+
+Equivalently, perplexity is 2 raised to the average bits-per-word (cross-entropy):
+
+$$\text{PP}(W) = 2^{H(W)} \quad \text{where} \quad H(W) = -\frac{1}{N} \log_2 P(w_1 \ldots w_N)$$
+
+**Intuition:** A model with perplexity 100 is "as confused as if it had to choose uniformly among 100 words at each position." A unigram model might have perplexity ~1000; a trigram model ~50–100; GPT-4 approaches single-digit perplexity on many benchmarks.
+
+<CodeBlock language="python">
+{`from collections import defaultdict
+import numpy as np
+
+def build_bigram_model(sentences, alpha=1.0):
+    """Build a bigram model with Laplace smoothing."""
+    bigrams = defaultdict(lambda: defaultdict(int))
+    unigrams = defaultdict(int)
+    vocab = set()
+    
+    for sent in sentences:
+        tokens = ['<s>'] + sent + ['</s>']
+        vocab.update(tokens)
+        for i in range(len(tokens) - 1):
+            bigrams[tokens[i]][tokens[i+1]] += 1
+            unigrams[tokens[i]] += 1
+    
+    V = len(vocab)
+    
+    def prob(w_prev, w_curr):
+        count_bigram = bigrams[w_prev][w_curr] + alpha
+        count_unigram = unigrams[w_prev] + alpha * V
+        return count_bigram / count_unigram
+    
+    return prob, V
+
+sentences = [["I", "like", "cats"], ["I", "like", "dogs"],
+             ["dogs", "like", "cats"], ["cats", "like", "dogs"]]
+
+prob, V = build_bigram_model(sentences)
+
+# P("I like dogs")
+tokens = ['<s>', 'I', 'like', 'dogs', '</s>']
+log_prob = sum(np.log(prob(tokens[i], tokens[i+1])) for i in range(len(tokens)-1))
+print(f"P('I like dogs') ≈ {np.exp(log_prob):.4f}")  # ~0.125 without smoothing
+
+# Perplexity on test sentence
+N = 4  # number of words (excluding <s>)
+pp = np.exp(-log_prob / N)
+print(f"Perplexity: {pp:.2f}")`}
+</CodeBlock>
+
+## Neural Language Models
+
+N-gram models have two fundamental limitations: the context is bounded by $k$ words, and unseen n-grams require smoothing heuristics. Neural LMs solve both:
+
+- **RNN LMs** — the hidden state accumulates context from the entire history (in theory), trained with BPTT. Practical limitation: gradient vanishing limits effective context to ~20–30 words.
+
+- **LSTM LMs** — gating mechanisms (forget, input, output gates) regulate information flow, extending effective context to ~100+ words.
+
+- **Transformer LMs (GPT, BERT)** — self-attention over the full context window (1k–128k tokens), trained on next-token prediction (GPT) or masked token prediction (BERT). Current state-of-the-art for all language modeling tasks.
+
+<ConceptBox title="N-gram vs Neural LM: When to Use Which">
+- **N-gram models** — interpretable, fast inference, no GPU required, good for constrained vocabularies and domain-specific corpora where training data for neural models is scarce
+- **Neural LMs** — superior perplexity, better handling of long-range dependencies, generalize across domains, the foundation of modern NLP (pre-training + fine-tuning paradigm)
+</ConceptBox>
+
+<QuizCard
+  question="A bigram language model assigns probability 0 to the sentence 'I dislike cats' because 'dislike' was never seen in training. What smoothing technique should you apply, and what does it do?"
+  options={["Kneser-Ney smoothing — it removes all zero-probability words from the vocabulary", "Laplace (Add-1) smoothing — it adds 1 to every bigram count, ensuring no zero probabilities, at the cost of redistributing some probability mass from seen to unseen bigrams", "Perplexity normalization — it normalizes the model to prevent any word from getting zero probability", "PPMI weighting — it clips negative PMI values to zero, which resolves the zero-count problem"]}
+  correct={1}
+/>

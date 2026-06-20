@@ -1,0 +1,152 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+WordNet (Module 5) is hand-crafted and hard to scale. Can we instead *learn* meaning automatically from raw text? Firth (1957) answered this: "You shall know a word by the company it keeps." The **distributional hypothesis** — words appearing in similar contexts have similar meanings — is the foundation of modern word representations.
+</Bridge>
+
+## The Distributional Hypothesis
+
+<ConceptBox title="Why Distributional Semantics Works">
+*dog* and *cat* both appear near **pet**, **feed**, **vet**, **furry** — and almost never near *photosynthesis* or *transistor*. Similar context distributions correctly predict semantic relatedness. *dog* and *democracy* share almost no context words, correctly predicting semantic distance.
+
+This hypothesis is the foundation of Word2Vec, GloVe, FastText, and LLM input layers — PMI and co-occurrence matrices are the prerequisite for understanding why they work.
+</ConceptBox>
+
+Four properties make it practical:
+- **No labeling required** — fully unsupervised; any raw text corpus suffices
+- **Language-agnostic** — same algorithm for English, Swahili, or ancient Greek
+- **Domain-adaptable** — train on medical text and "discharge" carries a clinical meaning
+- **Scalable** — more data almost always yields higher-quality representations
+
+## Co-occurrence Matrices
+
+A **co-occurrence matrix** has target words as rows, context words as columns, and co-occurrence counts as cells.
+
+<ConceptBox title="Window-Based Co-occurrence">
+Given a sentence and a window size $k$, every pair of words within distance $k$ (positions $i-k$ to $i+k$, excluding position $i$ itself) is counted as a co-occurrence. Common choices: $k = 2$ (tight syntactic context) or $k = 5$ (broader topical context).
+</ConceptBox>
+
+Four-sentence corpus, $k = 2$:
+```
+"I like dogs and cats"
+"Dogs are loyal pets"
+"Cats are independent pets"
+"I prefer dogs over cats"
+```
+
+Subset of resulting co-occurrence matrix:
+
+| Target \ Context | dogs | cats | pets | loyal | independent |
+|-----------------|------|------|------|-------|-------------|
+| **dogs** | 0 | 3 | 2 | 1 | 0 |
+| **cats** | 3 | 0 | 2 | 0 | 1 |
+| **pets** | 2 | 2 | 0 | 1 | 1 |
+
+*dogs* and *cats* have similar row vectors — the distributional hypothesis made numerical.
+
+<CodeBlock language="python">
+{`import numpy as np
+from collections import defaultdict
+
+def build_cooccurrence(sentences, window=2):
+    all_words = [w for sent in sentences for w in sent]
+    vocab = sorted(set(all_words))
+    word2idx = {w: i for i, w in enumerate(vocab)}
+
+    cooc = np.zeros((len(vocab), len(vocab)))
+    for sent in sentences:
+        for i, w in enumerate(sent):
+            for j in range(max(0, i - window), min(len(sent), i + window + 1)):
+                if i != j:
+                    cooc[word2idx[w], word2idx[sent[j]]] += 1
+    return cooc, vocab, word2idx
+
+sentences = [
+    ["i", "like", "dogs", "and", "cats"],
+    ["dogs", "are", "loyal", "pets"],
+    ["cats", "are", "independent", "pets"],
+    ["i", "prefer", "dogs", "over", "cats"]
+]
+cooc, vocab, w2i = build_cooccurrence(sentences)`}
+</CodeBlock>
+
+**Problem with raw counts:** "the", "is", "and" appear everywhere — "dog–the" has enormous counts despite carrying no semantic information. This motivates PMI weighting.
+
+## Pointwise Mutual Information (PMI)
+
+PMI measures how much more often two words co-occur than expected under independence:
+
+<DerivationSteps>
+<DerivationStep number={1} title="Define joint and marginal probabilities.">
+From the co-occurrence matrix, estimate:
+
+$$P(x, y) = \frac{\text{count}(x, y)}{N} \qquad P(x) = \frac{\text{count}(x)}{N} \qquad P(y) = \frac{\text{count}(y)}{N}$$
+
+where $N$ is the total number of co-occurrence tokens (sum of all cells).
+</DerivationStep>
+
+<DerivationStep number={2} title="Compute PMI.">
+$$\text{PMI}(x, y) = \log_2 \frac{P(x, y)}{P(x) \cdot P(y)}$$
+
+If $x$ and $y$ are independent, $P(x,y) = P(x)P(y)$ and PMI = 0. Positive PMI means they attract; negative means they repel.
+</DerivationStep>
+
+<DerivationStep number={3} title="Clip to PPMI.">
+$$\text{PPMI}(x, y) = \max\bigl(0,\; \text{PMI}(x, y)\bigr)$$
+
+Negative PMI values are unreliable for rare pairs (where $P(x,y) \approx 0$ gives PMI $\to -\infty$). Clipping at 0 discards unreliable negatives.
+</DerivationStep>
+</DerivationSteps>
+
+**Key insight:** "ice" and "the" co-occur enormously, but PMI("ice","the") ≈ 0 because "the" appears near every word by chance. PMI("ice","cream") is large precisely because that pairing exceeds chance expectation.
+
+<CodeBlock language="python">
+{`def compute_ppmi(cooc):
+    total = cooc.sum()
+    row_sums = cooc.sum(axis=1, keepdims=True)
+    col_sums = cooc.sum(axis=0, keepdims=True)
+
+    pxy = cooc / total
+    px  = row_sums / total
+    py  = col_sums / total
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        pmi = np.log2(pxy / (px * py))
+    pmi  = np.nan_to_num(pmi, nan=0.0, neginf=0.0)
+    ppmi = np.maximum(0, pmi)
+    return ppmi
+
+ppmi = compute_ppmi(cooc)
+# ppmi[w2i['dogs'], w2i['loyal']]       → positive (attract)
+# ppmi[w2i['dogs'], w2i['independent']] → 0.0 (no co-occurrence)`}
+</CodeBlock>
+
+## Building and Interpreting the PMI Matrix
+
+Each word is now a **high-dimensional sparse vector**. Semantic similarity is measured with **cosine similarity**:
+
+$$\text{cosine\_sim}(\mathbf{u}, \mathbf{v}) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\| \cdot \|\mathbf{v}\|}$$
+
+Range: $[-1, +1]$; for PPMI vectors (all non-negative), $[0, 1]$. Preferred over Euclidean distance because it is *invariant to vector magnitude* — a word appearing twice as often gets a longer vector but the same semantic direction.
+
+On the four-sentence corpus, the most similar word to "dogs" by cosine PPMI is **"cats"** — they share the same high-PMI context words (pets, "i", "prefer").
+
+<ConceptBox title="Limitations of Raw PPMI Vectors">
+- **High-dimensional** — with a 50,000-word vocabulary, vectors have 50,000 dimensions
+- **Sparse** — most entries are 0 (most word pairs never co-occur)
+- **No generalization** — two words can have identical meanings but never share a context word in the corpus
+
+SVD compresses sparse PPMI vectors into dense low-dimensional ones. Word2Vec (Module 9) learns dense vectors directly, implicitly recovering a structure similar to PPMI at much larger scale.
+</ConceptBox>
+
+<ConceptBox title="Interactive Widget: PMI Explorer">
+Enter a small corpus and compute the raw co-occurrence matrix and PPMI heatmap. Then query a word to find its top-3 most similar words by cosine similarity on PPMI vectors. Try corpus: "I like dogs and cats / Dogs are loyal pets / Cats are independent pets."
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/JS implementation.
+</ConceptBox>
+
+<QuizCard
+  question="PMI('ice', 'the') ≈ 0 even though they co-occur millions of times in a large corpus. Why?"
+  options={["Because 'the' is too short to be a meaningful context word for PMI", "Because 'ice' rarely appears in English text", "Because 'the' appears near virtually every word — P('the') is high enough that P('ice','the') ≈ P('ice')·P('the'), making the ratio ≈ 1 and log₂(1) = 0", "Because PMI clips all values for stopwords to 0 by definition"]}
+  correct={2}
+/>

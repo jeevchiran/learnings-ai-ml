@@ -1,0 +1,187 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+**Real-world hook — blood pressure treatment.** A cardiologist wants to evaluate whether a 12-week lifestyle intervention (diet and exercise) reduces systolic blood pressure. She measures each of 15 patients before the program and again after completion. The key phrase is "each patient" — the same person is measured twice. These two measurements are not independent of each other: a patient who starts with high blood pressure is likely to have higher-than-average blood pressure at both time points. If we treated this as two independent groups (as in Module 4), we would be ignoring this built-in structure — and throwing away statistical power in the process. The **paired t-test** exploits the connection between the two measurements to give us a more sensitive and more appropriate test.
+</Bridge>
+
+## 1. Paired vs. Independent — Why It Matters
+
+In Module 4, the two groups consisted of entirely different people: Group A vs Group B. Each measurement belonged to one group only; there was no correspondence between an observation in Group A and any observation in Group B. In a paired design, the same subject (or a carefully matched pair) appears in **both** conditions.
+
+Paired designs arise in three main forms:
+
+- **Before/After:** The same subject is measured before and after a treatment, intervention, or period of time.
+- **Matched pairs:** Two distinct subjects are matched on key characteristics (age, weight, baseline health) so that within each pair, one receives the treatment and the other serves as the control.
+- **Crossover:** Each subject receives both treatments in sequence (with a washout period in between), and the order is randomized.
+
+### Why pairing is powerful
+
+Consider the cardiologist's study. Patient A might naturally have a systolic BP of 155 mmHg and patient B might naturally have 135 mmHg. This between-subject variability has nothing to do with whether the intervention works. Yet if we analyzed the pre- and post-intervention readings as two independent groups, this person-to-person noise would inflate the standard error and make it harder to detect the intervention's true effect.
+
+The remedy: compute the difference $d_i = x_{\text{before},i} - x_{\text{after},i}$ for each subject. Because both measurements come from the same person, patient A's natural tendency toward higher BP cancels out in the subtraction. The variability that remains in the $d_i$ values reflects only within-person change — exactly what we want to measure.
+
+This reduction to differences means the paired t-test is, at its core, nothing more than a **one-sample t-test applied to the set of differences** $d_1, d_2, \ldots, d_n$.
+
+## 2. Derivation of the Test Statistic
+
+<DerivationSteps>
+<DerivationStep number={1} title="Compute the difference for each pair.">
+For subject $i$, the difference is $d_i = x_{1i} - x_{2i}$ (before minus after, or treatment minus control). The sign convention determines which direction of difference will be positive — choose it to match the research hypothesis.
+</DerivationStep>
+
+<DerivationStep number={2} title="State the hypotheses.">
+The null hypothesis asserts no average change: $H_0: \mu_d = 0$. The alternative may be two-tailed ($H_1: \mu_d \neq 0$), right-tailed ($H_1: \mu_d > 0$), or left-tailed ($H_1: \mu_d < 0$), chosen to reflect the direction of the effect the researcher expects.
+</DerivationStep>
+
+<DerivationStep number={3} title="Compute the sample mean of differences.">
+$$\bar{d} = \frac{1}{n} \sum_{i=1}^{n} d_i$$
+
+This is the point estimate of $\mu_d$, the true population mean difference. It is the quantity we will compare to zero.
+</DerivationStep>
+
+<DerivationStep number={4} title="Compute the sample standard deviation of differences.">
+$$s_d = \sqrt{\frac{\sum_{i=1}^{n}(d_i - \bar{d})^2}{n - 1}}$$
+
+This measures how variable the individual differences are. A small $s_d$ means the treatment had a very consistent effect across subjects; a large $s_d$ means the effect was heterogeneous.
+</DerivationStep>
+
+<DerivationStep number={5} title="Compute the standard error of d̄.">
+$$\text{SE}(\bar{d}) = \frac{s_d}{\sqrt{n}}$$
+
+The standard error quantifies the precision of $\bar{d}$ as an estimate of $\mu_d$. It shrinks as $n$ increases (more pairs = more precise estimate) and as $s_d$ decreases (more consistent differences = more precise estimate).
+</DerivationStep>
+
+<DerivationStep number={6} title="Form the paired t-statistic.">
+$$t = \frac{\bar{d} - 0}{s_d / \sqrt{n}} = \frac{\bar{d}}{s_d / \sqrt{n}}$$
+
+This is exactly the one-sample t-statistic from Module 3, applied to the differences. It measures how many standard errors $\bar{d}$ lies from zero.
+</DerivationStep>
+
+<DerivationStep number={7} title="Identify the null distribution.">
+Under $H_0$, the statistic $t$ follows a Student's t-distribution with $n - 1$ degrees of freedom. There are $n - 1$ degrees of freedom because we have $n$ differences and we estimate one parameter ($\bar{d}$) from them before computing $s_d$.
+
+$$t \sim t(n-1) \quad \text{under } H_0$$
+</DerivationStep>
+
+<DerivationStep number={8} title="Make a decision.">
+Compare the observed $t$ to the critical value $t^*(\alpha/2,\, n-1)$ for a two-tailed test (or $t^*(\alpha,\, n-1)$ for a one-tailed test), or compute the p-value from the t-distribution and compare to $\alpha$. Reject $H_0$ if $|t| > t^*$ (two-tailed) or if p-value < $\alpha$.
+</DerivationStep>
+</DerivationSteps>
+
+## 3. Assumptions of the Paired t-Test
+
+<ConceptBox title="Assumption 1 — Random sample of pairs">
+The pairs must be randomly sampled from the population of interest, or the assignment to paired conditions must be random (as in a randomized crossover trial). Non-random sampling risks selection bias.
+</ConceptBox>
+
+<ConceptBox title="Assumption 2 — Normality of differences">
+The differences $d_i$ must be approximately normally distributed. For small samples ($n < 30$), this is a consequential assumption — check it with a histogram or QQ-plot of the differences. For $n \geq 30$, the Central Limit Theorem ensures that $\bar{d}$ is approximately normal regardless of the shape of the difference distribution, making the test robust.
+</ConceptBox>
+
+<ConceptBox title="Assumption 3 — Independence between pairs">
+Different pairs must be independent of each other. The within-pair dependence is intentional — that's the point of the design. But pair 1 and pair 2 must not influence each other (violated if pairs are family members or treated simultaneously in a way that allows contamination across pairs).
+</ConceptBox>
+
+<ConceptBox title="Assumption 4 — No extreme outliers in differences">
+Outliers in the $d_i$ values can heavily distort both $\bar{d}$ and $s_d$, invalidating the t-statistic. Inspect the differences with a boxplot before proceeding. If outliers are present, consider a non-parametric alternative such as the Wilcoxon signed-rank test.
+</ConceptBox>
+
+## 4. When to Use Paired vs. Independent Tests
+
+| Feature | Paired t-Test | Independent t-Test |
+|---------|---------------|-------------------|
+| Sample structure | Same subject measured twice, or matched pairs | Two unrelated groups with no correspondence |
+| n per group | Must be equal (n pairs) | Can differ between groups |
+| Degrees of freedom | $n - 1$ (one per pair) | Welch approximation, typically near $n_1 + n_2 - 2$ |
+| Between-subject noise | Eliminated by differencing within pairs | Present in SE, reduces power |
+| Typical power | Higher when data is truly paired | Lower when pairing is available but ignored |
+| When to use | Before/after, matched pair studies, crossover trials | Completely separate, unrelated groups |
+
+<ConceptBox title="Key principle: the design determines the test">
+If the data were collected in a paired fashion (same subject twice, or matched pairs), use the paired t-test. Using an independent-samples test on paired data ignores structure in the data that reduces variability and increases power. You do not get to "choose" the independent test because it is simpler — the data structure mandates the paired analysis.
+</ConceptBox>
+
+<ConceptBox title="Interactive Widgets">
+**Widget 1 — Paired Difference Visualizer:** Each dot is one subject. Lines connect before and after measurements. The difference distribution builds as you add more subjects. Adjust sliders for sample size, true mean difference, and variability of differences to see how each affects the test outcome.
+
+**Widget 2 — Paired vs. Independent Comparison:** The same eight-patient blood pressure dataset analyzed two ways: first using the correct paired t-test, then using an independent-samples t-test as if the before and after measurements were from entirely different groups. The paired test produces a larger t-statistic because between-subject variance is removed by differencing.
+
+Note: interactive widgets replaced with static descriptions. See the original HTML file for the JS/canvas implementation.
+</ConceptBox>
+
+## 5. Worked Example: The Blood Pressure Study
+
+**Research context and hypotheses.** Eight patients completed a 12-week lifestyle intervention. Systolic blood pressure was recorded for each patient before and after the program. Differences are defined as $d_i = x_{\text{before},i} - x_{\text{after},i}$, so a positive difference means blood pressure decreased (improvement). The cardiologist specifies a one-sided (right-tailed) alternative:
+
+$$H_0: \mu_d = 0 \qquad H_1: \mu_d > 0 \quad (\text{intervention reduces BP})$$
+
+**Data:**
+
+| Patient | Before (mmHg) | After (mmHg) | $d_i$ (Before − After) |
+|---------|---------------|--------------|------------------------|
+| 1 | 152 | 144 | 8 |
+| 2 | 143 | 137 | 6 |
+| 3 | 160 | 149 | 11 |
+| 4 | 137 | 128 | 9 |
+| 5 | 148 | 140 | 8 |
+| 6 | 155 | 145 | 10 |
+| 7 | 142 | 136 | 6 |
+| 8 | 138 | 130 | 8 |
+
+**Step-by-step calculation (α = 0.05):**
+
+**Step 1 — n = 8 pairs.**
+
+**Step 2 — Mean of differences:**
+
+$$\bar{d} = \frac{8 + 6 + 11 + 9 + 8 + 10 + 6 + 8}{8} = \frac{66}{8} = 8.25 \text{ mmHg}$$
+
+**Step 3 — Standard deviation of differences.** Deviations from $\bar{d} = 8.25$ are: −0.25, −2.25, 2.75, 0.75, −0.25, 1.75, −2.25, −0.25. Sum of squared deviations = 21.5.
+
+$$s_d = \sqrt{\frac{21.5}{7}} = \sqrt{3.071} \approx 1.753 \text{ mmHg}$$
+
+**Step 4 — Standard error:**
+
+$$\text{SE}(\bar{d}) = \frac{1.753}{\sqrt{8}} = \frac{1.753}{2.828} \approx 0.620 \text{ mmHg}$$
+
+**Step 5 — Paired t-statistic:**
+
+$$t = \frac{8.25}{0.620} \approx 13.31$$
+
+**Step 6 — Degrees of freedom:** $df = n - 1 = 7$.
+
+**Step 7 — Decision.** Right-tailed critical value at α = 0.05, df = 7: $t^* = 1.895$. Observed $t = 13.31 \gg 1.895$. **Reject H₀.** p-value ≈ 0.0000012.
+
+**Conclusion.** At the 5% significance level, there is extremely strong statistical evidence that the 12-week lifestyle intervention reduces systolic blood pressure. Estimated mean reduction: 8.25 mmHg. 95% CI:
+
+$$8.25 \pm 2.365 \times 0.620 = [6.78,\; 9.72] \text{ mmHg}$$
+
+## 6. Practice Problem
+
+<ConceptBox title="Statistics Workshop Scores">
+A statistics tutor works with 6 students before and after a 4-week intensive workshop. Pre-workshop scores: 62, 71, 58, 75, 68, 64. Post-workshop scores: 74, 82, 70, 84, 76, 78.
+
+Define $d_i = \text{post} - \text{pre}$ so a positive difference means improvement.
+
+**Hypotheses:** $H_0: \mu_d = 0$ vs $H_1: \mu_d > 0$ (right-tailed, α = 0.05)
+
+**Differences:** 12, 11, 12, 9, 8, 14. n = 6.
+
+**d̄** = (12+11+12+9+8+14)/6 = 66/6 = **11**
+
+**s_d:** Deviations: 1, 0, 1, −2, −3, 3. Squared: 1, 0, 1, 4, 9, 9. SS = 24. $s_d = \sqrt{24/5} = \sqrt{4.8} \approx 2.191$
+
+**SE** = 2.191/√6 ≈ 0.895
+
+**t** = 11/0.895 ≈ 12.29, df = 5
+
+**Critical value** t*(0.05, 5) = 2.015. Since 12.29 >> 2.015: **Reject H₀**.
+
+**Conclusion:** Strong evidence the workshop improves test scores. Mean improvement ≈ 11 points.
+</ConceptBox>
+
+<QuizCard
+  question="A researcher measures anxiety scores for 12 participants before and after a meditation program. They compute dᵢ = before − after for each participant. Which test is appropriate, and what are the degrees of freedom?"
+  options={['Independent two-sample t-test, df = 22', 'Paired t-test, df = 11', 'Paired t-test, df = 23', 'One-sample Z-test, df = 12']}
+  correct={1}
+/>

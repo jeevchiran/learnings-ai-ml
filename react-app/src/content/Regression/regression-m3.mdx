@@ -1,0 +1,183 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+Modules 1–2 covered linear regression for continuous outcomes. Many real problems involve categorical decisions: Is this email spam? Does this patient have diabetes? Linear regression fails — it produces values outside [0,1] with no principled way to represent probability. We need a model that outputs probabilities.
+</Bridge>
+
+## Why Linear Regression Fails for Classification
+
+If we naively fit a linear regression $\hat{y} = \mathbf{x}^T\boldsymbol{\beta}$ to binary labels $y \in \{0, 1\}$, predictions can be any real number — including values less than 0 or greater than 1, which cannot be interpreted as probabilities.
+
+## The Logistic Model
+
+Pass the linear predictor through the **sigmoid function**, which maps $\mathbb{R} \to (0, 1)$:
+
+$$\sigma(z) = \frac{1}{1 + e^{-z}}$$
+
+The logistic regression model:
+
+$$P(y = 1 \mid \mathbf{x}) = \sigma(\mathbf{x}^T\boldsymbol{\beta}) = \frac{1}{1 + e^{-\mathbf{x}^T\boldsymbol{\beta}}}$$
+
+### The Log-Odds (Logit) Interpretation
+
+$$\log\frac{p}{1-p} = \mathbf{x}^T\boldsymbol{\beta} = \beta_0 + \beta_1 x_1 + \cdots + \beta_p x_p$$
+
+The model is **linear in log-odds** but nonlinear in probability. Each unit increase in $x_j$ changes the log-odds by $\beta_j$, multiplying the odds by $e^{\beta_j}$.
+
+## Log-Odds and Logits
+
+| Probability $p$ | Odds $\frac{p}{1-p}$ | Log-odds $\log\frac{p}{1-p}$ | Interpretation |
+|----------------|---------------------|------------------------------|----------------|
+| 0.01 | 0.01 | -4.60 | Very unlikely |
+| 0.10 | 0.11 | -2.20 | Unlikely |
+| 0.50 | 1.00 | 0.00 | Even (decision boundary) |
+| 0.90 | 9.00 | 2.20 | Likely |
+| 0.99 | 99.0 | 4.60 | Very likely |
+
+<ConceptBox title="Why Log-Odds?">
+Three reasons make logit the natural scale for classification:
+
+1. **Linearizes the problem** — probability's S-shape becomes linear in log-odds, so a linear combination of features can model it without impossible probability values
+2. **Coefficients are multiplicative on odds** — $\beta_j$ means "a one-unit increase in $x_j$ multiplies the odds by $e^{\beta_j}$" — directly actionable in medical/business contexts
+3. **Arises naturally from Bernoulli distribution** — the logit is the canonical link function for the Bernoulli family in the GLM framework
+</ConceptBox>
+
+### Clinical Example: Diabetes Risk
+
+Model: $\text{logit}(P(\text{diabetes})) = -6.0 + 0.05 \cdot \text{BMI} + 0.03 \cdot \text{Age} + 1.2 \cdot \text{FamilyHistory}$
+
+<DerivationSteps>
+<DerivationStep number={1} title="Compute log-odds for a patient (BMI=30, Age=50, FamilyHistory=1).">
+$$-6.0 + 0.05(30) + 0.03(50) + 1.2(1) = -6.0 + 1.5 + 1.5 + 1.2 = -1.8$$
+</DerivationStep>
+
+<DerivationStep number={2} title="Convert to odds.">
+$$e^{-1.8} = 0.165$$ — for every person who gets diabetes, about 6 do not.
+</DerivationStep>
+
+<DerivationStep number={3} title="Convert to probability.">
+$$p = \frac{1}{1 + e^{1.8}} = 0.142$$ — 14.2% risk.
+</DerivationStep>
+
+<DerivationStep number={4} title="Interpret family history coefficient.">
+$$e^{1.2} = 3.32$$ — having family history multiplies diabetes odds by 3.3× compared to an otherwise identical patient without it.
+</DerivationStep>
+</DerivationSteps>
+
+## Binary Classification: Email Spam Detection
+
+Model: $\log\frac{P(\text{spam})}{P(\text{not spam})} = -2.1 + 3.5 x_1 - 1.8 x_2 + 0.9 x_3$
+
+| Feature | $\beta$ | $e^{\beta}$ (Odds Ratio) | Meaning |
+|---------|---------|--------------------------|---------|
+| Word "free" freq | 3.5 | 33.1 | Each unit increase multiplies spam odds by 33× |
+| Sender reputation | -1.8 | 0.17 | Higher reputation reduces spam odds by 83% |
+| Link count | 0.9 | 2.46 | Each additional link roughly doubles spam odds |
+
+## Multiclass Classification
+
+<ConceptBox title="One-vs-Rest vs. Softmax">
+**One-vs-Rest (OvR):** Train $K$ separate binary classifiers. Classifier $k$ distinguishes class $k$ from "everything else." Assign the class with highest confidence: $\hat{y} = \arg\max_k \sigma(\mathbf{x}^T\boldsymbol{\beta}_k)$. Parallelizable but probabilities may not sum to 1.
+
+**Softmax (Multinomial Logistic Regression):** Joint model for all $K$ classes:
+$$P(y = k \mid \mathbf{x}) = \frac{e^{\mathbf{x}^T\boldsymbol{\beta}_k}}{\sum_{j=1}^K e^{\mathbf{x}^T\boldsymbol{\beta}_j}}$$
+Probabilities sum to 1 by construction. Better calibrated, globally consistent boundaries.
+</ConceptBox>
+
+## Regularization
+
+With many features, logistic regression can overfit. Regularization adds a penalty to the loss:
+
+$$J_{\text{reg}}(\boldsymbol{\beta}) = J(\boldsymbol{\beta}) + \lambda \cdot \text{penalty}(\boldsymbol{\beta})$$
+
+| Type | Penalty | Effect |
+|------|---------|--------|
+| **L1 (Lasso)** | $\lambda \sum_{j=1}^p \|\beta_j\|$ | Drives some coefficients to exactly 0 — automatic feature selection |
+| **L2 (Ridge)** | $\lambda \sum_{j=1}^p \beta_j^2$ | Shrinks all coefficients toward 0, never exactly; handles correlated features |
+| **Elastic Net** | $\lambda_1 \sum\|\beta_j\| + \lambda_2 \sum\beta_j^2$ | Combines sparsity of L1 with stability of L2 |
+
+Key hyperparameters: `C` (= 1/λ, log-scale grid: 0.001 to 100), penalty type, solver (`lbfgs` for L2, `saga` for L1/large datasets).
+
+## Evaluation Metrics for Classification
+
+<DerivationSteps>
+<DerivationStep number={1} title="Accuracy — overall fraction correct.">
+$$\text{Accuracy} = \frac{TP + TN}{TP + TN + FP + FN}$$
+
+Misleading for imbalanced classes. A model predicting "no fraud" everywhere achieves 99.9% accuracy on a 0.1% fraud dataset.
+</DerivationStep>
+
+<DerivationStep number={2} title="Precision — of all positive predictions, how many are correct.">
+$$\text{Precision} = \frac{TP}{TP + FP}$$
+
+High precision = few false alarms. Critical when false positives are costly (spam filter blocking legitimate email).
+</DerivationStep>
+
+<DerivationStep number={3} title="Recall (Sensitivity) — of all actual positives, how many were caught.">
+$$\text{Recall} = \frac{TP}{TP + FN}$$
+
+High recall = few missed positives. Critical when missing a case is dangerous (cancer screening, fraud detection).
+</DerivationStep>
+
+<DerivationStep number={4} title="F1 Score — harmonic mean of precision and recall.">
+$$F_1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}} = \frac{2 \cdot TP}{2 \cdot TP + FP + FN}$$
+
+Penalizes extreme imbalance: if either metric is very low, F1 is low regardless of the other.
+</DerivationStep>
+
+<DerivationStep number={5} title="Specificity (True Negative Rate).">
+$$\text{Specificity} = \frac{TN}{TN + FP} = 1 - \text{FPR}$$
+
+FPR = 1 − Specificity is the x-axis of the ROC curve. Specificity and Recall together define the ROC.
+</DerivationStep>
+</DerivationSteps>
+
+**Precision-Recall tradeoff by application:**
+
+| Application | Priority | Threshold Strategy |
+|-------------|----------|--------------------|
+| Cancer screening | High recall (catch every case) | Low threshold (0.2–0.3) |
+| Spam filtering | High precision (don't lose real email) | High threshold (0.7–0.9) |
+| Credit approval | Balance (F1) | Threshold at F1 maximum |
+| Fraud detection | High recall + acceptable precision | Threshold at target recall |
+
+<CodeBlock language="python">
+{`from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, roc_auc_score
+from sklearn.model_selection import cross_val_score
+
+# Fit logistic regression
+model = LogisticRegression(C=1.0, penalty='l2', solver='lbfgs', max_iter=200)
+model.fit(X_train, y_train)
+
+# Coefficients (log-odds scale)
+for feat, coef in zip(feature_names, model.coef_[0]):
+    print(f"{feat:20} coef={coef:.3f}  OR={np.exp(coef):.3f}")
+
+# Predict probabilities and classify
+y_prob = model.predict_proba(X_test)[:, 1]
+y_pred = (y_prob > 0.5).astype(int)  # adjust threshold as needed
+
+print(classification_report(y_test, y_pred))
+print("AUC-ROC:", roc_auc_score(y_test, y_prob))
+
+# Tune C with cross-validation
+for C in [0.001, 0.01, 0.1, 1, 10, 100]:
+    scores = cross_val_score(
+        LogisticRegression(C=C, max_iter=500), X, y,
+        cv=5, scoring='f1'
+    )
+    print(f"C={C:>6}: F1 = {scores.mean():.3f} ± {scores.std():.3f}")`}
+</CodeBlock>
+
+<ConceptBox title="Interactive Widget: Sigmoid Explorer + ROC Curve">
+Adjust weight and bias to see how the sigmoid curve and decision boundary change. Move the threshold to trace the ROC curve — observe how TPR and FPR change together.
+
+Note: interactive Plotly widgets replaced with static description. See the original HTML file for the JS implementation.
+</ConceptBox>
+
+<QuizCard
+  question="A cancer screening model has Precision=0.60 and Recall=0.95. A fraud detection model has Precision=0.90 and Recall=0.55. Which metric is each model optimizing for, and which threshold setting achieves it?"
+  options={['Cancer model optimizes accuracy; fraud model optimizes F1 — both use threshold 0.5', 'Cancer model has low threshold (catching most positives at expense of false alarms); fraud model has high threshold (avoiding false alarms at expense of missing some fraud)', 'Cancer model uses L1 regularization; fraud model uses L2 — regularization type controls precision/recall', 'Both optimize AUC-ROC; the threshold does not affect precision or recall']}
+  correct={1}
+/>

@@ -1,0 +1,157 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+**From variance reduction to bias reduction.** Module 5 showed that bagging and random forests reduce variance. But what if the fundamental problem is **bias**? Consider a depth-1 decision tree — a stump. No matter how many stumps you average, the resulting ensemble is still constrained by what a stump can express. To reduce bias, we need **sequential learning**: train models one after another, where each new model specifically targets the errors made by all previous models combined.
+</Bridge>
+
+## 1. Bias vs. Variance — Two Different Problems
+
+<ConceptBox title="The Bagging Ceiling">
+For an ensemble of M identical models, the **bias of the average equals the bias of a single model**. Bagging can reduce variance toward zero (as M grows), but it cannot reduce bias below the single-model floor. If every base learner is systematically wrong in the same direction, their average is just as systematically wrong.
+</ConceptBox>
+
+<ConceptBox title="The Student Analogy">
+Imagine a student preparing for an exam. After the first attempt, she reviews every question she got wrong and studies those topics intensively. She retakes a similar exam, reviews her new mistakes, studies again, and repeats. Each iteration, the student improves specifically at her weakest areas. The final student is the accumulation of all those targeted study sessions. Boosting applies the same logic: each new model is a targeted correction of the current ensemble's weaknesses.
+</ConceptBox>
+
+## 2. The Core Idea — Fitting Residuals
+
+Start with regression to build concrete intuition. Suppose we have training data $\{(x_i, y_i)\}_{i=1}^n$ and we want to build a predictive model $F(x)$ by sequentially adding simple trees.
+
+**Step 0.** Initialize with the simplest possible predictor — the mean of the targets:
+
+$$F_0(x) = \bar{y} = \frac{1}{n}\sum_{i=1}^{n} y_i$$
+
+The **residuals** are the errors this initial predictor makes: $r_i = y_i - F_0(x_i)$.
+
+**Step m.** Train a tree $h_m$ to predict the residuals. Then update the ensemble:
+
+$$F_m(x) = F_{m-1}(x) + \eta \cdot h_m(x)$$
+
+where $\eta \in (0,1]$ is the **learning rate** (shrinkage). Compute new residuals and repeat.
+
+After $M$ steps: $F_M(x) = F_0(x) + \eta \sum_{m=1}^{M} h_m(x)$
+
+### Worked Example: 5 Points, 3 Iterations
+
+Data: $x = [1, 2, 3, 4, 5]$, $y = [1.2, 2.8, 3.5, 7.2, 8.1]$. Learning rate $\eta = 0.5$, depth-1 stumps.
+
+<DerivationSteps>
+<DerivationStep number={0} title="Initialize F₀(x) = ȳ.">
+$\bar{y} = 22.8/5 = 4.56$
+
+Residuals $r_i = y_i - 4.56$: [−3.36, −1.76, −1.06, 2.64, 3.54]
+</DerivationStep>
+
+<DerivationStep number={1} title="Fit h₁ to residuals; update to F₁.">
+Best stump splits at $x \leq 3.5$:
+- Left leaf ($x \leq 3.5$): indices {1,2,3}, mean residual = **−2.06**
+- Right leaf ($x > 3.5$): indices {4,5}, mean residual = **3.09**
+
+$F_1(x) = 4.56 + 0.5 \cdot h_1(x)$
+
+Predictions: [3.530, 3.530, 3.530, 6.105, 6.105]
+
+New residuals: [−2.330, −0.730, −0.030, 1.095, 1.995]
+</DerivationStep>
+
+<DerivationStep number={2} title="Fit h₂ to new residuals; update to F₂.">
+Best stump again splits at $x \leq 3.5$:
+- Left leaf mean = **−1.030**
+- Right leaf mean = **1.545**
+
+$F_2(x) = F_1(x) + 0.5 \cdot h_2(x)$
+
+Predictions: [3.015, 3.015, 3.015, 6.878, 6.878]
+
+MSE reduced: 7.00 → 2.23 → 1.03 each iteration.
+</DerivationStep>
+</DerivationSteps>
+
+| Iteration m | F_m(x=1) | F_m(x=2) | F_m(x=3) | F_m(x=4) | F_m(x=5) | MSE |
+|------------|---------|---------|---------|---------|---------|-----|
+| 0 (mean) | 4.56 | 4.56 | 4.56 | 4.56 | 4.56 | 7.00 |
+| 1 | 3.530 | 3.530 | 3.530 | 6.105 | 6.105 | 2.23 |
+| 2 | 3.015 | 3.015 | 3.015 | 6.878 | 6.878 | 1.03 |
+
+## 3. The General Framework — Functional Gradient Descent
+
+The residual-fitting story is a special case of a more general principle. For any differentiable loss function $L(y, F(x))$, gradient boosting minimizes:
+
+$$\mathcal{L}(F) = \sum_{i=1}^{n} L(y_i, F(x_i))$$
+
+over the space of functions $F$. Instead of gradient descent in parameter space (as in neural networks), we perform gradient descent in *function space*: each iteration adds a new tree that points in the direction of the negative gradient of $\mathcal{L}$.
+
+The **pseudo-residuals** are the negative gradient of the loss with respect to the current predictions:
+
+$$r_{im} = -\left[\frac{\partial L(y_i, F(x_i))}{\partial F(x_i)}\right]_{F=F_{m-1}}$$
+
+We fit a regression tree $h_m$ to these pseudo-residuals, then update $F$ along the direction they indicate.
+
+### Loss Functions and Their Pseudo-Residuals
+
+| Task | Loss $L(y, F)$ | Pseudo-residual | Initialized to |
+|------|---------------|-----------------|---------------|
+| Regression | $(y - F)^2 / 2$ | $y_i - F(x_i)$ | $\bar{y}$ |
+| Regression (robust) | $|y - F|$ | $\text{sign}(y_i - F(x_i))$ | $\text{median}(y)$ |
+| Classification | $-[y \log F + (1-y) \log(1-F)]$ | $y_i - p_i$ (where $p_i = \sigma(F)$) | $\log(\bar{p}/(1-\bar{p}))$ |
+
+For regression with squared loss, pseudo-residuals equal ordinary residuals — this is why the residual-fitting example works exactly as described.
+
+### The Full Algorithm
+
+```
+Input: D = {(xᵢ, yᵢ)}, loss function L, M trees, learning rate η
+
+1. Initialize: F₀(x) = argmin_γ Σ L(yᵢ, γ)
+
+For m = 1 to M:
+  2. Compute pseudo-residuals:
+     rᵢₘ = -[∂L(yᵢ, F(xᵢ))/∂F(xᵢ)] evaluated at F = Fₘ₋₁
+
+  3. Fit regression tree hₘ to {(xᵢ, rᵢₘ)}
+     (use small depth: typically 3–8 for XGBoost)
+
+  4. Find optimal leaf values γⱼₘ for each leaf j:
+     γⱼₘ = argmin_γ Σ_{xᵢ in leaf j} L(yᵢ, Fₘ₋₁(xᵢ) + γ)
+
+  5. Update: Fₘ(x) = Fₘ₋₁(x) + η · hₘ(x)
+
+Output: F_M(x)
+```
+
+## 4. Key Hyperparameters
+
+<ConceptBox title="Learning Rate η (shrinkage)">
+Controls how much each tree contributes. Small η (0.01–0.1) requires more trees but generalizes better — each tree makes small corrections, reducing the risk of overfitting. Large η (0.5–1.0) learns quickly but can overshoot. **Lower learning rate + more trees = better generalization at higher computational cost.** This is the central tradeoff.
+</ConceptBox>
+
+<ConceptBox title="Number of Trees M">
+Unlike random forests (which plateau), gradient boosting can overfit if M is too large. The optimal M is found by monitoring validation error and stopping when it begins to increase. Early stopping (standard in XGBoost/LightGBM) automates this.
+</ConceptBox>
+
+<ConceptBox title="Tree Depth (max_depth)">
+Gradient boosting typically uses shallow trees (depth 3–8) rather than fully grown trees. Shallow trees have high bias individually, but the additive ensemble rapidly reduces this bias. Deeper trees can model more complex interactions per step but are more prone to overfitting.
+</ConceptBox>
+
+## 5. XGBoost and LightGBM
+
+Modern implementations add several algorithmic improvements:
+
+**XGBoost (Chen & Guestrin, 2016):** Adds second-order (Newton) terms to the gradient update (uses both gradient and Hessian of the loss). This provides better convergence than plain gradient descent. Also adds L1 and L2 regularization terms directly to the tree-building objective:
+
+$$\mathcal{L}_{\text{XGB}} = \sum_{i=1}^{n} L(y_i, F(x_i)) + \lambda \|w\|^2 + \alpha \|w\|_1$$
+
+**LightGBM:** Uses histogram-based splitting (bucketing continuous features into 255 bins) and leaf-wise tree growth (expand the leaf with the largest loss reduction, not all leaves at the same depth). Substantially faster than XGBoost for large datasets while maintaining similar accuracy.
+
+<ConceptBox title="Interactive Widget: Gradient Boosting Step-by-Step">
+This widget shows the residual fitting process for a small regression dataset. At each iteration step, it displays the current ensemble prediction, the residuals being fitted by the next tree, and the cumulative MSE reduction. Adjust the learning rate slider to see how it controls the step size.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+<QuizCard
+  question="Why can gradient boosting reduce bias while bagging cannot?"
+  options={['Gradient boosting uses deeper trees, which have lower bias', 'Gradient boosting trains models sequentially, where each new model corrects the errors of the previous ensemble — directly targeting and reducing systematic prediction error', 'Gradient boosting uses a different splitting criterion (entropy instead of Gini)', 'Gradient boosting averages predictions from more models than bagging']}
+  correct={1}
+/>

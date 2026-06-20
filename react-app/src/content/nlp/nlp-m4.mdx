@@ -1,0 +1,168 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+Shallow parsing labels flat spans like `[NP the cat]` but cannot represent nested relationships — "the cat that sat on the mat" contains a relative clause modifying the subject. **Deep parsing** produces a constituency tree that captures every level of embedding.
+</Bridge>
+
+## Context-Free Grammars — Formal Definition
+
+A **Context-Free Grammar** is a 4-tuple:
+
+$$G = (N,\, \Sigma,\, R,\, S)$$
+
+<ConceptBox title="The Four Components">
+- **N** — a finite set of *non-terminal symbols* (syntactic categories): S, NP, VP, PP, DT, N, V, JJ, IN, …
+- **Σ** — a finite set of *terminal symbols* (the vocabulary): "the", "dog", "chased", … Disjoint from N.
+- **R** — a finite set of *production rules* of the form $A \to \alpha$ where $A \in N$ and $\alpha \in (N \cup \Sigma)^*$. The right-hand side is any sequence of terminals and non-terminals.
+- **S** — the *start symbol* (by convention S for Sentence). Every grammatical sentence is derived from S.
+</ConceptBox>
+
+A small but workable English grammar:
+
+```
+S  → NP VP
+NP → DT N  |  DT JJ N  |  NP PP  |  N
+VP → V NP  |  V PP     |  V NP PP |  V
+PP → IN NP
+
+DT → "the" | "a" | "an"
+N  → "dog"  | "cat"  | "bone"  | "park"
+V  → "chased" | "saw" | "ate"
+JJ → "big"  | "small" | "lazy"
+IN → "in"   | "with"  | "on"
+```
+
+### Derivation — "the dog chased a cat"
+
+A **derivation** is a sequence of rewriting steps from S to a terminal string. A *leftmost derivation* always expands the leftmost non-terminal first:
+
+<DerivationSteps>
+<DerivationStep number={1} title="S → NP VP">
+Start from S.
+</DerivationStep>
+
+<DerivationStep number={2} title="NP VP → DT N VP">
+Apply NP → DT N (expand leftmost non-terminal).
+</DerivationStep>
+
+<DerivationStep number={3} title='DT N VP → "the" N VP → "the dog" VP'>
+Apply DT → "the", then N → "dog".
+</DerivationStep>
+
+<DerivationStep number={4} title='"the dog" VP → "the dog" V NP'>
+Apply VP → V NP.
+</DerivationStep>
+
+<DerivationStep number={5} title='"the dog" "chased" NP → "the dog chased" DT N → "the dog chased a cat"'>
+Apply V → "chased", NP → DT N, DT → "a", N → "cat". Derivation complete.
+</DerivationStep>
+</DerivationSteps>
+
+## Parse Trees — Structure and Reading
+
+A **parse tree** is a rooted, ordered tree where internal nodes are non-terminals, leaves are terminal words in sentence order, and each subtree is a *constituent*.
+
+<ConceptBox title="Three Key Structural Concepts">
+- **Dominance** — Node A *dominates* node B if there is a downward path from A to B. S dominates everything.
+- **Linear precedence** — Word order is encoded through left-to-right child ordering.
+- **Headedness** — Each phrase has a *head* that determines its category (N for NP, V for VP). Heads govern agreement.
+</ConceptBox>
+
+Parse tree for "the dog chased a big cat":
+```
+         S
+       /   \
+     NP     VP
+    / \    /  \
+   DT  N  V    NP
+  the dog |   / | \
+      chased DT JJ  N
+             a big cat
+```
+
+<ConceptBox title="Interactive Widget: Step-Through Parse Tree Builder">
+Select a sentence and step through the derivation one rule at a time, watching the tree build from S to terminal leaves. Sentences include: "The dog chased a cat", "She put the book on the shelf", "The old man saw the girl with a telescope" (ambiguous).
+
+Note: interactive widget replaced with static description. See the original HTML file for the SVG/JS implementation.
+</ConceptBox>
+
+## Structural Ambiguity
+
+Most sentences of any length can be parsed in more than one way — this is **structural ambiguity**.
+
+### PP Attachment Ambiguity
+
+"I saw the man with the telescope" is ambiguous:
+
+- **[VP saw [NP the man with the telescope]]** — the man has the telescope (NP attachment)
+- **[VP saw [NP the man] [PP with the telescope]]** — I used a telescope to see (VP attachment)
+
+Both are grammatically valid; only world knowledge resolves the ambiguity.
+
+### The Parsing Problem
+
+For a sentence of length $n$ with a grammar of $|R|$ rules, the number of possible parse trees grows exponentially. Two classic algorithms handle this:
+
+| Algorithm | Time | Approach |
+|-----------|------|---------|
+| **CYK** (Cocke-Younger-Kasami) | O(n³ · \|R\|) | Bottom-up DP; requires Chomsky Normal Form |
+| **Earley** | O(n³) | Top-down with memoization; handles arbitrary CFGs |
+
+### Probabilistic CFGs
+
+A **PCFG** assigns a probability to each rule $A \to \beta$. The probabilities for a given left-hand side must sum to 1. The parse tree probability is the product of rule probabilities:
+
+$$P(\text{tree}) = \prod_{(A \to \beta) \in \text{tree}} P(A \to \beta \mid A)$$
+
+The most probable parse is found using the probabilistic Viterbi algorithm. PCFGs are estimated from Penn Treebank rule counts.
+
+<CodeBlock language="python">
+{`import nltk
+from nltk import CFG, ChartParser
+
+grammar = CFG.fromstring("""
+  S  -> NP VP
+  NP -> DT N | DT JJ N | N
+  VP -> V NP | V NP PP | V PP | V
+  PP -> IN NP
+  DT -> 'the' | 'a' | 'an'
+  N  -> 'dog' | 'cat' | 'bone' | 'park' | 'telescope'
+  V  -> 'chased' | 'saw' | 'ate'
+  JJ -> 'big' | 'small' | 'lazy' | 'old'
+  IN -> 'in' | 'with' | 'on'
+""")
+
+parser = ChartParser(grammar)
+sentence = "the dog chased a cat".split()
+for tree in parser.parse(sentence):
+    tree.pretty_print()
+#         S
+#       /   \\
+#     NP     VP
+#    / \    /  \\
+#   DT  N  V    NP
+#  the dog |   / \\
+#      chased DT  N
+#              a  cat`}
+</CodeBlock>
+
+<ConceptBox title="Dependency Parsing">
+Modern NLP increasingly uses **dependency trees** rather than constituency trees. A dependency tree connects each word directly to its syntactic head via a typed arc (nsubj, dobj, amod, …). spaCy's default parser is a dependency parser:
+
+```python
+doc = nlp("The dog chased a cat.")
+for token in doc:
+    print(f"{token.text:10} → {token.head.text:10} [{token.dep_}]")
+# dog   → chased  [nsubj]   (subject)
+# cat   → chased  [dobj]    (direct object)
+# The   → dog     [det]     (determiner)
+```
+
+Dependency trees: more compact, closer to semantic roles, better suited for many downstream tasks.
+</ConceptBox>
+
+<QuizCard
+  question="Sentence: 'I shot an elephant in my pajamas.' Which type of ambiguity does this exhibit, and which grammar element causes it?"
+  options={['Lexical ambiguity — "shot" can be a noun or verb', 'Structural ambiguity — PP "in my pajamas" can attach to NP "an elephant" or VP "shot", giving two valid parse trees', 'POS ambiguity — "elephant" can be a noun or adjective in some dialects', 'Morphological ambiguity — "shot" can be past tense of "shoot" or a noun']}
+  correct={1}
+/>

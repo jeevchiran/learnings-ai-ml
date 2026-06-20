@@ -1,0 +1,180 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+Normalized tokens from Module 2 still leave meaning underspecified — word order matters. "The dog bites the man" and "The man bites the dog" contain identical tokens but describe opposite events. **Syntax** captures not just which words appear but how they are arranged and what role each plays.
+</Bridge>
+
+## Parts of Speech
+
+A **part of speech** (POS), or *lexical category*, is the grammatical role a word plays in a sentence. The key distinction is between open and closed class words:
+
+<ConceptBox title="Open class (Content Words)">
+- **Nouns** — objects, concepts, entities (*dog, democracy, algorithm*)
+- **Verbs** — actions, states (*run, believe, tokenize*)
+- **Adjectives** — properties of nouns (*quick, neural, ambiguous*)
+- **Adverbs** — modifiers of verbs/adjectives (*quickly, very, not*)
+
+New words enter these classes constantly.
+</ConceptBox>
+
+<ConceptBox title="Closed class (Function Words)">
+- **Prepositions** — spatial/temporal relations (*in, on, after*)
+- **Determiners** — articles and quantifiers (*the, a, every*)
+- **Conjunctions** — connectors (*and, but, because*)
+- **Pronouns** — noun substitutes (*he, they, it*)
+
+These classes are fixed. English has had essentially the same prepositions for centuries.
+</ConceptBox>
+
+### The Penn Treebank Tagset
+
+The de facto standard for English NLP, defining 45 fine-grained tags:
+
+| Tag | Description | Example |
+|-----|-------------|---------|
+| `NN` | Noun, singular or mass | *dog, water* |
+| `NNS` | Noun, plural | *dogs, algorithms* |
+| `NNP` | Proper noun, singular | *London, Alice* |
+| `VB` | Verb, base form | *run, go* |
+| `VBD` | Verb, past tense | *ran, went* |
+| `VBG` | Verb, gerund/present participle | *running, going* |
+| `VBN` | Verb, past participle | *run (as in "has run")* |
+| `VBZ` | Verb, 3rd-person singular present | *runs, goes* |
+| `JJ` | Adjective | *quick, large* |
+| `JJR` | Adjective, comparative | *quicker, larger* |
+| `RB` | Adverb | *quickly, very, not* |
+| `IN` | Preposition or subordinating conjunction | *in, of, because* |
+| `DT` | Determiner | *the, a, every* |
+| `MD` | Modal | *can, will, should* |
+
+### Why Ambiguity is Hard
+
+About **11–12% of word tokens are genuinely ambiguous** across major POS categories (Brown Corpus):
+
+- **"book"** — NN in "Read the *book*" but VB in "*Book* the table"
+- **"light"** — JJ in "a *light* breeze", NN in "the traffic *light*", VB in "*light* the candle"
+- **"can"** — MD in "She *can* swim" but NN in "Open the *can*"
+- **"running"** — VBG in "She is *running*" but NN in "*Running* is healthy"
+
+A most-frequent-tag baseline achieves ~92% accuracy; resolving the remaining 8% requires context — what statistical taggers exploit.
+
+## Rule-Based vs. Statistical POS Taggers
+
+### HMM Taggers — The Statistical Approach
+
+A **Hidden Markov Model (HMM)** tagger treats POS tagging as sequence labeling: observed words are the visible sequence, tags are the hidden sequence. It uses two distributions:
+
+<DerivationSteps>
+<DerivationStep number={1} title="Emission probability P(word | tag).">
+How likely is a word given a tag? Estimated by counting: P("dog" | NN) = count(dog, NN) / count(NN). A common noun often appears with NN; rarely as VB.
+</DerivationStep>
+
+<DerivationStep number={2} title="Transition probability P(tagᵢ | tagᵢ₋₁).">
+How likely is one tag to follow another? P(VBD | NN) is high ("the dog ran"); P(DT | DT) is near zero ("the the"). Captures grammar implicitly from data.
+</DerivationStep>
+
+<DerivationStep number={3} title="Viterbi decoding.">
+Brute-force search over all possible tag sequences is exponential. Viterbi finds the optimal sequence in O(n · |T|²) via dynamic programming, where n is sentence length and |T| is the tag vocabulary size.
+</DerivationStep>
+</DerivationSteps>
+
+The HMM maximizes:
+
+$$P(t_1, \ldots, t_n \mid w_1, \ldots, w_n) \;\propto\; \prod_{i=1}^{n} P(w_i \mid t_i)\, P(t_i \mid t_{i-1})$$
+
+HMM taggers trained on the Penn Treebank achieve ~96–97% per-token accuracy. Modern neural taggers (BiLSTM, transformer) push this to ~97–98%.
+
+## POS Tagging in spaCy
+
+spaCy exposes two POS levels per token: coarse universal tag (`token.pos_`) and fine-grained PTB tag (`token.tag_`):
+
+<CodeBlock language="python">
+{`import spacy
+
+nlp = spacy.load("en_core_web_sm")
+doc = nlp("The quick brown fox jumps over the lazy dog.")
+
+for token in doc:
+    print(f"{token.text:12} {token.pos_:8} {token.tag_:8} {spacy.explain(token.tag_)}")
+# The          DET      DT       determiner
+# quick        ADJ      JJ       adjective
+# brown        ADJ      JJ       adjective
+# fox          NOUN     NN       noun, singular or mass
+# jumps        VERB     VBZ      verb, 3rd person singular present
+# over         ADP      IN       conjunction, subordinating or preposition
+# lazy         ADJ      JJ       adjective
+# dog          NOUN     NN       noun, singular or mass`}
+</CodeBlock>
+
+Coarse `pos_` tags are language-independent (Universal Dependencies); fine-grained `tag_` tags are English-specific PTB.
+
+## Shallow Parsing (Chunking)
+
+**Chunking** groups consecutive tokens into non-overlapping, non-recursive *phrase chunks* — a flat sequence of labelled spans, one level above tokens.
+
+| Chunk type | Example |
+|-----------|---------|
+| NP (Noun Phrase) | "the quick brown fox", "cardiovascular health" |
+| VP (Verb Phrase) | "jumps over", "has been running" |
+| PP (Prepositional Phrase) | "over the lazy dog", "in London" |
+
+Chunks are written with bracket notation:
+
+```
+[NP The quick brown fox] [VP jumps] [PP over] [NP the lazy dog] .
+```
+
+### Chunk Grammar — Regex Over POS Tags
+
+The simplest chunker applies regex patterns over POS tag sequences:
+
+```
+NP: {<DT>?<JJ>*<NN.*>+}
+```
+
+Optional determiner, zero or more adjectives, one or more nouns (`.*` matches NN/NNS/NNP/NNPS). This single rule correctly identifies most English NPs.
+
+<CodeBlock language="python">
+{`import nltk
+
+grammar = "NP: {<DT>?<JJ>*<NN.*>+}"
+cp = nltk.RegexpParser(grammar)
+
+sentence = [
+    ("The", "DT"), ("quick", "JJ"), ("brown", "JJ"), ("fox", "NN"),
+    ("jumps", "VBZ"), ("over", "IN"),
+    ("the", "DT"), ("lazy", "JJ"), ("dog", "NN")
+]
+result = cp.parse(sentence)
+print(result)
+# (S
+#   (NP The/DT quick/JJ brown/JJ fox/NN)
+#   jumps/VBZ
+#   over/IN
+#   (NP the/DT lazy/JJ dog/NN))
+
+# spaCy provides NP chunks directly:
+doc = nlp("The quick brown fox jumps over the lazy dog.")
+for chunk in doc.noun_chunks:
+    print(chunk.text, "→", chunk.root.dep_)
+# The quick brown fox → nsubj
+# the lazy dog → pobj`}
+</CodeBlock>
+
+<ConceptBox title="Shallow vs. Deep Parsing">
+**Shallow parsing** (this module): flat, non-overlapping phrase chunks. Fast and sufficient for IE and NER.
+
+**Deep parsing** (Module 4): full recursive parse tree — PP inside NP inside VP inside S. More expressive, captures sentence-level structure (who did what to whom), but slower and more domain-sensitive.
+</ConceptBox>
+
+<ConceptBox title="Interactive Widget: Live POS Tagger">
+This widget color-codes each token by POS and draws brackets around NP chunks. Try ambiguous sentences: "Time flies like an arrow; fruit flies like a banana" (different readings), "Book the table and read the book" (VB vs NN).
+
+Note: interactive widget replaced with static description. See the original HTML file for the JS implementation.
+</ConceptBox>
+
+<QuizCard
+  question="An HMM POS tagger learns that P(VBD | NN) is high and P(DT | DT) is near zero. What linguistic knowledge do these probabilities encode?"
+  options={['Emission probabilities — how likely each word form is given a tag', 'Transition probabilities — implicit grammar rules learned from tag bigram counts in the training corpus', 'Viterbi scores — the result of dynamic programming over the lattice', 'Universal Dependencies constraints — language-independent POS rules']}
+  correct={1}
+/>

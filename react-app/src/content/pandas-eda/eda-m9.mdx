@@ -1,0 +1,153 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+# Capstone — End-to-End EDA Workflow
+
+## The EDA Pipeline
+
+<ConceptBox title="A real EDA project follows a repeatable pipeline">
+Each step builds on the previous one — you cannot meaningfully detect outliers if you have not removed invalid values first, and you cannot trust a correlation matrix if the data still contains data-entry errors. The nine steps below map directly to Modules 1–8 of this track.
+</ConceptBox>
+
+<DerivationSteps>
+<DerivationStep number={1} title="Load & Inspect — Module 1">
+`shape`, `dtypes`, `head()` — confirm row count, column types, and a sample of real values.
+</DerivationStep>
+<DerivationStep number={2} title="Detect Missing Values — Module 2">
+`isnull().sum()`, missing ratio — find which columns have nulls and how many.
+</DerivationStep>
+<DerivationStep number={3} title="Remove Invalid Data — Module 3">
+Negative fares, zero distances — apply domain-rule boolean masks to remove logically impossible rows.
+</DerivationStep>
+<DerivationStep number={4} title="Detect & Treat Outliers — Module 4">
+IQR fences, outlier count — flag statistical extremes; use domain knowledge to decide remove vs. cap.
+</DerivationStep>
+<DerivationStep number={5} title="Engineer Features — Module 5">
+`hour`, `day_of_week`, `duration_min` — convert raw timestamps into numeric signals models can learn from.
+</DerivationStep>
+<DerivationStep number={6} title="Visualize Distributions — Module 6">
+Histogram, boxplot, KDE — examine the shape of each variable one column at a time.
+</DerivationStep>
+<DerivationStep number={7} title="Analyze Relationships — Module 7">
+Scatter, Pearson r, heatmap — look at how pairs of variables move together.
+</DerivationStep>
+<DerivationStep number={8} title="Multivariate Deep Dive — Module 8">
+Pivot table, color-encoded scatter — introduce a third variable to reveal interactions hidden in bivariate analysis.
+</DerivationStep>
+<DerivationStep number={9} title="Summarize Findings — Capstone">
+Synthesize insights across all prior steps into a concise findings report.
+</DerivationStep>
+</DerivationSteps>
+
+**Order matters.** Outlier detection must come after removing invalid values — a negative fare of `-$12.50` would distort the IQR bounds and push the lower fence further negative, hiding genuine outliers. Always clean before you analyze.
+
+## Full EDA Notebook (Code)
+
+The complete EDA in one flowing code block — exactly what a real Jupyter notebook would look like. Each section corresponds to one pipeline step.
+
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# ── 1. Load ──────────────────────────────────────────────────────────────────
+df = pd.read_csv('nyc_taxi_sample.csv')
+print(df.shape)          # (30, 11)
+print(df.dtypes)
+print(df.head())
+
+# ── 2. Missing values ────────────────────────────────────────────────────────
+print(df.isnull().sum())
+print(df.isnull().mean() * 100)   # percentage missing per column
+# passenger_count: 6.67%  |  RatecodeID: 6.67%  |  airport_fee: 6.67%
+
+# ── 3. Invalid values ────────────────────────────────────────────────────────
+df = df[df['fare_amount'] >= 0]     # remove negative fares  (ids 7, 15)
+df = df[df['trip_distance'] > 0]   # remove zero-distance trips (ids 5, 11, 20, 30)
+print(f"Rows after cleaning: {len(df)}")   # 24
+
+# ── 4. Outliers (IQR) ────────────────────────────────────────────────────────
+Q1 = df['fare_amount'].quantile(0.25)
+Q3 = df['fare_amount'].quantile(0.75)
+IQR = Q3 - Q1
+lower, upper = Q1 - 1.5 * IQR, Q3 + 1.5 * IQR
+outliers = df[(df['fare_amount'] < lower) | (df['fare_amount'] > upper)]
+print(f"Outliers: {len(outliers)}")         # 3  (ids 6, 18, 26)
+
+# ── 5. Feature engineering ───────────────────────────────────────────────────
+df['tpep_pickup_datetime']  = pd.to_datetime(df['tpep_pickup_datetime'])
+df['tpep_dropoff_datetime'] = pd.to_datetime(df['tpep_dropoff_datetime'])
+df['hour']         = df['tpep_pickup_datetime'].dt.hour
+df['day_of_week']  = df['tpep_pickup_datetime'].dt.dayofweek
+df['duration_min'] = (
+    df['tpep_dropoff_datetime'] - df['tpep_pickup_datetime']
+).dt.total_seconds() / 60
+
+# ── 6. Distributions ─────────────────────────────────────────────────────────
+df['fare_amount'].hist(bins=10)
+plt.title('Fare Amount Distribution')
+plt.xlabel('fare_amount ($)')
+plt.show()
+
+# ── 7. Correlation ───────────────────────────────────────────────────────────
+print(df[['fare_amount', 'trip_distance', 'tip_amount']].corr().round(2))
+
+# ── 8. Multivariate ──────────────────────────────────────────────────────────
+sns.scatterplot(
+    data=df,
+    x='trip_distance',
+    y='fare_amount',
+    hue='RatecodeID'
+)
+plt.title('Distance vs Fare by Rate Code')
+plt.show()
+```
+
+## Key Findings
+
+Based on all pipeline steps applied to the 30-row NYC taxi sample:
+
+1. **`fare_amount` is right-skewed** — median ($11.75) is a better "typical fare" than mean ($26+), which is pulled up by a single $399 anomaly.
+2. **2 rows have negative fares** (ids 7, 15) — data errors, not real transactions. Removed before analysis.
+3. **4 rows have zero trip distance** (ids 5, 11, 20, 30) — likely cancelled trips where meter started but ride did not complete.
+4. **RatecodeID=2 trips explain high-fare outliers** — flat-rate $45/$52 airport fares (ids 6, 18) fall above the IQR fence but are legitimate data, not errors.
+5. **`fare_amount` and `trip_distance` show strong positive correlation** — but confounded by the flat-rate pricing regime. Segment by RatecodeID to see the true per-mile relationship.
+
+## Quiz
+
+### Module 9 — Capstone Check
+
+**1. After removing negative fares AND zero-distance trips from the 30-row dataset, how many rows remain?**
+- A: 26
+- B: 25
+- C: 24 ✓
+- D: 22
+
+**2. Which finding best explains why `fare_amount` and `trip_distance` don't have r = 1.0?**
+- A: The dataset is too small
+- B: Fares are rounded to whole dollars
+- C: Flat-rate airport trips (RatecodeID=2) break the distance–fare linear relationship ✓
+- D: Missing values reduce correlation
+
+**3. You run `df['fare_amount'].mean()` and get $26. The median is $11.75. Which is more useful for reporting "typical NYC taxi fare"?**
+- A: Mean — it uses all data
+- B: Median — it is robust to the $399 outlier pulling mean up ✓
+- C: Both equally useful
+- D: Neither — use mode
+
+**4. In the EDA pipeline, why should outlier detection come AFTER removing invalid values?**
+- A: Pandas requires this order
+- B: Invalid values (negative fares) would distort IQR bounds if included ✓
+- C: Outliers can't be computed from missing data
+- D: The order doesn't matter
+
+**5. Which module's technique would you use to investigate "Do airport trips (RatecodeID=2) have different tip patterns across passenger counts"?**
+- A: Module 2 — Missing Values
+- B: Module 6 — Univariate Visualization
+- C: Module 7 — Bivariate Analysis
+- D: Module 8 — Multivariate Analysis (pivot table with RatecodeID × passenger_count) ✓
+
+<QuizCard
+  question="After removing 2 negative-fare rows and 4 zero-distance rows from the 30-row NYC taxi sample, how many rows remain?"
+  options={['28', '26', '24', '22']}
+  correct={2}
+/>

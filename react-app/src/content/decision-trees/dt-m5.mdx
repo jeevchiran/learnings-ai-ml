@@ -1,0 +1,166 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+**From instability to ensemble design.** Module 4 identified a core tension: a fully grown tree memorizes training data (high variance, low bias), while an aggressively pruned tree underfits. Pruning helps, but even a well-tuned single tree suffers from instability — small changes to the training data can produce entirely different tree structures. The insight is that variance can be reduced by averaging, but only if the things being averaged are not perfectly correlated. The entire engineering challenge of ensemble methods is reducing that correlation — making the base learners diverse enough that their errors cancel out when aggregated.
+</Bridge>
+
+## 1. The Averaging Idea
+
+Suppose we have $B$ independent, identically distributed random variables $T_1, T_2, \ldots, T_B$, each with variance $\sigma^2$. Their average has variance:
+
+$$\text{Var}\!\left(\frac{1}{B}\sum_{b=1}^{B} T_b\right) = \frac{\sigma^2}{B} \xrightarrow{B \to \infty} 0$$
+
+If we could train $B$ independent trees and average their predictions, variance would vanish as $B \to \infty$. But there are two obstacles:
+- **Not independent.** All trees are trained on the same dataset, so they share structure and their predictions are correlated.
+- **Not identically distributed.** Different bootstrap samples produce trees with different distributions over the feature space.
+
+Bagging addresses both obstacles through resampling; random forests further decorrelate trees by randomizing feature selection at each split.
+
+## 2. Bootstrap Sampling
+
+A **bootstrap sample** of $n$ observations is formed by drawing $n$ times *uniformly with replacement* from the original $n$ observations. Each draw is independent; any observation can be selected multiple times or not at all.
+
+### The 63.2% Rule
+
+For any single training point $i$, the probability it is *not* selected on a single draw is $(1 - 1/n)$. Since there are $n$ independent draws:
+
+$$P(\text{point } i \text{ not selected}) = \left(1 - \frac{1}{n}\right)^n \xrightarrow{n \to \infty} e^{-1} \approx 0.368$$
+
+Therefore, the probability that point $i$ *is* included is approximately $1 - e^{-1} \approx 0.632$.
+
+The remaining $\approx 36.8\%$ of training points are called **out-of-bag (OOB)** observations — they were never selected and therefore never influenced the tree trained on that sample.
+
+<ConceptBox title="Worked Example: n = 5 points {A, B, C, D, E}">
+Three independent bootstrap samples:
+
+| Sample | Bootstrap Draw | Unique in-bag | OOB |
+|--------|---------------|---------------|-----|
+| D₁ | A, A, C, D, A | A, C, D | B, E |
+| D₂ | B, C, C, E, B | B, C, E | A, D |
+| D₃ | A, B, D, D, E | A, B, D, E | C |
+
+Each sample produces a different effective training set. Trees trained on D₁, D₂, D₃ will differ in structure because they see different subsets of the data.
+</ConceptBox>
+
+## 3. Bagging — Bootstrap Aggregating
+
+Leo Breiman introduced bagging (Bootstrap AGGregating) in 1996 as a general procedure for stabilizing any high-variance learner. Applied to decision trees:
+
+```
+For b = 1 to B:
+  a. Draw bootstrap sample D_b of size n from D (with replacement)
+  b. Train decision tree T_b on D_b (grow to full depth — no pruning)
+
+Predict for new point x:
+  Classification:  majority vote of { T_1(x), ..., T_B(x) }
+  Regression:      mean of { T_1(x), ..., T_B(x) }
+```
+
+The ensemble prediction for regression: $\hat{f}_{\text{bag}}(x) = \frac{1}{B} \sum_{b=1}^{B} T_b(x)$
+
+Trees are grown to **full depth** (maximum variance, minimum bias). The variance is controlled by averaging — not by pruning any individual tree.
+
+### Variance Reduction Derivation
+
+Let each tree $T_b$ have variance $\sigma^2$ and let any two trees $T_i, T_j$ have correlation $\rho$ (so $\text{Cov}(T_i, T_j) = \rho\sigma^2$).
+
+<DerivationSteps>
+<DerivationStep number={1} title="Expand the variance of the average.">
+$$\text{Var}\!\left(\frac{1}{B}\sum_{b=1}^{B} T_b\right) = \frac{1}{B^2}\left(B\,\sigma^2 + B(B-1)\,\rho\sigma^2\right)$$
+
+There are B diagonal terms (each contributing Var(T_b) = σ²) and B(B−1) off-diagonal covariance terms.
+</DerivationStep>
+
+<DerivationStep number={2} title="Simplify.">
+$$= \frac{\sigma^2}{B} + \frac{(B-1)}{B}\rho\sigma^2$$
+</DerivationStep>
+
+<DerivationStep number={3} title="Rearrange to canonical form.">
+$$\text{Var}\!\left(\frac{1}{B}\sum_b T_b\right) = \rho\sigma^2 + \frac{1-\rho}{B}\sigma^2$$
+
+The first term is the **variance floor**: it does not shrink as B grows. The second term vanishes as $B \to \infty$.
+</DerivationStep>
+</DerivationSteps>
+
+<ConceptBox title="The Correlation Floor is the Fundamental Limit">
+As $B \to \infty$, the ensemble variance approaches $\rho\sigma^2$. More trees cannot reduce variance below this floor. The floor is set by how correlated the trees are — which is set by the data and the learning procedure, not by $B$. This is why random forests introduce additional randomness to reduce $\rho$.
+</ConceptBox>
+
+### Out-of-Bag Error Estimation
+
+For each training point $x_i$, roughly 36.8% of the $B$ trees were trained on bootstrap samples that did *not* include $x_i$. Let $\mathcal{B}_i = \{b : x_i \notin D_b\}$ denote the set of OOB trees for $x_i$. The OOB prediction is:
+
+$$\hat{f}_{\text{OOB}}(x_i) = \frac{1}{|\mathcal{B}_i|} \sum_{b \in \mathcal{B}_i} T_b(x_i)$$
+
+The OOB error is computed by comparing $\hat{f}_{\text{OOB}}(x_i)$ to the true label $y_i$ across all training points. This estimate is nearly unbiased for generalization error and **eliminates the need for a held-out validation set** — a significant practical advantage when data are scarce.
+
+## 4. Random Forests — Decorrelating the Trees
+
+Breiman (2001) refined bagging with one key modification: at each split, only a random subset of $m_{\text{try}}$ features (out of the full $p$) is considered as candidates. The best split is found among these $m_{\text{try}}$ features only.
+
+**Why this reduces correlation:** In a bagged forest, if one feature is strongly predictive, nearly every tree will place it at or near the root — making trees highly correlated. By forcing each split to consider only $m_{\text{try}} < p$ randomly chosen features, we ensure that sometimes the dominant feature is excluded. Different trees end up relying on different features, discovering different aspects of the data. Their predictions become less correlated — $\rho$ decreases — and the ensemble variance floor drops.
+
+### Choosing m_try
+
+| Task | Breiman's default | Practical advice |
+|------|-------------------|----------------|
+| Classification | $m_{\text{try}} = \lfloor\sqrt{p}\rfloor$ | Often works well out of the box; tune via CV |
+| Regression | $m_{\text{try}} = \lfloor p/3 \rfloor$ | Try a range: p/10, p/5, p/3, p/2 |
+
+With $m_{\text{try}} = p$: reduces to bagging. With $m_{\text{try}} = 1$: maximum decorrelation but too much bias. The sweet spot is usually around $\sqrt{p}$ for classification.
+
+```
+Input: training data D, B trees, m_try features per split
+
+For b = 1 to B:
+  1. Draw bootstrap sample D_b
+  2. Grow tree T_b from D_b:
+       At each node:
+         a. Draw m_try features uniformly at random
+         b. Find best split among those m_try features only
+         c. Split → recurse (no depth limit, no pruning)
+
+Predict:
+  Classification:  mode{ T_1(x), ..., T_B(x) }
+  Regression:      (1/B) * sum{ T_b(x) }
+
+Optional: compute OOB error
+```
+
+## 5. Feature Importance
+
+### Mean Decrease in Impurity (MDI)
+
+For each feature $j$, sum the total impurity reduction (Gini gain) across every split on feature $j$ across all trees, weighted by the fraction of training samples reaching that split:
+
+$$\text{FI}(j) = \frac{1}{B} \sum_{b=1}^{B} \sum_{\substack{t \in T_b \\ \text{split on } j}} \frac{n_t}{n} \cdot \Delta G(t)$$
+
+Importances are normalized to sum to 1. High $\text{FI}(j)$ means feature $j$ is used frequently and produces large purity gains.
+
+<ConceptBox title="MDI is Biased Toward High-Cardinality Features">
+A feature with many distinct values has more candidate thresholds than a binary feature. More candidate thresholds means more chances to produce a winning split, inflating MDI even when the feature is not genuinely more informative.
+</ConceptBox>
+
+### Permutation Importance
+
+After training, for each feature $j$: randomly permute the values of feature $j$ in the OOB set, and measure the increase in prediction error.
+
+$$\text{PI}(j) = \text{err}_{\text{OOB}}^{(j)} - \text{err}_{\text{OOB}}$$
+
+A large positive $\text{PI}(j)$ means feature $j$ matters. Permutation importance requires an extra pass through the OOB data for each feature, but is generally considered more reliable for feature selection.
+
+<ConceptBox title="Interactive Widgets">
+**Widget 1 — Bootstrap in Action:** Watch each bootstrap sample form, see which points are OOB, and observe how trees trained on different samples produce different structures.
+
+**Widget 2 — Ensemble Size vs. Error:** Plot OOB error and test error as the number of trees grows. Observe the rapid initial improvement that levels off — adding trees past ~200 rarely helps.
+
+**Widget 3 — Feature Importance Comparison:** Compare MDI vs. permutation importance for a dataset with both relevant and irrelevant features.
+
+Note: interactive widgets replaced with static descriptions. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+<QuizCard
+  question="In a random forest with p = 100 features, approximately how many features are considered at each split by default for a classification task, and why?"
+  options={['All 100 features — random forests use all features but weight them differently', '10 features (√100) — to decorrelate trees by preventing the dominant feature from dominating every split', '33 features (100/3) — the default for all ensemble tasks', '1 feature — to maximize decorrelation at the cost of bias']}
+  correct={1}
+/>
