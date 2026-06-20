@@ -1,0 +1,150 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+# Outlier Detection & Treatment (IQR)
+
+## What, Why, and How
+
+<ConceptBox title="WHAT: Outliers and Tukey Fences">
+An **outlier** is a data point that sits far from the bulk of the distribution. The IQR method formalises "far" using **Tukey fences** — symmetric boundaries built from the spread of the middle 50% of values.
+
+Key quantities:
+
+$$IQR = Q3 - Q1$$
+
+$$\text{Lower fence} = Q1 - k \cdot IQR$$
+
+$$\text{Upper fence} = Q3 + k \cdot IQR$$
+
+The default multiplier is **k = 1.5** (Tukey's original choice). A stricter alternative, **k = 3.0**, is sometimes called the "far outlier" threshold. Any point outside the fences is flagged as an outlier.
+</ConceptBox>
+
+<ConceptBox title="WHY: Outliers distort summaries and models">
+Outliers skew the arithmetic mean, inflate variance, and drag regression lines off-track. In this dataset, `fare_amount` ID 26 records a **$399.00** fare for a 6.7-mile trip — almost certainly a meter-malfunction error. If left in, it pulls the column mean from ~$14 to ~$26 and would dominate any mean-based model. But not every extreme value is an error: IDs 6 and 18 record fares of $45 and $52 — plausible for a JFK airport flat-rate (`RatecodeID=2`). Detecting outliers is only step one; deciding what to do with them requires domain knowledge.
+
+For reference, a z-score framing makes the same point:
+
+$$z = \frac{x - \mu}{\sigma}$$
+
+A z-score beyond ±3 roughly corresponds to k=3 IQR fences on normal data — but the IQR method is more *robust* because Q1 and Q3 themselves are unaffected by the very outliers you are trying to find.
+</ConceptBox>
+
+<ConceptBox title="HOW: Four-step workflow">
+<DerivationSteps>
+<DerivationStep number={1} title="Compute IQR">
+Sort the column, find Q1 (25th percentile) and Q3 (75th percentile), subtract. For `fare_amount`: Q1 = 6.125, Q3 = 19.125, IQR = 13.0.
+</DerivationStep>
+<DerivationStep number={2} title="Apply Tukey fences">
+At k = 1.5: lower = 6.125 − 1.5 × 13.0 = −13.375, upper = 19.125 + 1.5 × 13.0 = 38.625. Any fare outside this range is flagged.
+</DerivationStep>
+<DerivationStep number={3} title="Visualise">
+A boxplot is the natural companion to IQR — its whiskers sit exactly at the Tukey fences, and points beyond the whiskers are individually plotted, making outliers visible at a glance.
+</DerivationStep>
+<DerivationStep number={4} title="Choose a treatment: remove or cap">
+**Remove**: drop outlier rows entirely. Best when the outlier is a confirmed error. **Cap (Winsorize)**: replace values beyond the fence with the fence value itself. Best when extreme values are real but should not dominate — you keep all rows, just limit their leverage.
+</DerivationStep>
+</DerivationSteps>
+</ConceptBox>
+
+## Code Walkthrough
+
+```python
+Q1 = df['fare_amount'].quantile(0.25)   # 6.125
+Q3 = df['fare_amount'].quantile(0.75)   # 19.125
+IQR = Q3 - Q1                            # 13.0
+
+k = 1.5
+lower = Q1 - k * IQR                    # -13.375
+upper = Q3 + k * IQR                    # 38.625
+
+outliers = df[(df.fare_amount < lower) | (df.fare_amount > upper)]
+print(f"Outliers: {len(outliers)} rows")  # 3 rows
+```
+
+```
+Outliers: 3 rows (ids 6, 18, 26)
+```
+
+```python
+# Option A: Remove outlier rows
+df_clean = df[(df.fare_amount >= lower) & (df.fare_amount <= upper)]
+print(f"Rows after removal: {len(df_clean)}")   # 27
+
+# Option B: Cap (Winsorize) — replace with fence value
+df_capped = df.copy()
+df_capped['fare_amount'] = df_capped['fare_amount'].clip(lower, upper)
+print(df_capped['fare_amount'].max())             # 38.625 (was 399.0)
+```
+
+```
+Rows after removal: 27
+38.625
+```
+
+**Statistical outlier ≠ data error — always investigate before removing.** IDs 6 ($45) and 18 ($52) are flagged by the IQR method at k=1.5, but their `RatecodeID=2` marks them as JFK airport flat-rate fares — a documented, legitimate fare structure. Blindly deleting them would remove valid data about a real trip type. Only ID 26 ($399, standard RatecodeID=1, 6.7-mile trip) has no legitimate explanation — that is the true error most likely caused by a meter malfunction.
+
+<Bridge>
+The widget below lets you explore this interactively: change the column, adjust k, and see exactly which points are flagged and what treatment does to the data.
+</Bridge>
+
+## Practice
+
+### Problem 1: Compute IQR for fare_amount
+
+What is the IQR of `fare_amount` in this 30-row sample?
+
+**Solution:** IQR = Q3 − Q1 = 19.125 − 6.125 = **13.0**. Q1 is the 25th percentile (the median of the lower half) and Q3 is the 75th percentile (the median of the upper half). IQR measures the spread of the middle 50% of data, making it robust to extremes: adding or removing a single very large value does not change Q1 or Q3 at all, so the IQR stays stable.
+
+### Problem 2: Fences at k=2.0 — how many outliers survive?
+
+At k=2.0, what are the Tukey fences for `fare_amount`? How many outliers does k=2.0 flag compared with k=1.5?
+
+**Solution:** With IQR = 13.0:
+
+- Lower fence = 6.125 − 2.0 × 13.0 = **−19.875**
+- Upper fence = 19.125 + 2.0 × 13.0 = **45.125**
+
+At k=1.5 the upper fence was 38.625, which flagged IDs 6 ($45), 18 ($52), and 26 ($399) — three outliers. At k=2.0 the fence rises to 45.125: $45.00 < $45.125 → inside; $52.00 > $45.125 → outside; $399.00 → outside. Result: **2 outliers** (IDs 18, 26) at k=2.0.
+
+### Problem 3: Why choose k=2.0 over k=1.5?
+
+Why might you choose k=2.0 over k=1.5 for `fare_amount`? What does the difference tell you about the role of domain knowledge in outlier detection?
+
+**Solution:** At k=1.5, the IQR method flags ID 6 ($45) as an outlier — but domain knowledge reveals it is a legitimate JFK airport flat-rate fare (`RatecodeID=2`). Raising k to 2.0 widens the fence enough that $45 is no longer flagged, avoiding a false positive. This illustrates the core tension: the IQR threshold is statistical, but the decision of where to draw the line is a **domain decision**. Always plot the flagged rows, check their other fields, and decide case-by-case before deleting anything.
+
+## Quiz
+
+### Module 4 — Check Your Understanding
+
+**1. What does IQR measure?**
+- A: Distance between mean and median
+- B: Spread of the middle 50% of data ✓
+- C: Standard deviation squared
+- D: Range of the entire dataset
+
+**2. Which `fare_amount` value is MOST LIKELY a data error (not a legitimate fare)?**
+- A: $45.00 (RatecodeID=2, airport flat rate)
+- B: $52.00 (RatecodeID=2, airport flat rate)
+- C: $399.00 (RatecodeID=1, standard meter, 6.7-mile trip — likely meter malfunction) ✓
+- D: All three are errors
+
+**3. Winsorization (capping) vs. removal — when should you prefer capping?**
+- A: When you want fewer rows in the dataset
+- B: When the outlier represents a legitimate extreme value, not an error ✓
+- C: When the dataset is large enough that losing rows doesn't matter
+- D: Never — always remove outliers to keep the data clean
+
+**4. If you increase k from 1.5 to 3.0, the fence width:**
+- A: Narrows — more points are flagged as outliers
+- B: Widens — fewer points are flagged as outliers ✓
+- C: Stays the same — k only affects the lower fence
+- D: Becomes undefined when k exceeds 2.0
+
+<Bridge>
+**What's next: the time dimension.** Outlier detection asked "is this value too extreme?" — a purely numeric question. Module 5 adds a new kind of column: datetime. When was each trip? What hour, what day of week? Extracting those features unlocks time-based patterns that numeric cleaning alone can never reveal.
+</Bridge>
+
+<QuizCard
+  question="Given Q1=6.125, Q3=19.125, and k=1.5, what is the upper Tukey fence for fare_amount?"
+  options={['25.25', '38.625', '32.00', '45.125']}
+  correct={1}
+/>

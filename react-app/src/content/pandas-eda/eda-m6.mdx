@@ -1,0 +1,139 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+# Univariate Visualization
+
+## What, Why, and How
+
+<ConceptBox title="WHAT: Charts for a single variable">
+Univariate visualization means looking at **one column at a time** — examining its shape, spread, and any unusual features before bringing other variables into the picture. The three workhorses are:
+
+- **Histogram** — divides the value range into equal-width bins and counts how many rows fall into each. Reveals whether the data clusters, spreads, or has multiple peaks.
+- **KDE curve (Kernel Density Estimate)** — a smooth continuous approximation of the histogram shape. Not sensitive to bin count; instead depends on a bandwidth parameter.
+- **Box plot** — shows the five-number summary (min, Q1, median, Q3, max) and marks individual outliers beyond the Tukey fences. Compact enough to stack many columns side by side.
+</ConceptBox>
+
+<ConceptBox title="WHY: Raw numbers hide distribution structure">
+A column's mean and standard deviation give you a two-number summary, but they cannot tell you whether the data is **symmetric, skewed, bimodal, or uniform**. Two datasets can have identical means and identical variances yet look completely different when plotted. Visualization reveals structure that statistics alone hide.
+
+In this taxi dataset the difference is dramatic:
+
+- `fare_amount`: mean ~$26, but the median is ~$11.75. A single $399 outlier drags the mean far from where most fares sit. The histogram shows a compact cluster at $3–$20 with a lone spike near $400.
+- `trip_distance`: median is about 3 miles, but one trip records 120 miles — a probable data error that shifts the mean and inflates the standard deviation.
+- `passenger_count`: only values 1–6 exist (plus some nulls). A histogram instantly reveals this is a discrete distribution with mode = 1.
+</ConceptBox>
+
+<ConceptBox title="HOW: Three pandas / seaborn patterns">
+All three chart types require `import matplotlib.pyplot as plt` and optionally `import seaborn as sns`.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Histogram via pandas">
+`df['fare_amount'].hist(bins=10, figsize=(8,4))` — the `bins` parameter controls granularity. Fewer bins smooth over detail; more bins can make sparse regions look noisy.
+</DerivationStep>
+<DerivationStep number={2} title="KDE curve via pandas">
+`df['fare_amount'].plot(kind='kde')` — produces a smooth density curve. Unlike a histogram, the area under the curve integrates to 1 (it estimates probability density, not counts).
+</DerivationStep>
+<DerivationStep number={3} title="Box plot via pandas">
+`df.boxplot(column='fare_amount')` — whiskers sit at the IQR fences (k=1.5 by default) and individual points beyond the whiskers are plotted as circles. Instantly shows median, spread, and outliers.
+</DerivationStep>
+</DerivationSteps>
+</ConceptBox>
+
+## Code Walkthrough
+
+```python
+# Histogram
+df['fare_amount'].hist(bins=10, figsize=(8, 4))
+plt.xlabel('Fare Amount ($)')
+plt.title('Distribution of Fare Amounts')
+plt.show()
+```
+
+```
+Bar chart: most values between $3–$20, one isolated bar near $399
+```
+
+```python
+# KDE — smooth density estimate
+df['fare_amount'].plot(kind='kde')
+plt.xlabel('Fare Amount ($)')
+plt.show()
+```
+
+```
+Smooth curve — heavy left peak near $6–$15, long right tail past $50
+```
+
+```python
+import seaborn as sns
+sns.histplot(df['fare_amount'], bins=10, kde=True)
+plt.xlabel('Fare Amount ($)')
+plt.show()
+```
+
+```
+Bars + overlaid smooth density curve in one call
+```
+
+**The `kde=True` overlay is powerful for bin-count sensitivity.** When you have a small sample, histogram shape can change dramatically as you slide the bin count up or down. Adding `kde=True` puts a smooth density curve on top — it is not affected by bin boundaries and shows the overall shape independently. Use both together to distinguish real structure from binning artifacts.
+
+<Bridge>
+The widget below lets you explore these three columns with either a histogram (adjustable bin count) or a box plot, and shows the summary statistics in real time.
+</Bridge>
+
+## Practice
+
+### Problem 1: Right-skewed distribution and mean vs. median
+
+What does a right-skewed distribution mean for the relationship between mean and median?
+
+**Solution:** In a right-skewed distribution, the tail extends to the **right** (toward higher values). The mean is pulled in the direction of the tail, so **mean > median**. Intuition: the few very large values contribute disproportionately to the arithmetic average but do not move the median (which only depends on rank order). For `fare_amount`, the $399 outlier drags the mean up to ~$26 while the median stays near $11.75 — a difference of ~$14, almost entirely caused by that single row.
+
+### Problem 2: Trade-off of increasing bin count
+
+If you increase bin count from 5 to 30 for `fare_amount`, what trade-off do you make?
+
+**Solution:** With 5 bins you get a **smoother but coarser** picture — structural features like the gap between $20–$399 are hidden inside wide bins, and each bin has more counts so bars look stable. With 30 bins you get **more granularity but noisier bars** — in a 30-row sample, many bins will contain 0 or 1 data points, making it hard to distinguish real patterns from sampling noise. The practical guideline: start around `bins = sqrt(n)` (~5–6 for 30 rows), then adjust. Adding a KDE overlay removes sensitivity to this choice entirely.
+
+### Problem 3: Choosing the right central tendency measure for fare_amount
+
+The `fare_amount` mean is ~$26 but the median is ~$11.75. Should you use mean or median to represent the "typical fare"? Why?
+
+**Solution:** Use the **median** (~$11.75) to represent the typical fare in this sample. The mean (~$26) is distorted by a single $399 record that is almost certainly a meter malfunction. A passenger paying a typical NYC taxi fare does not pay $26 — they pay somewhere in the $6–$20 range. The median, being the middle-ranked value, is immune to this outlier: removing or capping ID 26 barely changes the median but cuts the mean roughly in half.
+
+## Quiz
+
+### Module 6 — Check Your Understanding
+
+**1. A histogram shows `fare_amount` is right-skewed. This means:**
+- A: Most fares are high
+- B: A few very high fares pull the mean above the median ✓
+- C: The data has errors
+- D: All fares are equal
+
+**2. What does bin count affect in a histogram?**
+- A: The total count of data points
+- B: The granularity of the distribution view ✓
+- C: The mean value
+- D: Whether outliers are included
+
+**3. Which chart best shows median, IQR, and outliers simultaneously?**
+- A: Histogram
+- B: KDE curve
+- C: Box plot ✓
+- D: Bar chart
+
+**4. `df['col'].plot(kind='kde')` produces:**
+- A: A bar chart of counts
+- B: A scatter plot
+- C: A pie chart
+- D: A smooth density curve estimate ✓
+
+<Bridge>
+**What's next: relationships between two variables.** Univariate charts answer "what does this column look like?" — but not "does it move together with another column?" Module 7 adds a second variable: scatter plots, correlation coefficients, and grouped comparisons that reveal whether fare amount grows with trip distance, and whether borough choice predicts price.
+</Bridge>
+
+<QuizCard
+  question="Which chart type simultaneously encodes the five-number summary (min, Q1, median, Q3, max) and highlights outliers?"
+  options={['Histogram', 'KDE curve', 'Box plot', 'Bar chart']}
+  correct={2}
+/>

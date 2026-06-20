@@ -1,0 +1,124 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+# Data Quality & Invalid Values
+
+## Why This Topic?
+
+Passing every `isna()` check doesn't mean a value is valid. Module 1 flagged a **-12.50** fare in `.describe()`'s minimum — it's "present," just nonsensical. No null check on earth will catch it, because the cell isn't empty. It's just wrong.
+
+<ConceptBox title="Missing vs. invalid: two different failure modes">
+A **missing** value is absent — `NaN`, caught by `.isna()`. An **invalid** value is present but violates a domain rule specific to what the column means: a fare can't be negative, a rate code must come from a documented set. Catching the second kind requires knowing the business rules of the data, not just calling a generic pandas method.
+</ConceptBox>
+
+<Bridge>
+This dataset is NYC taxi trips, so the domain constraints are concrete: fares can't be negative; a zero-distance trip charged a real fare is suspicious (not impossible — a canceled ride can still trigger a minimum charge); and rate codes outside the documented set are worth a sanity check.
+</Bridge>
+
+## What / How — Domain Constraints as Boolean Masks
+
+Each constraint becomes a boolean mask: a condition that should never be true for a healthy row. Filtering the DataFrame with that mask surfaces exactly the rows that broke the rule.
+
+<DerivationSteps>
+<DerivationStep number={1} title="fare_amount < 0 — a fare can't be negative">
+A taxi fare is a charge for a service rendered; it cannot be less than zero. Any row here is a data error — likely a refund or billing-reversal record that leaked into the fare column instead of being modeled separately.
+</DerivationStep>
+<DerivationStep number={2} title="(trip_distance == 0) & (fare_amount > 0) — paid for a trip that didn't move">
+Not impossible — a canceled ride can still trigger a minimum charge — but worth flagging. Compare against a row where both `trip_distance` and `fare_amount` are zero: that's a true non-event, not a data error.
+</DerivationStep>
+<DerivationStep number={3} title="RatecodeID outside 1-6 — an undocumented category">
+The NYC TLC documents rate codes 1 through 6 (standard, JFK, Newark, Nassau/Westchester, negotiated fare, group ride). A value outside that set — or unexpectedly missing — means the column needs a closer look before it's trusted in any groupby.
+</DerivationStep>
+</DerivationSteps>
+
+Run the first two checks on the full sample:
+
+```python
+bad_fare = df[df.fare_amount < 0]
+bad_distance = df[(df.trip_distance == 0) & (df.fare_amount > 0)]
+print(f"Negative fares: {len(bad_fare)} rows")
+print(f"Zero-distance trips charged a fare: {len(bad_distance)} rows")
+```
+
+```
+Negative fares: 2 rows
+Zero-distance trips charged a fare: 4 rows
+```
+
+**Two independent issues, not one bug wearing two faces.** `df[(df.fare_amount < 0) & (df.trip_distance == 0)]` returns **0 rows** — the negative-fare rows (ids 7, 15) are different rows from the zero-distance-but-charged rows (ids 5, 11, 20, 30). The two issues never co-occur in this sample, which is itself a clue: they likely trace back to two distinct root causes (a billing-reversal glitch vs. a canceled-trip minimum charge), not a single shared defect.
+
+Now check the categorical column. A category with unexpected values hides differently than a numeric one — `.value_counts(dropna=False)` is the tool that surfaces it:
+
+```python
+print(df.RatecodeID.value_counts(dropna=False))
+```
+
+```
+1.0    26
+2.0     2
+NaN     2
+Name: RatecodeID, count: dtype: int64
+```
+
+**Both categories observed are valid — but the NaNs aren't a category at all.** Every non-null value falls inside the documented 1-6 range, so there's no undocumented rate code lurking here. But `dropna=False` is what reveals the 2 missing rows in the first place — the default `dropna=True` would have silently hidden them from this exact count. "Known" here means present *and* inside 1-6; a `NaN` fails the check on the first half.
+
+<Bridge>
+Reading these prints one constraint at a time is fine for a report. The widget below lets you stack all three rules live and watch exactly which rows survive.
+</Bridge>
+
+## Practice
+
+### Problem 1: The Negative-Fare Mask
+
+Write the boolean mask that finds rows with a negative fare.
+
+**Solution:** `df[df.fare_amount < 0]` → 2 rows (ids 7, 15). `df.fare_amount < 0` alone produces a boolean Series, one `True`/`False` per row; wrapping it in `df[...]` uses that Series to filter the DataFrame down to only the rows where it's `True`.
+
+### Problem 2: Should Zero-Distance Always Be Dropped?
+
+Should you always drop every row where `trip_distance == 0`?
+
+**Solution:** Not necessarily — a genuinely canceled trip can still incur a minimum charge with 0 recorded distance, which is a real (if edge-case) business event, not a data error. The safer move is to flag and inspect rather than blindly delete: check whether the fare is also $0 (truly a non-event) versus a positive minimum fare (a real but unusual charge). This dataset's own zero-distance rows (ids 5, 11, 20, 30) all carry a small positive fare — exactly the minimum-charge case, not a true non-event.
+
+### Problem 3: Do the Two Problems Overlap?
+
+Confirm whether any row is *both* zero-distance and negative-fare by combining the two masks with `&`. What does the empty result tell you about the two issues?
+
+**Solution:** `df[(df.trip_distance == 0) & (df.fare_amount < 0)]` returns **0 rows**. The two data-quality problems never co-occur in this sample, suggesting they come from separate causes — a refund/dispute process producing negative fares vs. a minimum-charge policy producing zero-distance, nonzero-fare rows — rather than one shared bug.
+
+## Quiz
+
+### Module 3 — Check Your Understanding
+
+**1. What does `df[df.fare_amount < 0]` return?**
+- A: A boolean Series, one entry per row
+- B: A filtered DataFrame containing only the rows where the condition is True ✓
+- C: A single column of fare amounts
+- D: A count of matching rows
+
+**2. Which pandas operator combines two boolean Series with logical AND?**
+- A: and
+- B: & ✓
+- C: +
+- D: |
+
+**3. Why check `.value_counts(dropna=False)` on `RatecodeID` before cleaning?**
+- A: To spot unexpected or missing categories that fall outside the documented rate codes ✓
+- B: To compute the column's mean
+- C: Because dropna=False runs faster than the default
+- D: To convert the column to a string dtype
+
+**4. A row with `trip_distance == 0` and `fare_amount == 0` together most likely represents:**
+- A: A data entry error that must be dropped immediately
+- B: A negative-fare billing reversal
+- C: A trip that was started and immediately canceled with no charge ✓
+- D: An undocumented RatecodeID
+
+<Bridge>
+**What's next: when "wrong" becomes a matter of degree.** Invalid values here were caught with a hard boolean rule — a fare is either negative or it isn't. But how far is "too far" before a *positive*, plausible-looking value still counts as wrong? Module 4 makes that boundary statistical: the IQR method.
+</Bridge>
+
+<QuizCard
+  question="Which operator performs element-wise logical AND on two pandas boolean Series?"
+  options={['and', 'or', '&', '+']}
+  correct={2}
+/>

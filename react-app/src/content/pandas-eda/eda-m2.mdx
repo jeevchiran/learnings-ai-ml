@@ -1,0 +1,124 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+# Missing Values
+
+## Why This Topic?
+
+Nulls break stats and ML silently. In Module 1, `.describe()` happily computed `fare_amount`'s mean and quartiles — but that same call never told you that three other columns in this exact dataset are partly empty. A summary statistic doesn't refuse to run just because some of its neighbors have holes in them; it just quietly ignores what isn't there, and unless you go looking, you'd never know.
+
+<ConceptBox title="NaN: pandas' missing-value marker">
+pandas represents a missing value as `NaN` ("Not a Number"), a special floating-point value. Critically, `NaN != NaN` — you can't find missing values with `== NaN`. Instead pandas gives you `.isna()` (and its mirror `.notna()`), which return a boolean mask you can sum, average, or filter with.
+</ConceptBox>
+
+<Bridge>
+Before deciding how to fix missing data, find out exactly how much of it there is — and where.
+</Bridge>
+
+## What / How — Measuring Missingness
+
+`.isna()` turns every cell into `True` (missing) or `False` (present). Averaging a boolean column gives the fraction of `True` values, so chaining `.mean()` after `.isna()` gives the missing *rate* per column directly — multiply by 100 for a percentage:
+
+```python
+missing_pct = (df.isna().mean() * 100).round(2)
+print(missing_pct[missing_pct > 0])
+```
+
+```
+passenger_count    6.67
+RatecodeID         6.67
+airport_fee        6.67
+dtype: float64
+```
+
+Three columns, each missing exactly 2 of 30 rows (2 / 30 = 6.67%). That's a small share, but small doesn't mean harmless — the right fix depends entirely on what each column *means*, not just on how many cells are empty.
+
+<DerivationSteps>
+<DerivationStep number={1} title="passenger_count — a count, not a continuous quantity">
+The mean of the 28 known values is **1.46** — fractional passengers aren't physically real. The mode is **1** (19 of 28 rows), a sensible whole-number fill that matches how the column is actually used.
+</DerivationStep>
+<DerivationStep number={2} title="RatecodeID — a category, not a number that should be averaged">
+Rate codes are labels (1 = standard rate, 2 = JFK, etc.), not magnitudes — averaging them is meaningless. The mode is **1** (26 of 28 rows), the dominant category, and a fill that's guaranteed to be a valid code.
+</DerivationStep>
+<DerivationStep number={3} title="airport_fee — mostly flat, occasionally a surcharge">
+Almost every trip pays $0; only flat-rate airport trips pay $1.25. The mode is **0** (26 of 28 rows) — and neither of the two missing rows is actually an airport trip, so filling with the typical value ($0) matches reality better than any average would.
+</DerivationStep>
+</DerivationSteps>
+
+Putting all three fills together cleans the entire dataset in one pass:
+
+```python
+df['passenger_count'] = df['passenger_count'].fillna(df['passenger_count'].mode()[0])
+df['RatecodeID']      = df['RatecodeID'].fillna(df['RatecodeID'].mode()[0])
+df['airport_fee']     = df['airport_fee'].fillna(0)
+print(df.isna().sum().sum())
+```
+
+```
+0
+```
+
+**fillna isn't the only option.** `df.dropna()` removes any row containing a missing value instead of imputing one. With only 6 rows affected out of 30 (20%), dropping would discard a meaningful chunk of an already-small sample — but on a column where no sensible fill value exists, losing a few rows can beat injecting a wrong one. The trade-off is bias (a guessed value that might be wrong) versus information loss (a real row that's gone).
+
+**Mean and mode can disagree sharply on the same column.** For `passenger_count`, mean-fill gives **1.46** passengers — a value that can never occur in reality. Mode-fill gives **1**, an actual observed value. Whenever a column counts discrete things or labels a category, prefer mode over mean.
+
+<Bridge>
+Reading these numbers from printed output is fine for a one-time check. The widget below lets you pick any of the three affected columns and try each fix strategy live, watching the row count and table change.
+</Bridge>
+
+## Practice
+
+### Problem 1: Missing % Per Column
+
+Write the expression that gives the percentage of missing values per column.
+
+**Solution:** `(df.isna().mean() * 100).round(2)`. `.isna()` produces a boolean DataFrame the same shape as `df`; `.mean()` averages each column's booleans (treating `True` as 1), giving the missing *fraction*; multiplying by 100 converts that to a percentage.
+
+### Problem 2: Mean vs. Mode for a Category
+
+For `RatecodeID` (a category, not a continuous measurement), which is the better `fillna` strategy: mean or mode? Why?
+
+**Solution:** **Mode.** Averaging category codes — e.g. (1 + 1 + 2) / 3 = 1.33 — produces a value, 1.33, that isn't even one of the valid categories. There is no "rate code 1.33." Mode always returns a value that actually occurs in the data, so it preserves a real, valid category.
+
+### Problem 3: The Cost of a Fractional Fill
+
+`passenger_count`'s mean-fill value is 1.46. Name one concrete downstream problem this could cause if used to fill a count column.
+
+**Solution:** Any analysis that treats `passenger_count` as a true integer count — for example, totaling passengers transported with `df.passenger_count.sum()` — would silently include fractional passengers in the total, producing a number that can never correspond to a real headcount. Separately, any `groupby` or join keyed on exact passenger count would never match the imputed rows to a real-world value of 1.46 passengers, since no actual trip ever carries a fractional passenger.
+
+## Quiz
+
+### Module 2 — Check Your Understanding
+
+**1. What does `df['col'].isna().mean() * 100` compute?**
+- A: The % of missing values in that column ✓
+- B: The average value of the column, ignoring nulls
+- C: The total count of rows in the DataFrame
+- D: The % of values that are exactly zero
+
+**2. For `RatecodeID` (almost always 1, occasionally 2), which `fillna` strategy best preserves a realistic value?**
+- A: mean
+- B: mode ✓
+- C: fillna(0)
+- D: leave as NaN
+
+**3. Why might `fillna(mean)` be a poor choice for `passenger_count`?**
+- A: Mean is always slower to compute than mode
+- B: pandas doesn't allow fillna with a computed mean
+- C: The mean (1.46) implies a fractional passenger, which isn't realistic for a count field ✓
+- D: Mean-fill always increases the row count
+
+**4. When is `dropna()` preferable to `fillna()`?**
+- A: Always, it's simpler
+- B: Never, always impute
+- C: When the missing share is small and there's no sensible value to impute, so the bias from a wrong imputed value would be worse than losing a few rows ✓
+- D: Only for text columns
+
+<Bridge>
+**What's next: data that's there but wrong.** Nulls are one kind of missing signal — easy to spot with `isna()`. Rows where the data IS present but violates reality are another kind entirely, and they pass every `isna()` check undetected. Module 3 looks at values that pass every null check yet still violate the business rules of a taxi fare — like the negative fare Module 1 already flagged.
+</Bridge>
+
+<QuizCard
+  question="Which pandas method returns the fraction of missing values per column?"
+  options={['df.isnull().count()', 'df.isna().mean()', 'df.describe()', 'df.info()']}
+  correct={1}
+/>
