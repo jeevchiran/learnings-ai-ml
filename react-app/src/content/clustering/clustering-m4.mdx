@@ -1,0 +1,183 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+**The key insight.** A good clustering places each point closer to the members of its own cluster than to the members of any other cluster — by a wide margin. The silhouette score quantifies exactly this margin, for every single point in the dataset, and then averages them into a single interpretable number. WCSS alone cannot capture this: two clusters can each be individually tight while sitting right next to each other, overlapping at their boundaries.
+</Bridge>
+
+## 1. Why WCSS Is Not Enough
+
+WCSS measures **cohesion** — how tightly the points within each cluster pack around their centroid. That is a good property. But it cannot see **separation**. Two concrete failure modes:
+
+<ConceptBox title="Case A: Tight but too close">
+Two elongated clusters each have very low internal scatter, so WCSS is small. But they nearly touch. A point near the boundary could plausibly belong to either cluster. Cohesion is high; separation is poor.
+</ConceptBox>
+
+<ConceptBox title="Case B: Overlapping blobs">
+Two clusters overlap substantially in the middle. Points in the overlap region are equidistant from both centroids. WCSS may be similar to Case A, yet intuitively the clustering is worse — many points are ambiguously assigned.
+</ConceptBox>
+
+Both cases might produce almost identical WCSS values, yet both are poor clusterings for different reasons. We need a metric that captures **cohesion AND separation simultaneously**.
+
+## 2. The Silhouette Score — Derivation
+
+The silhouette coefficient was introduced by Peter Rousseeuw in 1987. It assigns every data point a score between -1 and 1 measuring how well it sits inside its assigned cluster relative to alternative clusters.
+
+### Step 1 — Intra-cluster distance a(i)
+
+For point $x_i$ assigned to cluster $C_k$, define the **mean distance to all other members of its own cluster**:
+
+$$a(i) = \frac{1}{|C_k| - 1} \sum_{j \in C_k,\, j \neq i} d(x_i,\, x_j)$$
+
+The denominator is $|C_k| - 1$, not $|C_k|$, because we exclude point $i$ itself. This quantity measures **cohesion**: how tightly point $i$ belongs to its cluster. A small $a(i)$ means the point is deep inside its cluster; a large $a(i)$ means it is on the fringe.
+
+### Step 2 — Nearest-cluster distance b(i)
+
+For each cluster $C_{k'}$ that does not contain point $i$, compute the mean distance from $x_i$ to all points in $C_{k'}$:
+
+$$b(i) = \min_{k' \neq k} \frac{1}{|C_{k'}|} \sum_{j \in C_{k'}} d(x_i,\, x_j)$$
+
+We take the *minimum* over all competing clusters — this identifies the **nearest other cluster** to point $i$. A large $b(i)$ means the nearest competitor is far away, so the current assignment is well-justified.
+
+### Step 3 — The silhouette score for point i
+
+$$s(i) = \frac{b(i) - a(i)}{\max(a(i),\, b(i))}$$
+
+The numerator $b(i) - a(i)$ is positive when the point is closer to its own cluster than to the best competitor. The denominator normalises by the larger of the two values, mapping the result into $[-1, 1]$.
+
+### Range derivation
+
+<DerivationSteps>
+<DerivationStep number={1} title="Case a(i) < b(i) — correctly clustered.">
+Here $\max(a, b) = b$, so:
+
+$$s(i) = \frac{b - a}{b} = 1 - \frac{a}{b} \in (0, 1]$$
+
+The closer $a$ is to 0 (perfectly tight cluster) and the larger $b$ is (far competitor), the nearer $s(i)$ is to 1.
+</DerivationStep>
+
+<DerivationStep number={2} title="Case a(i) = b(i) — boundary point.">
+The numerator is zero:
+
+$$s(i) = \frac{b - a}{\max(a, b)} = \frac{0}{\max(a, a)} = 0$$
+
+The point is equidistant from its own cluster and the nearest competitor — it sits exactly on the decision boundary.
+</DerivationStep>
+
+<DerivationStep number={3} title="Case a(i) > b(i) — possibly misclustered.">
+Here $\max(a, b) = a$, so:
+
+$$s(i) = \frac{b - a}{a} = \frac{b}{a} - 1 \in [-1, 0)$$
+
+The point is on average closer to a competing cluster than to its own. This strongly suggests it has been assigned to the wrong cluster. The more extreme the mismatch, the closer $s(i)$ is to -1.
+</DerivationStep>
+</DerivationSteps>
+
+### Overall silhouette score
+
+$$S = \frac{1}{n} \sum_{i=1}^{n} s(i) \in [-1,\, 1]$$
+
+| Silhouette Score | Interpretation |
+|-----------------|----------------|
+| 0.71 – 1.00 | Strong cluster structure |
+| 0.51 – 0.70 | Reasonable cluster structure |
+| 0.26 – 0.50 | Weak structure; may be artificial |
+| 0.00 – 0.25 | No substantial structure |
+| < 0 | Points likely in wrong cluster |
+
+### Worked example — four points
+
+Two clusters on a line:
+- Cluster A: $x_1 = (0,0)$, $x_2 = (1,0)$
+- Cluster B: $x_3 = (5,0)$, $x_4 = (6,0)$
+
+For $x_1$:
+
+| Step | Computation | Value |
+|------|------------|-------|
+| $a(x_1)$ | $d(x_1, x_2) = 1$ | 1 |
+| $b(x_1)$ | $(d(x_1,x_3) + d(x_1,x_4))/2 = (5+6)/2$ | 5.5 |
+| $s(x_1)$ | $(5.5-1)/\max(5.5,1) = 4.5/5.5$ | **0.818** |
+
+Full table:
+
+| Point | Cluster | a(i) | b(i) | s(i) |
+|-------|---------|------|------|------|
+| $x_1 = (0,0)$ | A | 1 | 5.5 | 0.818 |
+| $x_2 = (1,0)$ | A | 1 | 4.5 | 0.778 |
+| $x_3 = (5,0)$ | B | 1 | 4.5 | 0.778 |
+| $x_4 = (6,0)$ | B | 1 | 5.5 | 0.818 |
+
+Overall $S = (0.818 + 0.778 + 0.778 + 0.818)/4 = 0.798$ — two tight, well-separated clusters.
+
+## 3. Silhouette Plots
+
+A silhouette plot is a horizontal bar chart where each bar represents one data point. The width of each bar equals $s(i)$. Bars pointing right (positive) belong to well-clustered points; bars pointing left (negative) flag misclustered points.
+
+<ConceptBox title="Reading a silhouette plot">
+- **Cluster thickness** — the vertical extent of each cluster section shows cluster size. Balanced clustering means sections of similar thickness.
+- **Bar length** — uniformly long positive bars within a section mean all points are confidently assigned. Short or uneven bars suggest the cluster is fuzzy or overlapping another.
+- **Negative bars** — any bar extending left signals a point that is closer to a different cluster than its own. These are candidates for reassignment.
+- **Average line** — a dashed vertical line marks the overall mean silhouette. For good clusterings, most bars exceed this line. If many bars fall below it, K is probably wrong.
+</ConceptBox>
+
+## 4. Davies-Bouldin Index
+
+Davies and Bouldin (1979) proposed a complementary metric that measures the average "worst-case" cluster overlap. Unlike the silhouette score, it operates on cluster-level summaries rather than individual points, making it computationally cheaper.
+
+**Scatter within cluster k:**
+
+$$s_k = \frac{1}{|C_k|} \sum_{i \in C_k} \|x_i - \mu_k\|$$
+
+**Similarity between clusters i and j:**
+
+$$R_{ij} = \frac{s_i + s_j}{d(\mu_i,\, \mu_j)}$$
+
+$R_{ij}$ is large when either scatter is large (fuzzy clusters) or when the centroid distance is small (close clusters) — precisely the bad clustering scenario.
+
+**Davies-Bouldin index:**
+
+$$DB = \frac{1}{K} \sum_{k=1}^{K} \max_{j \neq k}\, R_{kj}$$
+
+**Lower DB is better.** Unlike the silhouette score, DB is not bounded above. Only compare DB values within the same dataset.
+
+## 5. Calinski-Harabasz Index
+
+The Calinski-Harabasz index (1974), also called the Variance Ratio Criterion, computes the ratio of *between-cluster variance* to *within-cluster variance* — structurally identical to the F-statistic in one-way ANOVA.
+
+$$CH(K) = \frac{\text{BCSS} / (K-1)}{\text{WCSS} / (n - K)}$$
+
+where $\text{BCSS} = \sum_{k=1}^{K} |C_k| \cdot \|\mu_k - \mu\|^2$ measures how far cluster centroids are from the global mean.
+
+**Higher CH is better.** For some datasets, CH increases monotonically with K even when adding clusters is not meaningful — use it comparatively within the same dataset, not as an absolute measure.
+
+## 6. Practical Guide: Choosing K
+
+No single metric definitively identifies the correct K. The standard practice is to use several metrics together and look for agreement.
+
+| Method | Measures | Optimum | Handles non-spherical? |
+|--------|---------|---------|----------------------|
+| WCSS (Elbow) | Cohesion only | Elbow kink | No |
+| Gap Statistic | Cohesion vs. random | Max gap | Better |
+| Silhouette | Cohesion + separation | Max mean s | Yes |
+| Davies-Bouldin | Worst-case overlap | Min DB | Partly |
+| Calinski-Harabasz | BCSS/WCSS ratio | Max CH | Partly |
+
+**Recommended workflow:**
+1. Run K-means for K = 2 to 10 with multiple restarts (n_init ≥ 10).
+2. Plot the elbow curve; note the approximate elbow.
+3. Compute mean silhouette for each K; note the maximum.
+4. Compare with DB and CH if available.
+5. Choose the K where at least 2–3 metrics agree.
+6. Plot silhouette charts for your top 2–3 candidates and inspect visually.
+
+<ConceptBox title="Interactive Widget: Silhouette Explorer">
+This widget renders a live silhouette plot alongside the K-means clustering scatter plot. Adjust K to see how individual point silhouette values change, where negative bars appear, and how the mean silhouette tracks with the elbow curve.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+<QuizCard
+  question="A data point has a(i) = 3.2 and b(i) = 1.8. What does this indicate about its cluster assignment?"
+  options={['The point is well-clustered — it is closer to its own cluster than to any other', 'The point may be misclustered — it is closer on average to a competing cluster than to its own', 'The point is exactly on the cluster boundary', 'The silhouette score is undefined for this point']}
+  correct={1}
+/>

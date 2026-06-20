@@ -1,0 +1,159 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+**Building on Module 2:** We saw that updating a centroid to the arithmetic mean of its assigned points minimises the sum of squared distances within that cluster. K-means runs this logic across all K clusters simultaneously. The single number it is driving toward zero is the **Within-Cluster Sum of Squares (WCSS)** — also called **inertia** in scikit-learn.
+</Bridge>
+
+## 1. What Does K-Means Actually Optimise?
+
+Formally, if we have K clusters $C_1, \ldots, C_K$ with centroids $\mu_1, \ldots, \mu_K$, the WCSS objective is:
+
+$$\text{WCSS} = \sum_{k=1}^{K} \sum_{i \in C_k} \|x_i - \mu_k\|^2$$
+
+Each term $\|x_i - \mu_k\|^2$ is the squared Euclidean distance from data point $x_i$ to its cluster centroid $\mu_k$. Summing across all points gives the total "spread" or compactness within clusters — we want this number to be **small**.
+
+Expanding the squared norm into individual feature dimensions:
+
+$$\text{WCSS} = \sum_{k=1}^{K} \sum_{i \in C_k} \sum_{j=1}^{p} (x_{ij} - \mu_{kj})^2$$
+
+where $x_{ij}$ is the $j$-th feature of point $i$ and $\mu_{kj}$ is the $j$-th coordinate of centroid $k$. Both forms are identical — the first is compact notation, the second makes the feature-by-feature sum explicit.
+
+<ConceptBox title="Key Intuition">
+WCSS measures how "spread out" points are within their assigned clusters. A WCSS of zero would mean every point sits exactly on its centroid — perfect compactness. Real datasets always have positive WCSS. K-means tries to find the assignment and centroid positions that make WCSS as small as possible.
+</ConceptBox>
+
+## 2. K-Means as Coordinate Descent
+
+K-means alternates between two steps. The key insight is that **each step is guaranteed to decrease (or leave unchanged) the WCSS**. This makes the algorithm a special case of **coordinate descent** — optimising over two sets of variables by alternating.
+
+### Assignment Step
+
+For fixed centroids $\mu_1,\ldots,\mu_K$, assign each point to its nearest centroid:
+
+$$c_i = \arg\min_{k} \;\|x_i - \mu_k\|^2$$
+
+This is optimal: any other assignment would place point $x_i$ in a cluster whose centroid is farther away, increasing WCSS. The assignment step minimises WCSS with respect to the cluster labels, holding centroids fixed.
+
+### Update Step
+
+For fixed assignments $C_1,\ldots,C_K$, update each centroid to the mean of its assigned points:
+
+$$\mu_k = \frac{1}{|C_k|} \sum_{i \in C_k} x_i$$
+
+From Module 2, the arithmetic mean is the unique minimiser of $\sum_{i \in C_k} \|x_i - \mu_k\|^2$. The update step minimises WCSS with respect to the centroids, holding assignments fixed.
+
+### Why the Algorithm Converges
+
+<DerivationSteps>
+<DerivationStep number={1} title="WCSS is bounded below.">
+WCSS is a sum of squared distances, so WCSS ≥ 0 always.
+</DerivationStep>
+
+<DerivationStep number={2} title="Assignment step is non-increasing.">
+WCSS(new assignments, old centroids) ≤ WCSS(old assignments, old centroids). Each point is reassigned to the nearest centroid, which can only reduce or maintain its contribution.
+</DerivationStep>
+
+<DerivationStep number={3} title="Update step is non-increasing.">
+WCSS(new assignments, new centroids) ≤ WCSS(new assignments, old centroids). The mean minimises within-cluster sum of squares, so moving to the mean can only decrease WCSS.
+</DerivationStep>
+
+<DerivationStep number={4} title="Convergence is guaranteed.">
+WCSS is non-increasing at every step and bounded below by zero. The number of distinct cluster assignments is finite (at most $K^n$ for $n$ points). Therefore the algorithm must visit each assignment at most once before repeating — and since WCSS is non-increasing, it can never revisit an assignment with lower WCSS. The algorithm converges in a finite number of iterations.
+</DerivationStep>
+</DerivationSteps>
+
+<ConceptBox title="Important Caveat: Local Minima">
+Coordinate descent finds a **local** minimum of WCSS, not the global minimum. The global optimisation of WCSS over all possible assignments is NP-hard — there is no known polynomial-time algorithm. Different random initialisations can lead to very different solutions. **Multiple random restarts** (running K-means several times with different starting points and keeping the run with lowest WCSS) are standard practice. K-means++ initialisation reduces but does not eliminate this problem.
+</ConceptBox>
+
+## 3. Properties of WCSS
+
+<ConceptBox title="WCSS ≥ 0 always">
+WCSS is a sum of squared terms, so it is always non-negative. It equals zero only when every point coincides exactly with its centroid — impossible with real, distinct data.
+</ConceptBox>
+
+<ConceptBox title="WCSS decreases as K increases">
+With K = n (one cluster per point), WCSS = 0. This monotone decrease means WCSS alone **cannot** determine the right K — it always favours more clusters.
+</ConceptBox>
+
+<ConceptBox title="WCSS depends on scale">
+If all feature values are multiplied by 2, all squared distances increase by 4×, so WCSS increases by 4×. Always standardise features before comparing WCSS values. WCSS values are also not comparable across datasets with different scales and densities.
+</ConceptBox>
+
+### Formal Argument: WCSS(K+1) ≤ WCSS(K)
+
+Given any K-clustering, we can construct a valid (K+1)-clustering with WCSS no larger. Split any cluster $C_k$ into two non-empty subsets $C_k^L$ and $C_k^R$. The sub-cluster means $\mu_{C_k^L}$ and $\mu_{C_k^R}$ are better fits for their respective points than the original centroid $\mu_{C_k}$. Formally:
+
+$$\sum_{i \in C_k^L} \|x_i - \mu_{C_k^L}\|^2 + \sum_{i \in C_k^R} \|x_i - \mu_{C_k^R}\|^2 \;\leq\; \sum_{i \in C_k} \|x_i - \mu_{C_k}\|^2$$
+
+This holds because the mean minimises the sum of squared distances. Summing over the remaining unchanged clusters gives WCSS(K+1) ≤ WCSS(K).
+
+## 4. The Elbow Method
+
+Since WCSS always decreases as K increases, plotting WCSS vs. K alone does not identify the correct number of clusters. The **Elbow Method** addresses this by looking at the *rate of decrease*: plot WCSS against K and look for a "kink" — the point where the marginal improvement from adding one more cluster drops sharply.
+
+**Intuition:** Suppose the data has $K^*$ natural clusters. When K < K*, we are forcing genuinely different groups to share a centroid — each new cluster we add separates a real group, producing a **large** drop in WCSS. When K > K*, we are splitting clusters that are already tight — the drop per additional cluster is **small**. The transition point is the elbow.
+
+<ConceptBox title="Limitations of the Elbow Method">
+1. **Ambiguity:** The WCSS curve is often smooth without a clear kink. Many practitioners disagree on where the elbow is for the same chart.
+2. **Subjectivity:** The method requires a visual judgment call — it is not automated or objective.
+3. **Fails for non-spherical clusters:** When clusters have very different sizes or densities, the elbow can be misleading.
+4. **Measures cohesion only:** Clusters may be internally compact but heavily overlapping. WCSS does not measure separation between clusters.
+5. **Computational cost:** You must run K-means for every K from 1 to K_max, ideally with multiple restarts for each K.
+</ConceptBox>
+
+## 5. The Gap Statistic
+
+Tibshirani, Walther, and Hastie (2001) proposed a more principled approach: compare the observed log-WCSS to the *expected* log-WCSS under a null reference distribution — data with no cluster structure at all.
+
+$$\text{Gap}(K) = \mathbb{E}^*\!\left[\log\bigl(\text{WCSS}_{\text{ref}}(K)\bigr)\right] - \log\bigl(\text{WCSS}(K)\bigr)$$
+
+When the data has genuine cluster structure, the observed WCSS is much *lower* than we would expect from uniformly random data, so the gap is large. When there is no structure, both terms are similar and the gap is near zero.
+
+### Choosing K with the Gap Statistic
+
+Choose the smallest K such that the gap at K is not substantially smaller than the gap at K+1, accounting for estimation uncertainty:
+
+$$K^* = \min\bigl\{K : \text{Gap}(K) \geq \text{Gap}(K+1) - s_{K+1}\bigr\}$$
+
+where $s_{K+1}$ is the standard deviation of the reference log-WCSS estimates at K+1. This "one-standard-error rule" guards against selecting an unnecessarily large K.
+
+### Implementation Steps
+
+1. Run K-means on the actual data for each K; record $\log(\text{WCSS}(K))$.
+2. Generate B reference datasets (e.g., B = 10–20) sampled uniformly from the bounding box of the data.
+3. Run K-means on each reference dataset for each K; record $\log(\text{WCSS}_b^{\text{ref}}(K))$.
+4. Compute $\mathbb{E}^*[\log(\text{WCSS}_\text{ref}(K))]$ as the mean over B reference runs, and $s_{K}$ as the standard deviation.
+5. Evaluate the gap criterion to select K*.
+
+<ConceptBox title="Advantage Over the Elbow Method">
+The gap statistic can detect when the data has **no** cluster structure at all: if Gap(K) ≈ 0 for all K, the observed WCSS is no lower than random, indicating no meaningful clusters. The elbow method gives an answer even when the data is completely uniform — the gap statistic does not.
+</ConceptBox>
+
+## 6. WCSS Decomposition: Within vs. Between
+
+Total variance in the dataset can be decomposed into two parts:
+
+$$\text{TSS} = \text{WCSS} + \text{BCSS}$$
+
+where:
+- **TSS** (Total Sum of Squares) = $\sum_i \|x_i - \mu_{\text{global}}\|^2$ — total spread of all points around the global mean, **constant** regardless of K.
+- **BCSS** (Between-Cluster Sum of Squares) = $\sum_{k=1}^{K} |C_k| \cdot \|\mu_k - \mu_{\text{global}}\|^2$ — how far cluster centroids are from the global mean, weighted by cluster size.
+
+As K increases: WCSS falls, BCSS rises, TSS stays constant. A good K simultaneously minimises WCSS (tight clusters) and maximises BCSS (clusters far from each other).
+
+<ConceptBox title="Interactive Widgets">
+**Widget 1 — WCSS Explorer:** Run K-means for different values of K (1–8). The scatter plot shows the clustering result; the right chart shows the WCSS curve with a dashed line at the true K=3.
+
+**Widget 2 — Build Your Own Elbow Curve:** Control the true number of clusters in generated data, then look for the elbow in the WCSS curve. The WCSS difference bar chart helps find the point of maximum rate-of-change reduction.
+
+**Widget 3 — Within vs. Between Variance:** Stacked bar chart showing WCSS and BCSS for each K, making the TSS = WCSS + BCSS decomposition visible.
+
+Note: interactive widgets replaced with static descriptions. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+<QuizCard
+  question="Why can't WCSS alone be used to select the optimal number of clusters K?"
+  options={['WCSS is always negative, making comparison meaningless', 'WCSS monotonically decreases as K increases, reaching zero at K = n', 'WCSS is only defined for K ≥ 2', 'WCSS does not depend on the choice of K']}
+  correct={1}
+/>

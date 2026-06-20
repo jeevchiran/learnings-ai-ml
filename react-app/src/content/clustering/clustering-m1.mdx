@@ -1,0 +1,233 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+## Why Do We Need Clustering?
+
+In supervised learning, every training example comes with a label. A spam filter knows which emails are spam; a tumour detector knows which scans are malignant. The label guides the model. But in the real world, labels are expensive. Annotating one million customer transactions as "fraudulent" or "legitimate" requires human reviewers, legal review, and days of labour. What if we could discover structure in the data *without any labels at all*?
+
+This is the promise of **unsupervised learning**, and clustering is its most widely used technique. Instead of predicting a target, we ask a simpler question: which data points are similar to one another? Group similar things together and keep dissimilar things apart — and structure often emerges that no human thought to label in advance.
+
+> **Supervised vs. unsupervised:** In supervised learning you optimise a loss between predictions and known labels. In unsupervised clustering there are no labels: the algorithm must define and optimise a notion of "good grouping" from the data alone. This makes evaluation harder — but it also means clustering can discover patterns humans never anticipated.
+
+The range of domains where clustering delivers genuine value is broad:
+
+#### Customer segmentation
+
+A retailer has 50,000 customers. Without knowing which "type" each customer is, K-means automatically finds groups — high-value loyalists, bargain hunters, seasonal shoppers — enabling targeted marketing campaigns.
+
+#### Image compression
+
+Each pixel is a point in RGB space. Replacing 16 million possible colours with K = 256 cluster centroids reduces file size dramatically. JPEG and PNG both exploit variants of this idea.
+
+#### Document grouping
+
+News articles and research papers can be clustered by topic — politics, sport, science — without any pre-labeled categories. Search engines use this to surface related content.
+
+#### Anomaly detection
+
+Normal behaviour clusters tightly around a centroid. Anomalies — network intrusions, manufacturing defects, sensor faults — sit far from every cluster centre and are flagged automatically.
+
+#### Gene expression analysis
+
+Biologists cluster genes by expression patterns across experimental conditions to identify co-regulated pathways. This has revealed entire signalling cascades that no single experiment targeted.
+
+#### City planning
+
+Grouping neighbourhoods by demographic features — income, age distribution, commute patterns — helps governments allocate schools, clinics, and public transport where they are actually needed.
+
+<Bridge>
+**From intuition to algorithm.** Every example above asks the same underlying question: which things are similar? K-means answers it by formalising similarity as distance in a vector space, then finding group representatives (centroids) that minimise total distance. Before we can understand the algorithm, we need a precise definition of what a clustering is.
+</Bridge>
+
+## What Is Clustering, Formally?
+
+Let us be precise. We have $n$ data points
+
+$$\mathbf{x}_1, \mathbf{x}_2, \ldots, \mathbf{x}_n \in \mathbb{R}^p$$
+
+where each point has $p$ numerical features. A **clustering with K clusters** is a partition of the index set $\{1, 2, \ldots, n\}$ into K disjoint, non-empty subsets:
+
+$$C_1, C_2, \ldots, C_K \quad \text{where} \quad C_k \cap C_j = \emptyset \text{ for } k \neq j \quad \text{and} \quad \bigcup_{k=1}^{K} C_k = \{1, \ldots, n\}$$
+
+The requirement is that points within the same cluster are "similar" and points in different clusters are "dissimilar". This immediately raises four questions that define the field:
+
+<ConceptBox title="Four Fundamental Questions">
+1. **What does "similar" mean?** We need a distance or dissimilarity measure between points. The most common is Euclidean distance. Module 2 covers this in detail.
+2. **How good is a particular clustering?** We need an objective function that scores how well-separated the clusters are. Module 3 introduces Within-Cluster Sum of Squares (WCSS/inertia).
+3. **How do we find the best clustering?** Finding the provably optimal partition is NP-hard. K-means uses a fast iterative approximation. That is the subject of *this module*.
+4. **How do we evaluate the result?** When we have no labels, how do we know if K=3 is better than K=5? Module 4 introduces the silhouette coefficient and the elbow method.
+</ConceptBox>
+
+<Bridge>
+**Connecting to K-means.** K-means is one specific answer to questions 2 and 3. It defines "good" as minimising the total squared distance from each point to its cluster's mean (centroid), and it finds an approximate solution with a remarkably simple iterative procedure. We build that procedure step by step next.
+</Bridge>
+
+## The K-Means Algorithm — Intuition First
+
+Before any mathematics, here is the algorithm as a human story.
+
+Imagine you walk into a room with 100 people and need to form 3 discussion groups. You have no information about who belongs together — you just need to partition the room. Here is what you do:
+
+1. Randomly tap 3 people on the shoulder. They become the initial "group leaders" — the *centroids*.
+2. Everyone else walks to the leader they are physically closest to. Each person now has a group — the *assignment step*.
+3. Each leader looks around at their group and moves to stand in the geographic centre of their members. The leader has moved to the *mean* of their group — the *update step*.
+4. Now some people are closer to a different leader. They walk over. Repeat from step 3.
+5. When nobody wants to move, the process has *converged*.
+
+This is K-means, exactly. The leaders are centroids. "Closest" is Euclidean distance. "Geographic centre" is the arithmetic mean of coordinates. Here is the formal algorithm:
+
+<DerivationSteps>
+<DerivationStep number={0} title="Choose K">
+Decide upfront how many clusters you want. K is a hyperparameter — the algorithm does not choose it for you. Module 3 and 4 cover methods for selecting K from data.
+</DerivationStep>
+<DerivationStep number={1} title="Initialise K centroids">
+Select initial centroids $\boldsymbol{\mu}_1, \ldots, \boldsymbol{\mu}_K \in \mathbb{R}^p$. The simplest approach picks K data points at random. K-means++ (Section 5) is a smarter choice that spreads the initial centroids.
+</DerivationStep>
+<DerivationStep number={2} title="Assignment step">
+Assign each point to its nearest centroid. For point $\mathbf{x}_i$:
+
+$$c_i = \underset{k \in \{1,\ldots,K\}}{\arg\min} \;\|\mathbf{x}_i - \boldsymbol{\mu}_k\|^2$$
+</DerivationStep>
+<DerivationStep number={3} title="Update step">
+Recompute each centroid as the mean of all points currently assigned to it:
+
+$$\boldsymbol{\mu}_k = \frac{1}{|C_k|} \sum_{i:\, c_i = k} \mathbf{x}_i$$
+</DerivationStep>
+<DerivationStep number={4} title="Check convergence">
+If the centroids moved (i.e. any $\boldsymbol{\mu}_k$ changed), return to Step 2. If no centroid moved, the algorithm has converged and we stop. In practice a small tolerance or a maximum iteration count is also used.
+</DerivationStep>
+</DerivationSteps>
+
+The algorithm alternates between two steps: holding centroids fixed and optimising assignments, then holding assignments fixed and optimising centroids. Each step can only decrease or maintain the total cost — never increase it. This guarantee is why the algorithm always terminates.
+
+## Convergence and Termination
+
+Why does K-means always stop? The argument has three parts.
+
+**1. Each step never increases the objective.** The objective we are minimising is the Within-Cluster Sum of Squares (WCSS):
+
+$$\text{WCSS} = \sum_{k=1}^{K} \sum_{i:\, c_i = k} \|\mathbf{x}_i - \boldsymbol{\mu}_k\|^2$$
+
+- The **assignment step** reassigns each point to its nearest centroid. If a point moves to a different cluster, it is because that cluster's centroid is strictly closer. WCSS decreases or stays the same.
+- The **update step** sets each centroid to the mean of its points. The mean minimises total squared distance within a set — any other position gives a higher WCSS. So this step also decreases or maintains WCSS.
+
+**2. The number of possible states is finite.** There are at most $K^n$ possible assignment vectors (each of $n$ points assigned to one of K clusters). This is an astronomically large number, but it is finite.
+
+**3. Therefore the algorithm terminates.** WCSS is non-increasing and the number of distinct states is finite — the algorithm cannot cycle endlessly. It must reach a state where WCSS can decrease no further, which is exactly when no point wants to switch clusters, i.e., convergence.
+
+> **Local minimum, not global minimum:** K-means is guaranteed to converge, but NOT to the best possible clustering. It finds a *local* minimum of WCSS that depends on the starting centroids. A bad initialisation can trap the algorithm in a partition with high WCSS. The practical remedy: run K-means multiple times with different random seeds and keep the solution with the lowest WCSS. The `n_init` parameter in scikit-learn does exactly this (default: 10 runs).
+
+> **Time complexity:** Each iteration costs $O(nKp)$ — computing the distance from each of the $n$ points to each of the K centroids in $p$ dimensions. The number of iterations until convergence is typically small (10–100) in practice, so K-means scales well to millions of points when K and p are modest.
+
+## K-Means++ Initialisation
+
+Random initialisation picks K data points uniformly at random as starting centroids. This is simple but can produce poorly spread initial centroids — for example, two centroids might land in the same dense region while another cluster has no representative at all. The result is that the algorithm converges to a poor local minimum.
+
+**K-means++** (Arthur & Vassilvitskii, 2007) is a smarter initialisation strategy that spreads the initial centroids probabilistically:
+
+<DerivationSteps>
+<DerivationStep number={1} title="First centroid: uniform random">
+Choose the first centroid $\boldsymbol{\mu}_1$ uniformly at random from the data points. No preference — every point is equally likely.
+</DerivationStep>
+<DerivationStep number={2} title="Subsequent centroids: D²-proportional sampling">
+For each remaining centroid, compute $D(\mathbf{x}_i)^2$ = squared distance from point $\mathbf{x}_i$ to the nearest already-chosen centroid. Sample the next centroid with probability proportional to $D(\mathbf{x}_i)^2$:
+
+$$P(\text{choose } \mathbf{x}_i) = \frac{D(\mathbf{x}_i)^2}{\displaystyle\sum_{j=1}^{n} D(\mathbf{x}_j)^2}$$
+</DerivationStep>
+<DerivationStep number={3} title="Repeat until K centroids chosen">
+After choosing the second centroid, recompute $D(\mathbf{x}_i)^2$ as the distance to the nearest of the two chosen centroids, and sample again. Continue until all K centroids are selected, then run standard K-means from these initial positions.
+</DerivationStep>
+</DerivationSteps>
+
+**Why does this work?** Points far from all existing centroids get a large $D(\mathbf{x})^2$ and are therefore more likely to be chosen next. This naturally "spreads out" the initial centroids across the data, reducing the chance that two centroids compete over the same dense region. A cluster that has no representative is more likely to contribute the next centroid.
+
+<ConceptBox title="Theoretical Guarantee">
+Arthur & Vassilvitskii proved that K-means++ initialisation produces an expected WCSS that is at most $O(\log K)$ times the optimal WCSS — a result impossible to state for random initialisation. In practice the improvement over random init is usually much larger than the theoretical bound suggests.
+
+All major machine learning libraries default to K-means++ initialisation. In scikit-learn: `KMeans(init='k-means++')` (the default).
+</ConceptBox>
+
+## Interactive: Watch K-Means Converge
+
+<ConceptBox title="Interactive Widget">
+This widget demonstrates the K-means convergence process on 80 points generated from 3 Gaussian blobs. It allows stepping through iterations one at a time or running to convergence, showing how centroids move and cluster colours change. The key takeaway is that WCSS (inertia) decreases monotonically with each iteration, and the algorithm always terminates.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+## Interactive: How K Affects the Partition
+
+<ConceptBox title="Interactive Widget">
+This widget demonstrates the same 80-point dataset partitioned with K = 2, 3, 4, and 5. The key takeaway is that WCSS decreases as K grows, but so does the complexity of the partition — this trade-off between compactness and parsimony is the subject of Module 3.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+## Practice
+
+**Problem 1: Assignment Step by Hand**
+
+You run K-means with K = 3 on a 2D dataset. After initialisation the centroids are at $\boldsymbol{\mu}_1 = (1,1)$, $\boldsymbol{\mu}_2 = (5,5)$, and $\boldsymbol{\mu}_3 = (9,9)$.
+
+Point $\mathbf{x} = (4,5)$ is to be assigned. To which cluster is it assigned? Show the three distance calculations explicitly.
+
+**Solution:** We compute squared Euclidean distance from $(4,5)$ to each centroid:
+
+$$d_1 = \sqrt{(4-1)^2 + (5-1)^2} = \sqrt{9+16} = \sqrt{25} = 5$$
+
+$$d_2 = \sqrt{(4-5)^2 + (5-5)^2} = \sqrt{1+0} = \sqrt{1} = 1$$
+
+$$d_3 = \sqrt{(4-9)^2 + (5-9)^2} = \sqrt{25+16} = \sqrt{41} \approx 6.4$$
+
+The minimum distance is $d_2 = 1$. The point is assigned to **Cluster 2** (centroid at $(5,5)$). Note: K-means uses squared distances in the argmin, but ranking is identical since $\sqrt{\cdot}$ is monotone. Here $d_1^2 = 25$, $d_2^2 = 1$, $d_3^2 = 41$, confirming Cluster 2.
+
+---
+
+**Problem 2: Update Step and Reassignment**
+
+After an assignment step, Cluster 1 contains exactly three points: $(2,3)$, $(4,1)$, and $(3,5)$.
+
+**Part A:** Compute the new centroid for Cluster 1 after the update step.
+
+**Part B:** Point $(3.4, 2.8)$ was previously assigned to Cluster 2 with centroid at $(1,1)$. After the update step, Cluster 2's centroid is still $(1,1)$ and Cluster 1's new centroid is the value you computed in Part A. Should the point be reassigned?
+
+**Solution:**
+
+**Part A — New centroid for Cluster 1:**
+
+$$\boldsymbol{\mu}_1^{\text{new}} = \frac{1}{3}\bigl((2,3)+(4,1)+(3,5)\bigr) = \left(\frac{2+4+3}{3},\,\frac{3+1+5}{3}\right) = (3,\,3)$$
+
+**Part B — Should $(3.4, 2.8)$ be reassigned?**
+
+Distance to Cluster 1 centroid $(3,3)$: $d_1 = \sqrt{(3.4-3)^2+(2.8-3)^2} = \sqrt{0.16+0.04} = \sqrt{0.20} \approx 0.447$
+
+Distance to Cluster 2 centroid $(1,1)$: $d_2 = \sqrt{(3.4-1)^2+(2.8-1)^2} = \sqrt{5.76+3.24} = \sqrt{9.00} = 3.0$
+
+Since $d_1 = 0.447 < d_2 = 3.0$, the point **should be reassigned to Cluster 1**. This illustrates why the assignment step must be repeated after each centroid update.
+
+---
+
+**Problem 3: K-Means++ Sampling Probabilities**
+
+K-means++ has selected its first centroid at point $A = (2,2)$. The dataset has four remaining candidate points: B = (2, 3), C = (8, 8), D = (9, 7), E = (8, 9).
+
+**(a)** Compute $D(\mathbf{x})^2$ for each of B, C, D, E. **(b)** Compute the K-means++ sampling probability for each point. **(c)** Which point is most likely to be chosen as the second centroid? **(d)** Explain intuitively why K-means++ leads to better initialisation.
+
+**Solution:**
+
+**(a) Squared distances to A = (2,2):**
+
+$$D(B)^2 = 1, \quad D(C)^2 = 72, \quad D(D)^2 = 74, \quad D(E)^2 = 85$$
+
+**(b) Sampling probabilities:** Total = $1 + 72 + 74 + 85 = 232$
+
+$$P(B) \approx 0.43\%, \quad P(C) \approx 31.0\%, \quad P(D) \approx 31.9\%, \quad P(E) \approx 36.6\%$$
+
+**(c) Most likely second centroid:** Point **E = (8,9)**, with probability approximately 36.6%.
+
+**(d) Intuitive explanation:** The dataset has two natural groups: one around A and B near (2,2)–(2,3), and another around C, D, E near (8,8)–(9,9). Uniform random selection might accidentally pick two centroids from the same dense region. K-means++ avoids this by making C, D, E collectively overwhelmingly more probable (99.5% combined) than the nearby B (0.5%). The algorithm will almost certainly send the second centroid to the far cluster.
+
+<QuizCard
+  question="In the K-means assignment step, each point is assigned to the cluster whose centroid minimises what quantity?"
+  options={['The absolute (L1) distance to the centroid', 'The squared Euclidean distance to the centroid', 'The cosine distance to the centroid', 'The distance to the nearest other data point']}
+  correct={1}
+/>
