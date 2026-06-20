@@ -342,37 +342,57 @@ button { font-family: inherit; }
 /* ── Module Bottom Nav ───────────────────────────────── */
 .module-bottom-nav {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 14px;
+  flex-direction: column;
   border-top: 1px solid var(--border);
   background: var(--bg);
   flex-shrink: 0;
+}
+
+.bottom-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 14px;
+}
+
+.bottom-nav-row + .bottom-nav-row {
+  border-top: 1px solid var(--border);
 }
 
 .bottom-nav-center {
   font-size: 0.72rem;
   color: var(--text-muted);
   white-space: nowrap;
+  text-align: center;
+  flex: 1;
 }
 
 .bottom-nav-btn {
   background: none;
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 6px 14px;
-  font-size: 0.78rem;
+  padding: 5px 12px;
+  font-size: 0.75rem;
   cursor: pointer;
   color: var(--text);
   white-space: nowrap;
-  max-width: 42%;
+  max-width: 40%;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .bottom-nav-btn:hover { background: var(--bg-hover); }
 .bottom-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.track-jump-btn {
+  font-size: 0.7rem;
+  border-style: dashed;
+  color: var(--track-color, var(--text-muted));
+  border-color: var(--track-color, var(--border));
+}
+
+.track-jump-btn:hover { background: var(--bg-hover); }
 
 /* ── Search ─────────────────────────────────────────── */
 .search-wrap { position: relative; }
