@@ -1,0 +1,144 @@
+import { ConceptBox, Bridge, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+In Module 8, we explored our clean dataset — examining distributions, statistics, and cross-tabulations. Now we reshape it: joining tables, aggregating values, pivoting, and ranking.
+</Bridge>
+
+## Joins
+
+Joins combine rows from two DataFrames based on a shared key column.
+
+| Join type | Returns |
+|-----------|---------|
+| `inner` | Only rows with key in both DataFrames |
+| `left` | All rows from left; unmatched right rows get nulls |
+| `right` | All rows from right; unmatched left rows get nulls |
+| `full` | All rows from both; unmatched sides get nulls |
+| `anti` | Rows from left with NO match in right |
+
+<CodeBlock language="python">
+{`# Inner join — only matching rows from both sides
+joined = students_df.join(enrollments_df, "student_id", "inner")
+joined.show(5)
+
+# Left join — all students, nulls for those without enrollments
+left_joined = students_df.join(enrollments_df, "student_id", "left")
+left_joined.show(5)
+
+# Anti join — students with NO enrollments
+no_enrollments = students_df.join(enrollments_df, "student_id", "anti")
+no_enrollments.show()`}
+</CodeBlock>
+
+## Aggregation with agg()
+
+`agg()` computes multiple aggregate functions in a single call after `groupBy()`:
+
+<CodeBlock language="python">
+{`from pyspark.sql.functions import avg, count, max as spark_max
+
+students_df.groupBy("major").agg(
+    avg("gpa"),
+    count("*"),
+    spark_max("gpa")
+).show()
+# +-----+--------+--------+--------+
+# |major|avg(gpa)|count(1)|max(gpa)|
+# +-----+--------+--------+--------+
+# |   CS|    3.50|       2|     3.8|
+# |   DS|    3.60|       2|     3.7|
+# | Math|    3.90|       1|     3.9|
+# +-----+--------+--------+--------+`}
+</CodeBlock>
+
+## Pivoting
+
+Pivoting transforms row values into columns — useful for comparing metrics across categories side-by-side:
+
+<CodeBlock language="python">
+{`from pyspark.sql.functions import avg
+
+# Average grade per student per semester (rows → columns)
+pivoted = enrollments_df.groupBy("student_id") \
+    .pivot("semester") \
+    .agg(avg("grade"))
+
+pivoted.show()
+# +----------+---------+-----------+
+# |student_id|Fall 2024|Spring 2025|
+# +----------+---------+-----------+
+# |      1001|     88.0|       92.0|
+# |      1002|     85.0|       null|
+# |      1003|     91.0|       null|
+# +----------+---------+-----------+`}
+</CodeBlock>
+
+## Window Functions
+
+Window functions compute values across related rows **without collapsing groups**. You define a window spec (partition + order), then apply ranking or analytic functions over it.
+
+| Function | Behavior |
+|----------|----------|
+| `row_number()` | Unique sequential number within partition |
+| `rank()` | Rank with gaps for ties (1, 2, 2, 4) |
+| `dense_rank()` | Rank without gaps (1, 2, 2, 3) |
+| `lag(col, n)` | Value from n rows before current |
+| `lead(col, n)` | Value from n rows after current |
+
+### Ranking students by GPA within major
+
+<CodeBlock language="python">
+{`from pyspark.sql.window import Window
+from pyspark.sql.functions import dense_rank, col
+
+# Partition by major, order by GPA descending
+window_spec = Window.partitionBy("major").orderBy(col("gpa").desc())
+
+ranked = students_df.withColumn("rank", dense_rank().over(window_spec))
+ranked.select("name", "major", "gpa", "rank").show()
+# +------+-----+---+----+
+# |  name|major|gpa|rank|
+# +------+-----+---+----+
+# | Alice|   CS|3.8|   1|
+# | David|   CS|3.2|   2|
+# |   Eva|   DS|3.7|   1|
+# |   Bob|   DS|3.5|   2|
+# +------+-----+---+----+`}
+</CodeBlock>
+
+### Using lag() to compare adjacent rows
+
+<CodeBlock language="python">
+{`from pyspark.sql.functions import lag
+
+with_lag = students_df \
+    .withColumn("prev_gpa", lag("gpa", 1).over(window_spec)) \
+    .withColumn("gpa_diff", col("gpa") - col("prev_gpa"))
+
+with_lag.select("name", "major", "gpa", "prev_gpa", "gpa_diff").show()
+# Alice: prev_gpa = null (first in partition)
+# David: prev_gpa = 3.8, gpa_diff = -0.6`}
+</CodeBlock>
+
+## Union
+
+`union()` performs vertical concatenation — stacking rows from two DataFrames with the same schema:
+
+<CodeBlock language="python">
+{`cs_students = students_df.filter(col("major") == "CS")
+ds_students = students_df.filter(col("major") == "DS")
+
+# Both must have the same schema
+combined = cs_students.union(ds_students)
+combined.show()`}
+</CodeBlock>
+
+<ConceptBox title="union() vs unionByName()">
+`union()` matches columns by position — column names don't matter, only order. `unionByName()` matches by name and handles schema differences gracefully. When DataFrames have columns in different orders, always use `unionByName()`.
+</ConceptBox>
+
+<QuizCard
+  question="You want to find all students who have NO enrollments. Which join type gives you this result?"
+  options={['Left join, then filter where enrollment columns are null', 'Anti join — returns rows from the left DataFrame that have no match in the right', 'Inner join, then negate the result', 'Full outer join, then filter where right side is null']}
+  correct={1}
+/>

@@ -1,0 +1,169 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+## Introduction: What is ETL?
+
+ETL stands for **Extract, Transform, Load** — the three fundamental steps in any data pipeline. Whether you're building a dashboard, training a machine learning model, or migrating data between systems, you'll almost certainly follow this pattern. It's one of the first things every data engineer learns because it structures how raw data becomes useful information.
+
+In the **Extract** phase, you pull data from one or more sources — databases, APIs, flat files like CSVs, or streaming systems. During the **Transform** phase, you clean, filter, reshape, and enrich that data so it's ready for its intended use. Finally, in the **Load** phase, you persist the results somewhere — a data warehouse, a file system, or another database.
+
+In this module, we'll walk through each phase using PySpark, a distributed data processing framework widely used in industry. We'll also show equivalent operations in Pandas so you can see how the concepts translate to a library you may already know.
+
+## Extract: Reading Data from Sources
+
+The first step is getting data into your processing framework. In PySpark, you use the `SparkSession` to read files in various formats — CSV, JSON, Parquet, and more. The result is a DataFrame, a distributed collection of rows organized into named columns.
+
+### Reading a CSV with PySpark
+
+```python
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.appName("ETL Demo").getOrCreate()
+
+# Extract: read the students CSV file
+students_df = spark.read.csv("data/students.csv", header=True, inferSchema=True)
+
+# Display the first 5 rows
+students_df.show(5)
+```
+
+### Same operation with Pandas
+
+```python
+import pandas as pd
+
+# Sample data (full dataset available in companion notebook)
+data = {
+    'student_id': ['S001', 'S002', 'S003', 'S004', 'S005'],
+    'name': ['Alice Johnson', 'Bob Martinez', 'Carol Williams', 'David Chen', 'Emma Thompson'],
+    'major': ['Computer Science', 'Data Science', 'Mathematics', 'Statistics', 'Computer Science'],
+    'year': [3, 2, 4, 1, 2],
+    'gpa': [3.72, 3.45, 3.88, 3.21, 3.56]
+}
+df = pd.DataFrame(data)
+print(df.head())
+```
+
+## Transform: Manipulating Data
+
+Once data is loaded, you'll need to reshape it for your use case. Common transformations include selecting specific columns, filtering rows based on conditions, and adding computed columns. PySpark provides a fluent API that chains these operations together.
+
+### Selecting columns, filtering, and adding a computed column
+
+```python
+from pyspark.sql.functions import col, round as spark_round
+
+# Transform: select columns, filter by GPA > 3.5, add computed column
+transformed_df = (
+    students_df
+    .select("student_id", "name", "major", "gpa")
+    .filter(col("gpa") > 3.5)
+    .withColumn("gpa_scaled", spark_round(col("gpa") * 25, 2))
+)
+
+transformed_df.show(10)
+```
+
+### Same transforms in Pandas
+
+```python
+import pandas as pd
+
+data = {
+    'student_id': ['S001', 'S002', 'S003', 'S004', 'S005'],
+    'name': ['Alice Johnson', 'Bob Martinez', 'Carol Williams', 'David Chen', 'Emma Thompson'],
+    'major': ['Computer Science', 'Data Science', 'Mathematics', 'Statistics', 'Computer Science'],
+    'year': [3, 2, 4, 1, 2],
+    'gpa': [3.72, 3.45, 3.88, 3.21, 3.56]
+}
+df = pd.DataFrame(data)
+
+# Transform: select columns, filter by GPA > 3.5, add computed column
+transformed = (
+    df[['student_id', 'name', 'major', 'gpa']]
+    .query('gpa > 3.5')
+    .assign(gpa_scaled=lambda x: round(x['gpa'] * 25, 2))
+)
+print(transformed)
+```
+
+## Load: Writing Results
+
+The final step in an ETL pipeline is persisting your transformed data. This could mean writing to a data warehouse, saving to a file system in an efficient format like Parquet, or exporting as CSV for downstream consumers. The "Load" step ensures your work is durable and accessible to others.
+
+### Writing results with PySpark
+
+```python
+# Load: write transformed data to Parquet (columnar, compressed)
+transformed_df.write.parquet("output/students_honor_roll.parquet", mode="overwrite")
+
+# Or write as CSV for compatibility
+transformed_df.write.csv("output/students_honor_roll_csv", header=True, mode="overwrite")
+
+print("Data written successfully.")
+print("Parquet: output/students_honor_roll.parquet")
+print("CSV: output/students_honor_roll_csv/")
+```
+
+**Why Parquet?** Parquet is a columnar storage format that compresses well and supports efficient querying. It's the standard output format in most Spark pipelines. CSV is useful when you need human-readable output or compatibility with tools that don't support Parquet.
+
+## Practice Problems
+
+**RECALL — Problem 1**
+
+Read `enrollments.csv` using PySpark and display the first 5 rows.
+
+Hint: Use `spark.read.csv()` with `header=True` and `inferSchema=True`.
+
+Solution: We read the CSV file with schema inference enabled, then call `.show(5)` to display the first 5 rows.
+
+```python
+enrollments_df = spark.read.csv("data/enrollments.csv", header=True, inferSchema=True)
+enrollments_df.show(5)
+```
+
+**APPLY — Problem 2**
+
+Read `students.csv`, filter to students with GPA > 3.5, and select only the `name` and `major` columns.
+
+Hint: Chain `.filter()` and `.select()` after reading. Use `col("gpa") > 3.5` for the filter condition.
+
+Solution: We filter rows where GPA exceeds 3.5, then select only the two columns we need.
+
+```python
+from pyspark.sql.functions import col
+
+students_df = spark.read.csv("data/students.csv", header=True, inferSchema=True)
+
+honor_students = (
+    students_df
+    .filter(col("gpa") > 3.5)
+    .select("name", "major")
+)
+honor_students.show(10)
+```
+
+**STRETCH — Problem 3**
+
+Read both `students.csv` and `enrollments.csv`, and print the row count of each DataFrame.
+
+Hint: Use `.count()` on each DataFrame to get the number of rows.
+
+Solution: We read both files and use the `.count()` method to get the number of rows in each DataFrame.
+
+```python
+students_df = spark.read.csv("data/students.csv", header=True, inferSchema=True)
+enrollments_df = spark.read.csv("data/enrollments.csv", header=True, inferSchema=True)
+
+print(f"Students count: {students_df.count()}")
+print(f"Enrollments count: {enrollments_df.count()}")
+```
+
+<Bridge>
+Next up: Now that we can extract, transform, and load data, we'll explore why Spark keeps this data in memory — and what makes that so powerful.
+</Bridge>
+
+<QuizCard
+  question="In the ETL pipeline, which step involves filtering rows and adding computed columns?"
+  options={['Extract', 'Transform', 'Load', 'Ingest']}
+  correct={1}
+/>

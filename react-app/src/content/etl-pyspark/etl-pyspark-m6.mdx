@@ -1,0 +1,128 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+In Module 5, we queried DataFrames using SQL syntax — SELECT, JOIN, GROUP BY, CTEs. These built-in operations handle most transformations. But when you need custom logic, you write a **UDF** (User-Defined Function).
+</Bridge>
+
+## What are UDFs?
+
+User-Defined Functions let you apply custom Python logic to DataFrame columns. Spark ships with a rich library of built-in functions — arithmetic, string manipulation, date handling, aggregations — but sometimes your business rules don't fit neatly into what's already available.
+
+Common use cases include: converting numeric grades to letter grades, applying domain-specific categorizations (risk tiers, customer segments), computing custom metrics that combine multiple columns, or encoding business rules that would be awkward to express with nested `when()` chains.
+
+## Creating UDFs — Two Approaches
+
+### Approach 1: @udf decorator
+
+<CodeBlock language="python">
+{`from pyspark.sql.functions import udf
+from pyspark.sql.types import StringType
+
+@udf(returnType=StringType())
+def grade_letter(numeric_grade):
+    if numeric_grade >= 90: return 'A'
+    elif numeric_grade >= 80: return 'B'
+    elif numeric_grade >= 70: return 'C'
+    elif numeric_grade >= 60: return 'D'
+    else: return 'F'
+
+result = enrollments_df.withColumn("letter_grade", grade_letter("grade"))
+result.show(5)
+# +-------------+-----------+-----+------------+
+# |enrollment_id|course_name|grade|letter_grade|
+# +-------------+-----------+-----+------------+
+# |        1    |   Python  |   92|           A|
+# |        2    |  Calculus |   88|           B|
+# +-------------+-----------+-----+------------+`}
+</CodeBlock>
+
+### Approach 2: Register for SQL use
+
+<CodeBlock language="python">
+{`spark.udf.register("grade_letter", grade_letter, StringType())
+spark.sql("""
+    SELECT enrollment_id, course_name, grade, grade_letter(grade) as letter
+    FROM enrollments
+""").show(5)`}
+</CodeBlock>
+
+## Return Types Matter
+
+Every UDF must declare its return type explicitly. Spark uses this to build the schema of the resulting DataFrame. If your function returns a value that doesn't match the declared type, you'll get a runtime error — often a cryptic serialization failure.
+
+For complex return values, use `StructType` to define a multi-field schema:
+
+<CodeBlock language="python">
+{`from pyspark.sql.types import StructType, StructField, StringType
+
+grade_schema = StructType([
+    StructField("letter", StringType(), False),
+    StructField("standing", StringType(), False)
+])
+
+@udf(returnType=grade_schema)
+def grade_info(numeric_grade):
+    if numeric_grade >= 90: return ('A', "Dean's List")
+    elif numeric_grade >= 80: return ('B', 'Honor Roll')
+    elif numeric_grade >= 70: return ('C', 'Good Standing')
+    elif numeric_grade >= 60: return ('D', 'Probation')
+    else: return ('F', 'Academic Hold')
+
+result = enrollments_df.withColumn("grade_info", grade_info("grade"))
+result.select("enrollment_id", "grade", "grade_info").show(5)
+# +-------------+-----+-------------------+
+# |enrollment_id|grade|       grade_info  |
+# +-------------+-----+-------------------+
+# |        1    |   92|{A, Dean's List}   |`}
+</CodeBlock>
+
+## Performance Implications
+
+<ConceptBox title="The Row-at-a-Time Penalty">
+Regular UDFs come with a significant performance cost. For every row, Spark must:
+1. Serialize the data from the JVM
+2. Send it to a Python process
+3. Execute your function
+4. Serialize the result back to the JVM
+
+This round-trip is orders of magnitude slower than Spark's built-in functions, which execute entirely within the JVM using optimized code generation.
+
+Beyond serialization overhead, the **Catalyst optimizer cannot "see inside" a UDF**. When you use built-in functions, Spark can reorder operations, push filters down, and combine steps. With a UDF, the optimizer treats it as an opaque black box.
+
+**Rule of thumb:** Prefer built-in functions whenever possible, and reserve UDFs for logic that truly cannot be expressed any other way.
+</ConceptBox>
+
+## Pandas UDFs (Vectorized)
+
+Pandas UDFs (also called vectorized UDFs) address the performance problem by processing data in **batches** rather than one row at a time. Under the hood, Spark uses Apache Arrow to transfer entire columns of data between the JVM and Python as zero-copy arrays. Your function receives a `pd.Series` and returns a `pd.Series`.
+
+Depending on the workload, Pandas UDFs can be **3x to 100x faster** than regular row-at-a-time UDFs.
+
+<CodeBlock language="python">
+{`from pyspark.sql.functions import pandas_udf
+import pandas as pd
+
+@pandas_udf(StringType())
+def grade_letter_vec(grades: pd.Series) -> pd.Series:
+    return grades.map(
+        lambda g: 'A' if g >= 90 else 'B' if g >= 80
+                  else 'C' if g >= 70 else 'D' if g >= 60 else 'F'
+    )
+
+result = enrollments_df.withColumn("letter_grade", grade_letter_vec("grade"))
+result.show(5)`}
+</CodeBlock>
+
+<ConceptBox title="When to Use Each Approach">
+| Approach | Speed | Optimizer-visible? | When to use |
+|----------|-------|--------------------|-------------|
+| Built-in functions | Fastest | Yes | Always prefer this |
+| Pandas UDF | Fast | No | Batch-friendly custom logic |
+| Regular UDF | Slow | No | Last resort for complex logic |
+</ConceptBox>
+
+<QuizCard
+  question="Why are Pandas UDFs faster than regular row-at-a-time UDFs?"
+  options={['They use less memory because they skip type checking', 'They process data in batches using Apache Arrow serialization, avoiding per-row JVM-Python round-trips', 'They run on the driver node only, bypassing network overhead', 'They skip Catalyst optimization entirely']}
+  correct={1}
+/>
