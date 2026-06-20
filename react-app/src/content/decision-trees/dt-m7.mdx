@@ -48,7 +48,7 @@ In random forests, grow full trees (`max_depth=None`). Averaging across many tre
 
 ### min_samples_leaf — Smooth Regularization
 
-`min_samples_leaf` prevents splits when either resulting leaf would have fewer than the specified samples. The effect is analogous to kernel smoothing: larger leaf size averages more training points, reducing variance at the cost of resolution. Try {1, 5, 10, 20}. Larger values benefit noisy data.
+`min_samples_leaf` prevents splits when either resulting leaf would have fewer than the specified samples. The effect is analogous to kernel smoothing: larger leaf size averages more training points, reducing variance at the cost of resolution. Try values [1, 5, 10, 20]. Larger values benefit noisy data.
 
 ## 3. Gradient Boosting Hyperparameters
 
@@ -78,7 +78,7 @@ Never treat learning_rate and n_estimators as separate parameters. Their product
 
 ### max_depth — Keep Trees Shallow
 
-Unlike random forests where full trees are standard, gradient boosting works best with shallow trees (depth 2–6). Shallow trees force the ensemble to build up complexity gradually across iterations. The interaction with n_estimators: shallower trees need more iterations. Typical range: {2, 3, 4, 5, 6}.
+Unlike random forests where full trees are standard, gradient boosting works best with shallow trees (depth 2–6). Shallow trees force the ensemble to build up complexity gradually across iterations. The interaction with n_estimators: shallower trees need more iterations. Typical range: [2, 3, 4, 5, 6].
 
 ### subsample — Row Sampling per Iteration
 
@@ -90,7 +90,7 @@ XGBoost adds L2 (Ridge) and L1 (Lasso) penalties on leaf weights:
 
 $$w_j^* = -\frac{\sum_{i \in I_j} g_i}{\sum_{i \in I_j} h_i + \lambda}$$
 
-where $\lambda$ is the L2 regularization weight. The default $\lambda = 1$ already provides meaningful regularization. Start with $\alpha = 0$ (no L1) and tune $\lambda$ in {0.1, 1, 10, 100}.
+where $\lambda$ is the L2 regularization weight. The default $\lambda = 1$ already provides meaningful regularization. Start with $\alpha = 0$ (no L1) and tune $\lambda$ in [0.1, 1, 10, 100].
 
 ## 4. Practical Tuning Recipes
 
@@ -106,11 +106,11 @@ Plot OOB error as a function of B from 10 to 300. Stop adding trees at the elbow
 </DerivationStep>
 
 <DerivationStep number={3} title="Grid search max_features.">
-With p features, search over: {max(1, ⌊√p/2⌋), ⌊√p⌋, ⌊2√p⌋}. For regression also try p/3. This is usually the single most impactful change.
+With p features, search over: [max(1, ⌊√p/2⌋), ⌊√p⌋, ⌊2√p⌋]. For regression also try p/3. This is usually the single most impactful change.
 </DerivationStep>
 
 <DerivationStep number={4} title="Grid search min_samples_leaf.">
-Try {1, 5, 10, 20}. If OOB error improves with min_samples_leaf > 1, the data is noisy or features have measurement error.
+Try [1, 5, 10, 20]. If OOB error improves with min_samples_leaf > 1, the data is noisy or features have measurement error.
 </DerivationStep>
 </DerivationSteps>
 
@@ -130,7 +130,7 @@ Try `learning_rate=0.05` with approximately 2 × M* iterations. Compare validati
 </DerivationStep>
 
 <DerivationStep number={4} title="Grid search max_depth.">
-Search {2, 3, 4, 5, 6} with early stopping re-run for each value. Depth 3–4 is the most common optimum for tabular data.
+Search [2, 3, 4, 5, 6] with early stopping re-run for each value. Depth 3–4 is the most common optimum for tabular data.
 </DerivationStep>
 
 <DerivationStep number={5} title="Fine-tune regularization parameters last.">
