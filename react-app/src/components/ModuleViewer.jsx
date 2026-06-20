@@ -122,6 +122,26 @@ export default function ModuleViewer() {
         title={mod.title}
         allow="storage-access *"
       />
+
+      <div className="module-bottom-nav">
+        <button
+          className="bottom-nav-btn"
+          onClick={() => prev && navigate(`/module/${prev.id}`)}
+          disabled={!prev}
+        >
+          ← {prev?.title ?? 'Start'}
+        </button>
+        <span className="bottom-nav-center">
+          {mod.moduleNumber} / {mod.totalInCourse}
+        </span>
+        <button
+          className="bottom-nav-btn"
+          onClick={() => next && navigate(`/module/${next.id}`)}
+          disabled={!next}
+        >
+          {next?.title ?? 'End'} →
+        </button>
+      </div>
     </div>
   );
 }

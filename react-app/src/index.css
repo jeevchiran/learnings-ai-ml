@@ -268,7 +268,7 @@ button { font-family: inherit; }
 .continue-btn:hover { text-decoration: underline; }
 
 /* ── Module Viewer ──────────────────────────────────── */
-.module-viewer { display: flex; flex-direction: column; height: 100dvh; }
+.module-viewer { display: flex; flex-direction: column; height: 100%; }
 
 .module-topbar {
   display: flex;
@@ -334,7 +334,42 @@ button { font-family: inherit; }
 
 .topbar-star.bookmarked { color: #f59e0b; }
 
-.module-iframe { flex: 1; width: 100%; border: none; }
+.module-iframe { flex: 1; width: 100%; border: none; min-height: 0; }
+
+/* ── Module Bottom Nav ───────────────────────────────── */
+.module-bottom-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.bottom-nav-center {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.bottom-nav-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: var(--text);
+  white-space: nowrap;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bottom-nav-btn:hover { background: var(--bg-hover); }
+.bottom-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ── Search ─────────────────────────────────────────── */
 .search-wrap { position: relative; }
