@@ -142,7 +142,7 @@ Exposes: `getProgress()`, `markComplete(id)`, `toggleBookmark(id)`, `setLastVisi
 
 ## Dark Mode
 
-React shell has its own dark mode toggle (CSS variable swap on `<html>`). The iframe content has its own independent dark mode toggle (existing JS). The two are independent — no postMessage sync needed. Users toggle each separately. This is the simplest correct behavior; sync can be added later if requested.
+React shell toggles dark mode and dispatches `window.dispatchEvent(new CustomEvent('theme-change', { detail: { dark } }))`. ModuleViewer listens for this event and calls `iframe.contentDocument.documentElement.setAttribute('data-theme', ...)` directly (same-origin, so no postMessage or CORS issues). The sync also fires on iframe `load` so freshly navigated modules receive the current theme immediately. No modifications to existing module HTML needed.
 
 ---
 
