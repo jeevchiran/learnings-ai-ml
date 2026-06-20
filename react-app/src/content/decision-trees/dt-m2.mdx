@@ -94,9 +94,9 @@ For the 6/4 node: $E = 1 - 0.6 = 0.4$. For a pure node: $E = 0$. For the balance
 
 **Why misclassification rate is not used for splitting in practice:** Consider a parent with 10 samples: 6 positive, 4 negative. $E(\text{parent}) = 0.4$.
 
-**Split X:** left = {4+, 4−}, right = {2+, 0−}. Weighted E = (8/10)(1 − 0.5) + (2/10)(0) = 0.4. Gain = **0**.
+**Split X:** left = (4+, 4−), right = (2+, 0−). Weighted E = (8/10)(1 − 0.5) + (2/10)(0) = 0.4. Gain = **0**.
 
-**Split Y:** left = {4+, 1−}, right = {2+, 3−}. Weighted E = (5/10)(1 − 0.8) + (5/10)(1 − 0.6) = 0.30. Gain = **0.10**.
+**Split Y:** left = (4+, 1−), right = (2+, 3−). Weighted E = (5/10)(1 − 0.8) + (5/10)(1 − 0.6) = 0.30. Gain = **0.10**.
 
 Split Y is clearly better. Yet for Split X, misclassification rate reports *zero gain* because the majority class in the left child did not change. Entropy and Gini both correctly reward Split Y with a positive gain. This insensitivity makes misclassification rate a poor criterion for choosing splits.
 
@@ -216,8 +216,8 @@ $$E = 1 - \max_k p_k = 1 - \frac{5}{8} = 0.375$$
 #### Problem 2: Comparing Gini Gain for two candidate splits
 
 A parent node has 10 samples: 6 positive (+) and 4 negative (−). Two candidate splits are proposed:
-- **Split A:** left child = {4+, 0−}, right child = {2+, 4−}
-- **Split B:** left child = {3+, 1−}, right child = {3+, 3−}
+- **Split A:** left child = (4+, 0−), right child = (2+, 4−)
+- **Split B:** left child = (3+, 1−), right child = (3+, 3−)
 
 Compute the Gini Gain for both splits. Which split is better?
 
