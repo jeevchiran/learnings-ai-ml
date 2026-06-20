@@ -502,3 +502,119 @@ button { font-family: inherit; }
   .mobile-header { display: none; }
   .sidebar-overlay { display: none !important; }
 }
+
+/* ── Learning Components ─────────────────────────────── */
+
+/* Import KaTeX styles — rehype-katex needs this at the app level */
+@import 'katex/dist/katex.min.css';
+
+.lc-concept-box {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 16px 0;
+  background: var(--bg-hover);
+}
+
+.lc-concept-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.lc-bridge {
+  border-left: 3px solid var(--accent);
+  padding: 10px 14px;
+  margin: 16px 0;
+  background: var(--bg-hover);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.lc-derivation { margin: 16px 0; }
+
+.lc-derivation-step {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.lc-derivation-step:last-child { border-bottom: none; }
+
+.lc-step-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.lc-step-content { flex: 1; }
+
+.lc-step-body { margin-top: 4px; font-size: 0.875rem; color: var(--text-muted); }
+
+.lc-code-wrap {
+  position: relative;
+  margin: 16px 0;
+}
+
+.lc-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.lc-copy-btn:hover { color: var(--text); }
+
+.lc-math-block {
+  overflow-x: auto;
+  padding: 12px 0;
+  text-align: center;
+}
+
+/* ── Module MDX Content Area ─────────────────────────── */
+.module-mdx {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.module-mdx h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; }
+.module-mdx h2 { font-size: 1.2rem; font-weight: 600; margin: 28px 0 10px; }
+.module-mdx h3 { font-size: 1rem; font-weight: 600; margin: 20px 0 8px; }
+.module-mdx h4 { font-size: 0.9rem; font-weight: 600; margin: 16px 0 6px; }
+.module-mdx p  { margin: 10px 0; }
+.module-mdx code { font-size: 0.85em; background: var(--bg-hover); padding: 1px 5px; border-radius: 3px; }
+.module-mdx pre code { background: none; padding: 0; }
+.module-mdx ul, .module-mdx ol { padding-left: 20px; margin: 8px 0; }
+.module-mdx li { margin: 4px 0; }
+.module-mdx table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.875rem; }
+.module-mdx th, .module-mdx td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+.module-mdx th { background: var(--bg-hover); font-weight: 600; }
+
+@media (max-width: 768px) {
+  .module-mdx { padding: 16px 14px 32px; }
+}
