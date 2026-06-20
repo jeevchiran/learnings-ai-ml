@@ -1,0 +1,140 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+## NLP Pipeline — Big Picture
+
+<ConceptBox title="The NLP Pipeline">
+Text starts as raw characters. A typical NLP pipeline processes it through these stages:
+
+1. **Tokenization** — split into tokens
+2. **Text normalization** — lowercase, remove noise
+3. **Morphological analysis** — stemming / lemmatization
+4. **Syntactic parsing** — POS tagging, chunking, dependency parse
+5. **Semantic analysis** — NER, SRL, WSD, coreference
+
+Each module in this track covers one or more stages. Downstream tasks (sentiment, translation, QA) build on top.
+</ConceptBox>
+
+## Tokenization
+
+**Tokenization** splits a raw character stream into tokens — the minimal units a model processes.
+
+#### Word tokens
+
+Whitespace-split: `"the cat sat"` → `["the", "cat", "sat"]`. Problem: punctuation, contractions (`can't`), hyphenated words.
+
+#### Subword tokens
+
+**Byte Pair Encoding (BPE)** and **WordPiece** iteratively merge frequent character pairs into subword units. `"unhappiness"` → `["un", "##happy", "##ness"]`. Used by BERT, GPT-2, and most modern LLMs. Unknown words decompose gracefully.
+
+#### Character tokens
+
+One character per token. Tiny vocabulary, no OOV problem. Very long sequences — slow for transformers.
+
+#### Tokenization strategies
+
+| Strategy | Vocabulary | OOV handling | Sequence length |
+|---|---|---|---|
+| Word | Large (50k+) | `<UNK>` | Short |
+| Subword (BPE) | Medium (30k–50k) | Decompose | Medium |
+| Character | Tiny (100–200) | None needed | Long |
+
+```python
+import spacy
+nlp = spacy.load("en_core_web_sm")
+doc = nlp("The cat can't sit on the mat.")
+print([token.text for token in doc])
+# ['The', 'cat', 'ca', "n't", 'sit', 'on', 'the', 'mat', '.']
+```
+
+## Text Normalization
+
+Text normalization prepares raw text for downstream processing by reducing surface variation.
+
+<DerivationSteps>
+  <DerivationStep number={1} title="Lowercase">
+    Convert all characters to lowercase. `"Apple"` and `"apple"` map to the same type. Exception: named entity recognition benefits from case.
+
+    `"The Dog Barked"` → `"the dog barked"`
+  </DerivationStep>
+  <DerivationStep number={2} title="Remove / normalize punctuation">
+    Strip or replace punctuation depending on the task. For bag-of-words: remove. For sentence splitting: keep periods.
+
+    `"Hello, world!"` → `"hello world"`
+  </DerivationStep>
+  <DerivationStep number={3} title="Normalize numbers and special characters">
+    Replace digits with a placeholder (`NUM`) or normalize: `"3.14"` → `"NUM"`, `"$100"` → `"MONEY"`.
+  </DerivationStep>
+  <DerivationStep number={4} title="Remove stopwords">
+    High-frequency function words (`the`, `is`, `at`) carry little content signal for tasks like classification. NLTK and spaCy ship stopword lists.
+
+    `"the cat sat on the mat"` → `"cat sat mat"` (after stopword removal)
+  </DerivationStep>
+</DerivationSteps>
+
+## Edit Distance
+
+**Edit distance** (Levenshtein distance) is the minimum number of single-character **insertions**, **deletions**, and **substitutions** to transform string $s$ into string $t$.
+
+Applications: spell correction, DNA sequence alignment, fuzzy string matching.
+
+### Recurrence
+
+$$d[i][j] = \begin{cases} i & \text{if } j = 0 \\ j & \text{if } i = 0 \\ d[i-1][j-1] & \text{if } s[i] = t[j] \\ 1 + \min(d[i-1][j],\; d[i][j-1],\; d[i-1][j-1]) & \text{otherwise} \end{cases}$$
+
+- $d[i-1][j] + 1$: delete from $s$
+- $d[i][j-1] + 1$: insert into $s$
+- $d[i-1][j-1] + 1$: substitute
+
+The final answer is $d[|s|][|t|]$.
+
+### DP Matrix example: "cat" → "cut"
+
+|   |   | c | u | t |
+|---|---|---|---|---|
+|   | 0 | 1 | 2 | 3 |
+| c | 1 | 0 | 1 | 2 |
+| a | 2 | 1 | 1 | 2 |
+| t | 3 | 2 | 2 | 1 |
+
+Edit distance = 1 (substitute `a` → `u`).
+
+```python
+def edit_distance(s, t):
+    m, n = len(s), len(t)
+    d = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(m + 1): d[i][0] = i
+    for j in range(n + 1): d[0][j] = j
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            cost = 0 if s[i-1] == t[j-1] else 1
+            d[i][j] = min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + cost)
+    return d[m][n]
+
+print(edit_distance("kitten", "sitting"))  # 3
+```
+
+### Backtrace
+
+Start at $d[m][n]$. At each cell, follow the minimum predecessor to reconstruct the alignment and the sequence of edit operations.
+
+<ConceptBox title="Interactive Widget">
+This widget demonstrates a dynamic programming matrix for edit distance computation between two user-supplied strings. The matrix fills left-to-right, top-to-bottom; the optimal backtrace is highlighted showing the minimum-cost alignment path.
+
+Note: interactive widget replaced with static description. See the original HTML file for the canvas implementation.
+</ConceptBox>
+
+## Practice
+
+**Problem 1 (Easy):** Compute the edit distance between "rain" and "ruin" by hand. Fill in the 5×5 DP matrix and identify which single operation accounts for the distance.
+
+*Solution:* Edit distance = 1. Substitute `a` → `u` at position 2.
+
+**Problem 2 (Medium):** Tokenize the sentence `"It's a well-known fact, isn't it?"` using (a) whitespace splitting, (b) punctuation-aware splitting. List the tokens for each approach and count them.
+
+*Solution:* (a) 5 tokens: `["It's", "a", "well-known", "fact,", "isn't", "it?"]` — 6 tokens. (b) `["It", "'s", "a", "well", "-", "known", "fact", ",", "is", "n't", "it", "?"]` — 12 tokens.
+
+**Problem 3 (Hard):** For the sentence `"Barack Obama visited Apple's headquarters in Cupertino on Monday."`, apply the 4-step normalization pipeline. At each step state what changes and why. Explain which step would hurt a downstream NER system and why.
+
+*Solution:* Step 1 (lowercase): all chars → lowercase — hurts NER because capitalization is a key feature for entity detection. Step 2 (punctuation): remove apostrophe and period. Step 3 (numbers): no change (none present). Step 4 (stopwords): remove `on`. Case normalization at step 1 is most harmful to NER.
+
+<QuizCard question="What is the edit distance between 'cat' and 'car'?" options={['0', '1', '2', '3']} correct={1} />

@@ -95,7 +95,7 @@ The structure — root, internal nodes, splits, leaves — is identical for clas
 | Splitting criterion | Gini impurity, Shannon entropy | MSE reduction, MAE reduction |
 | Loss minimized | Misclassification rate (impurity) | Mean squared error |
 | Output type | Discrete class label | Continuous real value |
-| Prediction formula | $c_k = \arg\max_c \,\|\{i : y_i = c,\, \mathbf{x}_i \in R_k\}\|$ | $c_k = \frac{1}{\|R_k\|}\sum_{\mathbf{x}_i \in R_k} y_i$ |
+| Prediction formula | Majority class in the leaf region | Mean target value of training samples in the leaf |
 
 This module focuses on classification trees. Regression trees follow the same CART algorithm with MSE replacing impurity as the split criterion.
 

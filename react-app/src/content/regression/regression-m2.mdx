@@ -1,0 +1,199 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+# Module 2: Mathematics of Linear Regression
+
+<Bridge>
+**Bridge from Module 1:** In Module 1, we fit a line by minimizing the sum of squared residuals. We stated the result; now we derive it from first principles. Why does OLS work? How do we compute the optimal parameters analytically and iteratively? What guarantees does the solution carry?
+</Bridge>
+
+## The Cost Function
+
+We seek parameters $\boldsymbol{\beta} \in \mathbb{R}^{p+1}$ that minimize the mean squared error. In scalar form:
+
+$$J(\boldsymbol{\beta}) = \frac{1}{2n} \sum_{i=1}^{n} \left( y_i - \mathbf{x}_i^T \boldsymbol{\beta} \right)^2$$
+
+In matrix notation, let $\mathbf{X} \in \mathbb{R}^{n \times (p+1)}$ be the design matrix (with a column of ones for the intercept), and $\mathbf{y} \in \mathbb{R}^n$ the response vector:
+
+$$J(\boldsymbol{\beta}) = \frac{1}{2n} (\mathbf{y} - \mathbf{X}\boldsymbol{\beta})^T (\mathbf{y} - \mathbf{X}\boldsymbol{\beta})$$
+
+<ConceptBox title="Why Squared Errors?">
+If we assume the errors are i.i.d. Gaussian, $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$, then maximizing the likelihood of the observed data is equivalent to minimizing the sum of squared residuals. The MLE and OLS solutions coincide under Gaussian noise.
+
+$$\log L(\boldsymbol{\beta}) = -\frac{n}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma^2}\sum_{i=1}^n(y_i - \mathbf{x}_i^T\boldsymbol{\beta})^2$$
+
+Maximizing this with respect to $\boldsymbol{\beta}$ is equivalent to minimizing $\sum(y_i - \mathbf{x}_i^T\boldsymbol{\beta})^2$.
+</ConceptBox>
+
+## The Normal Equation (Analytical Solution)
+
+We derive the closed-form solution by setting the gradient of $J$ to zero.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Expand the quadratic form">
+
+$$J(\boldsymbol{\beta}) = \frac{1}{2n}(\mathbf{y} - \mathbf{X}\boldsymbol{\beta})^T(\mathbf{y} - \mathbf{X}\boldsymbol{\beta})$$
+
+</DerivationStep>
+<DerivationStep number={2} title="Expand using matrix transpose rules">
+
+$$= \frac{1}{2n}\left(\mathbf{y}^T\mathbf{y} - 2\boldsymbol{\beta}^T\mathbf{X}^T\mathbf{y} + \boldsymbol{\beta}^T\mathbf{X}^T\mathbf{X}\boldsymbol{\beta}\right)$$
+
+Using $(\mathbf{X}\boldsymbol{\beta})^T = \boldsymbol{\beta}^T\mathbf{X}^T$ and the symmetry of the scalar $\boldsymbol{\beta}^T\mathbf{X}^T\mathbf{y} = \mathbf{y}^T\mathbf{X}\boldsymbol{\beta}$.
+
+</DerivationStep>
+<DerivationStep number={3} title="Differentiate using matrix calculus">
+
+$$\nabla_{\boldsymbol{\beta}} J = \frac{1}{2n}\left(-2\mathbf{X}^T\mathbf{y} + 2\mathbf{X}^T\mathbf{X}\boldsymbol{\beta}\right) = \frac{1}{n}\left(\mathbf{X}^T\mathbf{X}\boldsymbol{\beta} - \mathbf{X}^T\mathbf{y}\right)$$
+
+Rules used: $\frac{\partial}{\partial \mathbf{a}}(\mathbf{a}^T\mathbf{b}) = \mathbf{b}$ and $\frac{\partial}{\partial \mathbf{a}}(\mathbf{a}^T\mathbf{A}\mathbf{a}) = 2\mathbf{A}\mathbf{a}$ for symmetric $\mathbf{A}$.
+
+</DerivationStep>
+<DerivationStep number={4} title="Set gradient to zero — the Normal Equations">
+
+$$\nabla_{\boldsymbol{\beta}} J = 0 \implies \mathbf{X}^T\mathbf{X}\boldsymbol{\beta} = \mathbf{X}^T\mathbf{y}$$
+
+</DerivationStep>
+<DerivationStep number={5} title="Solve for beta-hat">
+
+$$\hat{\boldsymbol{\beta}} = (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}$$
+
+Multiply both sides by $(\mathbf{X}^T\mathbf{X})^{-1}$, which exists when $\mathbf{X}$ has full column rank (no perfect multicollinearity).
+
+</DerivationStep>
+</DerivationSteps>
+
+<ConceptBox title="Geometric Interpretation: Projection">
+The fitted values $\hat{\mathbf{y}} = \mathbf{X}\hat{\boldsymbol{\beta}} = \mathbf{X}(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}$ are the orthogonal projection of $\mathbf{y}$ onto the column space of $\mathbf{X}$. The matrix $\mathbf{H} = \mathbf{X}(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T$ is the "hat matrix" -- it puts the hat on $\mathbf{y}$.
+
+The residual vector $\mathbf{e} = \mathbf{y} - \hat{\mathbf{y}}$ is perpendicular to the column space: $\mathbf{X}^T\mathbf{e} = 0$. This is exactly what the normal equations state.
+</ConceptBox>
+
+## Interactive: Geometric Projection
+
+<ConceptBox title="Interactive Widget">
+This widget demonstrates the geometric interpretation of OLS as projection. It shows the response vector y (blue), its projection onto the column space of X (red), and the residual vector (green, perpendicular to the projection plane). The key takeaway is that OLS finds the closest point in the column space of X to the observed response vector y.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+## Gradient Descent
+
+When $\mathbf{X}^T\mathbf{X}$ is very large or ill-conditioned, we use an iterative approach instead of computing the inverse directly.
+
+### The Algorithm
+
+<DerivationSteps>
+<DerivationStep number={1} title="Initialize">
+
+Initialize $\boldsymbol{\beta}^{(0)}$ (often zeros).
+
+</DerivationStep>
+<DerivationStep number={2} title="Compute gradient">
+
+$$\nabla J = \frac{1}{n}\mathbf{X}^T(\mathbf{X}\boldsymbol{\beta}^{(t)} - \mathbf{y})$$
+
+</DerivationStep>
+<DerivationStep number={3} title="Update parameters">
+
+$$\boldsymbol{\beta}^{(t+1)} = \boldsymbol{\beta}^{(t)} - \alpha \nabla J$$
+
+where $\alpha > 0$ is the learning rate (step size).
+
+</DerivationStep>
+<DerivationStep number={4} title="Check convergence">
+
+Repeat until $\|\nabla J\| < \epsilon$ (convergence).
+
+</DerivationStep>
+</DerivationSteps>
+
+### Why It Works: Convexity
+
+$J(\boldsymbol{\beta})$ is a convex function (the Hessian $\frac{1}{n}\mathbf{X}^T\mathbf{X}$ is positive semi-definite). Any local minimum is the global minimum. Gradient descent with a sufficiently small step size is guaranteed to converge.
+
+### Learning Rate Effects
+
+| Learning Rate | Behavior |
+|---|---|
+| Too small ($\alpha \ll 1$) | Converges but extremely slowly -- thousands of iterations needed |
+| Just right | Smooth convergence in tens to hundreds of iterations |
+| Too large ($\alpha > \frac{2}{\lambda_{\max}}$) | Diverges -- parameters oscillate or explode to infinity |
+
+## Interactive: Gradient Descent on Loss Landscape
+
+<ConceptBox title="Interactive Widget">
+This widget demonstrates gradient descent navigating the loss surface of a linear regression problem. You can adjust the learning rate to observe convergence versus divergence behavior, with both a contour plot and 3D surface view of the loss landscape. The key takeaway is that the learning rate must be chosen carefully: too small and convergence is slow, too large and the algorithm diverges.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+## Application: Advertising Budget Optimization
+
+<ConceptBox title="Problem">
+A company spends on TV and online advertising. We model revenue as:
+
+$$\text{Revenue} = \beta_0 + \beta_1 \cdot \text{TV} + \beta_2 \cdot \text{Online}$$
+
+Given 20 observations, compute $\hat{\boldsymbol{\beta}}$ via the normal equation.
+</ConceptBox>
+
+### Working Through the Normal Equation
+
+<DerivationSteps>
+<DerivationStep number={1} title="Form the design matrix">
+
+Form the design matrix $\mathbf{X} \in \mathbb{R}^{20 \times 3}$ (ones column, TV, Online) and response $\mathbf{y} \in \mathbb{R}^{20}$.
+
+</DerivationStep>
+<DerivationStep number={2} title="Compute key matrix products">
+
+Compute $\mathbf{X}^T\mathbf{X}$ (a $3 \times 3$ symmetric matrix) and $\mathbf{X}^T\mathbf{y}$ (a $3 \times 1$ vector).
+
+</DerivationStep>
+<DerivationStep number={3} title="Solve the normal equation">
+
+$$\hat{\boldsymbol{\beta}} = (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y} = \begin{pmatrix} 3.2 \\ 0.045 \\ 0.18 \end{pmatrix}$$
+
+Interpretation: baseline revenue is $3.2M, each $1K on TV adds $45 in revenue, each $1K online adds $180.
+
+</DerivationStep>
+<DerivationStep number={4} title="Optimize the budget allocation">
+
+With $100K budget, allocate to maximize $0.045 \cdot \text{TV} + 0.18 \cdot \text{Online}$. Since online ROI is 4x that of TV, allocate the full budget to online (in this simplified model). In practice, diminishing returns would require a nonlinear model.
+
+</DerivationStep>
+</DerivationSteps>
+
+## Properties of the OLS Estimator
+
+### The Gauss-Markov Theorem
+
+Under assumptions 1-5 (linearity, independence, homoscedasticity, no multicollinearity, exogeneity -- normality is NOT required), the OLS estimator is **BLUE**: Best Linear Unbiased Estimator.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Linear">
+
+$\hat{\boldsymbol{\beta}}$ is a linear function of $\mathbf{y}$: $\hat{\boldsymbol{\beta}} = \mathbf{C}\mathbf{y}$ where $\mathbf{C} = (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T$.
+
+</DerivationStep>
+<DerivationStep number={2} title="Unbiased">
+
+$$E[\hat{\boldsymbol{\beta}}] = E[(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}] = (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{X}\boldsymbol{\beta} = \boldsymbol{\beta}$$
+
+</DerivationStep>
+<DerivationStep number={3} title="Best (Minimum Variance)">
+
+$\text{Var}(\hat{\boldsymbol{\beta}}) = \sigma^2(\mathbf{X}^T\mathbf{X})^{-1}$. For any other linear unbiased estimator $\tilde{\boldsymbol{\beta}}$, the matrix $\text{Var}(\tilde{\boldsymbol{\beta}}) - \text{Var}(\hat{\boldsymbol{\beta}})$ is positive semi-definite.
+
+</DerivationStep>
+</DerivationSteps>
+
+### Climate Trend Application
+
+Fitting a linear trend to global temperature anomalies (1880-present): $\text{Anomaly} = \beta_0 + \beta_1 \cdot \text{Year}$. The OLS estimate $\hat{\beta}_1 \approx 0.008$ degrees C per year is the BLUE -- no other linear unbiased procedure produces a tighter confidence interval for the warming trend.
+
+<QuizCard
+  question="In the Normal Equation, what condition is required for (X^T X)^{-1} to exist?"
+  options={['The response variable must be normally distributed', 'X must have full column rank (no perfect multicollinearity)', 'The sample size n must be larger than 1000', 'The learning rate must be set correctly']}
+  correct={1}
+/>

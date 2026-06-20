@@ -23,7 +23,7 @@ export const courses = [
     title: 'Regression: Linear and Logistic',
     description: '4 interactive modules with full mathematical derivations, KaTeX equations, and Plotly.js widgets.',
     color: '#3b82f6',
-    trackPath: 'Regression',
+    trackPath: 'regression',
     modules: [
       { id: 'regression-m1', title: 'Linear Regression',                    file: '01-linear-regression.html',         description: 'Assumptions, coefficient interpretation, performance evaluation, house price prediction.',    readTime: 20 },
       { id: 'regression-m2', title: 'Mathematics of Linear Regression',     file: '02-math-linear-regression.html',    description: 'Normal equation derivation, gradient descent animation, Gauss-Markov theorem.',             readTime: 25 },
