@@ -1,0 +1,259 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+## Why Do We Need a Splitting Criterion?
+
+A decision tree works by recursively partitioning data. At each node we must answer: *which feature, and which threshold, gives us the best split?* Without a mathematical measure of "good," we have no way to compare one candidate split against another.
+
+Consider a clinical dataset with 10 patients — 6 with a disease (positive) and 4 without (negative). Two candidate features both produce a binary split:
+
+| Split | Left child | Right child | Intuitive quality |
+|---|---|---|---|
+| **Feature A** | 5 pos, 1 neg | 1 pos, 3 neg | Both children are reasonably homogeneous |
+| **Feature B** | 3 pos, 3 neg | 3 pos, 1 neg | Left child is perfectly mixed — useless |
+
+Feature A is clearly better: its left child is almost all positive; its right child is majority negative. Feature B's left child is a coin flip. The tree cannot make a useful prediction there. We say Feature A produces *purer* children. But "intuition" is not an algorithm — we need a number.
+
+<Bridge>
+**From intuition to formula.** We need a scalar function *I(t)* defined on a node *t* such that *I(t) = 0* when the node is perfectly pure (all one class) and *I(t)* is maximised when classes are equally mixed. Then the *gain* of a split is *I(parent) minus weighted sum of I(children)*. We pick whichever split maximises that gain. The three standard choices are Gini impurity, Shannon entropy, and misclassification rate.
+</Bridge>
+
+## Gini Impurity
+
+Start from a probabilistic thought experiment. Pick two samples at random (with replacement) from a node. What is the probability they belong to *different* classes? That probability is the Gini impurity.
+
+For class *k*, the probability of picking it first is $p_k$, and the probability the *next* pick is *not* class *k* is $1 - p_k$. Summing over all classes:
+
+$$G(t) = \sum_{k=1}^{K} p_k(1 - p_k) = 1 - \sum_{k=1}^{K} p_k^2$$
+
+The equivalence of the two forms follows from $\sum_k p_k = 1$:
+
+$$\sum_{k=1}^{K} p_k(1 - p_k) = \sum_k p_k - \sum_k p_k^2 = 1 - \sum_k p_k^2$$
+
+<ConceptBox title="Key properties of Gini impurity">
+- **G = 0** when the node is pure (all samples belong to one class, so one $p_k = 1$ and the rest are 0).
+- **G = 1 − 1/K** at maximum, achieved when all K classes are equally represented ($p_k = 1/K$ for all k).
+- For **binary classification**: $G = 2p(1-p)$, which reaches its maximum of **0.5** at *p = 0.5*.
+</ConceptBox>
+
+### Worked example
+
+A node has 6 positives and 4 negatives (10 samples total). $p_+ = 0.6$, $p_- = 0.4$.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Compute squared proportions">
+$$p_+^2 + p_-^2 = 0.6^2 + 0.4^2 = 0.36 + 0.16 = 0.52$$
+
+Square each class proportion and sum them.
+</DerivationStep>
+<DerivationStep number={2} title="Apply the Gini formula">
+$$G = 1 - \sum_k p_k^2 = 1 - 0.52 = 0.48$$
+
+Subtract from 1. A value of 0.48 is close to the maximum of 0.5, confirming the node is nearly balanced.
+</DerivationStep>
+</DerivationSteps>
+
+## Shannon Entropy
+
+Information theory asks: how many bits on average are needed to encode the class label of a randomly drawn sample? If the node is pure, you already know the label — zero bits needed. If classes are equally mixed, you need the most bits. This quantity is Shannon entropy:
+
+$$H(t) = -\sum_{k=1}^{K} p_k \log_2 p_k$$
+
+By convention, $0 \cdot \log_2 0 = 0$ (the limit as $p \to 0^+$ is 0).
+
+<ConceptBox title="Key properties of Shannon entropy">
+- **H = 0** when the node is pure.
+- **H = log₂(K)** at maximum, when all classes are equally likely.
+- For **binary classification**: $H = -p\log_2 p - (1-p)\log_2(1-p)$, reaching a maximum of **1 bit** at *p = 0.5*.
+- Entropy is slightly more sensitive than Gini near the extremes (pure nodes), which can make it prefer splits that isolate small pure subsets.
+</ConceptBox>
+
+### Worked example (same node: 6 positives, 4 negatives)
+
+<DerivationSteps>
+<DerivationStep number={1} title="Compute each term">
+$$0.6 \cdot \log_2(0.6) = 0.6 \cdot (-0.737) = -0.442$$
+
+$$0.4 \cdot \log_2(0.4) = 0.4 \cdot (-1.322) = -0.529$$
+
+Recall log₂(0.6) = ln(0.6)/ln(2) ≈ −0.737 and log₂(0.4) ≈ −1.322.
+</DerivationStep>
+<DerivationStep number={2} title="Sum and negate">
+$$H = -(-0.442 - 0.529) = -(-0.971) = 0.971 \text{ bits}$$
+
+Close to 1 bit (maximum for binary), again confirming the node is nearly balanced.
+</DerivationStep>
+</DerivationSteps>
+
+## Misclassification Rate
+
+The simplest impurity measure: if we assign every sample in the node to the majority class, what fraction do we misclassify?
+
+$$E(t) = 1 - \max_k \, p_k$$
+
+For the 6/4 node: $E = 1 - 0.6 = 0.4$. For a pure node: $E = 0$. For the balanced binary case (p = 0.5): $E = 0.5$.
+
+**Why misclassification rate is not used for splitting in practice:** Consider a parent with 10 samples: 6 positive, 4 negative. $E(\text{parent}) = 0.4$.
+
+**Split X:** left = {4+, 4−}, right = {2+, 0−}. Weighted E = (8/10)(1 − 0.5) + (2/10)(0) = 0.4. Gain = **0**.
+
+**Split Y:** left = {4+, 1−}, right = {2+, 3−}. Weighted E = (5/10)(1 − 0.8) + (5/10)(1 − 0.6) = 0.30. Gain = **0.10**.
+
+Split Y is clearly better. Yet for Split X, misclassification rate reports *zero gain* because the majority class in the left child did not change. Entropy and Gini both correctly reward Split Y with a positive gain. This insensitivity makes misclassification rate a poor criterion for choosing splits.
+
+## Information Gain and Gini Gain
+
+To evaluate a split that sends $|t_L|$ samples left and $|t_R|$ samples right (from a parent with $|t|$ samples), we compute how much the weighted child impurity is below the parent impurity.
+
+$$\text{IG}(t, A) = H(t) - \frac{|t_L|}{|t|} H(t_L) - \frac{|t_R|}{|t|} H(t_R)$$
+
+$$\text{GG}(t, A) = G(t) - \frac{|t_L|}{|t|} G(t_L) - \frac{|t_R|}{|t|} G(t_R)$$
+
+The term $\frac{|t_L|}{|t|} I(t_L) + \frac{|t_R|}{|t|} I(t_R)$ is the *weighted child impurity*. We choose the feature and threshold that **maximises** the gain.
+
+### Worked example: step-by-step Information Gain
+
+Parent: 6 positive, 4 negative (10 total). Split A sends 5+/1− left and 1+/3− right.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Parent entropy">
+$$H(\text{parent}) = -(0.6 \log_2 0.6 + 0.4 \log_2 0.4) = 0.971 \text{ bits}$$
+</DerivationStep>
+<DerivationStep number={2} title="Left child entropy (5+, 1−; n=6)">
+$$H_L = -\tfrac{5}{6}\log_2\tfrac{5}{6} - \tfrac{1}{6}\log_2\tfrac{1}{6} = 0.650 \text{ bits}$$
+
+The left child is mostly positive, so entropy is below 1 bit.
+</DerivationStep>
+<DerivationStep number={3} title="Right child entropy (1+, 3−; n=4)">
+$$H_R = -\tfrac{1}{4}\log_2\tfrac{1}{4} - \tfrac{3}{4}\log_2\tfrac{3}{4} = 0.811 \text{ bits}$$
+
+The right child is 75% negative — still some mixed-ness.
+</DerivationStep>
+<DerivationStep number={4} title="Weighted child impurity">
+$$\frac{6}{10}(0.650) + \frac{4}{10}(0.811) = 0.390 + 0.324 = 0.714 \text{ bits}$$
+
+Weight each child by its share of the parent.
+</DerivationStep>
+<DerivationStep number={5} title="Information Gain">
+$$\text{IG} = 0.971 - 0.714 = \mathbf{0.257} \text{ bits}$$
+
+This split reduces uncertainty by 0.257 bits — a substantial improvement for just 10 samples.
+</DerivationStep>
+</DerivationSteps>
+
+## The CART Algorithm
+
+CART (Classification and Regression Trees, Breiman et al. 1984) finds the best split at each node by exhaustive search: try every feature, try every threshold, compute the Gini gain, keep the best. Then recurse on each child until a stopping criterion is met.
+
+```
+BuildTree(data, depth, maxDepth, minSamples):
+  if depth == maxDepth or |data| < minSamples or all labels same:
+    return Leaf(majority_class(data))
+
+  bestGain = -INF
+  bestFeature, bestThreshold = None, None
+
+  for each feature j:
+    for each unique value t in data[j]:
+      left  = data where x_j <= t
+      right = data where x_j >  t
+      gain  = GiniGain(data, left, right)
+      if gain > bestGain:
+        bestGain, bestFeature, bestThreshold = gain, j, t
+
+  return Node(bestFeature, bestThreshold,
+              left  = BuildTree(leftData,  depth+1, ...),
+              right = BuildTree(rightData, depth+1, ...))
+```
+
+### Stopping criteria
+
+Recursion terminates when any of these conditions hold:
+
+1. **Maximum depth reached** — the `max_depth` hyperparameter. Prevents the tree from growing arbitrarily deep and overfitting.
+2. **Too few samples in the node** — the `min_samples_split` (or `min_samples_leaf`) hyperparameter. A split that leaves a child with only 1 sample usually overfits.
+3. **Gain below a threshold** — the `min_impurity_decrease` parameter in scikit-learn. A split must improve impurity by at least this amount to be accepted; otherwise the node becomes a leaf.
+4. **All samples have the same label** — the node is already pure; splitting cannot improve things further.
+
+### Computational complexity
+
+At a single node with *n* samples and *p* features, the naive cost per node is $O(n^2 \cdot p)$. With up to *n* nodes per depth level and a tree of depth *d*:
+
+$$\text{Total} = O(n^2 \cdot p \cdot d)$$
+
+In practice scikit-learn pre-sorts each feature column once before fitting, which reduces the per-node cost to $O(n \log n \cdot p)$, making moderately large datasets tractable.
+
+<ConceptBox title="Interactive Widget">
+This widget shows three interactive charts: (1) Gini impurity, entropy, and misclassification rate plotted as a function of p (positive class proportion); (2) an impurity calculator where you adjust positive and negative sample counts; (3) an information gain calculator showing parent entropy, weighted child entropy, and gain as a bar chart. The key takeaway is that all three measures reach 0 at pure nodes and are maximized at equal class mixing, but entropy is slightly more sensitive near the extremes.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+## Practice
+
+#### Problem 1: Computing impurity measures by hand
+
+A node contains 8 samples: 5 belong to class A and 3 to class B.
+
+Compute each of the following:
+1. Gini impurity $G(t)$
+2. Shannon entropy $H(t)$ (base 2)
+3. Misclassification rate $E(t)$
+
+**Solution:**
+
+**(a) Gini impurity.** $p_A = 5/8 = 0.625$, $p_B = 3/8 = 0.375$.
+
+$$G = 1 - (p_A^2 + p_B^2) = 1 - \left(\frac{25}{64} + \frac{9}{64}\right) = 1 - \frac{34}{64} = \frac{30}{64} \approx 0.469$$
+
+**(b) Shannon entropy.** $\log_2(0.625) \approx -0.678$, $\log_2(0.375) \approx -1.415$.
+
+$$H = -(0.625 \cdot (-0.678) + 0.375 \cdot (-1.415)) = 0.954 \text{ bits}$$
+
+**(c) Misclassification rate.** The majority class is A with 5/8 samples.
+
+$$E = 1 - \max_k p_k = 1 - \frac{5}{8} = 0.375$$
+
+#### Problem 2: Comparing Gini Gain for two candidate splits
+
+A parent node has 10 samples: 6 positive (+) and 4 negative (−). Two candidate splits are proposed:
+- **Split A:** left child = {4+, 0−}, right child = {2+, 4−}
+- **Split B:** left child = {3+, 1−}, right child = {3+, 3−}
+
+Compute the Gini Gain for both splits. Which split is better?
+
+**Solution:**
+
+$$G(\text{parent}) = 1 - (0.6^2 + 0.4^2) = 1 - 0.52 = 0.480$$
+
+**Split A.** Left child (4+, 0−; n=4): pure, so $G_L = 0$. Right child (2+, 4−; n=6): $p_+ = 2/6, p_- = 4/6$.
+
+$$G_R = 1 - \left(\tfrac{4}{36} + \tfrac{16}{36}\right) = \tfrac{16}{36} \approx 0.444$$
+
+$$\text{GG}_A = 0.480 - \tfrac{4}{10}(0) - \tfrac{6}{10}(0.444) = 0.480 - 0.267 = \mathbf{0.213}$$
+
+**Split B.** Left child (3+, 1−; n=4): $G_L = 1 - (9/16 + 1/16) = 0.375$. Right child (3+, 3−; n=6): $G_R = 0.500$.
+
+$$\text{GG}_B = 0.480 - \tfrac{4}{10}(0.375) - \tfrac{6}{10}(0.500) = 0.480 - 0.150 - 0.300 = \mathbf{0.030}$$
+
+**Conclusion:** Split A (Gini Gain = 0.213) is far superior to Split B (Gini Gain = 0.030). Split A isolates all 4 positives in a pure left child. Split B leaves its right child perfectly balanced.
+
+#### Problem 3: Proving the maximum of Gini and bounding it by misclassification rate
+
+For binary classification with class proportion *p*:
+
+1. Prove, using calculus, that $G(p) = 2p(1-p)$ attains its maximum at $p = 0.5$.
+2. Prove that Gini impurity is always at most twice the misclassification rate, i.e. $G(t) \leq 2 E(t)$ for any $p \in [0,1]$.
+
+**Solution Part 1:** Differentiate: $\frac{d}{dp}[2p(1-p)] = 2 - 4p$. Set to zero: $p = 1/2$. Second derivative is $-4 < 0$, confirming maximum. At $p = 0.5$: $G = 0.5$.
+
+**Solution Part 2:** WLOG assume $p \leq 0.5$. Then $E = p$ and $G = 2p(1-p)$.
+
+$$2p(1-p) \leq 2p \iff 1-p \leq 1 \iff p \geq 0$$
+
+This holds for all $p \in [0,1]$. More cleanly: $E = \min(p, 1-p)$, so $G = 2p(1-p) \leq 2\min(p,1-p) = 2E$.
+
+<QuizCard
+  question="Which impurity measure is NOT recommended as a splitting criterion in CART because it can report zero gain even when a split clearly improves class separation?"
+  options={['Gini impurity', 'Shannon entropy', 'Misclassification rate', 'Information gain']}
+  correct={2}
+/>

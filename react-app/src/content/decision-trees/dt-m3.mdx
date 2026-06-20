@@ -1,0 +1,132 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+**Building on Module 2:** You now know how to *measure* node impurity using the Gini index and entropy. The next question is: given a continuous feature, how do we systematically *find* the split threshold that maximises impurity reduction?
+</Bridge>
+
+## 1. The Core Problem of Splitting
+
+For a continuous feature $X$ with $n$ training samples, there are up to $n - 1$ candidate split thresholds — one midway between each pair of adjacent sorted values. The algorithm must evaluate every candidate at every feature.
+
+**Naive Complexity:** With $p$ features and $n$ samples, the naive approach evaluates $O(n \cdot p)$ candidates per node, each requiring a full scan of $n$ samples. That is $O(n^2 p)$ per node — unacceptably slow for large datasets.
+
+**Efficient Approach with Sorting:** Sort the samples by feature value once: $O(n \log n)$. Then sweep the sorted order, maintaining running class counts for left and right partitions. Each candidate threshold can be evaluated in $O(1)$ by updating counts incrementally. Total cost per feature per node: $O(n \log n)$ for the sort plus $O(n)$ for the sweep.
+
+<ConceptBox title="Candidate Threshold Generation">
+Given sorted unique values $v_1 < v_2 < \cdots < v_m$, the $m - 1$ candidate thresholds are the midpoints:
+
+$$s_i = \frac{v_i + v_{i+1}}{2}, \quad i = 1, \ldots, m-1$$
+
+Using midpoints rather than raw values avoids ties and is invariant to the precise boundary location between classes. Any threshold in the open interval $(v_i, v_{i+1})$ produces the same partition — the midpoint is a convenient canonical representative. sklearn uses this convention.
+</ConceptBox>
+
+## 2. The Gini Split Formula
+
+Recall from Module 2 that the Gini impurity of a node $t$ containing $K$ classes with proportions $p_1, \ldots, p_K$ is:
+
+$$G(t) = 1 - \sum_{k=1}^{K} p_k^2$$
+
+For a candidate split on feature $j$ at threshold $s$, define:
+- $t_L = \{x \mid x_j \le s\}$ — the left child node
+- $t_R = \{x \mid x_j > s\}$ — the right child node
+- $n_L, n_R$ — the sample counts in each child, with $n_L + n_R = n$
+
+The **Gini Gain** (or reduction in weighted impurity) is:
+
+$$\text{GiniGain}(j,\, s) \;=\; G(t) \;-\; \frac{n_L}{n}\,G(t_L) \;-\; \frac{n_R}{n}\,G(t_R)$$
+
+The optimal split selects the feature and threshold that maximise this gain:
+
+$$(j^*,\, s^*) = \operatorname*{arg\,max}_{j,\, s}\; \text{GiniGain}(j,\, s)$$
+
+## 3. Full Worked Example — Step by Step
+
+Consider 12 students described by two continuous features: **Study Hours (X1)** and **Sleep Hours (X2)**, with a binary label Pass / Fail.
+
+| # | Study Hours (X1) | Sleep Hours (X2) | Label |
+|---|-----------------|-----------------|-------|
+| 1 | 2 | 5 | Fail |
+| 2 | 3 | 7 | Fail |
+| 3 | 4 | 6 | Fail |
+| 4 | 5 | 8 | Pass |
+| 5 | 5 | 5 | Fail |
+| 6 | 6 | 7 | Pass |
+| 7 | 6 | 6 | Pass |
+| 8 | 7 | 9 | Pass |
+| 9 | 7 | 4 | Fail |
+| 10 | 8 | 7 | Pass |
+| 11 | 8 | 8 | Pass |
+| 12 | 9 | 6 | Pass |
+
+Overall: **8 Pass, 4 Fail**.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Compute parent Gini impurity.">
+$$G(\text{root}) = 1 - \left(\frac{8}{12}\right)^2 - \left(\frac{4}{12}\right)^2 = 1 - \frac{4}{9} - \frac{1}{9} = \frac{4}{9} \approx 0.4444$$
+</DerivationStep>
+
+<DerivationStep number={2} title="Enumerate candidate thresholds for X1.">
+Sort unique X1 values: $[2, 3, 4, 5, 6, 7, 8, 9]$. The midpoints between adjacent values give 7 candidate thresholds:
+
+$$s \in \{2.5,\; 3.5,\; 4.5,\; 5.5,\; 6.5,\; 7.5,\; 8.5\}$$
+
+For X2 (unique values 4,5,6,7,8,9) the candidates are $\{4.5, 5.5, 6.5, 7.5, 8.5\}$.
+</DerivationStep>
+
+<DerivationStep number={3} title="Evaluate key thresholds for X1.">
+**X1 ≤ 2.5:** Left = {sample 1} = {0P, 1F}. Right = {samples 2–12} = {8P, 3F}.
+
+$$G_L = 0,\quad G_R = 1 - \left(\frac{8}{11}\right)^2 - \left(\frac{3}{11}\right)^2 = \frac{48}{121} \approx 0.3967$$
+
+$$\text{GiniGain}(X_1, 2.5) = 0.4444 - \frac{1}{12}(0) - \frac{11}{12}(0.3967) \approx 0.0807$$
+
+**X1 ≤ 4.5:** Left = {1,2,3} = {0P, 3F}. Right = {4–12} = {8P, 1F}.
+
+$$G_L = 0,\quad G_R = 1 - \left(\frac{8}{9}\right)^2 - \left(\frac{1}{9}\right)^2 = \frac{16}{81} \approx 0.1975$$
+
+$$\text{GiniGain}(X_1, 4.5) = 0.4444 - \frac{3}{12}(0) - \frac{9}{12}(0.1975) \approx 0.2963$$
+
+The left child is **perfectly pure** (all Fail) when we cut at 4.5 — a strong signal.
+</DerivationStep>
+
+<DerivationStep number={4} title="Full X1 threshold table.">
+| Threshold | Left (P/F) | Right (P/F) | Gini_L | Gini_R | Weighted | Gain |
+|-----------|-----------|------------|--------|--------|----------|------|
+| X1 ≤ 2.5 | 0P/1F | 8P/3F | 0 | 0.3967 | 0.3637 | 0.0807 |
+| X1 ≤ 3.5 | 0P/2F | 8P/2F | 0 | 0.4444 | 0.3333 | 0.1111 |
+| **X1 ≤ 4.5** | **0P/3F** | **8P/1F** | **0** | **0.1975** | **0.1481** | **0.2963** |
+| X1 ≤ 5.5 | 1P/4F | 7P/0F | 0.32 | 0 | 0.1067 | 0.3377 |
+| X1 ≤ 6.5 | 3P/4F | 5P/0F | 0.4898 | 0 | 0.2857 | 0.1587 |
+| X1 ≤ 7.5 | 5P/5F | 3P/0F | 0.5 | 0 | 0.4167 | 0.0278 |
+| X1 ≤ 8.5 | 7P/5F | 1P/0F | 0.4592 | 0 | 0.3827 | 0.0617 |
+
+**Winner for X1: threshold = 5.5** with GiniGain = 0.3377.
+</DerivationStep>
+
+<DerivationStep number={5} title="Compare X1 vs X2 and select the best split.">
+The best X2 split is at 6.5 (GiniGain ≈ 0.1852), lower than the best X1 split (0.3377).
+
+**Best overall split: X1 ≤ 5.5** with GiniGain = 0.3377.
+
+- Left child (X1 ≤ 5.5): 1P/4F → majority class = Fail, but not pure. Continue splitting.
+- Right child (X1 > 5.5): 7P/0F → **pure leaf** — predict Pass. No further splitting needed.
+</DerivationStep>
+</DerivationSteps>
+
+## 4. Handling Categorical Features
+
+For a categorical feature with $C$ unique values, there are $2^{C-1} - 1$ possible subsets of values for the left child. For binary features, this is just one threshold. For features with many categories, this becomes expensive.
+
+**Common approach:** In scikit-learn, ordinal encodings are used and treated as continuous features. For truly nominal features, one-hot encoding is applied before tree training, converting each category into a binary feature.
+
+<ConceptBox title="Interactive Widget: Gini Split Explorer">
+This widget lets you drag a threshold slider and watch the Gini gain update in real time. The scatter plot shows the student data; the split line divides points into left and right partitions. The gain plot shows GiniGain for every candidate threshold across all features.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+<QuizCard
+  question="Why are midpoints used as candidate split thresholds rather than the raw feature values themselves?"
+  options={['Midpoints reduce the number of candidates from n to n/2', 'Any threshold in the interval (vᵢ, vᵢ₊₁) produces the same partition; the midpoint is a canonical representative', 'Midpoints always produce lower Gini impurity than raw values', 'Using raw values causes overflow in the Gini calculation']}
+  correct={1}
+/>

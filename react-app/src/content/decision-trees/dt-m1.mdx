@@ -1,0 +1,194 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+## Why Decision Trees?
+
+Imagine a cardiologist seeing a patient for the first time. Before ordering any scans, she runs through a sequence of focused questions: "Is the patient over 50?" If yes — "Does the patient smoke?" If yes — "Is blood pressure above 140 mmHg?" By the time she reaches a conclusion, she has followed a branching chain of conditions, each one narrowing the diagnostic space until a single leaf node is reached: *high cardiovascular risk, refer to specialist*.
+
+This is not just a metaphor. It is literally a decision tree encoded in expert reasoning. The doctor's protocol can be drawn as a graph, transcribed into pseudocode, and fit to data. Decision trees make this explicit and learnable from examples.
+
+Now consider why a linear model fails in this setting. A logistic regression draws a single hyperplane to separate classes. In many real problems, the boundary is not a straight line. Consider XOR-patterned data: points are labeled positive when both features are high or both are low, and negative otherwise. No straight line can separate these classes — the decision boundary is inherently non-linear and axis-aligned.
+
+**The XOR problem:** A dataset where class 1 occupies quadrants (high x1, high x2) and (low x1, low x2), and class 0 occupies the other two quadrants, is not linearly separable. A logistic regression trained on it achieves roughly 50% accuracy. A depth-2 decision tree perfectly separates it with two axis-aligned cuts. This is a fundamental structural advantage.
+
+<Bridge>
+**From intuition to formalism.** The doctor's diagnostic protocol is informal — passed on through training, refined by experience. A decision tree algorithm formalizes the same process: it learns the sequence of questions and thresholds from labeled data, selecting at each step the question that most cleanly separates the classes. The result is a model that is both interpretable (you can read it like a flowchart) and mathematically precise (it defines a piecewise-constant function over the feature space). The next section lays out the anatomy of that structure.
+</Bridge>
+
+## Anatomy of a Decision Tree
+
+A decision tree is a directed acyclic graph with three types of nodes. Understanding the vocabulary is essential before tackling the math.
+
+<ConceptBox title="Key Terms">
+- **Root node** — the top-most node; receives all training samples; contains the first split question.
+- **Internal node** — any non-leaf node; contains a split condition of the form $x_j \leq t$; routes each sample to a left or right child.
+- **Leaf node** — a terminal node; makes a prediction (majority class for classification, mean for regression).
+- **Split** — the test applied at an internal node to divide the data into two subsets.
+- **Branch** — the edge connecting a parent node to a child; each internal node produces exactly two branches (left = condition true, right = condition false).
+- **Depth** — the number of edges on the longest path from the root to a leaf. A root-only tree has depth 0.
+- **Path** — the sequence of nodes traversed from the root to reach a given leaf; the path for a sample encodes all the conditions that were satisfied.
+</ConceptBox>
+
+The tree below classifies loan applications using three features: annual income, credit score, and employment status. Each internal node shows the split condition. Each leaf shows the predicted class. (See original HTML for SVG diagram.)
+
+Notice that each internal node carries a single binary question. Every sample in the training set follows a unique path from root to leaf, determined entirely by its feature values. When two samples reach the same leaf, the tree predicts the same class for both — this is what it means for a decision tree to define a partition of the feature space.
+
+## How Prediction Works
+
+Prediction is traversal: given a new sample $\mathbf{x}$, start at the root, evaluate the split condition, follow the matching branch, and repeat until reaching a leaf. The leaf's stored prediction is returned.
+
+For classification, the leaf prediction is the **majority class** among training samples that fell into that leaf. Optionally, the leaf stores a full probability vector (the fraction of each class). For regression, the leaf prediction is the **mean** of the training target values that reached that leaf.
+
+This traversal is $O(d)$ in time, where $d$ is the tree depth — one comparison per level. Decision trees have extremely fast inference for this reason.
+
+### Worked Trace: Loan Approval Tree
+
+Consider an applicant with `income = 60k`, `credit_score = 680`, `employed = yes (full-time)`. Trace their path through the tree above:
+
+<DerivationSteps>
+<DerivationStep number={1} title="Root node: income > 50k?">
+The applicant's income is 60k. 60k > 50k is **True**. Follow the right branch.
+</DerivationStep>
+<DerivationStep number={2} title="Right internal node: employed = full-time?">
+The applicant's employment status is full-time. The condition is **True**. Follow the right branch of this node.
+</DerivationStep>
+<DerivationStep number={3} title="Right-right leaf reached: APPROVED">
+This leaf was reached by training samples that were high-income and fully employed. The majority class in that leaf is "Approved". The tree predicts **APPROVED**.
+</DerivationStep>
+<DerivationStep number={4} title="Note: credit_score was never used">
+The credit score of 680 plays no role in this prediction. Once a sample reaches a subtree, only the features queried in that subtree matter. This is the path-based locality of decision trees — different samples use different subsets of features.
+</DerivationStep>
+</DerivationSteps>
+
+**Path length versus depth:** Every sample's traversal length is exactly equal to the depth at which its leaf sits. In a balanced tree of depth $d$, all samples travel the same distance. In a lopsided tree, some samples are classified at depth 1 and others at depth $d$. This means a decision tree implicitly assigns a complexity budget to each region: simple, well-separated regions get shallow leaves; ambiguous regions get deeper subtrees.
+
+## The Decision Tree as a Function
+
+Behind the flowchart intuition is a precise mathematical object. A decision tree with $K$ leaves partitions the input space $\mathcal{X}$ into $K$ disjoint rectangular regions $R_1, R_2, \ldots, R_K$. Each region $R_k$ has an associated constant prediction $c_k$. The function the tree computes is:
+
+$$f(\mathbf{x}) = \sum_{k=1}^{K} c_k \cdot \mathbf{1}\bigl[\mathbf{x} \in R_k\bigr]$$
+
+where $\mathbf{1}[\mathbf{x} \in R_k]$ is the indicator function equal to 1 if $\mathbf{x}$ falls in region $R_k$ and 0 otherwise. Because the regions partition the space, exactly one indicator is 1 for any input, and the sum collapses to $c_k$ for whichever region contains $\mathbf{x}$.
+
+<ConceptBox title="What training does, mathematically">
+Training a decision tree means finding the partition $\{R_1, \ldots, R_K\}$ and the predictions $\{c_1, \ldots, c_K\}$ that minimize a loss function over the training data. For classification, the loss is typically Gini impurity or entropy. For regression, it is MSE. The CART algorithm solves this greedily — one split at a time — because the exact optimal partition is NP-hard to find.
+</ConceptBox>
+
+### Axis-Aligned Cuts
+
+Each split has the form $x_j \leq t$ for some feature index $j$ and threshold $t \in \mathbb{R}$. This means every boundary is **parallel to a feature axis**. The regions $R_k$ are always axis-aligned hyper-rectangles (intersections of half-spaces of the form $x_j \leq t$ or $x_j > t$).
+
+This is a key structural constraint. A support vector machine can draw an oblique boundary; a neural network can draw a curved one. A decision tree can only cut horizontally or vertically in feature space. As a result:
+
+- A diagonal linear boundary in 2D requires many small steps to approximate — you need many shallow cuts along both axes.
+- A diagonal XOR boundary is approximated perfectly at depth 2 because the true boundary already happens to be axis-aligned in quadrant form.
+- Deep trees can approximate any smooth boundary arbitrarily well, but at the cost of overfitting.
+
+**Why rectangles matter:** The fact that regions are rectangles makes a decision tree easy to visualize, audit, and explain. Every leaf corresponds to a human-readable rule: "income > 50k AND employed = full-time." No other mainstream model produces such interpretable rules directly from its learned structure.
+
+## Classification vs. Regression Trees
+
+The structure — root, internal nodes, splits, leaves — is identical for classification and regression trees. Only two things differ: what the leaf stores, and how splits are evaluated.
+
+| Property | Classification Tree | Regression Tree |
+|---|---|---|
+| Leaf prediction | Majority class (or class probabilities) | Mean of training targets in leaf |
+| Splitting criterion | Gini impurity, Shannon entropy | MSE reduction, MAE reduction |
+| Loss minimized | Misclassification rate (impurity) | Mean squared error |
+| Output type | Discrete class label | Continuous real value |
+| Prediction formula | $c_k = \arg\max_c \,\|\{i : y_i = c,\, \mathbf{x}_i \in R_k\}\|$ | $c_k = \frac{1}{\|R_k\|}\sum_{\mathbf{x}_i \in R_k} y_i$ |
+
+This module focuses on classification trees. Regression trees follow the same CART algorithm with MSE replacing impurity as the split criterion.
+
+<Bridge>
+**From structure to training.** We now know what a decision tree is — a piecewise-constant function defined by a recursive partition of the feature space into axis-aligned rectangles. But we have not yet said how to find the best partition from data. That is the job of the training algorithm: choose the feature and threshold at each node to maximally reduce impurity. The impurity measures — Gini, entropy — are derived and compared in Module 2.
+</Bridge>
+
+<ConceptBox title="Interactive Widget">
+This widget demonstrates how a CART decision tree's decision boundary evolves as depth increases on a toy dataset (80 students, Study Hours vs. Sleep Hours). The key takeaway is that deeper trees produce more complex, more overfit boundaries while increasing training accuracy.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+## Practice
+
+#### Problem 1: Tracing Predictions
+
+A decision tree has the following structure:
+- Root: temperature ≤ 20°C
+- Left child (temperature ≤ 20): Predict: No Rain
+- Right child (temperature > 20): humidity ≤ 60%
+- Right-right child (humidity > 60): Predict: Rain
+- Right-left child (humidity ≤ 60): Predict: No Rain
+
+Trace the prediction for each of the following samples:
+
+a. temperature = 15°C, humidity = 70%
+b. temperature = 25°C, humidity = 50%
+c. temperature = 22°C, humidity = 65%
+
+**Solution:**
+
+**(a) temperature = 15, humidity = 70:** Root: 15 ≤ 20 is True → Left child. Left child is a leaf: predict **No Rain**. (Humidity is never checked.)
+
+**(b) temperature = 25, humidity = 50:** Root: 25 ≤ 20 is False → Right child. Right child: 50 ≤ 60 is True → Right-left leaf. Predict **No Rain**.
+
+**(c) temperature = 22, humidity = 65:** Root: 22 ≤ 20 is False → Right child. Right child: 65 ≤ 60 is False → Right-right leaf. Predict **Rain**.
+
+#### Problem 2: Piecewise Function from a Tree
+
+A decision tree produces four leaf regions in 2D feature space. The splits are as follows:
+- First split: $x_1 \leq 3$
+- For $x_1 \leq 3$: second split $x_2 \leq 2$
+- For $x_1 > 3$: second split $x_2 \leq 5$
+
+The leaf predictions are: $c_1 = 1$ (left-left), $c_2 = 0$ (left-right), $c_3 = 1$ (right-left), $c_4 = 0$ (right-right).
+
+Write the complete piecewise function $f(x_1, x_2)$ using indicator notation.
+
+**Solution:**
+
+The four regions and their predictions are:
+- $R_1: x_1 \leq 3 \text{ and } x_2 \leq 2 \Rightarrow c_1 = 1$
+- $R_2: x_1 \leq 3 \text{ and } x_2 > 2 \Rightarrow c_2 = 0$
+- $R_3: x_1 > 3 \text{ and } x_2 \leq 5 \Rightarrow c_3 = 1$
+- $R_4: x_1 > 3 \text{ and } x_2 > 5 \Rightarrow c_4 = 0$
+
+The full piecewise function is:
+
+$$f(x_1, x_2) = 1 \cdot \mathbf{1}[x_1 \leq 3,\, x_2 \leq 2] + 0 \cdot \mathbf{1}[x_1 \leq 3,\, x_2 > 2] + 1 \cdot \mathbf{1}[x_1 > 3,\, x_2 \leq 5] + 0 \cdot \mathbf{1}[x_1 > 3,\, x_2 > 5]$$
+
+Simplifying (dropping zero terms):
+
+$$f(x_1, x_2) = \mathbf{1}[x_1 \leq 3,\, x_2 \leq 2] + \mathbf{1}[x_1 > 3,\, x_2 \leq 5]$$
+
+#### Problem 3: Regression Tree Predictions and MSE
+
+A regression tree is built on the following 1D dataset:
+
+| x | y |
+|---|---|
+| 1 | 2.1 |
+| 2 | 2.9 |
+| 3 | 7.2 |
+| 4 | 8.1 |
+| 5 | 7.8 |
+
+**Part A:** The tree first splits at $x \leq 2.5$. What is the prediction for a new point $x = 3.5$? What is the MSE of this depth-1 tree on the training set?
+
+**Part B:** A second split is added at $x \leq 4.0$ within the right subtree ($x > 2.5$). Recompute all leaf predictions and the new training MSE.
+
+**Solution Part A:** Left leaf ($x \leq 2.5$): samples {x=1, y=2.1} and {x=2, y=2.9}. Prediction = mean = $(2.1 + 2.9)/2 = 2.5$. Right leaf ($x > 2.5$): samples {x=3, y=7.2}, {x=4, y=8.1}, {x=5, y=7.8}. Prediction = mean = $(7.2 + 8.1 + 7.8)/3 = 7.7$. For $x = 3.5$: $3.5 > 2.5$, so the tree predicts **7.7**.
+
+$$\text{MSE} = \frac{1}{5}\left[(2.1-2.5)^2 + (2.9-2.5)^2 + (7.2-7.7)^2 + (8.1-7.7)^2 + (7.8-7.7)^2\right] = \frac{0.74}{5} = 0.148$$
+
+**Solution Part B:** Left leaf unchanged: prediction = 2.5. Right-left leaf ($x > 2.5$ and $x \leq 4.0$): prediction = $(7.2 + 8.1)/2 = 7.65$. Right-right leaf ($x > 4.0$): prediction = 7.8.
+
+$$\text{MSE} = \frac{1}{5}\left[0.16 + 0.16 + 0.2025 + 0.2025 + 0\right] = \frac{0.725}{5} = 0.145$$
+
+The second split reduces MSE slightly from 0.148 to 0.145. The right-right leaf perfectly predicts its only training point, which is the beginning of overfitting behavior.
+
+<QuizCard
+  question="A decision tree predicts using the leaf a sample reaches during traversal. For a classification tree, what value does a leaf store?"
+  options={['The sum of all training target values', 'The majority class among training samples that fell into that leaf', 'The root node prediction', 'The mean squared error of the split']}
+  correct={1}
+/>
