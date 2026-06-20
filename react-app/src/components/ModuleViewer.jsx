@@ -79,7 +79,7 @@ export default function ModuleViewer() {
           <strong>Module {mod.moduleNumber} of {mod.totalInCourse}</strong>
         </div>
 
-        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+        <span className="readtime" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
           ~{mod.readTime} min
         </span>
 

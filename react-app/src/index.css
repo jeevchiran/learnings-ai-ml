@@ -35,7 +35,8 @@ a { text-decoration: none; color: inherit; }
 button { font-family: inherit; }
 
 /* ── App Layout ────────────────────────────────────── */
-.app { display: flex; height: 100vh; overflow: hidden; }
+/* dvh = dynamic viewport height — accounts for iOS Safari bottom bar */
+.app { display: flex; height: 100dvh; overflow: hidden; }
 
 /* ── Mobile Header (hidden on desktop) ─────────────── */
 .mobile-header {
@@ -59,7 +60,7 @@ button { font-family: inherit; }
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   transition: transform 0.2s;
 }
@@ -191,7 +192,7 @@ button { font-family: inherit; }
 /* ── Main Panel ─────────────────────────────────────── */
 .main-panel {
   flex: 1;
-  height: 100vh;
+  height: 100dvh;
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -267,7 +268,7 @@ button { font-family: inherit; }
 .continue-btn:hover { text-decoration: underline; }
 
 /* ── Module Viewer ──────────────────────────────────── */
-.module-viewer { display: flex; flex-direction: column; height: 100vh; }
+.module-viewer { display: flex; flex-direction: column; height: 100dvh; }
 
 .module-topbar {
   display: flex;
@@ -384,13 +385,13 @@ button { font-family: inherit; }
 @media (max-width: 768px) {
   .app { flex-direction: column; }
   .mobile-header { display: flex; }
-  .main-panel { height: calc(100vh - var(--topbar-h)); }
+  .main-panel { height: calc(100dvh - var(--topbar-h)); }
 
   .sidebar {
     position: fixed;
     left: 0;
     top: 0;
-    height: 100vh;
+    height: 100dvh;
     transform: translateX(-100%);
     z-index: 200;
     box-shadow: 4px 0 24px rgba(0,0,0,0.15);
@@ -408,7 +409,35 @@ button { font-family: inherit; }
 
   .sidebar-overlay.active { display: block; }
 
-  .module-topbar { overflow-x: auto; }
+  /* ── Module topbar: condense for small screens ── */
+  .module-topbar {
+    gap: 6px;
+    padding: 0 10px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* hide read-time label on mobile */
+  .module-topbar .readtime {
+    display: none;
+  }
+
+  /* shrink nav buttons to icon-only */
+  .topbar-btn {
+    padding: 4px 7px;
+    font-size: 0.7rem;
+  }
+
+  .module-breadcrumb {
+    font-size: 0.72rem;
+    max-width: 130px;
+  }
+
+  /* ── Dashboard: tighter padding ── */
+  .dashboard { padding: 16px; }
+  .stats-row { flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+  .track-grid { grid-template-columns: 1fr; gap: 10px; }
 }
 
 @media (min-width: 769px) {
