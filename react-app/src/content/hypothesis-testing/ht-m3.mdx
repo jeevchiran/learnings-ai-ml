@@ -1,0 +1,230 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+**Factory quality control.** A cereal manufacturer programs its filling machines to deliver exactly 500 g per box. The production manager knows from years of historical data that the filling process has a population standard deviation of σ = 8 g — a quantity so well-established it can be treated as known. After a recent maintenance shutdown, she wants to verify the machine is still calibrated correctly. She randomly samples 40 boxes and finds a sample mean of x̄ = 497 g. Is this 3 g shortfall just random variation, or is the machine systematically underfilling? To answer this formally — with a controlled risk of being wrong — she needs the **one-sample Z-test**.
+</Bridge>
+
+## 1. When to Use the One-Sample Z-Test
+
+The one-sample Z-test is the appropriate procedure whenever you are comparing a single observed sample mean against a specific claimed or target value for the population mean. Four conditions must hold simultaneously.
+
+<ConceptBox title="Condition 1 — Single sample vs. claimed value">
+You have one sample and one claimed population mean μ₀. You are not comparing two groups; you are asking whether a single group's mean equals a specific target.
+</ConceptBox>
+
+<ConceptBox title="Condition 2 — Known population standard deviation">
+The population standard deviation σ must be known from prior study or long-run process data. When σ is unknown and must be estimated from the sample, the t-test applies instead.
+</ConceptBox>
+
+<ConceptBox title="Condition 3 — Random and independent observations">
+The sample must be drawn randomly from the population. Each observation must be independent of the others — knowing one value gives no information about any other value.
+</ConceptBox>
+
+<ConceptBox title="Condition 4 — Approximate normality of x̄">
+Either the population itself is normally distributed, or the sample size is at least 30. The Central Limit Theorem then guarantees that x̄ is approximately normal regardless of the population's shape.
+</ConceptBox>
+
+<ConceptBox title="The Central Limit Theorem guarantee">
+For large n (≥ 30), regardless of the underlying population shape — whether it is skewed, bimodal, or heavy-tailed — the sampling distribution of x̄ converges to a normal distribution with mean μ and standard error σ/√n. This is what makes the Z-test so broadly applicable. In the factory example, 40 boxes is sufficient for the CLT to take effect. The population standard deviation σ = 8 g is known from long-run process records, so all four conditions are satisfied.
+</ConceptBox>
+
+## 2. The Sampling Distribution of the Mean
+
+The **sampling distribution of the sample mean** describes not the data itself, but the behaviour of x̄ across all possible samples of size n drawn from the same population.
+
+If the population random variable X is normally distributed with mean μ and variance σ², then the sample mean x̄ computed from n independent observations is itself normally distributed:
+
+$$\bar{X} \sim N\!\left(\mu,\, \frac{\sigma^2}{n}\right)$$
+
+The standard deviation of this sampling distribution — called the **standard error of the mean** — is:
+
+$$\text{SE}(\bar{X}) = \frac{\sigma}{\sqrt{n}}$$
+
+The standard error is the single most important quantity in sampling theory. It captures how much the sample mean x̄ typically varies from one sample to the next, purely due to chance. The standard error shrinks as n increases — larger samples produce more precise estimates of μ. A single box weight might vary by 8 g, but the mean of 40 boxes varies by only $8/\sqrt{40} \approx 1.265$ g.
+
+## 3. Deriving the Z Test Statistic
+
+The Z statistic is constructed by a single principle: if we assume H₀ is true, what would the sampling distribution of x̄ look like, and how unusual is our observed value within that distribution?
+
+<DerivationSteps>
+<DerivationStep number={1} title="State the null distribution.">
+Under H₀ (that is, assuming μ = μ₀ is true), the sampling distribution of x̄ is:
+
+$$\bar{X} \sim N\!\left(\mu_0,\, \frac{\sigma^2}{n}\right)$$
+
+This is the distribution we would expect to see if the null hypothesis were correct. All subsequent probability calculations are made relative to this distribution.
+</DerivationStep>
+
+<DerivationStep number={2} title="Standardize.">
+To convert any normal distribution to the standard normal N(0, 1), subtract the mean and divide by the standard deviation. Applying this to x̄ under H₀:
+
+$$Z = \frac{\bar{X} - \mu_0}{\sigma / \sqrt{n}}$$
+
+This is the Z test statistic. Its construction is a direct application of the standardization formula, but here applied to the sample mean.
+</DerivationStep>
+
+<DerivationStep number={3} title="Identify the null distribution of Z.">
+Since we subtracted the null mean and divided by the null standard error, the resulting quantity follows a standard normal distribution exactly (when the population is normal) or approximately (by the CLT for large n):
+
+$$Z \;\sim\; N(0,\,1) \quad \text{under } H_0$$
+
+We now have a single universal reference distribution — the standard normal — whose probabilities are fully tabulated.
+</DerivationStep>
+
+<DerivationStep number={4} title="Interpret the magnitude of Z.">
+A large positive Z means x̄ is far above μ₀; a large negative Z means x̄ is far below. A large |Z| in either direction means our observed sample mean would be very unlikely if H₀ were true.
+
+The Z statistic is measured in standard-error units. A value of Z = 2 means the sample mean is exactly 2 standard errors away from the null hypothesis value — an event that occurs only about 4.6% of the time under H₀.
+</DerivationStep>
+
+<DerivationStep number={5} title="Connect Z to the p-value.">
+The further |Z| is from 0, the smaller the p-value, and the stronger the evidence against H₀. The p-value is the probability, computed under H₀, of observing a Z as extreme as — or more extreme than — the one we computed from our data.
+
+Rejecting H₀ is equivalent to declaring that our observed Z is too far into the tail(s) of N(0,1) to be explained by chance alone.
+</DerivationStep>
+</DerivationSteps>
+
+Every part of the Z statistic carries a distinct meaning. The **numerator**, $\bar{x} - \mu_0$, is the raw difference between what we observed and what H₀ predicted. In the factory example this is 497 − 500 = −3 g. The **denominator**, $\sigma/\sqrt{n}$, tells us how much x̄ typically moves around from sample to sample when H₀ is true. The **ratio** expresses the observed gap in units of natural sampling variation.
+
+## 4. The Full Step-by-Step Testing Procedure
+
+A rigorous hypothesis test follows a fixed six-step protocol. The sequence matters: the significance level α must be chosen **before** computing the test statistic, not after seeing the data.
+
+<DerivationSteps>
+<DerivationStep number={1} title="State the hypotheses.">
+The null hypothesis always specifies an exact value: $H_0: \mu = \mu_0$
+
+The alternative hypothesis specifies the direction: two-tailed ($H_1: \mu \neq \mu_0$), left-tailed ($H_1: \mu < \mu_0$), or right-tailed ($H_1: \mu > \mu_0$). The choice must be made based on the research question, not after looking at the data.
+</DerivationStep>
+
+<DerivationStep number={2} title="Choose α and verify assumptions.">
+Select the significance level (commonly 0.05 or 0.01) before computing any statistics. Verify that all four conditions for the Z-test are satisfied: known σ, random sample, independence, and approximate normality of x̄.
+
+Checking assumptions is not a formality — applying the Z-test when σ is unknown or n is small leads to invalid p-values.
+</DerivationStep>
+
+<DerivationStep number={3} title="Compute the Z test statistic.">
+$$z_{\text{obs}} = \frac{\bar{x} - \mu_0}{\sigma / \sqrt{n}}$$
+
+This is a single number computed directly from your sample data.
+</DerivationStep>
+
+<DerivationStep number={4} title="Compute the p-value or critical value.">
+**p-value approach:**
+- Left-tailed: $p = \Phi(z_{\text{obs}})$
+- Right-tailed: $p = 1 - \Phi(z_{\text{obs}})$
+- Two-tailed: $p = 2\,\Phi(-|z_{\text{obs}}|)$
+
+Reject H₀ if p < α.
+
+**Critical value approach:** Find z* that cuts off exactly α (or α/2 for two-tailed) in the tail(s). At α = 0.05 two-tailed, critical values are ±1.96. At α = 0.01 two-tailed, they are ±2.576.
+</DerivationStep>
+
+<DerivationStep number={5} title="State the decision.">
+Either **Reject H₀** (data provide sufficient evidence against the null at the chosen significance level) or **Fail to Reject H₀** (data do not provide sufficient evidence — this is *not* the same as proving H₀ is true). Never say "accept H₀."
+</DerivationStep>
+
+<DerivationStep number={6} title="Write a plain-English conclusion in context.">
+Translate the statistical decision back into the language of the original problem. Your conclusion should mention the significance level, the direction of the effect, and the practical implication for the decision-maker.
+</DerivationStep>
+</DerivationSteps>
+
+## 5. Confidence Intervals and the Hypothesis Test Duality
+
+A two-tailed Z-test at significance level α rejects H₀: μ = μ₀ if and only if μ₀ falls *outside* the corresponding (1 − α) × 100% confidence interval for μ.
+
+The (1 − α) × 100% confidence interval for μ when σ is known is:
+
+$$\bar{X} \;\pm\; z_{\alpha/2} \cdot \frac{\sigma}{\sqrt{n}}$$
+
+Applied to the factory scenario with x̄ = 497, σ = 8, n = 40, and z₀.₀₂₅ = 1.96:
+
+$$497 \;\pm\; 1.96 \times \frac{8}{\sqrt{40}} \;=\; 497 \;\pm\; 2.48 \;=\; [494.52,\; 499.48]$$
+
+Since μ₀ = 500 does not fall within [494.52, 499.48], we reject H₀ at the 5% significance level. The confidence interval additionally tells us *which* values of the population mean are plausible — this is more informative than a simple reject/fail-to-reject decision.
+
+<ConceptBox title="Interactive Widget: Z-Test Simulator">
+This widget lets you adjust μ₀, x̄, σ, n, test type, and α, watching the Z statistic, p-value, critical values, and rejection decision update in real time — including shaded rejection regions on the standard normal curve.
+
+**Key insight:** As the sample mean moves further from μ₀ (relative to SE = σ/√n), Z grows in magnitude and the p-value shrinks. The two-tailed test rejects when |Z| exceeds the critical value z* for the chosen α.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+## 6. Worked Example: The Factory Scenario
+
+**Given:** μ₀ = 500 g, x̄ = 497 g, σ = 8 g, n = 40, two-tailed test at α = 0.05.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Hypotheses.">
+$$H_0: \mu = 500 \qquad H_1: \mu \neq 500$$
+
+We use a two-tailed test because the manager is concerned about the machine being off in either direction after maintenance.
+</DerivationStep>
+
+<DerivationStep number={2} title="Significance level and assumptions.">
+α = 0.05. Checking: σ = 8 g is known from long-run process records ✓. Sample size n = 40 ≥ 30 (CLT applies) ✓. The 40 boxes were randomly selected ✓. All four conditions satisfied.
+</DerivationStep>
+
+<DerivationStep number={3} title="Compute the test statistic.">
+$$\text{SE} = \frac{\sigma}{\sqrt{n}} = \frac{8}{\sqrt{40}} = \frac{8}{6.3246} \approx 1.265 \text{ g}$$
+
+$$z_{\text{obs}} = \frac{\bar{x} - \mu_0}{\text{SE}} = \frac{497 - 500}{1.265} = \frac{-3}{1.265} \approx -2.372$$
+
+The sample mean is approximately 2.37 standard errors below the null hypothesis value.
+</DerivationStep>
+
+<DerivationStep number={4} title="p-value and critical value.">
+**p-value method:** For a two-tailed test, $p = 2 \times \Phi(-|z_{\text{obs}}|) = 2 \times \Phi(-2.372) \approx 2 \times 0.0088 = 0.0176$.
+
+Since 0.0176 < 0.05 = α, we reject H₀.
+
+**Critical value method:** At α = 0.05 two-tailed, z* = 1.96. Since |z_obs| = 2.372 > 1.96, the test statistic falls in the rejection region. We reject H₀. Both methods agree.
+</DerivationStep>
+
+<DerivationStep number={5} title="Decision.">
+**Reject H₀ at α = 0.05**
+</DerivationStep>
+
+<DerivationStep number={6} title="Conclusion in context.">
+At the 5% significance level, there is sufficient statistical evidence that the filling machine's mean output differs from 500 g. The sample mean of 497 g represents a statistically significant departure from the target. The 95% confidence interval [494.52 g, 499.48 g] does not contain 500 g, confirming the conclusion. The production manager should halt production and recalibrate the machine before resuming operations.
+</DerivationStep>
+</DerivationSteps>
+
+<ConceptBox title="Interactive Widget: Sample Size and Statistical Power">
+This widget plots statistical power against sample size for a fixed true effect size (distance between μ_true and μ₀ = 500). A horizontal dashed line marks the conventional 0.80 power target.
+
+**Key insight:** Power increases monotonically with n for a fixed effect size. This is the quantitative justification for why researchers conduct power analyses *before* collecting data. A study designed with insufficient sample size may fail to detect a real effect, wasting resources and potentially reaching incorrect conclusions.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+## 7. Practice Problem
+
+A city traffic department claims that the average commute time on a major highway is 25 minutes. A concerned residents' group times 64 randomly selected commute trips and finds a sample mean of 27.4 minutes. Historical records show σ = 9.6 minutes. Test at α = 0.01 whether the commute time differs from the claimed 25 minutes using both the p-value method and the critical value method.
+
+<ConceptBox title="Solution">
+**Step 1 — Hypotheses:** $H_0: \mu = 25$, $H_1: \mu \neq 25$ (two-tailed)
+
+**Step 2 — Assumptions and α:** α = 0.01. σ = 9.6 min known. n = 64 ≥ 30. Random sample. All conditions satisfied.
+
+**Step 3 — Test statistic:**
+$$\text{SE} = \frac{9.6}{\sqrt{64}} = \frac{9.6}{8} = 1.2 \text{ min}$$
+$$z_{\text{obs}} = \frac{27.4 - 25}{1.2} = \frac{2.4}{1.2} = 2.00$$
+
+**Step 4A — p-value method:**
+$$p = 2 \times P(Z > 2.00) = 2 \times 0.0228 = 0.0456$$
+Since p = 0.0456 > α = 0.01, **fail to reject H₀**.
+
+**Step 4B — Critical value method:** At α = 0.01 two-tailed, z* = 2.576. Since |z_obs| = 2.00 < 2.576, **fail to reject H₀**. Both methods agree.
+
+**Step 5 — Decision:** Fail to Reject H₀ at α = 0.01.
+
+**Step 6 — Conclusion:** At the 1% significance level, there is insufficient statistical evidence that the mean commute time differs from 25 minutes. Note: at α = 0.05 we would have rejected H₀ (since p = 0.0456 < 0.05) — this illustrates why α must be chosen *before* data collection.
+</ConceptBox>
+
+<QuizCard
+  question="In a one-sample Z-test with x̄ = 497, μ₀ = 500, σ = 8, n = 40 (two-tailed, α = 0.05), what is the correct decision?"
+  options={['Fail to reject H₀ because |Z| < 1.96', 'Reject H₀ because the p-value (0.0176) < 0.05', 'Reject H₀ because x̄ ≠ μ₀', 'Fail to reject H₀ because n is large enough']}
+  correct={1}
+/>

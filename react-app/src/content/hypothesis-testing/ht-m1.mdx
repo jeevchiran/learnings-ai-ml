@@ -1,0 +1,175 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+**Why does this matter?** A pharmaceutical company runs a clinical trial claiming their new drug reduces average patient recovery time from 10 days to 8 days. You are a statistician hired to evaluate this claim. You have outcome data on 50 patients. How do you decide whether the evidence supports the company's claim, or whether the apparent improvement might simply be random noise in a small sample?
+
+You cannot measure every patient who will ever take this drug — you only have a sample. Intuition alone is not enough: a two-day improvement could be genuinely due to the drug, or it could occur by chance even if the drug does nothing at all. You need a principled, formal procedure for making this decision under uncertainty. That procedure is **hypothesis testing**.
+</Bridge>
+
+## What is a Hypothesis Test?
+
+A hypothesis test is a formal statistical procedure for deciding between two competing claims about a population, based on evidence drawn from a sample. The core logic is built around a carefully controlled form of indirect reasoning: we ask whether the data we observed would be very unlikely if a specific baseline claim were true.
+
+The two competing claims are called the **null hypothesis** $H_0$ and the **alternative hypothesis** $H_1$ (also written $H_a$). Every hypothesis test is a structured argument about these two claims.
+
+In general, for a population parameter $\theta$ and a hypothesized reference value $\theta_0$, the structure is:
+
+$$H_0 : \theta = \theta_0 \quad \text{vs} \quad H_1 : \theta \neq \theta_0 \;\; (\text{or } > \theta_0 \text{ or } < \theta_0)$$
+
+In the drug trial example, the population parameter of interest is the true mean recovery time $\mu$ for all patients who might ever take this drug. The reference value is $\mu_0 = 10$ days (recovery under no treatment). The company claims recovery is faster, so:
+
+$$H_0 : \mu = 10 \quad \text{vs} \quad H_1 : \mu < 10$$
+
+### The Null Hypothesis $H_0$
+
+The null hypothesis is always the claim of no effect, no difference, or the status quo. It is the position we adopt by default — we assume it is true at the outset of every test. The purpose of the data analysis is to decide whether there is enough evidence to overturn this default.
+
+A critical and often misunderstood point: we never "prove" $H_0$. We do not show that the null is true; we only decide whether to *reject* it or *fail to reject* it. Failing to reject $H_0$ is not the same as proving it — it simply means the data did not provide sufficiently strong evidence against it.
+
+<ConceptBox title="Analogy: Innocent Until Proven Guilty">
+In a criminal trial, a defendant is presumed innocent. The prosecution must present evidence strong enough to overcome that presumption. If the evidence falls short, the verdict is "not guilty" — not "definitely innocent."
+
+$H_0$ plays exactly the same role. It is the presumption of innocence. The burden of proof lies entirely with the data. We reject $H_0$ only when the evidence against it is compelling enough by a pre-specified standard. Failing to meet that standard is not evidence in favor of $H_0$ — it is simply an absence of evidence against it.
+</ConceptBox>
+
+### The Alternative Hypothesis $H_1$
+
+The alternative hypothesis is the research claim — the position the investigator believes may be true, or the effect they are trying to detect. It is always stated in opposition to $H_0$. There are three possible forms, determined by the nature of the research question:
+
+$$\text{Two-tailed:} \quad H_1 : \theta \neq \theta_0 \qquad \text{Left-tailed:} \quad H_1 : \theta < \theta_0 \qquad \text{Right-tailed:} \quad H_1 : \theta > \theta_0$$
+
+The choice between these three forms is driven entirely by the research question — what direction of departure from $H_0$ would be scientifically meaningful? This choice must be made *before* collecting data, not after examining the results. Choosing the alternative hypothesis to match an observed pattern after the fact invalidates the test.
+
+### How to Write Hypotheses
+
+Formulating the hypotheses correctly is the most consequential step in any hypothesis test. Errors here — such as writing the wrong direction, or placing the sample statistic in the hypothesis — cannot be fixed by any amount of careful computation. Follow this procedure:
+
+<DerivationSteps>
+<DerivationStep number={1} title="Identify the population parameter of interest.">
+Common choices are the population mean $\mu$, population proportion $p$, or population variance $\sigma^2$. The parameter must describe a characteristic of the *population*, not the sample.
+</DerivationStep>
+<DerivationStep number={2} title="State H₀ as an equality.">
+The null hypothesis always takes the form $H_0 : \mu = \mu_0$ (or $H_0 : p = p_0$, etc.) where $\mu_0$ is the claimed or reference value. $H_0$ is always a precise, equality-based claim, because the test statistic is computed under this assumption.
+</DerivationStep>
+<DerivationStep number={3} title="State H₁ based on the research question.">
+Look for direction-indicating language: "different from" or "changed" implies two-tailed ($\neq$); "greater than," "increased," or "exceeded" implies right-tailed ($>$); "less than," "decreased," or "reduced" implies left-tailed ($<$).
+</DerivationStep>
+<DerivationStep number={4} title="Never place a sample statistic in H₀ or H₁.">
+Hypotheses are about population parameters, not sample statistics. Writing $H_0 : \bar{x} = 10$ is incorrect because $\bar{x}$ is the sample mean — a number you compute from data. The correct form is always $H_0 : \mu = 10$.
+</DerivationStep>
+</DerivationSteps>
+
+### One-Tailed vs Two-Tailed Tests
+
+The directionality of $H_1$ determines how the test distributes its allowable error between the two ends (tails) of the sampling distribution. This has a direct impact on the strength of evidence required to reject $H_0$.
+
+#### Two-Tailed Test $(H_1 : \theta \neq \theta_0)$
+
+We reject $H_0$ if the sample result is extreme in either direction — either much larger or much smaller than $\theta_0$. The rejection region is split equally between both tails of the distribution. Used when any deviation from $\theta_0$ would be scientifically meaningful, regardless of direction. This is the default in most scientific research, and it requires a stronger departure from $H_0$ to reject compared to a one-tailed test at the same significance level.
+
+#### One-Tailed Test $(H_1 : \theta > \theta_0 \text{ or } \theta < \theta_0)$
+
+We reject $H_0$ only if the sample result is extreme in one specific direction. The entire rejection region sits in a single tail. Use a one-tailed test only when there is a strong, pre-specified scientific reason to care about deviations in only one direction. One-tailed tests are more powerful in their specified direction but provide no protection against deviations in the opposite direction, making them inappropriate for exploratory research.
+
+**Practical guidance:** two-tailed tests are the conservative default. Choosing a one-tailed test to gain power is only justified when you can make a compelling scientific argument — before seeing the data — that an effect in the opposite direction would be uninterpretable or irrelevant.
+
+## How Hypothesis Testing Works: The Decision Framework
+
+Every hypothesis test, regardless of the specific statistical procedure used, follows the same six-step decision framework. Learning this structure deeply will make every subsequent test — Z-test, t-test, F-test, chi-squared test — feel like a familiar application of the same underlying logic.
+
+<DerivationSteps>
+<DerivationStep number={1} title="State H₀ and H₁.">
+Write both hypotheses in terms of the population parameter, using the formulation rules above. Be explicit about the direction (two-tailed, left, right).
+</DerivationStep>
+<DerivationStep number={2} title="Choose the significance level α.">
+$\alpha$ is the maximum probability of wrongly rejecting a true $H_0$ that you are willing to tolerate. Common choices are $\alpha = 0.05$ (5%) and $\alpha = 0.01$ (1%). This must be fixed before collecting data — changing $\alpha$ after seeing results is a form of result manipulation. Module 2 covers the interpretation of $\alpha$ in detail.
+</DerivationStep>
+<DerivationStep number={3} title="Collect sample data and compute the test statistic.">
+The test statistic is a single number that summarizes how far the sample evidence is from what $H_0$ predicts. Different tests use different statistics (Z, t, F, chi-squared), but all of them measure "distance from the null" on a known probability distribution.
+</DerivationStep>
+<DerivationStep number={4} title="Find the p-value or critical value.">
+The p-value is the probability of observing a test statistic at least as extreme as the one computed, assuming $H_0$ is true. The critical value is the threshold the test statistic must cross to trigger rejection. Both methods are equivalent; the p-value is covered in depth in Module 2.
+</DerivationStep>
+<DerivationStep number={5} title="Make a decision: reject H₀ or fail to reject H₀.">
+If the p-value is less than $\alpha$, reject $H_0$. If it is greater than or equal to $\alpha$, fail to reject $H_0$. Never "accept" $H_0$ — the language is always "fail to reject."
+</DerivationStep>
+<DerivationStep number={6} title="State the conclusion in plain language in context.">
+A statistical decision without a substantive interpretation is incomplete. Always connect the conclusion back to the original research question. Specify the significance level, the direction of the result, and what it means for the problem at hand.
+</DerivationStep>
+</DerivationSteps>
+
+### What is a Test Statistic?
+
+A test statistic is the number that converts your sample evidence into a position on a known probability distribution, so you can quantify how unusual your data would be if $H_0$ were true. The fundamental idea is standardization: we ask how many standard errors the observed sample estimate lies away from the value predicted by $H_0$.
+
+$$T = \frac{\hat{\theta} - \theta_0}{\text{SE}(\hat{\theta})}$$
+
+Here, $\hat{\theta}$ is the sample estimate of the parameter (for example, the sample mean $\bar{x}$), $\theta_0$ is the value claimed by $H_0$, and $\text{SE}(\hat{\theta})$ is the standard error of the estimate — a measure of how much sampling variability we expect.
+
+When $H_0$ is true, this ratio follows a known distribution centered at zero. A test statistic near zero means the sample result is consistent with $H_0$. A test statistic far from zero — in the tail of the distribution — means the sample result would be rare if $H_0$ were true, which is evidence against it. Different tests use different reference distributions (Z, t, F, chi-squared), chosen based on what parameter is being tested and what is known about the population. These are developed systematically in Modules 3 through 5.
+
+<ConceptBox title="Interactive Widget">
+This widget demonstrates the decision framework for hypothesis testing by showing rejection regions under a standard normal distribution for different real-world scenarios (drug trial, coin fairness, battery quality control, teaching method) at α = 0.05. The key takeaway is that the placement and size of rejection regions depend on whether the test is one-tailed (left or right) or two-tailed, determined entirely by the research question before data collection.
+
+Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
+</ConceptBox>
+
+## Worked Example: The Drug Trial
+
+Let us walk through the decision framework for the clinical trial introduced at the start of this module. The pharmaceutical company claims a new drug reduces mean patient recovery time. We have data on 50 patients.
+
+### Step 1: State the Hypotheses
+
+The population parameter of interest is $\mu$, the true mean recovery time for all patients who might take this drug. The status quo (no drug effect) corresponds to $\mu = 10$ days. The company claims the drug *reduces* recovery time — a directional claim pointing in one specific direction.
+
+$$H_0 : \mu = 10 \quad \text{(drug has no effect on recovery time)}$$
+
+$$H_1 : \mu < 10 \quad \text{(drug reduces recovery time)}$$
+
+This is a **left-tailed test** because the company's claim is that the drug decreases the mean. We would only reject $H_0$ if the observed sample mean is substantially lower than 10 — a result in the left tail of the sampling distribution.
+
+### Step 2: Choose $\alpha$
+
+We set $\alpha = 0.05$. This means we accept a 5% chance of incorrectly concluding the drug works when it actually does not. This is the standard threshold in clinical research for a preliminary trial.
+
+### Step 3: Compute the Test Statistic (Preview)
+
+The full computation of the test statistic for this scenario is carried out in Module 3 (One-Sample Z-Test). For now, suppose that after collecting data on all 50 patients, the analysis yields a test statistic of:
+
+$$Z = \frac{\bar{x} - \mu_0}{\sigma / \sqrt{n}} = -2.31$$
+
+A value of $Z = -2.31$ means the observed sample mean sits 2.31 standard errors to the left of 10. Under $H_0$, the test statistic follows a standard normal distribution centered at zero, so a value this far in the left tail would be quite unusual if the drug truly had no effect.
+
+### Step 4 & 5: Decision
+
+For a left-tailed test at $\alpha = 0.05$, the critical value is $z^* = -1.645$. Because $-2.31 < -1.645$, the test statistic falls in the rejection region.
+
+**Decision: Reject H₀**
+
+### Step 6: Conclusion in Context
+
+There is sufficient evidence at the 5% significance level to conclude that the drug reduces average patient recovery time below 10 days. The data are inconsistent with the hypothesis of no effect, and the observed reduction is large enough — relative to sampling variability — that chance variation alone is an implausible explanation.
+
+*Note: this conclusion is about statistical significance. Whether the reduction is clinically meaningful (was it 0.1 days or 4 days?), and whether the trial design supports a causal claim, are separate questions that require subject-matter judgment beyond the test itself.*
+
+## Practice Problem
+
+A university claims its graduates earn a mean starting salary of $65,000. A student group believes the actual mean is different — either higher or lower. They plan to survey 45 recent graduates. Write the null and alternative hypotheses, identify whether the test is one-tailed or two-tailed, and explain your reasoning.
+
+**Population parameter:** $\mu$, the true mean starting salary for all graduates of this university.
+
+$$H_0 : \mu = 65{,}000$$
+
+$$H_1 : \mu \neq 65{,}000$$
+
+**Test type:** Two-tailed test.
+
+**Reasoning:** The student group believes the mean is "different" — they have no prior scientific reason to expect salaries to be specifically higher or specifically lower than $65,000. Both directions of departure from the claimed value are of equal interest. The keyword "different" is a clear signal for a two-tailed alternative. If the group had instead said "we believe graduates actually earn more than $65,000," that would justify a right-tailed test — but here, either direction would constitute a meaningful finding.
+
+**Common mistake to avoid:** Do not write $H_0 : \bar{x} = 65{,}000$. The sample mean $\bar{x}$ is computed from the 45 surveyed graduates — it is a sample statistic, not a population parameter. Hypotheses always describe the population.
+
+<QuizCard
+  question="A researcher believes a new teaching method increases test scores above the historical average of 72. Which alternative hypothesis correctly captures this claim?"
+  options={['H₁: μ ≠ 72', 'H₁: μ < 72', 'H₁: μ > 72', 'H₁: x̄ > 72']}
+  correct={2}
+/>
