@@ -1,0 +1,145 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+NLP gives us annotations — tokens, POS tags, entities, parse trees. This module turns those annotations into numbers a machine can learn from: three document representation approaches that bridge text and ML.
+</Bridge>
+
+## Bag of Words
+
+The **Bag of Words (BoW)** model represents a document as a vector of word counts, ignoring word order and grammar.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Build the vocabulary V.">
+Collect all unique words across all documents (after preprocessing: lowercasing, stopword removal, stemming). Every unique word becomes a column in the document-term matrix. A 20,000-word vocabulary produces 20,000-dimensional vectors.
+</DerivationStep>
+
+<DerivationStep number={2} title="Represent each document as a count vector.">
+For document *d*, create a vector of length |V|. Entry *i* is the number of times vocabulary word *i* appears in document *d*. Words not in *d* get entry 0.
+</DerivationStep>
+
+<DerivationStep number={3} title="Stack into a document-term matrix.">
+N documents × |V| vocabulary words = an N × |V| matrix. Each row is a document. This matrix is the input to most classical ML models.
+</DerivationStep>
+</DerivationSteps>
+
+Tiny corpus (stopwords removed): D1 = "the cat sat on the mat", D2 = "the dog chased the cat", D3 = "the cat and the dog are friends"
+
+| Doc | and | cat | chased | dog | friends | mat | on | sat | the |
+|-----|-----|-----|--------|-----|---------|-----|-----|-----|-----|
+| D1 | 0 | 1 | 0 | 0 | 0 | 1 | 1 | 1 | 2 |
+| D2 | 0 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 2 |
+| D3 | 1 | 1 | 0 | 1 | 1 | 0 | 0 | 0 | 2 |
+
+<CodeBlock language="python">
+{`from sklearn.feature_extraction.text import CountVectorizer
+
+docs = [
+    "the cat sat on the mat",
+    "the dog chased the cat",
+    "the cat and the dog are friends"
+]
+
+vectorizer = CountVectorizer()
+X = vectorizer.fit_transform(docs)
+print("Vocabulary:", vectorizer.get_feature_names_out())
+print("BoW matrix:\n", X.toarray())`}
+</CodeBlock>
+
+<ConceptBox title="BoW Limitations">
+- **Sparse** — in a 20,000-word corpus, most vector entries are 0
+- **Order-independent** — "Dog bites man" = "Man bites dog" under BoW
+- **Dominated by frequent words** — "the" appears in every document without correction
+- **Semantic blindness** — "car" and "automobile" are unrelated features despite being synonyms
+
+Despite these limitations, BoW pairs naturally with Naive Bayes (both assume word independence), making the combination effective for text classification and spam filtering.
+</ConceptBox>
+
+## TF-IDF — The Weighting Solution
+
+**TF-IDF** (Term Frequency–Inverse Document Frequency) down-weights words that appear everywhere ("the") and up-weights words that characterize specific documents ("quantum").
+
+**Term Frequency (TF)** — how often a term appears within a single document:
+
+$$\text{TF}(t, d) = \frac{\text{count}(t, d)}{|d|}$$
+
+**Inverse Document Frequency (IDF)** — how rare a term is across the entire corpus:
+
+$$\text{IDF}(t) = \log\!\left(\frac{N}{\text{df}(t)}\right)$$
+
+where $N$ = total documents, $\text{df}(t)$ = documents containing $t$. If a term appears in all documents, $\text{IDF} = \log(1) = 0$.
+
+**TF-IDF score:**
+
+$$\text{TF-IDF}(t, d) = \text{TF}(t, d) \times \text{IDF}(t)$$
+
+A high TF-IDF score means the term appears frequently in *this document* but rarely in *others*.
+
+<CodeBlock language="python">
+{`from sklearn.feature_extraction.text import TfidfVectorizer
+
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(docs)
+
+# Get feature names and their TF-IDF scores for D1
+feature_names = vectorizer.get_feature_names_out()
+scores = X[0].toarray()[0]
+
+for name, score in sorted(zip(feature_names, scores), key=lambda x: -x[1]):
+    if score > 0:
+        print(f"{name:12} {score:.4f}")
+# mat          0.5528  ← unique to D1, high score
+# on           0.5528  ← unique to D1, high score
+# sat          0.5528  ← unique to D1, high score
+# cat          0.2404  ← appears in multiple docs, lower score
+# the          0.1876  ← appears in all docs, very low score`}
+</CodeBlock>
+
+## Topic Modeling (NMF)
+
+**Topic modeling** decomposes the document-term matrix into latent topics — each document is represented as a mixture of discovered themes. No labels required.
+
+**Non-negative Matrix Factorization (NMF)** finds:
+
+$$V \approx W \times H$$
+
+where $V$ is the TF-IDF matrix (N × |V|), $W$ is the document-topic matrix (N × k), and $H$ is the topic-term matrix (k × |V|). Each row of $H$ is a "topic" — a list of words with high weights for that theme.
+
+<CodeBlock language="python">
+{`from sklearn.decomposition import NMF
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+# Sample corpus
+docs = [
+    "machine learning algorithms optimize models",
+    "neural networks deep learning training",
+    "python programming code software",
+    "data science statistics analysis",
+    "gradient descent backpropagation optimization"
+]
+
+tfidf = TfidfVectorizer(stop_words='english')
+X = tfidf.fit_transform(docs)
+
+nmf = NMF(n_components=2, random_state=42)
+W = nmf.fit_transform(X)   # doc-topic matrix
+H = nmf.components_        # topic-term matrix
+
+feature_names = tfidf.get_feature_names_out()
+for topic_idx, topic in enumerate(H):
+    top_words = [feature_names[i] for i in topic.argsort()[-5:][::-1]]
+    print(f"Topic {topic_idx}: {', '.join(top_words)}")
+# Topic 0: optimization, gradient, learning, algorithms, machine
+# Topic 1: programming, code, python, software, data`}
+</CodeBlock>
+
+<ConceptBox title="LDA vs NMF">
+**NMF** (Non-negative Matrix Factorization): deterministic, uses TF-IDF input, fast.
+
+**LDA** (Latent Dirichlet Allocation): probabilistic Bayesian model, assigns Dirichlet priors over topic-word and document-topic distributions, more interpretable but slower. Both are unsupervised — the number of topics k is a hyperparameter you choose.
+</ConceptBox>
+
+<QuizCard
+  question="A document about quantum physics contains the word 'the' 50 times and 'entanglement' 3 times. Which word gets a higher TF-IDF score, and why?"
+  options={['"the" — higher frequency means higher TF, which dominates the score', '"entanglement" — it appears frequently in this document (high TF) but rarely in other documents (high IDF), so their product is larger', 'Both get the same score since TF-IDF normalizes by document length', '"the" — the IDF penalizes rare words, making "entanglement" score lower']}
+  correct={1}
+/>

@@ -1,0 +1,161 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+Module 1 normalized text by lowercasing and removing noise. But "running", "runs", and "ran" are still three separate types — a search for "run" misses the other five. **Morphological processing** maps these variants to a single canonical form, boosting recall without losing precision.
+</Bridge>
+
+## Morphology — Why Word Forms Matter
+
+Every word decomposes into **morphemes** — the smallest units of meaning.
+
+<ConceptBox title="Morpheme Types">
+- **Free morphemes** — stand alone: *run*, *happy*, *compute*
+- **Bound morphemes** — must attach to a root: *-ing*, *-ed*, *un-*, *-ation*
+- **Inflectional morphology** — marks grammatical properties (tense, number, case) without changing word class: "runs", "ran", "running" are all verbs
+- **Derivational morphology** — creates new words, often changing word class: *compute* (verb) → *computation* (noun)
+</ConceptBox>
+
+**Practical rule of thumb:** Inflectional morphology is almost always worth collapsing. Derivational morphology is more nuanced — "compute" and "computation" are related but distinct. This tension shapes the stemming vs. lemmatization trade-off.
+
+## Stemming
+
+Stemming is a **crude heuristic process** that chops word endings by fixed rules, without grammar or vocabulary knowledge. The output — the *stem* — need not be a real word.
+
+### The Porter Stemmer
+
+Porter (1980) applies transformation rules in five sequential phases. The key concept is **measure m** — the number of vowel-consonant (VC) sequences in the stem, used to guard against over-stripping short words.
+
+<ConceptBox title="Measure m — Quick Definition">
+Denote a vowel as V and a consonant as C. The measure *m* of a word is the count of (VC) pairs in the pattern [C](VC)^m[V].
+
+Examples: "tr" → m=0, "troubles" → m=1, "private" → m=2, "oats" → m=1. Rules guarded by "(m>0)" only fire when the remaining stem is not trivially short.
+</ConceptBox>
+
+<DerivationSteps>
+<DerivationStep number="1a" title="Handle plural -S endings.">
+Rules (in priority order): SSES → SS ("caresses" → "caress"), IES → I ("ponies" → "poni"), SS → SS (no change), S → "" ("cats" → "cat"). The IES → I rule is deliberately crude — "ponies" → "poni", not "pony".
+</DerivationStep>
+
+<DerivationStep number="1b" title="Handle -ED and -ING.">
+(m>0) EED → EE: "agreed" → "agree"; "feed" unchanged (m=0). (*v*) ED → "": "plastered" → "plaster". (*v*) ING → "": "motoring" → "motor", "running" → "run". Cleanup handles double consonants ("matting" → "mat").
+</DerivationStep>
+
+<DerivationStep number={2} title="Transform common suffixes.">
+(m>0) suffix substitution table: ATIONAL → ATE ("relational" → "relate"), TIONAL → TION ("conditional" → "condition"), ALISM → AL ("feudalism" → "feudal"), and ~20 more.
+</DerivationStep>
+
+<DerivationStep number={3} title="Remove -icate, -ative, -alize, -ical, -ful, -ness.">
+(m>0): ICATE → IC ("triplicate" → "triplic"), ATIVE → "" ("formative" → "form"), FUL → "" ("hopeful" → "hope"), NESS → "" ("goodness" → "good").
+</DerivationStep>
+
+<DerivationStep number="4–5" title="Remove residual derivational suffixes; clean up final -e and -ll.">
+Phase 4 strips longer endings like -ance, -ence, -ism, -able, -ible, -ment, -ous, -ive, -ize (all requiring m>1). Phase 5 removes terminal E and double-L: "controll" → "control".
+</DerivationStep>
+</DerivationSteps>
+
+<CodeBlock language="python">
+{`from nltk.stem import PorterStemmer, SnowballStemmer
+
+porter   = PorterStemmer()
+snowball = SnowballStemmer("english")
+
+words = ["running", "studies", "better", "caresses", "happily",
+         "computing", "generously", "university", "universal"]
+
+for w in words:
+    print(f"{w:15} → Porter: {porter.stem(w):15} Snowball: {snowball.stem(w)}")
+# running         → Porter: run             Snowball: run
+# generously      → Porter: generos         Snowball: generous  ← Snowball fixed
+# university      → Porter: univers         Snowball: univers
+# universal       → Porter: univers         Snowball: univers   ← over-stemming`}
+</CodeBlock>
+
+<ConceptBox title="Over-stemming vs Under-stemming">
+**Over-stemming** — strips too much, merging words that should stay distinct. Classic: "universe", "university", "universal" → all → "univers". Damages *precision*.
+
+**Under-stemming** — strips too little, failing to merge related forms. Example: "alumnus" and "alumni" may not be conflated; irregular forms like "mice"/"mouse" require vocabulary. Damages *recall*.
+</ConceptBox>
+
+## Lemmatization
+
+Lemmatization uses a **morphological lexicon** to map inflected forms to their *lemma* (canonical dictionary headword), always producing a valid word. It requires POS context:
+
+| Surface form | POS | Lemma | Paradigm |
+|-------------|-----|-------|---------|
+| `better` | ADJ (comparative) | **good** | good → better → best |
+| `better` | VERB | **better** | to better (improve) |
+| `running` | VERB | **run** | run → ran → running |
+| `running` | NOUN | **running** | a running (event) |
+| `wolves` | NOUN | **wolf** | irregular plural |
+| `argued` | VERB | **argue** | regular past tense |
+
+A stemmer produces "run" for both VERB and NOUN uses of "running" (wrong for the noun). Lemmatization handles both correctly, but requires a POS tagger upstream.
+
+<CodeBlock language="python">
+{`import spacy
+
+nlp = spacy.load("en_core_web_sm")
+doc = nlp("The wolves are running faster than they were yesterday.")
+
+for token in doc:
+    print(f"{token.text:12} POS: {token.pos_:6} Lemma: {token.lemma_}")
+# wolves       POS: NOUN   Lemma: wolf        ← irregular plural
+# are          POS: AUX    Lemma: be          ← auxiliary unified
+# running      POS: VERB   Lemma: run         ← POS=VERB, not NOUN
+# faster       POS: ADV    Lemma: fast        ← comparative resolved
+# were         POS: AUX    Lemma: be          ← same lemma as "are"`}
+</CodeBlock>
+
+## Stemming vs. Lemmatization — The Trade-off
+
+| Dimension | Stemming | Lemmatization |
+|-----------|---------|---------------|
+| Method | Rule-based suffix stripping | Vocabulary lookup + morphological analysis |
+| Output | Stem (may not be a real word) | Valid dictionary lemma |
+| Speed | Very fast — O(|word|), no memory | Slower — requires dict and/or neural model |
+| Accuracy | Lower — over/under-stemming errors | Higher — handles irregular forms correctly |
+| POS needed? | No | Yes (for best results) |
+| "better" (adj) | "better" (unchanged) | "good" |
+| "wolves" | "wolv" or "wolve" | "wolf" |
+| "caressed" | "cares" (Porter error) | "caress" |
+| Use case | IR, large-scale indexing, spam | QA, NLU, chatbots, tasks needing precision |
+
+## The Noisy Channel Model
+
+Beyond word-form variation, NLP must handle *typos*: "teh" → "the", "recieve" → "receive". The **noisy channel model** provides the framework:
+
+$$\hat{w} = \underset{w \in \mathcal{V}}{\arg\max}\; P(e \mid w) \cdot P(w)$$
+
+- **$P(w)$ — the language model (prior):** how probable is word $w$ in this language/context?
+- **$P(e \mid w)$ — the channel/error model (likelihood):** given the writer intended $w$, how probable is it they produced observed string $e$?
+
+### The Error Model: Confusion Matrices
+
+$P(e \mid w)$ is estimated from annotated typo corpora, counting per edit type:
+
+- **Substitution** — character *x* typed as *y* (keyboard adjacency: "a" → "e")
+- **Transposition** — adjacent *xy* typed as *yx* ("th" → "ht" → "teh")
+- **Deletion** — a character is dropped
+- **Insertion** — a spurious character is added
+
+Counts are normalized to probabilities; the overall $P(e \mid w)$ is the product of per-edit probabilities along the optimal edit path.
+
+### Candidate Generation
+
+Candidates are all dictionary words within edit distance 1 or 2 of the observed string. About 80% of non-word errors fall within edit distance 1 (Damerau, 1964).
+
+<ConceptBox title="Interactive Widget: Noisy Channel Step-Through">
+This widget walks through the noisy channel model for the observed misspelling "teh": candidate generation → language model scoring → error model scoring → argmax. Each step shows how $P(e|w) \cdot P(w)$ is computed for "the", "ten", "tea", and other candidates.
+
+Note: interactive widget replaced with static description. See the original HTML file for the JS implementation.
+</ConceptBox>
+
+<ConceptBox title="Limitation: Real-Word Errors">
+The noisy channel model only handles *non-word* errors (typos not in the dictionary). It cannot correct *real-word* errors ("their" → "there") — those require a language model that detects contextual implausibility.
+</ConceptBox>
+
+<QuizCard
+  question="A Porter stemmer produces 'univers' for both 'university' and 'universal'. What error type is this, and which metric does it harm?"
+  options={['Under-stemming — damages recall because related forms are not merged', 'Over-stemming — damages precision because semantically distinct words are collapsed to the same stem', 'Correct stemming — both words share the Latin root and should be grouped', 'Lemmatization error — the WordNet lemmatizer would produce the same result']}
+  correct={1}
+/>

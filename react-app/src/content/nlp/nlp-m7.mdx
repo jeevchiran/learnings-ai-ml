@@ -1,0 +1,145 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+We can now tag words (Module 3), parse structure (Module 4), and measure meaning (Module 5–6). This module applies that foundation to three information extraction tasks: identifying *what* entities are named (NER), *who did what to whom* (SRL), and *which mentions refer to the same entity* (coreference).
+</Bridge>
+
+## Named Entity Recognition (NER)
+
+**Named Entity Recognition** identifies expressions that refer to real-world objects — people, companies, countries, dates — and classifies them into predefined categories.
+
+<ConceptBox title="Entity Types">
+**Core types (CoNLL 2003):**
+- **PERSON** — people, fictional or real
+- **ORG** — companies, agencies, institutions
+- **GPE** — geopolitical entities (countries, cities, states)
+- **LOC** — non-GPE locations (mountains, rivers)
+- **MISC** — nationalities, products, events
+
+**Extended types (OntoNotes):**
+- **DATE**, **TIME** — temporal expressions
+- **MONEY**, **PERCENT** — numeric values
+- **PRODUCT**, **EVENT**, **LAW**
+</ConceptBox>
+
+NER is foundational for downstream tasks: IE (who did what to whom), QA (entity types constrain answer candidates), relation extraction (only extract [ORG] acquired [ORG] for [MONEY] if you first know what is ORG and MONEY).
+
+<CodeBlock language="python">
+{`import spacy
+
+nlp = spacy.load("en_core_web_sm")
+text = "Barack Obama visited Apple's headquarters in Cupertino on Monday."
+doc = nlp(text)
+
+for ent in doc.ents:
+    print(f"{ent.text:25} → {ent.label_:8} ({spacy.explain(ent.label_)})")
+# Barack Obama              → PERSON   (People, including fictional)
+# Apple                     → ORG      (Companies, agencies, institutions)
+# Cupertino                 → GPE      (Countries, cities, states)
+# Monday                    → DATE     (Absolute or relative dates)`}
+</CodeBlock>
+
+## IOB / BIO Tagging Scheme
+
+NER is a **span identification problem**: a single entity may span multiple tokens ("Barack Obama" = one PERSON, "New York City" = one GPE). The **BIO scheme** converts span-level annotation into per-token labels:
+
+<DerivationSteps>
+<DerivationStep number="B" title="B-TYPE — Beginning of entity.">
+The first token of an entity of type TYPE. Every entity span starts with exactly one B tag. Example: "Barack" receives `B-PERSON`.
+</DerivationStep>
+
+<DerivationStep number="I" title="I-TYPE — Inside (continuation) of entity.">
+Any token after the first within the same entity span. "Obama" in "Barack Obama" receives `I-PERSON`. An I tag may only follow a B or another I of the **same TYPE**.
+</DerivationStep>
+
+<DerivationStep number="O" title="O — Outside any entity.">
+Tokens not part of any named entity. Verbs, prepositions, punctuation receive O. An I tag may **never** follow O.
+</DerivationStep>
+</DerivationSteps>
+
+"Barack Obama visited New York" labeled:
+
+| Token | IOB tag |
+|-------|---------|
+| Barack | B-PERSON |
+| Obama | I-PERSON |
+| visited | O |
+| New | B-GPE |
+| York | I-GPE |
+
+<CodeBlock language="python">
+{`for token in doc:
+    iob   = token.ent_iob_
+    etype = token.ent_type_ if token.ent_type_ else "O"
+    tag   = f"{iob}-{etype}" if iob != "O" else "O"
+    print(f"{token.text:15} {tag}")
+# Barack          B-PERSON
+# Obama           I-PERSON
+# visited         O
+# Apple's         B-ORG`}
+</CodeBlock>
+
+## Conditional Random Fields (CRF) for Sequence Labeling
+
+A simple per-token classifier cannot enforce BIO structural constraints (I-PERSON must never follow O). A **CRF** models the conditional distribution of the *entire* label sequence:
+
+$$P(\mathbf{y} \mid \mathbf{x}) = \frac{\exp\!\Bigl(\sum_{i=1}^{n} \sum_{k} \lambda_k f_k(y_{i-1}, y_i, \mathbf{x}, i)\Bigr)}{Z(\mathbf{x})}$$
+
+where $f_k$ are feature functions over $(y_{i-1}, y_i, \mathbf{x}, i)$ and $\lambda_k$ are learned weights.
+
+**Transition features** make invalid label pairs impossible: a feature with weight $-\infty$ for (O → I-PERSON) ensures that transition never occurs. **Observation features** include word identity, capitalization, prefix/suffix, POS tag, neighboring words.
+
+**Viterbi decoding** finds the highest-scoring label sequence in O(n · |T|²):
+
+$$V_i(y) = \max_{y'} \Bigl[ V_{i-1}(y') + \sum_k \lambda_k f_k(y', y, \mathbf{x}, i) \Bigr]$$
+
+<ConceptBox title="Modern NER: BiLSTM-CRF">
+The standard architecture combines a bidirectional LSTM (rich contextual features for each token) with a CRF output layer (enforces valid label transitions globally). The BiLSTM replaces hand-crafted feature functions; the CRF replaces a simple softmax output.
+
+Transformer-based models (BERT, RoBERTa) have largely superseded BiLSTM, but the CRF output layer is still commonly added even on top of transformers for structured prediction — it ensures globally consistent BIO sequences.
+</ConceptBox>
+
+## Semantic Role Labeling (SRL)
+
+SRL identifies the **predicate–argument structure** of each verb — who did what to whom, when, where, and how.
+
+**PropBank core roles:**
+
+| Role | Semantic meaning | Example |
+|------|----------------|---------|
+| `ARG0` | Agent / doer | **The dog** chased the cat |
+| `ARG1` | Patient / theme | The dog chased **the cat** |
+| `ARG2` | Instrument / beneficiary | She cut the bread **with a knife** |
+| `ARGM-TMP` | Temporal modifier | He left **yesterday** |
+| `ARGM-LOC` | Location modifier | They met **in the garden** |
+| `ARGM-MNR` | Manner modifier | She ran **quickly** |
+
+**Example.** "The dog chased the cat in the garden yesterday." → Predicate: *chased* | ARG0: *The dog* | ARG1: *the cat* | ARGM-LOC: *in the garden* | ARGM-TMP: *yesterday*
+
+<ConceptBox title="SRL vs. NER">
+NER classifies expressions by their *type* (PERSON, ORG, GPE) — the label is absolute, independent of context. SRL assigns *roles relative to a predicate* — the same expression "the dog" is ARG0 of "chased" but might be ARG1 of "was bathed by". SRL is about event semantics; NER is about entity typing.
+</ConceptBox>
+
+## Coreference Resolution
+
+**Coreference resolution** identifies all expressions in a text that refer to the same real-world entity — linking them into *coreference chains*.
+
+"**Obama** was born in Hawaii. **He** later became president. The **44th president** introduced landmark healthcare legislation."
+
+All three expressions (Obama, He, the 44th president) form one coreference chain referring to a single entity.
+
+**Why it matters:** Without coreference resolution, information extraction cannot connect facts spread across sentences. "Tesla's CEO **announced** a new product. **He** said it would ship in 2025." — without knowing that "He" = Elon Musk = Tesla's CEO, we cannot attribute the statement.
+
+<ConceptBox title="Interactive Widget: NER Highlighter + IOB View">
+Select a sentence to see NER highlighting and the corresponding IOB sequence. Each colored span shows the entity type; the IOB view shows how the span is encoded as per-token labels.
+
+Sentences include: "Barack Obama visited Apple's headquarters", "Tesla CEO Elon Musk announced new gigafactories", "Amazon acquired MGM Studios for $8.45 billion".
+
+Note: interactive widget replaced with static description. See the original HTML file for the JS implementation.
+</ConceptBox>
+
+<QuizCard
+  question="In BIO tagging, why is an 'I-PERSON' tag after an 'O' tag invalid, and which model enforces this constraint during decoding?"
+  options={['It is invalid because PERSON entities are always single tokens; a Viterbi decoder in an HMM enforces this', 'It is invalid because an inside tag without a preceding begin tag cannot form a valid entity span; a CRF enforces valid transitions by learning very negative weights for (O → I-*) transitions', 'It is invalid by definition of BIO but no model enforces it — post-processing converts I-X after O to B-X', 'It is not truly invalid; some corpora allow I tags to follow O to indicate entity continuations']}
+  correct={1}
+/>

@@ -1,0 +1,124 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+TF-IDF gives each word a number — its importance in a document. But TF-IDF vectors are huge (|vocabulary| dimensions) and treat every word as orthogonal — "dog" and "cat" have zero cosine similarity, same as "dog" and "calculus". **Word embeddings** solve both: dense low-dimensional vectors that encode semantic similarity.
+</Bridge>
+
+## From Sparse to Dense
+
+| Property | BoW / TF-IDF | Word Embeddings |
+|----------|-------------|-----------------|
+| Dimensionality | \|V\| ≈ 50,000+ | 100–300 dimensions |
+| Density | Sparse (mostly zeros) | Dense (all dims populated) |
+| Semantic information | None — words are orthogonal | Encoded — similar words cluster |
+| Similarity of "dog" and "cat" | 0.0 (orthogonal) | ≈ 0.82 (high cosine similarity) |
+
+## Word2Vec — The Core Idea
+
+Word2Vec (Mikolov et al., 2013) trains a shallow neural network to predict words from context, then discards the network and keeps the weights — the input-to-hidden weight matrix IS the embedding table.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Represent each word as a one-hot vector.">
+Each word is a one-hot vector of length |V| — one dimension is 1, all others are 0. This is the network input.
+</DerivationStep>
+
+<DerivationStep number={2} title="Multiply by weight matrix W to get the embedding.">
+**W** (shape |V|×d) maps the one-hot input to a d-dimensional hidden layer. Multiplying by a one-hot vector simply *selects the corresponding row of W* — that row IS the word embedding. **W** is what we learn.
+</DerivationStep>
+
+<DerivationStep number={3} title="Predict surrounding words (Skip-gram) or center word (CBOW).">
+**W'** (shape d×|V|) maps the hidden embedding to a probability distribution over the vocabulary. Skip-gram trains this to predict context words given a center word; CBOW averages context embeddings to predict the center.
+</DerivationStep>
+</DerivationSteps>
+
+<ConceptBox title="Skip-gram vs. CBOW">
+**Skip-gram** — given a *center word*, predict surrounding context words. For "sat" in "the cat sat on the mat" (window=2), trains on pairs: (sat→the), (sat→cat), (sat→on), (sat→the). Each center word generates multiple training pairs → rare words accumulate more gradient signal. **Better for rare words and smaller datasets.**
+
+**CBOW (Continuous Bag of Words)** — given surrounding context words, predict the missing center word. Context embeddings are averaged into one vector to predict the center. Averaging smooths noise and benefits from high-frequency co-occurrences. **Faster to train, better for frequent words.**
+</ConceptBox>
+
+## Skip-gram Objective
+
+T = corpus positions, c = window size. Skip-gram maximizes the average log-probability of each context word given its center word:
+
+$$J(\theta) = -\frac{1}{T}\sum_{t=1}^{T}\sum_{-c \le j \le c,\, j \ne 0} \log P(w_{t+j} \mid w_t)$$
+
+The conditional probability uses a softmax over the full vocabulary:
+
+$$P(o \mid c) = \frac{\exp(u_o^\top v_c)}{\sum_{w=1}^{|V|} \exp(u_w^\top v_c)}$$
+
+$v_c$ is the center word vector (row of **W**); $u_o$ is the context vector (row of **W'**).
+
+<ConceptBox title="Negative Sampling">
+Computing the softmax denominator over |V| = 50,000 words at every training step is prohibitive. **Negative sampling** replaces the softmax with binary classification: is this (center, context) pair real, or noise? For each real pair, k = 5–20 "negative" words are sampled (proportional to frequency^(3/4)), and the model outputs high score for real pairs and low for noise. This reduces each update from O(|V|) to O(k) — a ~10,000× speedup.
+</ConceptBox>
+
+## GloVe — Global Vectors for Word Representation
+
+GloVe (Pennington et al., 2014) pre-computes the full global co-occurrence matrix $X$ ($X_{ij}$ = times word $i$ appears in context of word $j$), then trains vectors to predict $\log X_{ij}$:
+
+$$J = \sum_{i,j=1}^{|V|} f(X_{ij})\left(w_i^\top \tilde{w}_j + b_i + \tilde{b}_j - \log X_{ij}\right)^2$$
+
+where $f(X_{ij})$ downweights very frequent pairs:
+
+$$f(x) = \begin{cases} (x/x_{\max})^\alpha & \text{if } x < x_{\max} \\ 1 & \text{otherwise} \end{cases}$$
+
+with $x_{\max} = 100$ and $\alpha = 3/4$. GloVe trains faster than Word2Vec because the co-occurrence matrix only needs to be computed once.
+
+## The Embedding Space — Geometry Encodes Meaning
+
+Well-trained embeddings encode three geometric properties:
+
+**1. Semantic clustering.** Similar words cluster together — "dog", "cat", "puppy", "kitten" form one neighborhood; "Ferrari", "Porsche", "sedan" form another.
+
+**2. Semantic directions.**
+
+$$\text{king} - \text{man} + \text{woman} \approx \text{queen}$$
+
+The man→woman offset encodes a gender direction that generalizes across domains. Similar patterns hold for capital cities (France→Paris, Germany→Berlin) and verb tenses (walk→walked).
+
+**3. Cosine similarity measures semantic relatedness.**
+
+Representative scores from 300-dim GloVe (Common Crawl, 840B tokens):
+
+| Word Pair | Cosine Similarity | Relationship |
+|-----------|------------------|-------------|
+| dog / cat | 0.82 | Closely related animals |
+| dog / car | 0.18 | Unrelated |
+| king / queen | 0.73 | Royalty, different genders |
+| France / Paris | 0.71 | Country / capital |
+
+<CodeBlock language="python">
+{`import gensim.downloader as api
+
+# Load pretrained Word2Vec (Google News, 300 dims)
+model = api.load("word2vec-google-news-300")
+
+# Nearest neighbors
+print(model.most_similar("dog", topn=5))
+# [('dogs', 0.85), ('cat', 0.82), ('puppy', 0.79), ...]
+
+# Semantic arithmetic
+result = model.most_similar(
+    positive=["king", "woman"],
+    negative=["man"],
+    topn=1
+)
+print(result)  # [('queen', 0.71)]
+
+# Cosine similarity
+print(model.similarity("dog", "cat"))   # 0.82
+print(model.similarity("dog", "car"))   # 0.18`}
+</CodeBlock>
+
+<ConceptBox title="Contextualized Embeddings">
+Word2Vec and GloVe produce *static* embeddings — "bank" always has the same vector regardless of context. **Contextualized embeddings** (ELMo, BERT) produce different representations for the same word in different contexts, directly resolving polysemy. BERT's "bank" vector differs in "river bank" vs. "savings bank" contexts.
+
+The shift from static to contextual embeddings was the key breakthrough enabling modern NLP — BERT (2018) demonstrated that pretraining on language modeling, then fine-tuning on downstream tasks, outperformed all prior approaches.
+</ConceptBox>
+
+<QuizCard
+  question="Why does negative sampling make Word2Vec training feasible despite a 50,000-word vocabulary?"
+  options={['It reduces vocabulary size by removing infrequent words', 'It replaces the O(|V|) softmax computation with O(k) binary classifications per training step, where k = 5–20 negative samples', 'It reduces the embedding dimensionality from 300 to 50', 'It batches gradient updates across multiple words simultaneously']}
+  correct={1}
+/>
