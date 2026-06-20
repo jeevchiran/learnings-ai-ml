@@ -1,0 +1,180 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+<Bridge>
+Module 3 used logistic regression as a classification tool. Now we derive the mathematical foundations: why the sigmoid function? Why cross-entropy and not MSE? How does optimization actually find the parameters?
+</Bridge>
+
+## Why Sigmoid? From Bernoulli to Logistic
+
+We model $y \mid \mathbf{x} \sim \text{Bernoulli}(p)$ where $p = f(\mathbf{x}^T\boldsymbol{\beta})$. We need $f: \mathbb{R} \to (0,1)$, monotonic, and differentiable. The sigmoid is not arbitrary — it arises naturally from the exponential family.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Bernoulli PMF in exponential family form.">
+$$p(y \mid \eta) = \exp\!\left(\eta y - \log(1 + e^\eta)\right)$$
+
+where $\eta = \log\frac{p}{1-p}$ is the natural parameter (log-odds).
+</DerivationStep>
+
+<DerivationStep number={2} title="Canonical link function connects η to the linear predictor.">
+$$\eta = \mathbf{x}^T\boldsymbol{\beta}$$
+
+This is the defining choice of a GLM: set the natural parameter equal to the linear predictor.
+</DerivationStep>
+
+<DerivationStep number={3} title="Solve for p in terms of η.">
+$$p = \frac{e^\eta}{1 + e^\eta} = \frac{1}{1 + e^{-\eta}} = \sigma(\eta)$$
+
+The sigmoid is the inverse of the logit — it maps the natural parameter back to the mean parameter.
+</DerivationStep>
+
+<DerivationStep number={4} title="A useful derivative property.">
+$$\sigma'(z) = \sigma(z)(1 - \sigma(z))$$
+
+The derivative is expressed entirely in terms of the function itself, making gradient computations elegant.
+</DerivationStep>
+</DerivationSteps>
+
+## Maximum Likelihood Estimation
+
+Unlike linear regression, there is no closed-form solution. We use MLE: find $\boldsymbol{\beta}$ that maximizes the probability of observing the training data.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Likelihood for independent observations (xᵢ, yᵢ).">
+$$L(\boldsymbol{\beta}) = \prod_{i=1}^n p_i^{y_i}(1-p_i)^{1-y_i}$$
+
+where $p_i = \sigma(\mathbf{x}_i^T\boldsymbol{\beta})$.
+</DerivationStep>
+
+<DerivationStep number={2} title="Log-likelihood — the log transforms the product into a sum.">
+$$\ell(\boldsymbol{\beta}) = \sum_{i=1}^n \left[ y_i \log p_i + (1-y_i)\log(1-p_i) \right]$$
+</DerivationStep>
+
+<DerivationStep number={3} title="Substitute p_i = σ(xᵢᵀβ).">
+$$\ell(\boldsymbol{\beta}) = \sum_{i=1}^n \left[ y_i \mathbf{x}_i^T\boldsymbol{\beta} - \log(1 + e^{\mathbf{x}_i^T\boldsymbol{\beta}}) \right]$$
+
+Using $\log\sigma(z) = z - \log(1+e^z)$ and $\log(1-\sigma(z)) = -\log(1+e^z)$.
+</DerivationStep>
+</DerivationSteps>
+
+## Cross-Entropy Loss: Why Not MSE?
+
+The negative log-likelihood divided by $n$ gives the **cross-entropy loss**:
+
+$$J(\boldsymbol{\beta}) = -\frac{1}{n}\sum_{i=1}^n \left[ y_i \log(\sigma(\mathbf{x}_i^T\boldsymbol{\beta})) + (1-y_i)\log(1 - \sigma(\mathbf{x}_i^T\boldsymbol{\beta})) \right]$$
+
+<ConceptBox title="Why Not MSE?">
+MSE with sigmoid: $J_{\text{MSE}} = \frac{1}{n}\sum(y_i - \sigma(\mathbf{x}_i^T\boldsymbol{\beta}))^2$ produces a **non-convex** loss surface due to the sigmoid's saturation regions — gradient descent gets stuck in local minima.
+
+Cross-entropy is **convex in $\boldsymbol{\beta}$** because $-\log\sigma(z)$ is convex (second derivative always positive). This guarantees a unique global optimum and reliable convergence.
+</ConceptBox>
+
+## Computing the Gradient
+
+<DerivationSteps>
+<DerivationStep number={1} title="Partial derivative of ℓ with respect to βⱼ.">
+$$\frac{\partial \ell}{\partial \beta_j} = \sum_{i=1}^n \left(y_i - \sigma(\mathbf{x}_i^T\boldsymbol{\beta})\right) x_{ij}$$
+
+Using $\sigma'(z) = \sigma(z)(1-\sigma(z))$ and the chain rule.
+</DerivationStep>
+
+<DerivationStep number={2} title="Matrix form of the gradient.">
+$$\nabla_{\boldsymbol{\beta}} \ell = \mathbf{X}^T(\mathbf{y} - \mathbf{p})$$
+
+where $\mathbf{p} = (\sigma(\mathbf{x}_1^T\boldsymbol{\beta}), \ldots, \sigma(\mathbf{x}_n^T\boldsymbol{\beta}))^T$. Same form as linear regression gradient — but $\mathbf{p}$ is nonlinear in $\boldsymbol{\beta}$, so no closed-form solution exists.
+</DerivationStep>
+</DerivationSteps>
+
+<ConceptBox title="A Remarkable Parallel">
+
+| | Linear Regression | Logistic Regression |
+|-|------------------|-------------------|
+| Gradient | $\mathbf{X}^T(\mathbf{y} - \mathbf{X}\boldsymbol{\beta})$ | $\mathbf{X}^T(\mathbf{y} - \boldsymbol{\sigma}(\mathbf{X}\boldsymbol{\beta}))$ |
+| Residual | $y_i - \hat{y}_i$ (linear in $\boldsymbol{\beta}$) | $y_i - p_i$ (nonlinear in $\boldsymbol{\beta}$) |
+| Solution | Closed-form: $(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}$ | Iterative only |
+</ConceptBox>
+
+## Optimization: Gradient Ascent for MLE
+
+Since we maximize the log-likelihood (equivalently minimize negative log-likelihood):
+
+$$\boldsymbol{\beta}^{(t+1)} = \boldsymbol{\beta}^{(t)} + \alpha \cdot \mathbf{X}^T(\mathbf{y} - \mathbf{p}^{(t)})$$
+
+## Newton's Method and IRLS
+
+Gradient descent uses only first-order information (slope). Newton's method uses second-order information (curvature) for faster convergence.
+
+**The Hessian:**
+
+$$\mathbf{H} = \frac{\partial^2 \ell}{\partial \boldsymbol{\beta} \partial \boldsymbol{\beta}^T} = -\mathbf{X}^T\mathbf{W}\mathbf{X}$$
+
+where $\mathbf{W} = \text{diag}(p_i(1-p_i))$ is a diagonal weight matrix.
+
+**Newton's update rule:**
+
+$$\boldsymbol{\beta}^{(t+1)} = \boldsymbol{\beta}^{(t)} + (\mathbf{X}^T\mathbf{W}\mathbf{X})^{-1}\mathbf{X}^T(\mathbf{y} - \mathbf{p})$$
+
+This is equivalent to solving a **weighted least squares** problem at each step — hence **Iteratively Reweighted Least Squares (IRLS)**. Newton's method has quadratic convergence (error squares each iteration) — typically 5–10 iterations vs. hundreds for gradient descent.
+
+## Regularized MLE: The Bayesian Interpretation
+
+<DerivationSteps>
+<DerivationStep number={1} title="MAP estimation maximizes the posterior.">
+Instead of maximizing $L(\boldsymbol{\beta})$, maximize the posterior $P(\boldsymbol{\beta} \mid \text{data}) \propto L(\boldsymbol{\beta}) \cdot P(\boldsymbol{\beta})$.
+</DerivationStep>
+
+<DerivationStep number={2} title="L2 = Gaussian prior.">
+If $\beta_j \sim \mathcal{N}(0, \tau^2)$, then:
+$$\log P(\boldsymbol{\beta}) = -\frac{1}{2\tau^2}\sum \beta_j^2 + \text{const}$$
+
+This is exactly the L2 penalty with $\lambda = \frac{1}{2\tau^2}$. Smaller $\tau$ = tighter prior = stronger regularization.
+</DerivationStep>
+
+<DerivationStep number={3} title="L1 = Laplace prior.">
+If $\beta_j \sim \text{Laplace}(0, b)$, then:
+$$\log P(\boldsymbol{\beta}) = -\frac{1}{b}\sum |\beta_j| + \text{const}$$
+
+The Laplace distribution has a sharp peak at zero — this "pulls" coefficients there, producing exact sparsity.
+</DerivationStep>
+</DerivationSteps>
+
+## Multiclass Extension: Softmax
+
+Each class $k$ has its own weight vector $\boldsymbol{\beta}_k$:
+
+$$P(y = k \mid \mathbf{x}) = \frac{\exp(\mathbf{x}^T\boldsymbol{\beta}_k)}{\sum_{j=1}^K \exp(\mathbf{x}^T\boldsymbol{\beta}_j)}$$
+
+**Cross-entropy for multiclass:**
+
+$$J = -\frac{1}{n}\sum_{i=1}^n \sum_{k=1}^K \mathbf{1}[y_i = k] \cdot \log P(y_i = k \mid \mathbf{x}_i)$$
+
+**Gradient:** $\frac{\partial J}{\partial \boldsymbol{\beta}_k} = -\frac{1}{n}\sum_{i=1}^n \left(\mathbf{1}[y_i = k] - P(y_i = k \mid \mathbf{x}_i)\right)\mathbf{x}_i$
+
+The "residual times features" structure persists. With $K=2$, this reduces to the binary logistic gradient.
+
+## Connecting the Mathematics: Linear vs. Logistic
+
+| Property | Linear Regression | Logistic Regression |
+|----------|------------------|-------------------|
+| Response | Continuous, $y \in \mathbb{R}$ | Categorical, $y \in \{0,1\}$ |
+| Link function | Identity: $E[y] = \mathbf{x}^T\boldsymbol{\beta}$ | Logit: $\log\frac{p}{1-p} = \mathbf{x}^T\boldsymbol{\beta}$ |
+| Loss function | MSE (= neg. Gaussian log-likelihood) | Cross-entropy (= neg. Bernoulli log-likelihood) |
+| Solution | Closed-form (normal equation) | Iterative (no closed form) |
+| Convexity | Convex (quadratic) | Convex (but not quadratic) |
+| Estimator class | BLUE (Gauss-Markov) | Asymptotically efficient (MLE) |
+
+<ConceptBox title="The Unifying Framework: Generalized Linear Models (GLM)">
+Both linear and logistic regression are special cases of the GLM framework: an exponential family distribution for the response, a linear predictor $\eta = \mathbf{x}^T\boldsymbol{\beta}$, and a link function connecting $E[y]$ to $\eta$.
+
+- Linear regression: Gaussian distribution, identity link
+- Logistic regression: Bernoulli distribution, logit link
+- Poisson regression (count data): Poisson distribution, log link
+- Gamma regression (positive continuous): Gamma distribution, inverse link
+
+Neural networks extend this by stacking nonlinear transformations: each layer is a GLM whose output feeds the next.
+</ConceptBox>
+
+<QuizCard
+  question="Why does minimizing cross-entropy loss guarantee finding the global optimum, while minimizing MSE with the sigmoid does not?"
+  options={['Cross-entropy has a larger learning rate by default, so it converges faster', 'Cross-entropy is a convex function of the parameters because -log(σ(z)) has always-positive second derivative, giving a unique global minimum; MSE composed with sigmoid creates non-convex regions where gradient descent can get stuck', 'MSE is undefined for binary labels, so cross-entropy is used instead', 'Cross-entropy is always smaller than MSE, so it is easier to minimize']}
+  correct={1}
+/>
