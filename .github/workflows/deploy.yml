@@ -31,16 +31,6 @@ jobs:
         run: npm run build
         working-directory: react-app
 
-      - name: Copy track content into dist
-        run: |
-          cp -r etl-pyspark        react-app/dist/
-          cp -r Regression         react-app/dist/
-          cp -r hypothesis-testing react-app/dist/
-          cp -r clustering         react-app/dist/
-          cp -r decision-trees     react-app/dist/
-          cp -r nlp                react-app/dist/
-          cp -r pandas-eda         react-app/dist/
-
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
