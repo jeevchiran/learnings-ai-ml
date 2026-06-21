@@ -1,24 +1,20 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 
-const N = 12  // 12×12 pixel grid
+const N = 12
 const CELL = 22
 
-// Base "image": simple smiley-like pattern
-function makeBase() {
-  const g = Array.from({length:N}, () => Array(N).fill(30))
-  // background
-  for (let r = 1; r < N-1; r++) for (let c = 1; c < N-1; c++) g[r][c] = 60
-  // circle border
-  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+// computed once at module load — avoids useMemo factory reference crash in bundled output
+const BASE = (() => {
+  const g = Array.from({length:12}, () => Array(12).fill(30))
+  for (let r = 1; r < 11; r++) for (let c = 1; c < 11; c++) g[r][c] = 60
+  for (let r = 0; r < 12; r++) for (let c = 0; c < 12; c++) {
     const dr = r - 5.5, dc = c - 5.5
     if (Math.abs(Math.sqrt(dr*dr+dc*dc) - 5) < 1) g[r][c] = 220
   }
-  // eyes
-  [[3,4],[3,7]].forEach(([r,c]) => { g[r][c] = 255; g[r][c+1] = 255 })
-  // smile
-  [[8,3],[8,8],[7,4],[7,7],[7,5],[7,6]].forEach(([r,c]) => g[r][c] = 255)
+  [[3,4],[3,7]].forEach(([row,col]) => { g[row][col] = 255; g[row][col+1] = 255 })
+  [[8,3],[8,8],[7,4],[7,7],[7,5],[7,6]].forEach(([row,col]) => g[row][col] = 255)
   return g
-}
+})()
 
 function flipH(g) { return g.map(row => [...row].reverse()) }
 function flipV(g) { return [...g].reverse() }
@@ -64,8 +60,8 @@ function PixelGrid({ data, label }) {
 
 export default function AugmentationWidget() {
   const [aug, setAug] = useState('Flip H')
-  const base = useMemo(makeBase, [])
-  const augmented = AUGS[aug](base)
+  const base = BASE
+  const augmented = (AUGS[aug] || AUGS['Original'])(base)
 
   const descriptions = {
     'Original': 'No transformation applied.',
@@ -92,7 +88,7 @@ export default function AugmentationWidget() {
       </div>
 
       <div style={{ display:'flex', gap:'2rem', justifyContent:'center', flexWrap:'wrap' }}>
-        <PixelGrid data={base} label="Original" />
+        <PixelGrid data={BASE} label="Original" />
         <div style={{ display:'flex', alignItems:'center', fontSize:'1.4rem', color:'var(--text-muted)' }}>→</div>
         <PixelGrid data={augmented} label={aug} />
       </div>
