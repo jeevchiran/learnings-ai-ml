@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import DecisionBoundaryWidget from '../../components/widgets/decision-trees/DecisionBoundaryWidget.jsx'
 
 ## Why Decision Trees?
 
@@ -103,11 +104,7 @@ This module focuses on classification trees. Regression trees follow the same CA
 **From structure to training.** We now know what a decision tree is — a piecewise-constant function defined by a recursive partition of the feature space into axis-aligned rectangles. But we have not yet said how to find the best partition from data. That is the job of the training algorithm: choose the feature and threshold at each node to maximally reduce impurity. The impurity measures — Gini, entropy — are derived and compared in Module 2.
 </Bridge>
 
-<ConceptBox title="Interactive Widget">
-This widget demonstrates how a CART decision tree's decision boundary evolves as depth increases on a toy dataset (80 students, Study Hours vs. Sleep Hours). The key takeaway is that deeper trees produce more complex, more overfit boundaries while increasing training accuracy.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<DecisionBoundaryWidget />
 
 ## Practice
 

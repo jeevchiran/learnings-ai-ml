@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import GiniSplitWidget from '../../components/widgets/decision-trees/GiniSplitWidget.jsx'
 
 <Bridge>
 **Building on Module 2:** You now know how to *measure* node impurity using the Gini index and entropy. The next question is: given a continuous feature, how do we systematically *find* the split threshold that maximises impurity reduction?
@@ -119,11 +120,7 @@ For a categorical feature with $C$ unique values, there are $2^{C-1} - 1$ possib
 
 **Common approach:** In scikit-learn, ordinal encodings are used and treated as continuous features. For truly nominal features, one-hot encoding is applied before tree training, converting each category into a binary feature.
 
-<ConceptBox title="Interactive Widget: Gini Split Explorer">
-This widget lets you drag a threshold slider and watch the Gini gain update in real time. The scatter plot shows the student data; the split line divides points into left and right partitions. The gain plot shows GiniGain for every candidate threshold across all features.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<GiniSplitWidget />
 
 <QuizCard
   question="Why are midpoints used as candidate split thresholds rather than the raw feature values themselves?"

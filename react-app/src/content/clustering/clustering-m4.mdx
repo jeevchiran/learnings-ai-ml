@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import SilhouetteWidget from '../../components/widgets/clustering/SilhouetteWidget.jsx'
 
 <Bridge>
 **The key insight.** A good clustering places each point closer to the members of its own cluster than to the members of any other cluster — by a wide margin. The silhouette score quantifies exactly this margin, for every single point in the dataset, and then averages them into a single interpretable number. WCSS alone cannot capture this: two clusters can each be individually tight while sitting right next to each other, overlapping at their boundaries.
@@ -170,11 +171,7 @@ No single metric definitively identifies the correct K. The standard practice is
 5. Choose the K where at least 2–3 metrics agree.
 6. Plot silhouette charts for your top 2–3 candidates and inspect visually.
 
-<ConceptBox title="Interactive Widget: Silhouette Explorer">
-This widget renders a live silhouette plot alongside the K-means clustering scatter plot. Adjust K to see how individual point silhouette values change, where negative bars appear, and how the mean silhouette tracks with the elbow curve.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<SilhouetteWidget />
 
 <QuizCard
   question="A data point has a(i) = 3.2 and b(i) = 1.8. What does this indicate about its cluster assignment?"

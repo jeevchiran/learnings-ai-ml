@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import NoisyChannelWidget from '../../components/widgets/nlp/NoisyChannelWidget.jsx'
 
 <Bridge>
 Module 1 normalized text by lowercasing and removing noise. But "running", "runs", and "ran" are still three separate types — a search for "run" misses the other five. **Morphological processing** maps these variants to a single canonical form, boosting recall without losing precision.
@@ -144,11 +145,7 @@ Counts are normalized to probabilities; the overall $P(e \mid w)$ is the product
 
 Candidates are all dictionary words within edit distance 1 or 2 of the observed string. About 80% of non-word errors fall within edit distance 1 (Damerau, 1964).
 
-<ConceptBox title="Interactive Widget: Noisy Channel Step-Through">
-This widget walks through the noisy channel model for the observed misspelling "teh": candidate generation → language model scoring → error model scoring → argmax. Each step shows how $P(e|w) \cdot P(w)$ is computed for "the", "ten", "tea", and other candidates.
-
-Note: interactive widget replaced with static description. See the original HTML file for the JS implementation.
-</ConceptBox>
+<NoisyChannelWidget />
 
 <ConceptBox title="Limitation: Real-Word Errors">
 The noisy channel model only handles *non-word* errors (typos not in the dictionary). It cannot correct *real-word* errors ("their" → "there") — those require a language model that detects contextual implausibility.

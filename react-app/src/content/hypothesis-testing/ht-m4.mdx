@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import TwoDistributionWidget from '../../components/widgets/hypothesis-testing/TwoDistributionWidget.jsx'
 
 <Bridge>
 **Why does this matter?** A marketing team at an e-commerce company wants to know which of two email subject lines drives more clicks. They randomly send version A to 200 subscribers and version B to another 200. Version A achieves a 12% click rate; version B achieves 15%. The difference is 3 percentage points. But could this difference have arisen by chance alone, even if both subject lines are equally effective?
@@ -112,11 +113,7 @@ Clear, substantial separation between groups. The effect is obvious even to an u
 
 Cohen himself emphasized that these benchmarks are rough guidelines, not universal standards. What constitutes a practically important effect depends entirely on the domain and the consequences of the decision.
 
-<ConceptBox title="Interactive Widget: Two-Distribution Overlap Visualizer">
-This widget lets you adjust two group parameters (means, standard deviations, sample sizes) to visualize how the overlap between sampling distributions relates to detectable differences. Increasing sample size narrows the sampling distributions and makes the same raw difference easier to detect.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<TwoDistributionWidget />
 
 <QuizCard
   question="In Welch's two-sample t-test, why is the pooled t-test generally NOT recommended as the default?"

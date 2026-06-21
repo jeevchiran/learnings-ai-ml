@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import SigmoidROCWidget from '../../components/widgets/regression/SigmoidROCWidget.jsx'
 
 <Bridge>
 Modules 1–2 covered linear regression for continuous outcomes. Many real problems involve categorical decisions: Is this email spam? Does this patient have diabetes? Linear regression fails — it produces values outside [0,1] with no principled way to represent probability. We need a model that outputs probabilities.
@@ -170,11 +171,7 @@ for C in [0.001, 0.01, 0.1, 1, 10, 100]:
     print(f"C={C:>6}: F1 = {scores.mean():.3f} ± {scores.std():.3f}")`}
 </CodeBlock>
 
-<ConceptBox title="Interactive Widget: Sigmoid Explorer + ROC Curve">
-Adjust weight and bias to see how the sigmoid curve and decision boundary change. Move the threshold to trace the ROC curve — observe how TPR and FPR change together.
-
-Note: interactive Plotly widgets replaced with static description. See the original HTML file for the JS implementation.
-</ConceptBox>
+<SigmoidROCWidget />
 
 <QuizCard
   question="A cancer screening model has Precision=0.60 and Recall=0.95. A fraud detection model has Precision=0.90 and Recall=0.55. Which metric is each model optimizing for, and which threshold setting achieves it?"

@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import DistanceCentroidWidget from '../../components/widgets/clustering/DistanceCentroidWidget.jsx'
 
 ## Why Distance?
 
@@ -187,27 +188,7 @@ Now age and income contribute equally. The distance reflects the true structure 
 
 ## Interactive: Compare Distance Metrics
 
-<ConceptBox title="Interactive Widget">
-This widget demonstrates the difference between Euclidean distance, Manhattan distance, and cosine similarity. It shows both the straight-line (Euclidean) path and the L-shaped (Manhattan) path between two adjustable points, with all three distance metrics updating in real time. The key takeaway is that Euclidean distance is always less than or equal to Manhattan distance, and cosine distance measures angle rather than magnitude.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
-
-## Interactive: Centroid as the Balance Point
-
-<ConceptBox title="Interactive Widget">
-This widget demonstrates that the centroid (arithmetic mean) is the point that minimises the within-cluster sum of squares. Moving the candidate centroid away from the true centroid always increases WCSS. The key takeaway is that the arithmetic mean is the unique optimal centroid under Euclidean distance.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
-
-## Interactive: Why Scaling Matters
-
-<ConceptBox title="Interactive Widget">
-This widget shows K-means applied to a synthetic dataset with "age" (range 0–80) and "income" (range 0–100,000). Without scaling, K-means draws horizontal bands because the income axis dominates Euclidean distance. After Z-score scaling, K-means recovers the true diagonal clusters. The key takeaway is that unscaled features cause K-means to cluster by the feature with the largest numeric range, not by meaningful structure.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<DistanceCentroidWidget />
 
 ## Practice
 

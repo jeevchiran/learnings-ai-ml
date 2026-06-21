@@ -1,4 +1,6 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import ZTestSimulatorWidget from '../../components/widgets/hypothesis-testing/ZTestSimulatorWidget.jsx'
+import PowerCurveWidget from '../../components/widgets/hypothesis-testing/PowerCurveWidget.jsx'
 
 <Bridge>
 **Factory quality control.** A cereal manufacturer programs its filling machines to deliver exactly 500 g per box. The production manager knows from years of historical data that the filling process has a population standard deviation of σ = 8 g — a quantity so well-established it can be treated as known. After a recent maintenance shutdown, she wants to verify the machine is still calibrated correctly. She randomly samples 40 boxes and finds a sample mean of x̄ = 497 g. Is this 3 g shortfall just random variation, or is the machine systematically underfilling? To answer this formally — with a controlled risk of being wrong — she needs the **one-sample Z-test**.
@@ -143,13 +145,7 @@ $$497 \;\pm\; 1.96 \times \frac{8}{\sqrt{40}} \;=\; 497 \;\pm\; 2.48 \;=\; [494.
 
 Since μ₀ = 500 does not fall within [494.52, 499.48], we reject H₀ at the 5% significance level. The confidence interval additionally tells us *which* values of the population mean are plausible — this is more informative than a simple reject/fail-to-reject decision.
 
-<ConceptBox title="Interactive Widget: Z-Test Simulator">
-This widget lets you adjust μ₀, x̄, σ, n, test type, and α, watching the Z statistic, p-value, critical values, and rejection decision update in real time — including shaded rejection regions on the standard normal curve.
-
-**Key insight:** As the sample mean moves further from μ₀ (relative to SE = σ/√n), Z grows in magnitude and the p-value shrinks. The two-tailed test rejects when |Z| exceeds the critical value z* for the chosen α.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<ZTestSimulatorWidget />
 
 ## 6. Worked Example: The Factory Scenario
 
@@ -191,13 +187,7 @@ At the 5% significance level, there is sufficient statistical evidence that the 
 </DerivationStep>
 </DerivationSteps>
 
-<ConceptBox title="Interactive Widget: Sample Size and Statistical Power">
-This widget plots statistical power against sample size for a fixed true effect size (distance between μ_true and μ₀ = 500). A horizontal dashed line marks the conventional 0.80 power target.
-
-**Key insight:** Power increases monotonically with n for a fixed effect size. This is the quantitative justification for why researchers conduct power analyses *before* collecting data. A study designed with insufficient sample size may fail to detect a real effect, wasting resources and potentially reaching incorrect conclusions.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<PowerCurveWidget />
 
 ## 7. Practice Problem
 

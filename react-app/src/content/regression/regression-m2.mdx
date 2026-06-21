@@ -1,4 +1,6 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import ProjectionWidget from '../../components/widgets/regression/ProjectionWidget.jsx'
+import GradientDescentWidget from '../../components/widgets/regression/GradientDescentWidget.jsx'
 
 # Module 2: Mathematics of Linear Regression
 
@@ -70,11 +72,7 @@ The residual vector $\mathbf{e} = \mathbf{y} - \hat{\mathbf{y}}$ is perpendicula
 
 ## Interactive: Geometric Projection
 
-<ConceptBox title="Interactive Widget">
-This widget demonstrates the geometric interpretation of OLS as projection. It shows the response vector y (blue), its projection onto the column space of X (red), and the residual vector (green, perpendicular to the projection plane). The key takeaway is that OLS finds the closest point in the column space of X to the observed response vector y.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<ProjectionWidget />
 
 ## Gradient Descent
 
@@ -121,11 +119,7 @@ $J(\boldsymbol{\beta})$ is a convex function (the Hessian $\frac{1}{n}\mathbf{X}
 
 ## Interactive: Gradient Descent on Loss Landscape
 
-<ConceptBox title="Interactive Widget">
-This widget demonstrates gradient descent navigating the loss surface of a linear regression problem. You can adjust the learning rate to observe convergence versus divergence behavior, with both a contour plot and 3D surface view of the loss landscape. The key takeaway is that the learning rate must be chosen carefully: too small and convergence is slow, too large and the algorithm diverges.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<GradientDescentWidget />
 
 ## Application: Advertising Budget Optimization
 

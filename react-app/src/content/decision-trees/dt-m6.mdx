@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import GradientBoostingWidget from '../../components/widgets/decision-trees/GradientBoostingWidget.jsx'
 
 <Bridge>
 **From variance reduction to bias reduction.** Module 5 showed that bagging and random forests reduce variance. But what if the fundamental problem is **bias**? Consider a depth-1 decision tree — a stump. No matter how many stumps you average, the resulting ensemble is still constrained by what a stump can express. To reduce bias, we need **sequential learning**: train models one after another, where each new model specifically targets the errors made by all previous models combined.
@@ -144,11 +145,7 @@ $$\mathcal{L}_{\text{XGB}} = \sum_{i=1}^{n} L(y_i, F(x_i)) + \lambda \|w\|^2 + \
 
 **LightGBM:** Uses histogram-based splitting (bucketing continuous features into 255 bins) and leaf-wise tree growth (expand the leaf with the largest loss reduction, not all leaves at the same depth). Substantially faster than XGBoost for large datasets while maintaining similar accuracy.
 
-<ConceptBox title="Interactive Widget: Gradient Boosting Step-by-Step">
-This widget shows the residual fitting process for a small regression dataset. At each iteration step, it displays the current ensemble prediction, the residuals being fitted by the next tree, and the cumulative MSE reduction. Adjust the learning rate slider to see how it controls the step size.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<GradientBoostingWidget />
 
 <QuizCard
   question="Why can gradient boosting reduce bias while bagging cannot?"

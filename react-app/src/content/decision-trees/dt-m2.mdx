@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import ImpurityWidget from '../../components/widgets/decision-trees/ImpurityWidget.jsx'
 
 ## Why Do We Need a Splitting Criterion?
 
@@ -182,11 +183,7 @@ $$\text{Total} = O(n^2 \cdot p \cdot d)$$
 
 In practice scikit-learn pre-sorts each feature column once before fitting, which reduces the per-node cost to $O(n \log n \cdot p)$, making moderately large datasets tractable.
 
-<ConceptBox title="Interactive Widget">
-This widget shows three interactive charts: (1) Gini impurity, entropy, and misclassification rate plotted as a function of p (positive class proportion); (2) an impurity calculator where you adjust positive and negative sample counts; (3) an information gain calculator showing parent entropy, weighted child entropy, and gain as a bar chart. The key takeaway is that all three measures reach 0 at pure nodes and are maximized at equal class mixing, but entropy is slightly more sensitive near the extremes.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<ImpurityWidget />
 
 ## Practice
 

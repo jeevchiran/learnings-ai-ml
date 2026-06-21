@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import NERWidget from '../../components/widgets/nlp/NERWidget.jsx'
 
 <Bridge>
 We can now tag words (Module 3), parse structure (Module 4), and measure meaning (Module 5–6). This module applies that foundation to three information extraction tasks: identifying *what* entities are named (NER), *who did what to whom* (SRL), and *which mentions refer to the same entity* (coreference).
@@ -130,13 +131,7 @@ All three expressions (Obama, He, the 44th president) form one coreference chain
 
 **Why it matters:** Without coreference resolution, information extraction cannot connect facts spread across sentences. "Tesla's CEO **announced** a new product. **He** said it would ship in 2025." — without knowing that "He" = Elon Musk = Tesla's CEO, we cannot attribute the statement.
 
-<ConceptBox title="Interactive Widget: NER Highlighter + IOB View">
-Select a sentence to see NER highlighting and the corresponding IOB sequence. Each colored span shows the entity type; the IOB view shows how the span is encoded as per-token labels.
-
-Sentences include: "Barack Obama visited Apple's headquarters", "Tesla CEO Elon Musk announced new gigafactories", "Amazon acquired MGM Studios for $8.45 billion".
-
-Note: interactive widget replaced with static description. See the original HTML file for the JS implementation.
-</ConceptBox>
+<NERWidget />
 
 <QuizCard
   question="In BIO tagging, why is an 'I-PERSON' tag after an 'O' tag invalid, and which model enforces this constraint during decoding?"

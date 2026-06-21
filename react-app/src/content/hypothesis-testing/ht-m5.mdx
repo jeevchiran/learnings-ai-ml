@@ -1,4 +1,6 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import PairedDifferenceWidget from '../../components/widgets/hypothesis-testing/PairedDifferenceWidget.jsx'
+import PairedVsIndependentWidget from '../../components/widgets/hypothesis-testing/PairedVsIndependentWidget.jsx'
 
 <Bridge>
 **Real-world hook — blood pressure treatment.** A cardiologist wants to evaluate whether a 12-week lifestyle intervention (diet and exercise) reduces systolic blood pressure. She measures each of 15 patients before the program and again after completion. The key phrase is "each patient" — the same person is measured twice. These two measurements are not independent of each other: a patient who starts with high blood pressure is likely to have higher-than-average blood pressure at both time points. If we treated this as two independent groups (as in Module 4), we would be ignoring this built-in structure — and throwing away statistical power in the process. The **paired t-test** exploits the connection between the two measurements to give us a more sensitive and more appropriate test.
@@ -101,13 +103,9 @@ Outliers in the $d_i$ values can heavily distort both $\bar{d}$ and $s_d$, inval
 If the data were collected in a paired fashion (same subject twice, or matched pairs), use the paired t-test. Using an independent-samples test on paired data ignores structure in the data that reduces variability and increases power. You do not get to "choose" the independent test because it is simpler — the data structure mandates the paired analysis.
 </ConceptBox>
 
-<ConceptBox title="Interactive Widgets">
-**Widget 1 — Paired Difference Visualizer:** Each dot is one subject. Lines connect before and after measurements. The difference distribution builds as you add more subjects. Adjust sliders for sample size, true mean difference, and variability of differences to see how each affects the test outcome.
+<PairedDifferenceWidget />
 
-**Widget 2 — Paired vs. Independent Comparison:** The same eight-patient blood pressure dataset analyzed two ways: first using the correct paired t-test, then using an independent-samples t-test as if the before and after measurements were from entirely different groups. The paired test produces a larger t-statistic because between-subject variance is removed by differencing.
-
-Note: interactive widgets replaced with static descriptions. See the original HTML file for the JS/canvas implementation.
-</ConceptBox>
+<PairedVsIndependentWidget />
 
 ## 5. Worked Example: The Blood Pressure Study
 

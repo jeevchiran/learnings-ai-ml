@@ -1,4 +1,7 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import ErrorRegionWidget from '../../components/widgets/hypothesis-testing/ErrorRegionWidget.jsx'
+import PValueWidget from '../../components/widgets/hypothesis-testing/PValueWidget.jsx'
+import CriticalValueWidget from '../../components/widgets/hypothesis-testing/CriticalValueWidget.jsx'
 
 <Bridge>
 **Why does this matter?** When a jury deliberates, exactly two mistakes are possible. The jury might convict an innocent person — a grave injustice that punishes someone for a crime they did not commit. Or the jury might acquit a guilty person — allowing a criminal to go free. Notice that these errors pull in opposite directions: a jury that is very reluctant to convict (stringent standard) will rarely convict the innocent, but will more often let the guilty walk. A jury that convicts readily will catch more criminals, but will also wrongly convict more innocent people. Statistics has exactly the same structure. Every time we run a hypothesis test we risk one of two analogous mistakes. Understanding those mistakes, quantifying them, and deliberately choosing how to balance them is not a technicality — it is the most consequential decision in any statistical analysis.
@@ -133,11 +136,11 @@ $$|Z_{\text{obs}}| \geq z^* \iff p\text{-value} \leq \alpha$$
 This equivalence is not a coincidence. The critical value $z^*$ is defined as the value for which the tail probability equals $\alpha$. If the observed statistic equals the critical value, the p-value equals $\alpha$ exactly. If the observed statistic is larger, the p-value is smaller. The two methods must reach the same decision every time. Use whichever is more convenient for the problem at hand, but never expect them to disagree.
 </ConceptBox>
 
-<ConceptBox title="Interactive Widgets">
-This section contains three interactive widgets: (1) an Error Region Visualizer showing how alpha, effect size, and sample size affect Type I and Type II errors under overlapping null and alternative distributions; (2) a p-value Live Viewer where dragging a test statistic shows the corresponding p-value for one-tailed or two-tailed tests; (3) a Critical Value Explorer showing how the rejection region shifts as alpha and test type change. The key takeaway is that alpha and beta trade off against each other at fixed n, and both the p-value and critical value methods always reach the same decision.
+<ErrorRegionWidget />
 
-Note: interactive widgets replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<PValueWidget />
+
+<CriticalValueWidget />
 
 ## Worked Example: Manufacturing Quality Control
 

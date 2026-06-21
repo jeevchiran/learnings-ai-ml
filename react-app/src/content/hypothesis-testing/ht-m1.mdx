@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import RejectionRegionWidget from '../../components/widgets/hypothesis-testing/RejectionRegionWidget.jsx'
 
 <Bridge>
 **Why does this matter?** A pharmaceutical company runs a clinical trial claiming their new drug reduces average patient recovery time from 10 days to 8 days. You are a statistician hired to evaluate this claim. You have outcome data on 50 patients. How do you decide whether the evidence supports the company's claim, or whether the apparent improvement might simply be random noise in a small sample?
@@ -108,11 +109,7 @@ Here, $\hat{\theta}$ is the sample estimate of the parameter (for example, the s
 
 When $H_0$ is true, this ratio follows a known distribution centered at zero. A test statistic near zero means the sample result is consistent with $H_0$. A test statistic far from zero — in the tail of the distribution — means the sample result would be rare if $H_0$ were true, which is evidence against it. Different tests use different reference distributions (Z, t, F, chi-squared), chosen based on what parameter is being tested and what is known about the population. These are developed systematically in Modules 3 through 5.
 
-<ConceptBox title="Interactive Widget">
-This widget demonstrates the decision framework for hypothesis testing by showing rejection regions under a standard normal distribution for different real-world scenarios (drug trial, coin fairness, battery quality control, teaching method) at α = 0.05. The key takeaway is that the placement and size of rejection regions depend on whether the test is one-tailed (left or right) or two-tailed, determined entirely by the research question before data collection.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<RejectionRegionWidget />
 
 ## Worked Example: The Drug Trial
 

@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import POSTaggerWidget from '../../components/widgets/nlp/POSTaggerWidget.jsx'
 
 <Bridge>
 Normalized tokens from Module 2 still leave meaning underspecified — word order matters. "The dog bites the man" and "The man bites the dog" contain identical tokens but describe opposite events. **Syntax** captures not just which words appear but how they are arranged and what role each plays.
@@ -167,11 +168,7 @@ for chunk in doc.noun_chunks:
 **Deep parsing** (Module 4): full recursive parse tree — PP inside NP inside VP inside S. More expressive, captures sentence-level structure (who did what to whom), but slower and more domain-sensitive.
 </ConceptBox>
 
-<ConceptBox title="Interactive Widget: Live POS Tagger">
-This widget color-codes each token by POS and draws brackets around NP chunks. Try ambiguous sentences: "Time flies like an arrow; fruit flies like a banana" (different readings), "Book the table and read the book" (VB vs NN).
-
-Note: interactive widget replaced with static description. See the original HTML file for the JS implementation.
-</ConceptBox>
+<POSTaggerWidget />
 
 <QuizCard
   question="An HMM POS tagger learns that P(VBD | NN) is high and P(DT | DT) is near zero. What linguistic knowledge do these probabilities encode?"

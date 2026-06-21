@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import LevenshteinWidget from '../../components/widgets/nlp/LevenshteinWidget.jsx'
 
 ## NLP Pipeline — Big Picture
 
@@ -117,11 +118,7 @@ print(edit_distance("kitten", "sitting"))  # 3
 
 Start at $d[m][n]$. At each cell, follow the minimum predecessor to reconstruct the alignment and the sequence of edit operations.
 
-<ConceptBox title="Interactive Widget">
-This widget demonstrates a dynamic programming matrix for edit distance computation between two user-supplied strings. The matrix fills left-to-right, top-to-bottom; the optimal backtrace is highlighted showing the minimum-cost alignment path.
-
-Note: interactive widget replaced with static description. See the original HTML file for the canvas implementation.
-</ConceptBox>
+<LevenshteinWidget />
 
 ## Practice
 

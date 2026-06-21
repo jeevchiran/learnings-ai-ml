@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import BaggingRandomForestWidget from '../../components/widgets/decision-trees/BaggingRandomForestWidget.jsx'
 
 <Bridge>
 **From instability to ensemble design.** Module 4 identified a core tension: a fully grown tree memorizes training data (high variance, low bias), while an aggressively pruned tree underfits. Pruning helps, but even a well-tuned single tree suffers from instability — small changes to the training data can produce entirely different tree structures. The insight is that variance can be reduced by averaging, but only if the things being averaged are not perfectly correlated. The entire engineering challenge of ensemble methods is reducing that correlation — making the base learners diverse enough that their errors cancel out when aggregated.
@@ -149,15 +150,7 @@ $$\text{PI}(j) = \text{err}_{\text{OOB}}^{(j)} - \text{err}_{\text{OOB}}$$
 
 A large positive $\text{PI}(j)$ means feature $j$ matters. Permutation importance requires an extra pass through the OOB data for each feature, but is generally considered more reliable for feature selection.
 
-<ConceptBox title="Interactive Widgets">
-**Widget 1 — Bootstrap in Action:** Watch each bootstrap sample form, see which points are OOB, and observe how trees trained on different samples produce different structures.
-
-**Widget 2 — Ensemble Size vs. Error:** Plot OOB error and test error as the number of trees grows. Observe the rapid initial improvement that levels off — adding trees past ~200 rarely helps.
-
-**Widget 3 — Feature Importance Comparison:** Compare MDI vs. permutation importance for a dataset with both relevant and irrelevant features.
-
-Note: interactive widgets replaced with static descriptions. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<BaggingRandomForestWidget />
 
 <QuizCard
   question="In a random forest with p = 100 features, approximately how many features are considered at each split by default for a classification task, and why?"

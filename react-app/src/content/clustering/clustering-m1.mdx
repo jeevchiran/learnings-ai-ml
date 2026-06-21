@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import KMeansWidget from '../../components/widgets/clustering/KMeansWidget.jsx'
 
 ## Why Do We Need Clustering?
 
@@ -148,19 +149,7 @@ All major machine learning libraries default to K-means++ initialisation. In sci
 
 ## Interactive: Watch K-Means Converge
 
-<ConceptBox title="Interactive Widget">
-This widget demonstrates the K-means convergence process on 80 points generated from 3 Gaussian blobs. It allows stepping through iterations one at a time or running to convergence, showing how centroids move and cluster colours change. The key takeaway is that WCSS (inertia) decreases monotonically with each iteration, and the algorithm always terminates.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
-
-## Interactive: How K Affects the Partition
-
-<ConceptBox title="Interactive Widget">
-This widget demonstrates the same 80-point dataset partitioned with K = 2, 3, 4, and 5. The key takeaway is that WCSS decreases as K grows, but so does the complexity of the partition — this trade-off between compactness and parsimony is the subject of Module 3.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<KMeansWidget />
 
 ## Practice
 

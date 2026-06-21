@@ -1,4 +1,7 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import LossLandscapeWidget from '../../components/widgets/regression/LossLandscapeWidget.jsx'
+import MLEWidget from '../../components/widgets/regression/MLEWidget.jsx'
+import NewtonWidget from '../../components/widgets/regression/NewtonWidget.jsx'
 
 <Bridge>
 Module 3 used logistic regression as a classification tool. Now we derive the mathematical foundations: why the sigmoid function? Why cross-entropy and not MSE? How does optimization actually find the parameters?
@@ -68,6 +71,8 @@ MSE with sigmoid: $J_{\text{MSE}} = \frac{1}{n}\sum(y_i - \sigma(\mathbf{x}_i^T\
 Cross-entropy is **convex in $\boldsymbol{\beta}$** because $-\log\sigma(z)$ is convex (second derivative always positive). This guarantees a unique global optimum and reliable convergence.
 </ConceptBox>
 
+<LossLandscapeWidget />
+
 ## Computing the Gradient
 
 <DerivationSteps>
@@ -99,6 +104,8 @@ Since we maximize the log-likelihood (equivalently minimize negative log-likelih
 
 $$\boldsymbol{\beta}^{(t+1)} = \boldsymbol{\beta}^{(t)} + \alpha \cdot \mathbf{X}^T(\mathbf{y} - \mathbf{p}^{(t)})$$
 
+<MLEWidget />
+
 ## Newton's Method and IRLS
 
 Gradient descent uses only first-order information (slope). Newton's method uses second-order information (curvature) for faster convergence.
@@ -114,6 +121,8 @@ where $\mathbf{W} = \text{diag}(p_i(1-p_i))$ is a diagonal weight matrix.
 $$\boldsymbol{\beta}^{(t+1)} = \boldsymbol{\beta}^{(t)} + (\mathbf{X}^T\mathbf{W}\mathbf{X})^{-1}\mathbf{X}^T(\mathbf{y} - \mathbf{p})$$
 
 This is equivalent to solving a **weighted least squares** problem at each step — hence **Iteratively Reweighted Least Squares (IRLS)**. Newton's method has quadratic convergence (error squares each iteration) — typically 5–10 iterations vs. hundreds for gradient descent.
+
+<NewtonWidget />
 
 ## Regularized MLE: The Bayesian Interpretation
 

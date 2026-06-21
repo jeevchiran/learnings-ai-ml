@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import ParseTreeWidget from '../../components/widgets/nlp/ParseTreeWidget.jsx'
 
 <Bridge>
 Shallow parsing labels flat spans like `[NP the cat]` but cannot represent nested relationships — "the cat that sat on the mat" contains a relative clause modifying the subject. **Deep parsing** produces a constituency tree that captures every level of embedding.
@@ -80,11 +81,7 @@ Parse tree for "the dog chased a big cat":
              a big cat
 ```
 
-<ConceptBox title="Interactive Widget: Step-Through Parse Tree Builder">
-Select a sentence and step through the derivation one rule at a time, watching the tree build from S to terminal leaves. Sentences include: "The dog chased a cat", "She put the book on the shelf", "The old man saw the girl with a telescope" (ambiguous).
-
-Note: interactive widget replaced with static description. See the original HTML file for the SVG/JS implementation.
-</ConceptBox>
+<ParseTreeWidget />
 
 ## Structural Ambiguity
 

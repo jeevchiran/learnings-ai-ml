@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import PruningWidget from '../../components/widgets/decision-trees/PruningWidget.jsx'
 
 <Bridge>
 **Doctor analogy.** A doctor who asks twenty questions before making a diagnosis may memorize every patient they have ever seen, giving perfect accuracy on past cases. But facing a new patient with a slightly different presentation, they fail — they are reciting memorized rules rather than reasoning. Conversely, a doctor who asks only two questions misses crucial nuance. The right number of questions is somewhere in between: enough to capture the real signal, not so many that noise gets memorized. Tree depth plays exactly the same role.
@@ -122,11 +123,7 @@ Evaluate the validation error of each tree in the sequence using $k$-fold cross-
 </DerivationStep>
 </DerivationSteps>
 
-<ConceptBox title="Interactive Widget: Pruning Visualizer">
-This widget shows the pruning sequence for a small tree. As you increase the $\alpha$ slider, internal nodes with low effective alpha are progressively replaced by leaves (shown greyed out). The training error vs. validation error chart shows where the optimal $\alpha$ lies.
-
-Note: interactive widget replaced with static description. See the original HTML file for the JS/canvas implementation.
-</ConceptBox>
+<PruningWidget />
 
 ## 6. Practical Decision Checklist
 

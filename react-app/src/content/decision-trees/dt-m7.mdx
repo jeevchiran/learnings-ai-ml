@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import HyperparameterWidget from '../../components/widgets/decision-trees/HyperparameterWidget.jsx'
 
 <Bridge>
 **From algorithms to parameters.** Modules 5 and 6 derived the Random Forest variance formula $\text{Var}(F) = \rho\sigma^2 + \frac{(1-\rho)\sigma^2}{B}$ and the GB update rule $F_m = F_{m-1} + \eta h_m$. Every major hyperparameter in both algorithms corresponds directly to a term in one of these formulas. This module makes those correspondences explicit and translates them into practical tuning recipes.
@@ -181,11 +182,7 @@ model.fit(
 print(f"Best iteration: {model.best_iteration}")
 ```
 
-<ConceptBox title="Interactive Widget: Tuning Explorer">
-This widget shows train error and validation error curves as you adjust learning_rate, max_depth, n_estimators, and subsample for both Random Forest and Gradient Boosting. The bias-variance decomposition is shown explicitly at each hyperparameter setting.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<HyperparameterWidget />
 
 <QuizCard
   question="You set learning_rate=0.05 instead of 0.1 in your gradient boosting model, keeping n_estimators the same. What will most likely happen?"

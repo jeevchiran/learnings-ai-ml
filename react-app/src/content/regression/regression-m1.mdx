@@ -1,4 +1,7 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import RegressionLineWidget from '../../components/widgets/regression/RegressionLineWidget.jsx'
+import AssumptionWidget from '../../components/widgets/regression/AssumptionWidget.jsx'
+import ResidualDiagnosticsWidget from '../../components/widgets/regression/ResidualDiagnosticsWidget.jsx'
 
 # Module 1: Linear Regression
 
@@ -28,11 +31,7 @@ The OLS estimator finds the values of $\beta$ that minimize this expression. In 
 
 ## Interactive: Fitting a Regression Line
 
-<ConceptBox title="Interactive Widget">
-This widget demonstrates how slope and intercept affect the regression line fit. Adjusting these parameters changes how residuals (vertical distances from data points to the line) and the MSE and R-squared metrics change. The key takeaway is that minimizing MSE gives the optimal OLS fit.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<RegressionLineWidget />
 
 ## Assumptions of Linear Regression
 
@@ -64,11 +63,7 @@ The errors have zero conditional mean: $E[\varepsilon | X] = 0$. This means the 
 
 ## Interactive: Diagnosing Assumption Violations
 
-<ConceptBox title="Interactive Widget">
-This widget demonstrates what each assumption violation looks like in data and residual plots. Scenarios include all-assumptions-met, heteroscedasticity, non-linearity, and non-normal errors. The key takeaway is that residual plots are the primary tool for diagnosing whether model assumptions hold.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<AssumptionWidget />
 
 ## Interpreting Coefficients
 
@@ -167,11 +162,7 @@ $$\text{Standardized: } e_i^* = \frac{e_i}{\hat{\sigma}\sqrt{1 - h_{ii}}} \qquad
 
 where $h_{ii}$ is the leverage (diagonal of the hat matrix) and $p$ is the number of predictors. Cook's distance > 1 flags observations that warrant investigation.
 
-<ConceptBox title="Interactive Widget">
-This widget demonstrates interactive residual diagnostics across four diagnostic plots simultaneously (Residuals vs Fitted, Normal Q-Q, Scale-Location, Residuals vs Leverage). Scenarios include ideal, nonlinearity, heteroscedasticity, outliers, and heavy-tailed errors. The key takeaway is that each plot reveals a different type of assumption violation.
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<ResidualDiagnosticsWidget />
 
 ### Practice Problems
 

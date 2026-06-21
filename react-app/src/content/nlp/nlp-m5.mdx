@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import WordNetWidget from '../../components/widgets/nlp/WordNetWidget.jsx'
 
 <Bridge>
 Parse trees capture grammatical structure but are silent about meaning — NP and VP labels say nothing about what concepts or actions are involved. **Lexical semantics** bridges this gap by formalizing how individual words encode meaning and relate to each other.
@@ -145,11 +146,7 @@ print(result.name(), ":", result.definition())
 # bank.n.01 : a financial institution that accepts deposits ...`}
 </CodeBlock>
 
-<ConceptBox title="Interactive Widget: WordNet Hierarchy Explorer">
-Select a word to explore its synsets, hypernym chain (upward to entity.n.01), and direct hyponyms. Try: dog, car, bank, tree, bird, see, run.
-
-Note: interactive widget replaced with static description. See the original HTML file for the JS implementation.
-</ConceptBox>
+<WordNetWidget />
 
 <QuizCard
   question="The Lesk algorithm selects the sense of a word by finding the synset whose gloss has the maximum overlap with the sentence context. 'He opened an account at the bank.' Which synset would it prefer, and why?"

@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import PPMIWidget from '../../components/widgets/nlp/PPMIWidget.jsx'
 
 <Bridge>
 WordNet (Module 5) is hand-crafted and hard to scale. Can we instead *learn* meaning automatically from raw text? Firth (1957) answered this: "You shall know a word by the company it keeps." The **distributional hypothesis** — words appearing in similar contexts have similar meanings — is the foundation of modern word representations.
@@ -139,11 +140,7 @@ On the four-sentence corpus, the most similar word to "dogs" by cosine PPMI is *
 SVD compresses sparse PPMI vectors into dense low-dimensional ones. Word2Vec (Module 9) learns dense vectors directly, implicitly recovering a structure similar to PPMI at much larger scale.
 </ConceptBox>
 
-<ConceptBox title="Interactive Widget: PMI Explorer">
-Enter a small corpus and compute the raw co-occurrence matrix and PPMI heatmap. Then query a word to find its top-3 most similar words by cosine similarity on PPMI vectors. Try corpus: "I like dogs and cats / Dogs are loyal pets / Cats are independent pets."
-
-Note: interactive widget replaced with static description. See the original HTML file for the Plotly/JS implementation.
-</ConceptBox>
+<PPMIWidget />
 
 <QuizCard
   question="PMI('ice', 'the') ≈ 0 even though they co-occur millions of times in a large corpus. Why?"

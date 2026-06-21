@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import WCSSElbowWidget from '../../components/widgets/clustering/WCSSElbowWidget.jsx'
 
 <Bridge>
 **Building on Module 2:** We saw that updating a centroid to the arithmetic mean of its assigned points minimises the sum of squared distances within that cluster. K-means runs this logic across all K clusters simultaneously. The single number it is driving toward zero is the **Within-Cluster Sum of Squares (WCSS)** — also called **inertia** in scikit-learn.
@@ -142,15 +143,7 @@ where:
 
 As K increases: WCSS falls, BCSS rises, TSS stays constant. A good K simultaneously minimises WCSS (tight clusters) and maximises BCSS (clusters far from each other).
 
-<ConceptBox title="Interactive Widgets">
-**Widget 1 — WCSS Explorer:** Run K-means for different values of K (1–8). The scatter plot shows the clustering result; the right chart shows the WCSS curve with a dashed line at the true K=3.
-
-**Widget 2 — Build Your Own Elbow Curve:** Control the true number of clusters in generated data, then look for the elbow in the WCSS curve. The WCSS difference bar chart helps find the point of maximum rate-of-change reduction.
-
-**Widget 3 — Within vs. Between Variance:** Stacked bar chart showing WCSS and BCSS for each K, making the TSS = WCSS + BCSS decomposition visible.
-
-Note: interactive widgets replaced with static descriptions. See the original HTML file for the Plotly/canvas implementation.
-</ConceptBox>
+<WCSSElbowWidget />
 
 <QuizCard
   question="Why can't WCSS alone be used to select the optimal number of clusters K?"
