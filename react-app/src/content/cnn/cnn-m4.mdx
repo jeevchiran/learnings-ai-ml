@@ -1,0 +1,164 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import PoolingWidget from '../../components/widgets/cnn/PoolingWidget.jsx'
+
+# Module 4: Pooling Layers
+
+<Bridge>
+**From Module 3:** conv layers build increasingly rich feature maps, but they can be very large — a 32×32 input with 64 filters gives a 32×32×64 = 65,536-dimensional tensor. As networks go deeper, these tensors become computationally expensive to process. Pooling layers reduce the spatial dimensions while retaining the most important information, and introduce a degree of **translation invariance** that convolution alone cannot provide.
+</Bridge>
+
+## What is pooling?
+
+A **pooling layer** applies a fixed aggregation function over non-overlapping (or overlapping) windows of the feature map. No learnable parameters are involved.
+
+### Max pooling
+
+Takes the maximum value in each window:
+
+$$Z(i,j) = \max_{0 \leq m < K,\; 0 \leq n < K} X(i \cdot S + m,\; j \cdot S + n)$$
+
+Keeps the strongest activation in each region. Discards exact position; retains whether the feature was present.
+
+### Average pooling
+
+Takes the mean value in each window:
+
+$$Z(i,j) = \frac{1}{K^2} \sum_{m=0}^{K-1} \sum_{n=0}^{K-1} X(i \cdot S + m,\; j \cdot S + n)$$
+
+Smooths the feature map. Less selective than max pooling; used more in older architectures (LeNet) and as the global pooling step in modern ones.
+
+### Global average pooling (GAP)
+
+Collapses the entire $H \times W$ spatial extent into a single scalar per channel:
+
+$$Z(c) = \frac{1}{H \cdot W} \sum_{i=1}^{H} \sum_{j=1}^{W} X(i,j,c)$$
+
+The output is a vector of length $C_{out}$. In modern CNNs (ResNet, EfficientNet), a GAP layer replaces the flatten + large FC stack, drastically reducing parameters. ResNet-50 uses GAP to go from 7×7×2048 → 2048 → FC(1000) instead of 7×7×2048×1000 = 100M params.
+
+## Output size formula
+
+Same formula as convolution with no learnable padding:
+
+$$H_{out} = \left\lfloor \frac{H_{in} - K}{S} \right\rfloor + 1$$
+
+For $2 \times 2$ MaxPool with stride 2: $H_{out} = H_{in} / 2$. Halves each spatial dimension.
+
+## Interactive: explore pooling
+
+Click an output cell to see which input region it pools from.
+
+<PoolingWidget />
+
+## Worked numericals
+
+### Problem 1 — standard 2×2 MaxPool, stride 2
+
+Input: $28 \times 28 \times 32$. Pool: $2 \times 2$, Stride: 2.
+
+$$H_{out} = \frac{28 - 2}{2} + 1 = 14 \quad \Rightarrow \text{Output: } 14 \times 14 \times 32$$
+
+Spatial area reduced by $4\times$. Zero parameters added.
+
+### Problem 2 — 3×3 MaxPool, stride 2
+
+Input: $32 \times 32 \times 64$. Pool: $3 \times 3$, Stride: 2.
+
+$$H_{out} = \frac{32 - 3}{2} + 1 = 15 \quad \Rightarrow \text{Output: } 15 \times 15 \times 64$$
+
+Slightly more aggressive than 2×2 but with overlapping windows (stride < kernel).
+
+### Problem 3 — global average pooling
+
+Input: $7 \times 7 \times 512$. GAP applied.
+
+$$\text{Output: } 512$$
+
+From 25,088 values to 512 — a $49\times$ reduction in the spatial dimension before the FC classification head. This is what ResNet uses before its final linear layer.
+
+### Problem 4 — pooling reduces FC layer params
+
+Without pooling: Conv outputs $16 \times 16 \times 64 = 16{,}384$ features → FC(256): $16{,}384 \times 256 + 256 = 4{,}194{,}560$ params.
+
+With one 2×2 MaxPool (stride 2): $8 \times 8 \times 64 = 4{,}096$ → FC(256): $4{,}096 \times 256 + 256 = 1{,}048{,}832$ params.
+
+Pooling cut the first FC layer's cost by $4\times$. Pooling twice: $16\times$ reduction.
+
+<ConceptBox title="Why max pooling dominates in practice">
+Max pooling selects the peak activation — it answers "was this feature present anywhere in this window?" rather than "how strongly was it present on average?" For object recognition, presence matters more than exact intensity. Average pooling is better for regression tasks or when smooth spatial summaries are needed. Global average pooling is increasingly preferred over FC layers because it is fully spatial-size-independent (the same model works on images of any resolution).
+</ConceptBox>
+
+## Translation invariance via pooling
+
+Convolution is *equivariant* — shifting the input shifts the feature map by the same amount. Pooling provides approximate *invariance* — small shifts in the feature map get absorbed by the max/avg operation. Together: a small translation of the input produces the same (or very similar) pool output.
+
+This is why CNNs generalise well to objects at slightly different positions: the hierarchy of conv+pool operations progressively abstracts away exact location while retaining categorical identity.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Max pooling as a fixed nonlinear operator">
+
+Let $\mathcal{P}(i,j) = \{(i \cdot S + m, j \cdot S + n) : 0 \leq m,n < K\}$ be the pooling window.
+
+Max pooling: $Z(i,j) = \max_{(p,q) \in \mathcal{P}(i,j)} X(p,q)$
+
+This is a nonlinear operation — neither linear nor affine. Its gradient (in backprop) is a binary mask:
+
+$$\frac{\partial Z(i,j)}{\partial X(p,q)} = \begin{cases} 1 & \text{if } (p,q) = \arg\max_{\mathcal{P}} X \\ 0 & \text{otherwise} \end{cases}$$
+
+Only the winning unit receives the gradient. This is the "max gradient routing" that makes pooling well-behaved despite being non-differentiable at ties (which rarely occur in practice).
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Pooling and translation invariance — formal bound">
+
+Consider a 1-D signal $x$ and $x' = \text{shift}(x, \delta)$ where $|\delta| < S$ (shift smaller than stride). After max pooling with stride $S$:
+
+$$\text{Pool}(x')_{i} = \max_{|t| < S} x'(iS + t) = \max_{|t| < S} x(iS + t - \delta)$$
+
+For $|\delta| < S$, the window at position $i$ in $x'$ still contains the same set of values as the window at $i$ in $x$ (the maximum element has not escaped the window). Therefore $\text{Pool}(x') = \text{Pool}(x)$ — exact invariance for shifts smaller than the stride.
+
+For larger shifts ($|\delta| \geq S$), the pool output shifts by $\lfloor \delta / S \rfloor$ positions — partial invariance.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Global average pooling — connection to linear classifier">
+
+Let $\mathbf{A} \in \mathbb{R}^{H \times W \times C}$ be the final conv feature map. GAP produces $\bar{\mathbf{a}} \in \mathbb{R}^C$ where $\bar{a}_c = \frac{1}{HW} \sum_{i,j} A_{i,j,c}$.
+
+A linear head then computes $\hat{y}_k = \sum_c w_{k,c} \bar{a}_c + b_k$.
+
+Substituting: $\hat{y}_k = \frac{1}{HW} \sum_{i,j} \sum_c w_{k,c} A_{i,j,c} + b_k$
+
+This is equivalent to applying a $1 \times 1$ conv with weights $\mathbf{w}_k$ to the feature map, then summing spatially. GAP thus performs a spatially-averaged class response across the entire feature map — providing both interpretability (class activation maps) and spatial-size invariance.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="A feature map is 16×16×128. After a 2×2 MaxPool with stride 2, what is the output shape?"
+  options={[
+    "8×8×64",
+    "8×8×128",
+    "14×14×128",
+    "16×16×64"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are true about pooling layers?"
+  options={[
+    "Max pooling has no learnable parameters",
+    "Average pooling always outperforms max pooling on classification tasks",
+    "Global average pooling makes the model independent of input spatial size",
+    "Pooling with stride 2 halves each spatial dimension",
+    "Max pooling provides approximate translation invariance",
+    "Pooling always reduces the number of channels in the feature map"
+  ]}
+  correct={[0, 2, 3, 4]}
+/>

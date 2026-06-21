@@ -1,0 +1,162 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import CNNParamsWidget from '../../components/widgets/cnn/CNNParamsWidget.jsx'
+
+# Module 5: CNN Architecture & Parameter Numericals
+
+<Bridge>
+**From Modules 2–4:** you understand individual operations — convolution produces feature maps, pooling reduces spatial dimensions. Now we assemble these into complete architectures and trace the tensor shape and parameter count through every layer. This module is deliberately numerical: the ability to compute shapes and params by hand is how you debug architectures and understand published models.
+</Bridge>
+
+## The standard CNN building block
+
+A classic CNN stack repeats: **Conv → BN → ReLU → Pool**.
+
+- **Conv** extracts features
+- **BN** stabilises activations across the batch
+- **ReLU** introduces nonlinearity
+- **Pool** reduces spatial size
+
+After several such blocks, a **Flatten** + **FC** head maps the feature tensor to class scores.
+
+## Full walkthrough: a VGG-like net for CIFAR-10
+
+Input: $32 \times 32 \times 3$
+
+| # | Layer | K / Pool | C_out | Stride | Pad | Output Shape | Params |
+|---|-------|----------|-------|--------|-----|-------------|--------|
+| 0 | Input | — | 3 | — | — | 32×32×3 | 0 |
+| 1 | Conv1 | 3×3 | 32 | 1 | 1 | 32×32×32 | $3^2\!\times\!3\!\times\!32+32=\mathbf{896}$ |
+| 2 | MaxPool | 2×2 | — | 2 | 0 | 16×16×32 | 0 |
+| 3 | Conv2 | 3×3 | 64 | 1 | 1 | 16×16×64 | $3^2\!\times\!32\!\times\!64+64=\mathbf{18{,}496}$ |
+| 4 | MaxPool | 2×2 | — | 2 | 0 | 8×8×64 | 0 |
+| 5 | Conv3 | 3×3 | 128 | 1 | 1 | 8×8×128 | $3^2\!\times\!64\!\times\!128+128=\mathbf{73{,}856}$ |
+| 6 | MaxPool | 2×2 | — | 2 | 0 | 4×4×128 | 0 |
+| 7 | Flatten | — | — | — | — | 2048 | 0 |
+| 8 | FC1 | — | 256 | — | — | 256 | $2048\!\times\!256+256=\mathbf{524{,}544}$ |
+| 9 | FC2 | — | 10 | — | — | 10 | $256\!\times\!10+10=\mathbf{2{,}570}$ |
+| | **Total** | | | | | | **620,362** |
+
+The three conv layers together use only $896 + 18{,}496 + 73{,}856 = 93{,}248$ params (15% of total). The first FC layer alone uses 524,544 (85%). This is why:
+1. GAP + small FC beats Flatten + large FC for parameter efficiency
+2. The bottleneck is always the dense head, not the conv stack
+
+## Interactive: build and measure your own architecture
+
+<CNNParamsWidget />
+
+## Classic architectures — parameter summary
+
+| Architecture | Year | Params | Depth | Key Innovation |
+|-------------|------|--------|-------|----------------|
+| LeNet-5 | 1998 | 61K | 5 | First conv net for digits |
+| AlexNet | 2012 | 61M | 8 | ReLU, dropout, GPU training |
+| VGG-16 | 2014 | 138M | 16 | 3×3 conv stacks only |
+| GoogLeNet | 2014 | 7M | 22 | Inception modules, GAP |
+| ResNet-50 | 2015 | 25M | 50 | Residual connections |
+| EfficientNet-B0 | 2019 | 5.3M | — | Compound scaling |
+
+Note VGG-16's 138M: $3 \times 3 \times 512 \times 512 = 2{,}359{,}296$ per conv layer in the deepest block, repeated 3 times, plus three FC layers of 4096×4096×1000. Modern architectures use GAP to avoid the giant FC layers.
+
+## Worked numericals
+
+### Problem 1 — verify Conv3 output shape
+
+Input to Conv3: $8 \times 8 \times 64$. Kernel: $3 \times 3$, padding: 1, stride: 1.
+
+$$H_{out} = \frac{8 + 2(1) - 3}{1} + 1 = 8 \quad \Rightarrow 8 \times 8 \times 128$$
+
+Padding=1 preserves spatial size for kernel=3, stride=1.
+
+### Problem 2 — flatten dimension
+
+After MaxPool3: $4 \times 4 \times 128 = 2{,}048$
+
+### Problem 3 — compute LeNet-5 flatten dimension
+
+LeNet-5 input: $32 \times 32 \times 1$
+
+- Conv1 (5×5, 6 filters, no pad): $\frac{32-5}{1}+1 = 28 \to 28 \times 28 \times 6$
+- AvgPool1 (2×2, s=2): $14 \times 14 \times 6$
+- Conv2 (5×5, 16 filters, no pad): $\frac{14-5}{1}+1 = 10 \to 10 \times 10 \times 16$
+- AvgPool2 (2×2, s=2): $5 \times 5 \times 16 = \mathbf{400}$ → flatten
+
+### Problem 4 — GAP vs Flatten + FC
+
+Feature map: $7 \times 7 \times 512$. Classify into 1000 classes.
+
+**Flatten + FC:** $7 \times 7 \times 512 \times 1000 + 1000 = 25{,}089{,}000$ params
+
+**GAP + FC:** $512 \times 1000 + 1000 = 513{,}000$ params
+
+GAP gives a **49× parameter reduction** with comparable or better accuracy (ResNet uses GAP; VGG uses Flatten).
+
+<ConceptBox title="Why 3×3 conv stacks beat single large kernels">
+VGGNet's key finding (2014): two 3×3 conv layers have the same effective receptive field as one 5×5 layer but use $2 \times 9 = 18$ params vs $25$ params — a 28% saving. Three 3×3 layers = one 7×7 layer: $27$ params vs $49$ (45% saving). Each 3×3 also has its own nonlinearity, making the stack more expressive than a single 5×5.
+</ConceptBox>
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Tracing shapes through a full CNN">
+
+Let the network be:
+
+$$\mathbf{X}^{(0)} \xrightarrow{\text{Conv}_1} \mathbf{X}^{(1)} \xrightarrow{\text{Pool}} \mathbf{X}^{(2)} \xrightarrow{\text{Conv}_2} \mathbf{X}^{(3)} \xrightarrow{\text{Pool}} \mathbf{X}^{(4)} \xrightarrow{\text{Flatten}} \mathbf{z} \xrightarrow{\text{FC}} \hat{y}$$
+
+At each stage the shape transforms as:
+$$[B, C, H, W] \xrightarrow{\text{Conv}(K,C',s,p)} \left[B, C', \left\lfloor\frac{H+2p-K}{s}\right\rfloor+1, \left\lfloor\frac{W+2p-K}{s}\right\rfloor+1\right]$$
+
+Batch size $B$ passes through unchanged (each sample processed independently in a conv layer). This is why CNNs can train with any batch size once the architecture is defined.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Parameter count summary formula">
+
+Total parameters for a CNN:
+
+$$\text{Params} = \underbrace{\sum_{\text{conv } l} K_l^2 \cdot C_{in,l} \cdot C_{out,l} + C_{out,l}}_{\text{conv layers}} + \underbrace{\sum_{\text{fc } l} n_{in,l} \cdot n_{out,l} + n_{out,l}}_{\text{FC layers}}$$
+
+Pooling and BatchNorm (running mean/var) add no *trainable* parameters (BN has $2C$ learned scale+shift, but this is small).
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Depth efficiency — 3×3 vs 5×5 vs 7×7">
+
+For two stacked 3×3 layers (each with $C$ input/output channels):
+$$\text{Params} = 2 \times (3^2 \times C^2 + C) = 18C^2 + 2C$$
+
+For one 5×5 layer with the same receptive field:
+$$\text{Params} = 5^2 \times C^2 + C = 25C^2 + C$$
+
+Ratio: $\frac{18C^2}{25C^2} = 0.72$ — two 3×3 layers use 28% fewer parameters while providing two nonlinearities instead of one. For $C=64$: two 3×3 = 73,860 vs one 5×5 = 102,464.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="A network has Conv(3×3, 64 filters) → MaxPool(2×2,s=2) → Conv(3×3, 128 filters) applied to a 64×64×32 input. What is the spatial size of the final feature map?"
+  options={[
+    "16×16",
+    "32×32",
+    "15×15",
+    "31×31"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which design choices reduce total parameter count in a CNN?"
+  options={[
+    "Using Global Average Pooling instead of Flatten before the FC head",
+    "Replacing one 7×7 conv with three 3×3 conv layers",
+    "Adding more max pooling layers to reduce spatial dimensions earlier",
+    "Increasing the number of output filters in each conv layer",
+    "Using depthwise separable convolutions instead of standard convolutions",
+    "Removing the bias term from conv layers"
+  ]}
+  correct={[0, 1, 2, 4, 5]}
+/>

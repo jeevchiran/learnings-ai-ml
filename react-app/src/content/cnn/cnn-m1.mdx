@@ -1,0 +1,160 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import CNNParamsWidget from '../../components/widgets/cnn/CNNParamsWidget.jsx'
+
+# Module 1: Why CNNs? MLP Fails for Images
+
+<Bridge>
+**Coming from Foundations of Deep Learning:** you know how to build, train, and regularise a multi-layer perceptron. An MLP can approximate any continuous function — so why can't it just learn to classify images? It can, technically. The question is whether it will, and at what cost. This module exposes the three structural mismatches between fully-connected networks and image data, and shows exactly how the convolutional design pattern fixes each one.
+</Bridge>
+
+## What is the problem?
+
+An image is a 3-D tensor — height × width × colour channels. A $32 \times 32$ RGB image has $32 \times 32 \times 3 = 3{,}072$ values. Feeding this into a fully-connected layer with 1{,}000 hidden units requires:
+
+$$3{,}072 \times 1{,}000 + 1{,}000 = 3{,}073{,}000 \text{ parameters in one layer}$$
+
+For a $224 \times 224 \times 3$ ImageNet image that becomes $224 \times 224 \times 3 \times 1{,}000 = 150{,}528{,}000$ parameters — just in the first layer. But parameter count is only one symptom.
+
+## Three structural mismatches
+
+### 1 · No locality
+
+In a fully-connected layer, every pixel is connected to every neuron. A pixel in the top-left corner has equal weight links to a neuron as a pixel in the bottom-right corner. But nearby pixels are almost always more correlated than distant ones — the edges, textures, and shapes that define objects are *local* structures.
+
+**Locality principle:** a meaningful visual feature (edge, corner, eye) occupies a small, contiguous spatial region. CNNs enforce this by restricting each neuron to look at only a small *receptive field* of the input.
+
+### 2 · No weight sharing — parameter explosion
+
+A fully-connected network learns a separate weight for every (neuron, pixel) pair. The same edge detector that works at position $(10, 10)$ would have to be learned again from scratch for position $(10, 11)$.
+
+**Translational weight sharing:** if an edge detector is useful at one location, it is useful everywhere. CNNs share the same kernel weights across all spatial positions — the detector is learned once and applied everywhere.
+
+### 3 · No translation invariance
+
+Shift the cat in the image one pixel to the right and the MLP sees a completely different input vector. There is no mechanism for the network to understand that "shifted cat = same cat."
+
+**Translational equivariance in conv layers:** shifting the input shifts the feature map by the same amount. Pooling then provides approximate invariance by summarising each local neighbourhood.
+
+## How CNNs solve all three
+
+| Problem | MLP | CNN |
+|---------|-----|-----|
+| Locality | Every pixel to every neuron | Local receptive field (e.g. 3×3) |
+| Parameters | Huge (grows with image size) | Small (kernel size × channels) |
+| Translation | None | Equivariance + pooling → invariance |
+
+A $3 \times 3$ convolutional layer with 32 output filters on a $32 \times 32 \times 3$ image needs just $3 \times 3 \times 3 \times 32 + 32 = 896$ parameters regardless of image spatial size.
+
+## Numerical comparison: MLP vs CNN for CIFAR-10
+
+**MLP** with architecture $[3072 \to 1024 \to 512 \to 10]$:
+
+| Layer | Params |
+|-------|--------|
+| FC1 (3072→1024) | $3072 \times 1024 + 1024 = 3{,}146{,}752$ |
+| FC2 (1024→512) | $1024 \times 512 + 512 = 524{,}800$ |
+| FC3 (512→10) | $512 \times 10 + 10 = 5{,}130$ |
+| **Total** | **3,676,682** |
+
+**CNN** with two conv layers + FC head for same CIFAR-10:
+
+| Layer | Output | Params |
+|-------|--------|--------|
+| Conv(3×3, 32, p=1) | 32×32×32 | $3 \times 3 \times 3 \times 32 + 32 = 896$ |
+| MaxPool(2×2) | 16×16×32 | 0 |
+| Conv(3×3, 64, p=1) | 16×16×64 | $3 \times 3 \times 32 \times 64 + 64 = 18{,}496$ |
+| MaxPool(2×2) | 8×8×64 | 0 |
+| Flatten | 4096 | 0 |
+| FC (4096→512) | 512 | $4096 \times 512 + 512 = 2{,}097{,}664$ |
+| FC (512→10) | 10 | 5{,}130 |
+| **Total** | | **2,122,186** |
+
+The CNN uses 42% fewer parameters *and* achieves far better accuracy (≈80% vs ≈55% on CIFAR-10) because the inductive biases match image structure.
+
+<ConceptBox title="Inductive bias">
+An inductive bias is an assumption baked into a model's architecture. MLPs assume all inputs are equally important (fully connected). CNNs assume: (1) spatial locality matters, (2) the same feature is useful at every position. These assumptions are exactly right for images.
+</ConceptBox>
+
+## Interactive: explore CNN architecture parameter counts
+
+Change the input dimensions and see how total parameters scale.
+
+<CNNParamsWidget />
+
+## Why this matters for training
+
+Fewer parameters means:
+- Less memory per training step
+- Fewer samples needed to avoid overfitting
+- More epochs per second
+- Better generalisation via stronger regularization effect
+
+A model with 3M parameters trained on 50,000 CIFAR images is already at the edge of overfit territory without regularization. A CNN reaches better validation accuracy precisely because it doesn't have the capacity to memorize every pixel position independently.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="MLP applied to images — formal statement">
+
+Let $\mathbf{x} \in \mathbb{R}^{H \times W \times C}$ be flattened to $\mathbf{x} \in \mathbb{R}^{HWC}$.
+
+A single FC layer computes:
+$$\mathbf{h} = g(W\mathbf{x} + \mathbf{b}), \quad W \in \mathbb{R}^{d \times HWC}$$
+
+Number of parameters: $d \cdot HWC + d$
+
+For $H=W=32, C=3, d=1000$: that is $96{,}001{,}000$ for a single layer over ImageNet-scale inputs ($H=W=224$).
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Parameter explosion — why it matters">
+
+For a fully connected network to classify images, it must learn a weight matrix $W$ that responds to edges, textures, and shapes at *every possible position independently*.
+
+An edge at position $(r_1, c_1)$ activates weights in row $r_1 \cdot W + c_1$ of $W$. An identical edge at $(r_2, c_2)$ activates a completely different row. The network must learn to respond to edges twice (once per location) rather than once.
+
+For an $n \times n$ image, this redundancy scales as $O(n^2)$ — the parameter count grows with the square of the spatial resolution. Weight sharing via convolution collapses this to a constant independent of image size.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Translation equivariance via convolution">
+
+A function $f$ is *equivariant* to a transformation $T$ if $f(T(\mathbf{x})) = T(f(\mathbf{x}))$.
+
+Convolution is equivariant to translation: if $\mathbf{x}' = \text{shift}(\mathbf{x}, \delta)$ then $(\mathbf{x}' * k) = \text{shift}(\mathbf{x} * k, \delta)$.
+
+Proof sketch: define shift operator $S_\delta[\mathbf{x}](i,j) = \mathbf{x}(i-\delta, j)$. Then:
+$$(S_\delta[\mathbf{x}] * k)(i,j) = \sum_{m,n} S_\delta[\mathbf{x}](i-m, j-n) \cdot k(m,n) = \sum_{m,n} \mathbf{x}(i-\delta-m, j-n) \cdot k(m,n) = S_\delta[\mathbf{x} * k](i,j)$$
+
+This is the algebraic guarantee that convolution preserves relative spatial structure regardless of absolute position.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="A 224×224×3 image is fed into a fully-connected hidden layer with 512 neurons. How many parameters does this layer have (including bias)?"
+  options={[
+    "150,994,432",
+    "77,070,336",
+    "150,528,000",
+    "150,994,944"
+  ]}
+  correct={3}
+/>
+
+<MultiSelectQuiz
+  question="Which of these are genuine reasons MLPs underperform CNNs on image classification?"
+  options={[
+    "MLPs cannot be trained with gradient descent on image data",
+    "MLPs have no locality constraint — every pixel is connected to every neuron",
+    "MLPs learn separate weights for the same feature at different positions",
+    "MLPs cannot handle colour images (3 channels)",
+    "MLPs lack translation equivariance — shifting an object changes the input vector entirely",
+    "MLPs cannot use ReLU activations on image data"
+  ]}
+  correct={[1, 2, 4]}
+/>

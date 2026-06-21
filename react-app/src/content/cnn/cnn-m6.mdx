@@ -1,0 +1,187 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Module 6: CNN Training & Backpropagation
+
+<Bridge>
+**From Foundations of Deep Learning Module 6:** backpropagation computes gradients layer-by-layer using the chain rule. For FC layers, the gradient of the loss with respect to the weight matrix is a straightforward outer product. For conv layers, the weight is *shared* across positions — every application of the kernel at every spatial location contributes to the gradient of that same kernel. This sharing makes the backward pass a *cross-correlation* operation, mirroring the forward pass.
+</Bridge>
+
+## Forward pass through a conv layer
+
+For batch element $b$, output channel $f$, position $(i,j)$:
+
+$$Z^{f}_{i,j} = b_f + \sum_{c} \sum_{m=0}^{K-1} \sum_{n=0}^{K-1} X_{i+m,\,j+n,\,c} \cdot W_{m,n,c,f}$$
+
+Then $A^f_{i,j} = g(Z^f_{i,j})$ where $g$ is ReLU (or BN+ReLU in modern CNNs).
+
+## Backward pass — three gradients
+
+During backprop we receive $\frac{\partial \mathcal{L}}{\partial A}$ from the next layer. We need three things:
+
+1. $\frac{\partial \mathcal{L}}{\partial Z}$ — through the activation
+2. $\frac{\partial \mathcal{L}}{\partial W}$ — to update the kernel
+3. $\frac{\partial \mathcal{L}}{\partial X}$ — to continue backprop to the previous layer
+
+### Gradient through activation
+
+$$\frac{\partial \mathcal{L}}{\partial Z^f_{i,j}} = \frac{\partial \mathcal{L}}{\partial A^f_{i,j}} \cdot g'(Z^f_{i,j})$$
+
+For ReLU: $g'(Z) = \mathbb{1}[Z > 0]$ — a binary mask of the active units.
+
+### Gradient of the kernel (weight update)
+
+The key insight: $W_{m,n,c,f}$ is applied at *every* position $(i,j)$ in the output. By the chain rule, its gradient accumulates contributions from every position:
+
+$$\frac{\partial \mathcal{L}}{\partial W_{m,n,c,f}} = \sum_{i} \sum_{j} \frac{\partial \mathcal{L}}{\partial Z^f_{i,j}} \cdot X_{i+m,\,j+n,\,c}$$
+
+This is a **cross-correlation** between the incoming gradient $\frac{\partial \mathcal{L}}{\partial Z^f}$ and the input $X$. The gradient kernel update is itself a convolution-like operation.
+
+### Gradient of the input (passed to previous layer)
+
+$$\frac{\partial \mathcal{L}}{\partial X_{i,j,c}} = \sum_{f} \sum_{m} \sum_{n} \frac{\partial \mathcal{L}}{\partial Z^f_{i-m,\,j-n}} \cdot W_{m,n,c,f}$$
+
+This is a **full convolution** (with the kernel flipped) of $\frac{\partial \mathcal{L}}{\partial Z^f}$ with $W$. Equivalently: cross-correlation with a 180°-rotated kernel — hence "transposed convolution" or "deconvolution" in the literature.
+
+<ConceptBox title="Why weight sharing makes backprop efficient">
+In a FC layer, each weight gets one gradient contribution. In a conv layer, each of the $K^2 C_{in}$ kernel weights gets $H_{out} \times W_{out}$ gradient contributions — all summed. This accumulation over positions is exactly what makes the gradient computation a cross-correlation. The backward pass for a conv layer has the same asymptotic cost as the forward pass.
+</ConceptBox>
+
+## PyTorch training loop for a CNN
+
+```python
+import torch
+import torch.nn as nn
+import torchvision
+import torchvision.transforms as T
+
+# Dataset
+transform = T.Compose([
+    T.ToTensor(),
+    T.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261)),
+])
+train_set = torchvision.datasets.CIFAR10(root='./data', train=True,
+                                          download=True, transform=transform)
+train_loader = torch.utils.data.DataLoader(train_set, batch_size=128, shuffle=True)
+
+# Model
+class SimpleCNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 32, 3, padding=1), nn.BatchNorm2d(32), nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(32, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(),
+            nn.AdaptiveAvgPool2d(1),   # GAP: 4×4×128 → 1×1×128
+        )
+        self.classifier = nn.Linear(128, 10)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = x.view(x.size(0), -1)   # [B, 128]
+        return self.classifier(x)
+
+model = SimpleCNN().cuda()
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+criterion = nn.CrossEntropyLoss()
+
+# Training loop
+for epoch in range(30):
+    model.train()
+    for images, labels in train_loader:
+        images, labels = images.cuda(), labels.cuda()
+        optimizer.zero_grad()
+        logits = model(images)
+        loss = criterion(logits, labels)
+        loss.backward()          # backprop through conv+pool+BN+relu+FC
+        optimizer.step()
+```
+
+The call `loss.backward()` automatically computes:
+1. $\partial \mathcal{L} / \partial W_{FC}$ via FC backward
+2. $\partial \mathcal{L} / \partial A_{GAP}$ via view backward
+3. $\partial \mathcal{L} / \partial W_{conv3}$ via conv backward (cross-correlation with gradient)
+4. ...and so on through every layer via `autograd`
+
+## Gradient flow through pooling
+
+**Max pooling backward:** gradient flows only to the winning index. All other indices get zero. PyTorch stores the argmax positions during the forward pass and routes gradients in the backward pass.
+
+**Average pooling backward:** gradient is divided equally across all positions in the window — the reverse of averaging.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Gradient of kernel via chain rule">
+
+The forward pass: $Z^f_{i,j} = \sum_{c,m,n} W_{m,n,c,f} \cdot X_{i+m,j+n,c}$
+
+By chain rule:
+$$\frac{\partial \mathcal{L}}{\partial W_{m,n,c,f}} = \sum_{i,j} \frac{\partial \mathcal{L}}{\partial Z^f_{i,j}} \cdot \frac{\partial Z^f_{i,j}}{\partial W_{m,n,c,f}} = \sum_{i,j} \delta^f_{i,j} \cdot X_{i+m,\,j+n,\,c}$$
+
+where $\delta^f_{i,j} = \frac{\partial \mathcal{L}}{\partial Z^f_{i,j}}$.
+
+This is exactly cross-correlation of $\delta^f$ with $X_c$:
+
+$$\frac{\partial \mathcal{L}}{\partial W_{\cdot,\cdot,c,f}} = \delta^f \star X_c$$
+
+The same operation as the forward pass but with roles swapped: instead of sliding the kernel over the input, we slide the gradient $\delta^f$ over the input to accumulate kernel updates.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Gradient of input via full convolution">
+
+The forward pass touches $X_{i+m,j+n,c}$ whenever kernel position $(m,n)$ is applied at output position $(i,j)$.
+
+All outputs that depend on $X_{p,q,c}$ are those where $i+m=p, j+n=q$, i.e. $i = p-m, j = q-n$:
+
+$$\frac{\partial \mathcal{L}}{\partial X_{p,q,c}} = \sum_{f} \sum_{m,n} \delta^f_{p-m,\,q-n} \cdot W_{m,n,c,f}$$
+
+This is a full convolution (pad $\delta^f$ by $K-1$ on each side, then cross-correlate with flipped kernel):
+$$\frac{\partial \mathcal{L}}{\partial X_{\cdot,\cdot,c}} = \sum_f \delta^f * \text{flip}(W_{\cdot,\cdot,c,f})$$
+
+The "flip" makes this a proper convolution rather than cross-correlation. This is why transposed convolutions (used in decoders) are sometimes called "backprop-of-convolution."
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Weight sharing accumulation — why gradients sum">
+
+In a FC layer: weight $w_{kj}$ maps input $j$ to output $k$. One output, one gradient contribution:
+$$\frac{\partial \mathcal{L}}{\partial w_{kj}} = \delta_k \cdot x_j$$
+
+In a conv layer: kernel weight $W_{m,n,c,f}$ is used $H_{out} \times W_{out}$ times. Each use contributes to a different output position. The total gradient is the sum:
+$$\frac{\partial \mathcal{L}}{\partial W_{m,n,c,f}} = \sum_{i=1}^{H_{out}} \sum_{j=1}^{W_{out}} \delta^f_{i,j} \cdot X_{i+m,j+n,c}$$
+
+This summation over positions is the price of weight sharing — gradients from all positions must accumulate before the weight is updated. It is also why conv layers have vastly fewer gradient slots than their equivalent FC layer: $K^2 C_{in} C_{out}$ gradient values vs $H_{out} W_{out} C_{in} H_{out} W_{out} C_{out}$ for the "equivalent" per-position FC.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="During backpropagation through a conv layer, the gradient with respect to the kernel weights is computed by:"
+  options={[
+    "Multiplying the incoming gradient by the transposed kernel",
+    "Cross-correlating the incoming gradient with the forward-pass input",
+    "Averaging the incoming gradient over all batch elements",
+    "Applying ReLU to the incoming gradient before updating weights"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about backpropagation through conv layers are correct?"
+  options={[
+    "The gradient of the loss w.r.t. the kernel involves a sum over all spatial positions",
+    "Max pooling backward passes gradient to all positions equally",
+    "Weight sharing means each kernel weight accumulates gradients from every output position",
+    "The gradient of the loss w.r.t. the input is a full convolution with the flipped kernel",
+    "Batch size does not affect the gradient of the kernel weights",
+    "ReLU backward is a binary mask selecting active neurons"
+  ]}
+  correct={[0, 2, 3, 5]}
+/>

@@ -1,0 +1,171 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import ConvolutionWidget from '../../components/widgets/cnn/ConvolutionWidget.jsx'
+
+# Module 2: Convolution Operations
+
+<Bridge>
+**From Module 1:** we established that MLPs fail on images because they ignore locality, repeat redundant weights, and have no translation equivariance. The mechanism that fixes all three is the **convolution** — or more precisely, the *cross-correlation* that deep learning frameworks call convolution. This module goes into the full mechanics: what the operation computes, why it works, and how stride, padding, and kernel size affect the output.
+</Bridge>
+
+## What is convolution (in deep learning)?
+
+Take a $H \times W$ input and a small $K \times K$ **kernel** (also called a *filter*). Slide the kernel over every position of the input, computing the **dot product** of the kernel with the overlapping patch.
+
+For a 2-D input $\mathbf{X}$ and kernel $\mathbf{K}$, the output at position $(i, j)$ is:
+
+$$(\mathbf{X} \star \mathbf{K})(i, j) = \sum_{m=0}^{K-1} \sum_{n=0}^{K-1} \mathbf{X}(i+m,\; j+n) \cdot \mathbf{K}(m, n)$$
+
+This is technically *cross-correlation*, not convolution (which would flip the kernel). Deep learning frameworks use cross-correlation but call it convolution — the kernel simply learns the flipped version, so the distinction is irrelevant in practice.
+
+## Why does it work?
+
+The dot product $\sum_{m,n} \mathbf{X}(i+m, j+n) \cdot \mathbf{K}(m,n)$ is large when the local patch matches the kernel pattern and small when it does not. An edge-detection kernel with weights $[-1, -1, -1; 2, 2, 2; -1, -1, -1]$ produces a large response wherever there is a horizontal transition from dark to light — it fires at every horizontal edge in the image, regardless of column position.
+
+<ConceptBox title="Key properties of convolution">
+**Locality** — each output value depends on only a K×K patch of the input.
+
+**Weight sharing** — the same kernel weights are applied at every spatial position.
+
+**Composability** — stacking conv layers grows the effective receptive field without increasing per-layer parameter count.
+</ConceptBox>
+
+## Stride and padding
+
+**Stride** $S$: how many pixels the kernel moves per step.
+
+$$H_{out} = \left\lfloor \frac{H_{in} - K}{S} \right\rfloor + 1 \quad \text{(no padding)}$$
+
+**Padding** $P$: zero-pad the input border before convolving.
+
+$$H_{out} = \left\lfloor \frac{H_{in} + 2P - K}{S} \right\rfloor + 1$$
+
+**"Same" padding** keeps output the same spatial size as input (with $S=1$):
+
+$$P = \frac{K - 1}{2} \quad \text{(for odd K)}$$
+
+## Interactive: watch the kernel slide
+
+Press **Step** to move one position at a time, or **Play** to animate. The computation breakdown below the grid shows exactly what multiplication is happening.
+
+<ConvolutionWidget />
+
+## Worked numericals
+
+### Problem 1 — baseline: no padding, stride 1
+
+Input: $28 \times 28$, Kernel: $3 \times 3$, Stride: 1, Padding: 0
+
+$$H_{out} = \frac{28 - 3}{1} + 1 = 26 \quad \Rightarrow \text{Output: } 26 \times 26$$
+
+### Problem 2 — same padding
+
+Input: $28 \times 28$, Kernel: $3 \times 3$, Stride: 1, Padding: 1
+
+$$H_{out} = \frac{28 + 2(1) - 3}{1} + 1 = 28 \quad \Rightarrow \text{Output: } 28 \times 28$$
+
+Same padding preserves spatial dimensions — useful for deep networks where you don't want the feature map to shrink at every layer.
+
+### Problem 3 — stride 2 downsampling
+
+Input: $224 \times 224$, Kernel: $7 \times 7$, Stride: 2, Padding: 3
+
+$$H_{out} = \frac{224 + 2(3) - 7}{2} + 1 = \frac{223}{2} + 1 = 112 \quad \Rightarrow \text{Output: } 112 \times 112$$
+
+This is the first conv layer of ResNet-50 — halves spatial dimensions in one shot.
+
+### Problem 4 — stacking two 3×3 convolutions
+
+Two $3 \times 3$ conv layers (no padding) applied sequentially to a $7 \times 7$ input:
+- After first: $\frac{7-3}{1}+1 = 5 \times 5$
+- After second: $\frac{5-3}{1}+1 = 3 \times 3$
+
+Effective receptive field of output neuron = $5 \times 5$ of the original input. Two $3 \times 3$ layers stack to give a $5 \times 5$ receptive field — same as one $5 \times 5$ layer but with fewer params: $2 \times 3^2 = 18$ weights vs $5^2 = 25$.
+
+### Problem 5 — valid vs same comparison
+
+Input: $32 \times 32$, Kernel: $5 \times 5$, Stride: 1
+
+| Padding | $H_{out}$ | Spatial loss |
+|---------|-----------|-------------|
+| 0 (valid) | $\frac{32-5}{1}+1 = 28$ | −4 pixels per side |
+| 2 (same) | $\frac{32+4-5}{1}+1 = 32$ | 0 |
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Cross-correlation vs true convolution">
+
+True convolution (signal processing) flips the kernel:
+$$(\mathbf{X} * \mathbf{K})(i,j) = \sum_{m,n} \mathbf{X}(i-m, j-n) \cdot \mathbf{K}(m,n)$$
+
+Cross-correlation (what `torch.nn.Conv2d` computes):
+$$(\mathbf{X} \star \mathbf{K})(i,j) = \sum_{m,n} \mathbf{X}(i+m, j+n) \cdot \mathbf{K}(m,n)$$
+
+Since the kernel is learned, the network simply learns the flipped kernel if needed. The distinction is mathematically irrelevant in the context of learned filters. PyTorch, TensorFlow, and all major frameworks use cross-correlation.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Output dimension derivation">
+
+For a 1-D input of size $L$ with kernel $K$, stride $S$, and padding $P$:
+
+The first kernel position is at index 0 (left edge of padded input at $-P$).
+The last valid position is at index $i$ such that $i + (K-1) \leq L + 2P - 1$, i.e. $i \leq L + 2P - K$.
+The kernel steps in increments of $S$, so the number of positions is:
+
+$$N_{out} = \left\lfloor \frac{L + 2P - K}{S} \right\rfloor + 1$$
+
+For 2-D this applies independently to $H$ and $W$.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Parameter count for a conv layer">
+
+A conv layer with:
+- Input channels $C_{in}$
+- Output channels $C_{out}$ (= number of filters)
+- Kernel size $K \times K$
+- One bias per output channel
+
+has:
+
+$$\text{params} = K \times K \times C_{in} \times C_{out} + C_{out}$$
+
+For 32 filters, $3 \times 3$ kernel, 3 input channels:
+$$3 \times 3 \times 3 \times 32 + 32 = 288 + 32 = 320$$
+
+Compare to a fully-connected layer from $H \times W \times C_{in}$ to $C_{out}$:
+$$H \times W \times C_{in} \times C_{out} + C_{out}$$
+
+The ratio is $\frac{K^2}{H \times W}$ — for a $28 \times 28$ image with $K=3$, the conv layer uses $\frac{9}{784} \approx 1.1\%$ of the FC parameters per output channel.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="Input is 64×64, kernel is 5×5, stride is 2, padding is 2. What is the output spatial dimension?"
+  options={[
+    "30×30",
+    "32×32",
+    "31×31",
+    "33×33"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about stride and padding are correct?"
+  options={[
+    "Stride > 1 reduces the spatial dimensions of the output",
+    "Padding always increases the number of trainable parameters",
+    "Same padding (P = (K-1)/2 for stride 1) preserves the spatial size",
+    "Stride 2 halves the number of learnable weights in a conv layer",
+    "Zero-padding allows the kernel to compute a value centred on border pixels",
+    "Increasing kernel size always increases the output spatial size"
+  ]}
+  correct={[0, 2, 4]}
+/>

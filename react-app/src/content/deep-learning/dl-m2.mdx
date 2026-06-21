@@ -136,6 +136,54 @@ This collapses to a single linear transformation $\tilde{W}\mathbf{X} + \tilde{\
 
 ---
 
+## Numerical Exercises: Counting MLP Parameters
+
+The parameter count for a layer with $n_{in}$ inputs and $n_{out}$ outputs is:
+
+$$\text{params}^{[l]} = n^{[l-1]} \times n^{[l]} + n^{[l]} = n^{[l]}(n^{[l-1]} + 1)$$
+
+The $+1$ accounts for the bias term on each neuron.
+
+### Problem 1 — MNIST Classifier
+
+Architecture: $[784 \to 512 \to 256 \to 10]$
+
+| Layer | $n_{in}$ | $n_{out}$ | Weights | Biases | Total |
+|-------|---------|---------|---------|--------|-------|
+| FC1 | 784 | 512 | 401,408 | 512 | **401,920** |
+| FC2 | 512 | 256 | 131,072 | 256 | **131,328** |
+| FC3 | 256 | 10 | 2,560 | 10 | **2,570** |
+| **Total** | | | | | **535,818** |
+
+Formula check: $784 \times 512 + 512 = 401{,}920$ ✓
+
+### Problem 2 — CIFAR-10 MLP (why it explodes)
+
+Input: $32 \times 32 \times 3 = 3{,}072$ pixels. Architecture: $[3072 \to 1024 \to 512 \to 10]$
+
+| Layer | Params |
+|-------|--------|
+| FC1 ($3072 \to 1024$) | $3072 \times 1024 + 1024 = \mathbf{3{,}146{,}752}$ |
+| FC2 ($1024 \to 512$) | $1024 \times 512 + 512 = \mathbf{524{,}800}$ |
+| FC3 ($512 \to 10$) | $512 \times 10 + 10 = \mathbf{5{,}130}$ |
+| **Total** | **3,676,682** |
+
+A single FC layer from the image alone costs 3.1M parameters — and has zero spatial awareness. This is the central motivation for CNNs.
+
+### Problem 3 — Depth vs Width Trade-off
+
+Which has more parameters?
+- Network A: $[100 \to 1000 \to 10]$ (wide, shallow)
+- Network B: $[100 \to 100 \to 100 \to 100 \to 10]$ (narrow, deep)
+
+Network A: $100 \times 1000 + 1000 + 1000 \times 10 + 10 = 111{,}010$
+
+Network B: $100 \times 100 + 100 + 100 \times 100 + 100 + 100 \times 100 + 100 + 100 \times 10 + 10 = 31{,}310$
+
+Network B uses **72% fewer parameters** but has 4 composition steps instead of 2. Deeper and narrower is often more parameter-efficient for the same expressive power.
+
+---
+
 ## Quiz
 
 <QuizCard

@@ -1,0 +1,173 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import AugmentationWidget from '../../components/widgets/cnn/AugmentationWidget.jsx'
+
+# Module 7: Data Preparation & Augmentation
+
+<Bridge>
+**From Module 6:** we can train a CNN end-to-end with backpropagation. But the model is only as good as the data pipeline feeding it. Before gradients even flow, every image must be normalised to a well-conditioned range, and during training the effective dataset must be expanded through augmentation. This module covers both: the mathematics of normalisation and the catalogue of augmentation techniques that close the gap between train and test performance.
+</Bridge>
+
+## Why data preparation matters
+
+A raw CIFAR-10 image has pixel values in $[0, 255]$ (uint8). Feeding these directly into a network:
+- Creates activation magnitudes that vary by a factor of 255
+- Makes early weight initialisation matter enormously
+- Causes gradient magnitudes to be inconsistent across colour channels
+
+Proper normalisation solves all three.
+
+## Step 1: ToTensor
+
+Convert uint8 $[0, 255]$ to float32 $[0.0, 1.0]$:
+$$\mathbf{x}_{float} = \frac{\mathbf{x}_{uint8}}{255}$$
+
+In PyTorch: `transforms.ToTensor()` also rearranges HWC → CHW (channel-first).
+
+## Step 2: Channel-wise normalisation
+
+Compute the mean $\mu_c$ and standard deviation $\sigma_c$ **across the entire training set** for each channel $c$:
+
+$$\mathbf{x}_{norm,c} = \frac{\mathbf{x}_c - \mu_c}{\sigma_c}$$
+
+For CIFAR-10:
+$$\boldsymbol{\mu} = (0.4914,\; 0.4822,\; 0.4465), \quad \boldsymbol{\sigma} = (0.247,\; 0.243,\; 0.261)$$
+
+After normalisation, activations start near $\mathcal{N}(0, 1)$, matching the optimal range for ReLU and Xavier/He initialisation.
+
+<ConceptBox title="Why per-channel, not per-image?">
+Per-image normalisation (dividing by the image's own std) removes relative brightness differences between images that may be semantically meaningful. Per-channel training-set normalisation instead centres the *distribution of the training set* around zero without altering within-image contrast.
+</ConceptBox>
+
+## Data augmentation
+
+Augmentation applies **random transforms** to training images only, creating artificial variations. Each epoch the model sees slightly different versions of each image — this is a form of implicit regularisation.
+
+### The PyTorch transforms pipeline
+
+```python
+import torchvision.transforms as T
+
+train_transform = T.Compose([
+    T.RandomCrop(32, padding=4),           # crop with 4px zero-pad border
+    T.RandomHorizontalFlip(p=0.5),         # 50% chance of flip
+    T.ColorJitter(brightness=0.2,          # ±20% brightness
+                  contrast=0.2,
+                  saturation=0.2,
+                  hue=0.1),
+    T.ToTensor(),
+    T.Normalize((0.4914, 0.4822, 0.4465),
+                (0.247,  0.243,  0.261)),
+    # T.RandomErasing(p=0.5),              # Cutout variant
+])
+
+val_transform = T.Compose([
+    T.ToTensor(),
+    T.Normalize((0.4914, 0.4822, 0.4465),
+                (0.247,  0.243,  0.261)),
+])
+```
+
+Note: **validation and test transforms use only normalisation** — no random transforms. This ensures the validation metric reflects real-world performance.
+
+## Interactive: visualise augmentation effects
+
+<AugmentationWidget />
+
+## Augmentation catalogue
+
+| Technique | What it does | When to use |
+|-----------|-------------|-------------|
+| Horizontal flip | Mirror L↔R | Object classes are horizontally symmetric (cats, cars) |
+| Random crop | Pad then crop | Teaches position invariance |
+| Colour jitter | Vary brightness/contrast/saturation | Lighting variation |
+| Rotation | Rotate by ±θ | When orientation invariance is needed |
+| Cutout | Erase a random patch | Forces global context (not just one region) |
+| Mixup | Linear blend of two images and labels | Better calibration, smoother loss surface |
+| CutMix | Cut-and-paste regions between images | Combines Cutout + Mixup benefits |
+| RandAugment | Automatically search augmentation policy | Best for large datasets |
+
+## Advanced: Mixup
+
+For two training samples $(\mathbf{x}_i, y_i)$ and $(\mathbf{x}_j, y_j)$, Mixup creates:
+
+$$\tilde{\mathbf{x}} = \lambda \mathbf{x}_i + (1-\lambda) \mathbf{x}_j, \quad \tilde{y} = \lambda y_i + (1-\lambda) y_j, \quad \lambda \sim \text{Beta}(\alpha, \alpha)$$
+
+The model learns to produce a *mixture* of predictions for a *mixture* of images. This yields better-calibrated probabilities and improved robustness.
+
+## CIFAR-10 accuracy impact
+
+| Pipeline | Typical Val Acc |
+|----------|----------------|
+| No normalisation | 65–70% |
+| Normalisation only | 75–80% |
+| + Random crop + flip | 85–88% |
+| + Colour jitter | 87–90% |
+| + Cutout or Mixup | 90–92% |
+
+The same architecture; only the data pipeline differs.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Why normalisation accelerates convergence">
+
+Consider the loss surface $\mathcal{L}(\mathbf{w})$ where $\mathbf{w}$ includes weights operating on unnormalised inputs. If input feature $j$ has scale $\sigma_j \gg 1$, the gradient component $\partial \mathcal{L} / \partial w_j \propto \sigma_j$ is large, while $\partial \mathcal{L} / \partial w_k$ for a small-scale feature is tiny.
+
+The loss surface is elongated in the $w_j$ direction — gradient descent oscillates along steep walls and crawls along shallow valleys. This requires very small learning rate for numerical stability.
+
+After normalisation ($\sigma_j \approx 1$ for all $j$), the Hessian's condition number $\kappa = \lambda_{max}/\lambda_{min}$ decreases dramatically, making the loss surface more spherical and gradient descent vastly more efficient.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Augmentation as data-dependent regularisation">
+
+Let the true distribution of images be $p_{data}(\mathbf{x}, y)$. We only have $N$ samples. Augmentation defines a family of transforms $\{T_\phi\}$ (flip, crop, etc.) and trains on the augmented distribution:
+
+$$\tilde{p}(\mathbf{x}, y) = \mathbb{E}_\phi[p_{data}(T_\phi^{-1}(\mathbf{x}), y)]$$
+
+This is a much richer distribution than $p_{data}$ while preserving labels (assuming transforms are label-preserving). The gap between training set and true distribution shrinks.
+
+Formally: augmentation adds $\Omega(f, T_\phi)$ regularisation terms that penalise the model for giving different predictions to semantically equivalent inputs — a form of *invariance regularisation*.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Mixup — why it improves calibration">
+
+Standard training: model predicts confidently at one-hot targets. With Mixup, the model must predict $\lambda \cdot e_i + (1-\lambda) \cdot e_j$ — a soft target. This prevents overconfident predictions on single-class examples.
+
+The Mixup loss:
+
+$$\mathcal{L}_{mix} = \lambda \cdot \mathcal{L}(f(\tilde{\mathbf{x}}), y_i) + (1-\lambda) \cdot \mathcal{L}(f(\tilde{\mathbf{x}}), y_j)$$
+
+This is equivalent to training with a smoother version of the label distribution. The resulting classifier has shallower softmax peaks — it is less certain, but better calibrated (ECE decreases). In practice, Mixup also improves robustness to adversarial perturbations because the model learns a more linear input→output mapping in the ambient space.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="CIFAR-10 channel means are (0.4914, 0.4822, 0.4465). An image pixel in the red channel has value 0.3. What is its normalised value (σ_R = 0.247)?"
+  options={[
+    "−0.775",
+    "0.775",
+    "−0.568",
+    "0.568"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which augmentation techniques are label-preserving for CIFAR-10 classification?"
+  options={[
+    "Horizontal flip",
+    "Vertical flip (upside-down images would change class for some objects)",
+    "Random crop with padding",
+    "Mixup (creates soft targets that are a blend of two labels)",
+    "Colour jitter (brightness/contrast)",
+    "Cutout (erasing a region)"
+  ]}
+  correct={[0, 2, 4, 5]}
+/>

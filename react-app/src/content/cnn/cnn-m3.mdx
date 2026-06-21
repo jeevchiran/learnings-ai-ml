@@ -1,0 +1,167 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import FeatureMapWidget from '../../components/widgets/cnn/FeatureMapWidget.jsx'
+
+# Module 3: Feature Maps & Filters
+
+<Bridge>
+**From Module 2:** a single kernel slides over the input and produces a single 2-D output — one feature map. Real conv layers apply *many* kernels simultaneously, each detecting a different pattern. This module covers multichannel convolution: how multiple filters produce multiple feature maps, how the receptive field grows with depth, and how to count parameters precisely in a multi-channel setting.
+</Bridge>
+
+## What is a feature map?
+
+When a kernel is applied to the entire input, it produces a 2-D array of responses — high where the kernel pattern matches, low where it does not. This 2-D array is the **feature map** for that kernel.
+
+A conv layer with $C_{out}$ filters produces $C_{out}$ feature maps. Together they form a $H_{out} \times W_{out} \times C_{out}$ tensor — the spatial dimensions shrink (or stay the same with padding), and the channel dimension grows.
+
+## Multichannel input
+
+For an RGB image (3 channels), a single $3 \times 3$ kernel actually has shape $3 \times 3 \times 3$: a separate $3 \times 3$ sub-kernel for each channel. The outputs from all channels are summed:
+
+$$Z(i, j, f) = b_f + \sum_{c=1}^{C_{in}} \sum_{m=0}^{K-1} \sum_{n=0}^{K-1} X(i+m, j+n, c) \cdot W(m, n, c, f)$$
+
+where $f$ indexes the output filter. This produces a single scalar per filter per position — the filter "absorbs" the channel dimension.
+
+## Interactive: how filters shape feature maps
+
+<FeatureMapWidget />
+
+Each filter captures a different aspect of the same input. In trained CNNs, early layers learn edge detectors; middle layers detect textures and parts; deep layers detect abstract semantic concepts.
+
+## Receptive field grows with depth
+
+Each conv layer's output value depends on a $K \times K$ region of its input. But that input is itself the output of the previous layer, which also had a $K \times K$ receptive field. Receptive fields compound:
+
+| Depth | Receptive field (3×3 kernels, stride 1, no pool) |
+|-------|-------------------------------------------|
+| 1 conv | 3×3 |
+| 2 conv | 5×5 |
+| 3 conv | 7×7 |
+| $n$ conv | $(2n+1) \times (2n+1)$ |
+
+With pooling (stride 2), the effective receptive field grows much faster. After one 2×2 MaxPool, each subsequent 3×3 conv sees $2\times$ larger regions of the original input.
+
+<ConceptBox title="Why depth beats width for feature hierarchies">
+A single wide (large K) filter sees a large region but detects only one pattern. Stacking narrow (3×3) filters builds a hierarchy: layer 1 detects edges, layer 2 composes edges into corners, layer 3 composes corners into shapes. This compositional structure matches how visual features actually exist in natural images.
+</ConceptBox>
+
+## Parameter count for multi-channel conv layers
+
+For a conv layer:
+- Input channels: $C_{in}$
+- Output filters: $C_{out}$
+- Kernel size: $K \times K$
+- One bias per output filter
+
+$$\text{params} = K^2 \times C_{in} \times C_{out} + C_{out}$$
+
+## Worked numericals
+
+### Problem 1 — RGB input, 32 filters
+
+Input: $H \times W \times 3$ (RGB). Kernel: $3 \times 3$. Filters: 32.
+
+$$\text{params} = 3 \times 3 \times 3 \times 32 + 32 = 288 + 32 = \mathbf{320}$$
+
+### Problem 2 — second conv layer stacks on first
+
+After the first conv layer, the feature map has 32 channels. Second layer: $3 \times 3$ kernel, 64 filters.
+
+$$\text{params} = 3 \times 3 \times 32 \times 64 + 64 = 18{,}432 + 64 = \mathbf{18{,}496}$$
+
+### Problem 3 — parameter count for LeNet-5 architecture
+
+LeNet-5 (LeCun 1998) processes $32 \times 32 \times 1$ greyscale images:
+
+| Layer | Details | Params |
+|-------|---------|--------|
+| Conv1 | $5\times5\times1\times6 + 6$ | **156** |
+| AvgPool1 | No params | 0 |
+| Conv2 | $5\times5\times6\times16 + 16$ | **2,416** |
+| AvgPool2 | No params | 0 |
+| FC1 (400→120) | $400\times120+120$ | **48,120** |
+| FC2 (120→84) | $120\times84+84$ | **10,164** |
+| FC3 (84→10) | $84\times10+10$ | **850** |
+| **Total** | | **61,706** |
+
+After AvgPool2 the feature map is $5\times5\times16=400$ when the input is $32\times32$.
+
+### Problem 4 — how channels multiply parameters
+
+Doubling channels from 32→64 in a 3×3 conv on 32-channel input:
+
+$$32\to64: \quad 3^2 \times 32 \times 64 + 64 = 18{,}496$$
+$$32\to128: \quad 3^2 \times 32 \times 128 + 128 = 36{,}992$$
+
+Doubling output channels doubles parameters. Doubling *both* input and output channels quadruples them. This is why VGG-16 ($\approx$138M params) explodes at the deeper channels (512→512 conv layers).
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Multichannel convolution as a tensor contraction">
+
+Let $\mathbf{X} \in \mathbb{R}^{H \times W \times C_{in}}$ and $\mathbf{W} \in \mathbb{R}^{K \times K \times C_{in} \times C_{out}}$.
+
+The output $\mathbf{Z} \in \mathbb{R}^{H' \times W' \times C_{out}}$ is:
+
+$$Z_{i,j,f} = b_f + \sum_{c=1}^{C_{in}} \sum_{m=0}^{K-1} \sum_{n=0}^{K-1} X_{i+m, j+n, c} \cdot W_{m,n,c,f}$$
+
+In matrix form: treating each local $K \times K \times C_{in}$ patch as a column vector $\mathbf{p}_{i,j} \in \mathbb{R}^{K^2 C_{in}}$ and each filter as a row vector $\mathbf{w}_f \in \mathbb{R}^{K^2 C_{in}}$:
+
+$$Z_{i,j,f} = \mathbf{w}_f^\top \mathbf{p}_{i,j} + b_f$$
+
+This is a linear classification of the local patch by each filter. Different filters are different linear classifiers over the same receptive field.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Receptive field formula">
+
+For a stack of $L$ conv layers each with kernel size $K$ and stride 1:
+
+$$\text{RF} = 1 + L \times (K - 1)$$
+
+For $K=3$: RF grows by 2 per layer. For $K=5$: by 4. For $K=7$: by 6.
+
+With a MaxPool layer of stride 2 inserted after layer $l$, the effective receptive field of all subsequent layers doubles (since they now look at a spatially subsampled feature map).
+
+For a typical CNN: Conv → Conv → Pool → Conv → Conv → Pool:
+- After first pool (2 conv layers of 3×3): RF = 5
+- After second pool (2 more conv layers): each 3×3 sees 5×5 of the pooled map = 10×10 of original
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Why channel count grows with depth">
+
+Early layers detect primitive features: edges have roughly $\sqrt{2} \times 2 = 4$ orientations (0°, 45°, 90°, 135°) plus 2 polarities = ≈8 meaningful patterns. Shallow CNNs use 16–32 filters at the first layer to over-complete the representation.
+
+Deeper layers compose primitives into parts, exponentially expanding the feature vocabulary. The number of distinguishable $5 \times 5$ edge patches grows combinatorially with depth. Standard networks compensate by doubling channels at every spatial halving: $[32, 64, 128, 256, 512]$ — this keeps compute (channels × spatial area) roughly constant per layer.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="A conv layer has 128 input channels, 256 output filters, and a 3×3 kernel. How many trainable parameters does it have?"
+  options={[
+    "294,912",
+    "295,168",
+    "294,656",
+    "589,824"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are true about feature maps in a CNN?"
+  options={[
+    "Each filter in a conv layer produces its own separate feature map",
+    "The number of feature maps always decreases with depth",
+    "The receptive field of a neuron grows with the depth of the layer it's in",
+    "A 3×3 kernel applied to a 3-channel (RGB) input has 27 weights per filter",
+    "Feature maps from deeper layers tend to encode more abstract patterns than shallower ones",
+    "Adding more filters per layer has no effect on the number of parameters"
+  ]}
+  correct={[0, 2, 3, 4]}
+/>

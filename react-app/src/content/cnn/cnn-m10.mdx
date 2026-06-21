@@ -1,0 +1,280 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Module 10: CIFAR-10 with PyTorch — End-to-End
+
+<Bridge>
+**From Modules 1–9:** you understand why CNNs work (locality, weight sharing), how they compute (convolution, pooling), how to size them (parameter numericals), how to train them (backprop through conv layers), how to feed them data (normalisation, augmentation), how to leverage pretrained weights (transfer learning), and how to inspect them (GradCAM). This module puts it all together in a production-quality training loop that achieves ~92–94% on CIFAR-10 from scratch.
+</Bridge>
+
+## The full pipeline
+
+```python
+import torch
+import torch.nn as nn
+import torchvision
+import torchvision.transforms as T
+from torch.utils.data import DataLoader
+
+# ── 1. Data ──────────────────────────────────────────────────────────
+CIFAR_MEAN = (0.4914, 0.4822, 0.4465)
+CIFAR_STD  = (0.247,  0.243,  0.261)
+
+train_tf = T.Compose([
+    T.RandomCrop(32, padding=4),
+    T.RandomHorizontalFlip(),
+    T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+    T.ToTensor(),
+    T.Normalize(CIFAR_MEAN, CIFAR_STD),
+])
+val_tf = T.Compose([T.ToTensor(), T.Normalize(CIFAR_MEAN, CIFAR_STD)])
+
+train_ds = torchvision.datasets.CIFAR10('./data', train=True,  download=True, transform=train_tf)
+val_ds   = torchvision.datasets.CIFAR10('./data', train=False, download=True, transform=val_tf)
+
+train_dl = DataLoader(train_ds, batch_size=128, shuffle=True,  num_workers=4, pin_memory=True)
+val_dl   = DataLoader(val_ds,   batch_size=256, shuffle=False, num_workers=4, pin_memory=True)
+
+# ── 2. Model ─────────────────────────────────────────────────────────
+class ConvBlock(nn.Module):
+    def __init__(self, cin, cout, stride=1):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(cin, cout, 3, stride=stride, padding=1, bias=False),
+            nn.BatchNorm2d(cout),
+            nn.ReLU(inplace=True),
+        )
+    def forward(self, x): return self.net(x)
+
+class CIFAR10CNN(nn.Module):
+    def __init__(self, num_classes=10):
+        super().__init__()
+        self.features = nn.Sequential(
+            ConvBlock(3,   64),          # 32×32×64
+            ConvBlock(64,  64),          # 32×32×64
+            nn.MaxPool2d(2),             # 16×16×64
+            nn.Dropout2d(0.1),
+
+            ConvBlock(64,  128),         # 16×16×128
+            ConvBlock(128, 128),         # 16×16×128
+            nn.MaxPool2d(2),             # 8×8×128
+            nn.Dropout2d(0.1),
+
+            ConvBlock(128, 256),         # 8×8×256
+            ConvBlock(256, 256),         # 8×8×256
+            nn.AdaptiveAvgPool2d(1),     # 1×1×256  (GAP)
+        )
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Dropout(0.3),
+            nn.Linear(256, 10),
+        )
+
+    def forward(self, x):
+        return self.classifier(self.features(x))
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+model  = CIFAR10CNN().to(device)
+
+# Parameter count
+total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+print(f'Trainable params: {total_params:,}')   # ~1,178,890
+
+# ── 3. Training ───────────────────────────────────────────────────────
+criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=5e-4)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
+
+def accuracy(logits, labels):
+    return (logits.argmax(1) == labels).float().mean().item()
+
+best_val_acc = 0
+for epoch in range(100):
+    # Train
+    model.train()
+    train_loss = train_acc = 0
+    for imgs, labels in train_dl:
+        imgs, labels = imgs.to(device), labels.to(device)
+        optimizer.zero_grad()
+        logits = model(imgs)
+        loss   = criterion(logits, labels)
+        loss.backward()
+        nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optimizer.step()
+        train_loss += loss.item()
+        train_acc  += accuracy(logits, labels)
+
+    # Validate
+    model.eval()
+    val_loss = val_acc = 0
+    with torch.no_grad():
+        for imgs, labels in val_dl:
+            imgs, labels = imgs.to(device), labels.to(device)
+            logits = model(imgs)
+            val_loss += criterion(logits, labels).item()
+            val_acc  += accuracy(logits, labels)
+
+    scheduler.step()
+
+    n_train, n_val = len(train_dl), len(val_dl)
+    if epoch % 10 == 9 or epoch == 0:
+        print(f'Epoch {epoch+1:3d} | '
+              f'train {train_loss/n_train:.3f} / {train_acc/n_train:.3f} | '
+              f'val {val_loss/n_val:.3f} / {val_acc/n_val:.3f}')
+
+    if val_acc / n_val > best_val_acc:
+        best_val_acc = val_acc / n_val
+        torch.save(model.state_dict(), 'best_cifar10.pt')
+
+print(f'Best val accuracy: {best_val_acc:.4f}')
+```
+
+**Expected results:** ~92–94% val accuracy after 100 epochs on a GPU. CPU training takes ~10× longer.
+
+## Evaluation: confusion matrix
+
+```python
+import numpy as np
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+
+CLASSES = ['plane','car','bird','cat','deer','dog','frog','horse','ship','truck']
+
+model.load_state_dict(torch.load('best_cifar10.pt'))
+model.eval()
+
+all_preds, all_labels = [], []
+with torch.no_grad():
+    for imgs, labels in val_dl:
+        preds = model(imgs.to(device)).argmax(1).cpu()
+        all_preds.extend(preds.numpy())
+        all_labels.extend(labels.numpy())
+
+cm = confusion_matrix(all_labels, all_preds)
+# Normalise per true class
+cm_norm = cm.astype(float) / cm.sum(axis=1, keepdims=True)
+
+fig, ax = plt.subplots(figsize=(8, 7))
+im = ax.imshow(cm_norm, cmap='Blues', vmin=0, vmax=1)
+ax.set_xticks(range(10)); ax.set_xticklabels(CLASSES, rotation=45, ha='right')
+ax.set_yticks(range(10)); ax.set_yticklabels(CLASSES)
+ax.set_xlabel('Predicted'); ax.set_ylabel('True')
+plt.colorbar(im, ax=ax)
+plt.tight_layout(); plt.savefig('confusion_matrix.png', dpi=150)
+```
+
+Typical confusion patterns:
+- Cat ↔ Dog (similar textures)
+- Deer ↔ Horse (similar body shape)
+- Automobile ↔ Truck (shared vehicle class)
+
+These confusions reflect genuine visual ambiguity — not model bugs.
+
+## Overfitting & generalisation
+
+| Technique | Val Acc Gain |
+|-----------|-------------|
+| BatchNorm | +2–3% |
+| Dropout2d (conv) + Dropout (FC) | +1–2% |
+| Label smoothing | +0.5–1% |
+| Cosine LR schedule | +1–2% |
+| Gradient clipping | Stability |
+| Data augmentation (crop+flip+jitter) | +5–8% |
+
+The single biggest lever is **augmentation**. Regularisation (Dropout, BatchNorm, label smoothing) prevents overfitting but cannot substitute for data diversity.
+
+## Improving further
+
+| Technique | Expected Val Acc |
+|-----------|-----------------|
+| Our scratch CNN (above) | 92–94% |
+| + Cutout augmentation | 93–95% |
+| + Mixup | 94–96% |
+| ResNet-18 from scratch | 93–95% |
+| ResNet-18 fine-tuned from ImageNet | 96–97% |
+| EfficientNet-B4 fine-tuned | 97.5–98% |
+| Best published (as of 2024) | ~99.7% (ViT large + huge data augmentation) |
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Parameter count for CIFAR10CNN">
+
+ConvBlock(3, 64): $3 \times 3 \times 3 \times 64 = 1{,}728$ (+ BN: $2 \times 64 = 128$) = **1,856**
+
+ConvBlock(64, 64): $3 \times 3 \times 64 \times 64 = 36{,}864$ (+ BN: 128) = **36,992**
+
+ConvBlock(64, 128): $3 \times 3 \times 64 \times 128 = 73{,}728$ (+ BN: 256) = **73,984**
+
+ConvBlock(128, 128): $3 \times 3 \times 128 \times 128 = 147{,}456$ (+ BN: 256) = **147,712**
+
+ConvBlock(128, 256): $3 \times 3 \times 128 \times 256 = 294{,}912$ (+ BN: 512) = **295,424**
+
+ConvBlock(256, 256): $3 \times 3 \times 256 \times 256 = 589{,}824$ (+ BN: 512) = **590,336**
+
+FC(256→10): $256 \times 10 + 10 = \mathbf{2{,}570}$
+
+**Total: ~1,148,874** — roughly 1.1M parameters.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Cosine annealing LR schedule">
+
+The learning rate at step $t$ of $T_{max}$ total steps:
+
+$$\eta_t = \eta_{min} + \frac{1}{2}(\eta_{max} - \eta_{min})\left(1 + \cos\frac{\pi t}{T_{max}}\right)$$
+
+Starts at $\eta_{max}$, decays smoothly to $\eta_{min}$ (often 0). The cosine shape provides:
+- A slow start (avoids large oscillations early)
+- A slow end (fine-grained refinement near the minimum)
+- No manual LR decay schedules to tune
+
+Typically 2–3% accuracy gain over fixed or step-decay LR.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Label smoothing — mathematical effect">
+
+Standard cross-entropy: $\mathcal{L} = -\log p_\theta(y | \mathbf{x})$
+
+Label smoothing with $\epsilon = 0.1$, $K$ classes:
+
+$$\mathcal{L}_{LS} = (1-\epsilon) \cdot (-\log p_\theta(y|\mathbf{x})) + \frac{\epsilon}{K} \sum_{k=1}^K (-\log p_\theta(k|\mathbf{x}))$$
+
+$$= -\log p_\theta(y|\mathbf{x}) + \frac{\epsilon}{K} \sum_k \log p_\theta(k|\mathbf{x}) + \epsilon \log p_\theta(y|\mathbf{x})$$
+
+This can be rewritten as cross-entropy with a *soft target* distribution:
+
+$$q_k = \begin{cases} 1 - \epsilon + \epsilon/K & k = y \\ \epsilon/K & k \neq y \end{cases}$$
+
+Effect: the model is prevented from outputting probability close to 1 for any single class. The maximum achievable logit gap between correct and incorrect classes is bounded, reducing overconfidence and improving calibration. Typical gain: 0.5–1% accuracy, plus significantly lower ECE (Expected Calibration Error).
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="Gradient clipping (`clip_grad_norm_(model.parameters(), 1.0)`) is applied in the training loop above. What does it do?"
+  options={[
+    "Prevents the loss from exceeding 1.0",
+    "Scales all gradients so the global L2 norm does not exceed 1.0, stabilising training",
+    "Clips individual weights to the range [−1, 1]",
+    "Prevents the learning rate from exceeding 1.0"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following claims about the CIFAR-10 training pipeline are correct?"
+  options={[
+    "The validation transform should include the same random augmentations as the training transform",
+    "Cosine annealing reduces the learning rate smoothly from η_max to η_min over training",
+    "Label smoothing with ε=0.1 replaces one-hot targets with a soft distribution",
+    "DataLoader pin_memory=True speeds up CPU→GPU transfer by using page-locked memory",
+    "AdaptiveAvgPool2d(1) replaces a large Flatten+FC layer, reducing parameters",
+    "BatchNorm has no effect on validation accuracy — it only affects training stability"
+  ]}
+  correct={[1, 2, 3, 4]}
+/>

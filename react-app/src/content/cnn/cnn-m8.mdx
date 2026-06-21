@@ -1,0 +1,195 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import TransferLearningWidget from '../../components/widgets/cnn/TransferLearningWidget.jsx'
+
+# Module 8: Transfer Learning
+
+<Bridge>
+**From Module 7:** a well-tuned data pipeline can push a scratch-trained CNN to ~90% on CIFAR-10. But what if you have 1,000 images instead of 50,000? What if the images are medical scans, satellite imagery, or a private product catalogue with no public benchmark? Training from scratch fails — but a CNN that has already learned to see on ImageNet's 1.2M images has already built a general visual vocabulary. Transfer learning borrows that vocabulary.
+</Bridge>
+
+## What is transfer learning?
+
+A CNN trained on ImageNet develops hierarchical feature detectors:
+- **Early layers:** edges, colours, gradients
+- **Middle layers:** textures, shapes, patterns
+- **Deep layers:** object parts, semantic concepts
+
+These features generalise across vision tasks. A network that detects fur texture for "cat" has also learned to detect texture for "dog," "tiger," and even radiology patterns in chest X-rays (to a degree). Transfer learning uses this pre-built feature hierarchy as a starting point.
+
+## Two strategies
+
+### Strategy 1: Feature extraction
+
+Freeze all pretrained weights. Replace only the classification head. Train the head on your dataset.
+
+```python
+import torchvision.models as models
+import torch.nn as nn
+
+model = models.resnet50(weights='IMAGENET1K_V1')
+
+# Freeze backbone
+for param in model.parameters():
+    param.requires_grad = False
+
+# Replace classification head
+model.fc = nn.Linear(2048, num_classes)  # only this trains
+# model.fc.parameters() requires_grad=True by default
+```
+
+**When to use:** very small dataset (< 1,000 images per class), or target domain is very close to ImageNet.
+
+### Strategy 2: Fine-tuning
+
+Load pretrained weights, unfreeze some or all layers, train with a *low learning rate*.
+
+```python
+model = models.resnet50(weights='IMAGENET1K_V1')
+model.fc = nn.Linear(2048, num_classes)
+
+# Different learning rates per layer group
+optimizer = torch.optim.AdamW([
+    {'params': model.layer4.parameters(), 'lr': 1e-4},
+    {'params': model.layer3.parameters(), 'lr': 5e-5},
+    {'params': model.fc.parameters(),     'lr': 1e-3},
+], weight_decay=1e-4)
+```
+
+A low LR for early layers prevents catastrophic forgetting of the generic features learned on ImageNet.
+
+<ConceptBox title="Why lower LR for pretrained layers?">
+The loss landscape for a pretrained network is already in a good basin. Large gradient steps would destroy this — pushing weights far from a configuration that already encodes useful features. Smaller LR keeps the pretrained features as a "prior" while the new task's signal refines the later layers.
+</ConceptBox>
+
+## Interactive: compare convergence
+
+<TransferLearningWidget />
+
+## Popular pretrained backbones
+
+| Model | ImageNet Top-1 | Params | CIFAR-10 (fine-tuned) |
+|-------|-------------|--------|----------------------|
+| ResNet-18 | 69.8% | 11M | ~95% |
+| ResNet-50 | 76.1% | 25M | ~96% |
+| EfficientNet-B0 | 77.1% | 5.3M | ~96.5% |
+| EfficientNet-B4 | 82.9% | 19M | ~97.5% |
+| ViT-B/16 | 81.1% | 86M | ~98% |
+
+## Practical fine-tuning recipe for CIFAR-10
+
+```python
+import torchvision.transforms as T
+import torchvision.models as models
+import torch, torch.nn as nn
+
+# Step 1: Data (ImageNet normalisation, since backbone was trained on it)
+transform = T.Compose([
+    T.Resize(224),               # ResNet expects 224×224
+    T.RandomCrop(224, padding=28),
+    T.RandomHorizontalFlip(),
+    T.ToTensor(),
+    T.Normalize([0.485, 0.456, 0.406],   # ImageNet stats
+                [0.229, 0.224, 0.225]),
+])
+
+# Step 2: Model
+model = models.resnet18(weights='IMAGENET1K_V1')
+model.fc = nn.Linear(512, 10)           # CIFAR-10 has 10 classes
+model = model.cuda()
+
+# Step 3: Training with warmup
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
+scheduler = torch.optim.lr_scheduler.OneCycleLR(
+    optimizer, max_lr=1e-3, epochs=30,
+    steps_per_epoch=len(train_loader),
+)
+criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+
+for epoch in range(30):
+    model.train()
+    for imgs, labels in train_loader:
+        imgs, labels = imgs.cuda(), labels.cuda()
+        optimizer.zero_grad()
+        loss = criterion(model(imgs), labels)
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+```
+
+**Label smoothing** (`label_smoothing=0.1`) replaces one-hot targets with $(1 - \epsilon) \cdot \mathbf{e}_y + \epsilon / K$ — similar to Mixup, it prevents the model from becoming overconfident.
+
+## Layer freezing schedule
+
+Progressive unfreezing (ULMFiT-style, adapted to CNNs):
+
+1. Epoch 1–5: Freeze backbone, train head only (high LR)
+2. Epoch 6–15: Unfreeze last residual block, low LR for backbone
+3. Epoch 16–30: Unfreeze all layers, very low LR for early layers
+
+This prevents the network from destroying generic features during the first few chaotic epochs.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Why features transfer — the kernel perspective">
+
+Zeiler & Fergus (2013) visualised what kernels in AlexNet's conv1 detect: 11×11 patches that activate maximally are Gabor-like edge detectors at multiple orientations and frequencies. These are exactly the features computed by the primary visual cortex (V1) in biological vision.
+
+Since Gabor filters are useful for detecting edges in *any* photographic image, not just ImageNet categories, the conv1 representations transfer to virtually any vision task. This argument extends layer-by-layer: textures (conv2-3), shapes (conv4-5), and semantic parts (FC layers) generalise in decreasing order.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Feature extraction as linear probing">
+
+Formally, let $\phi_\theta : \mathcal{X} \to \mathbb{R}^d$ be the pretrained feature extractor (all layers except the head). Feature extraction learns only:
+
+$$\hat{y} = \text{softmax}(W \phi_\theta(\mathbf{x}) + \mathbf{b})$$
+
+where $W \in \mathbb{R}^{K \times d}$ is the only trainable parameter. This is linear classification on top of frozen features.
+
+If $\phi_\theta$ produces linearly separable representations for the new task, this achieves near-optimal performance. For many tasks similar to ImageNet, it does. For dissimilar tasks (e.g. medical imaging) the linear separability condition may not hold, requiring fine-tuning.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Catastrophic forgetting and why small LR helps">
+
+When fine-tuning, the new task's gradient signal $\nabla_\theta \mathcal{L}_{new}$ updates all weights. If the learning rate is large, the weights move far from the ImageNet optima:
+
+$$\theta_{t+1} = \theta_t - \alpha \nabla_\theta \mathcal{L}_{new}(\theta_t)$$
+
+For large $\alpha$, $\theta_{t+1}$ can fall outside the basin of attraction of the ImageNet solution — the "generic features" are destroyed. L2-SP regularisation formalises this:
+
+$$\mathcal{L}_{L2-SP} = \mathcal{L}_{new}(\theta) + \frac{\lambda}{2}\|\theta - \theta_0\|^2$$
+
+where $\theta_0$ are the pretrained weights. This is an explicit penalty for drifting from the pretrained solution. In practice, low LR + weight decay approximates L2-SP.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="You have 200 labelled chest X-ray images and want to classify 4 conditions. Which transfer learning strategy is most appropriate?"
+  options={[
+    "Train ResNet-50 from random initialisation",
+    "Feature extraction: freeze ResNet-50 backbone, train only the classification head",
+    "Fine-tune all layers of ResNet-50 with a high learning rate",
+    "Use k-nearest neighbours on raw pixel values"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are good practices when fine-tuning a pretrained CNN?"
+  options={[
+    "Use a lower learning rate for early pretrained layers than for the classification head",
+    "Keep the same normalisation statistics as the pretraining dataset (e.g. ImageNet mean/std)",
+    "Always unfreeze all layers immediately for maximum flexibility",
+    "Use progressive unfreezing — unfreeze layers gradually from top to bottom",
+    "Replace the original classification head with one matching the number of new classes",
+    "Apply the same augmentation as the original pretraining to avoid distribution shift"
+  ]}
+  correct={[0, 1, 3, 4]}
+/>
