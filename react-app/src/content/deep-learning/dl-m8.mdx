@@ -1,0 +1,208 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import LossOptimizerWidget from '../../components/widgets/deep-learning/LossOptimizerWidget.jsx'
+
+# Module 8: Loss Functions & Optimizers
+
+<Bridge>
+**From Module 7:** You now know how gradients flow through activation functions. Those gradients start from a **loss function** — the scalar value that measures how wrong the network is. The loss function defines what "good" means. The **optimizer** then uses the loss gradient to update weights. This module covers both: choosing the right loss for your task, and choosing the optimizer that finds the minimum fastest.
+</Bridge>
+
+## Loss Functions
+
+### What Is a Loss Function?
+
+A loss function $\mathcal{L}(\hat{y}, y)$ measures the discrepancy between prediction $\hat{y}$ and true label $y$ for a single sample. The training objective minimizes the average loss over the dataset:
+
+$$J(\theta) = \frac{1}{m} \sum_{i=1}^m \mathcal{L}(\hat{y}^{(i)}, y^{(i)})$$
+
+### Regression Losses
+
+**Mean Squared Error (MSE / L2 loss):**
+$$\mathcal{L}_{\text{MSE}} = (y - \hat{y})^2$$
+
+- Differentiable everywhere, smooth gradients
+- Heavily penalizes large errors (squared)
+- Sensitive to outliers
+
+**Mean Absolute Error (MAE / L1 loss):**
+$$\mathcal{L}_{\text{MAE}} = |y - \hat{y}|$$
+
+- Robust to outliers (linear penalty)
+- Non-differentiable at 0 (subgradient used)
+
+**Huber Loss (Smooth L1):**
+$$\mathcal{L}_\delta(y, \hat{y}) = \begin{cases} \tfrac{1}{2}(y-\hat{y})^2 & |y-\hat{y}| \leq \delta \\ \delta\left(|y-\hat{y}| - \tfrac{1}{2}\delta\right) & |y-\hat{y}| > \delta \end{cases}$$
+
+Quadratic near 0 (smooth gradients), linear for outliers (robust). Best of both.
+
+### Classification Losses
+
+**Binary Cross-Entropy (BCE):**
+$$\mathcal{L}_{\text{BCE}} = -y\log\hat{y} - (1-y)\log(1-\hat{y})$$
+
+- Used with sigmoid output for binary classification
+- `nn.BCEWithLogitsLoss` in PyTorch (takes logits, more stable)
+
+**Categorical Cross-Entropy (CE):**
+$$\mathcal{L}_{\text{CE}} = -\sum_{k=1}^K y_k \log \hat{y}_k = -\log \hat{y}_{y_\text{true}}$$
+
+- Used with softmax for multiclass ($K$ classes)
+- `nn.CrossEntropyLoss` in PyTorch (takes raw logits, applies log-softmax internally)
+
+<ConceptBox title="PyTorch Loss Convention">
+`nn.CrossEntropyLoss` takes **raw logits** (not softmax probabilities) and **integer class labels** (not one-hot). It combines `log_softmax + NLLLoss` in a numerically stable form:
+
+```python
+criterion = nn.CrossEntropyLoss()
+loss = criterion(logits, labels)  # logits: [B, K], labels: [B] integers
+```
+</ConceptBox>
+
+## Optimizers
+
+### What is an Optimizer?
+
+An optimizer implements the update rule for parameters given their gradients:
+
+$$\theta_{t+1} = \theta_t - \text{update}(\theta_t, \nabla_\theta J_t)$$
+
+### Stochastic Gradient Descent (SGD)
+
+$$\theta_{t+1} = \theta_t - \eta \nabla_\theta J(\theta_t; \mathcal{B}_t)$$
+
+- $\eta$: learning rate
+- $\mathcal{B}_t$: mini-batch at step $t$
+- Simple, well-understood, still used in production (esp. computer vision)
+- **Con:** Sensitive to learning rate; slow convergence for saddle points and ravines
+
+### SGD with Momentum
+
+$$v_{t+1} = \beta v_t + (1-\beta) \nabla_\theta J_t$$
+$$\theta_{t+1} = \theta_t - \eta v_{t+1}$$
+
+- $\beta \approx 0.9$: accumulates gradient direction (exponential moving average)
+- Accelerates in consistent gradient directions, dampens oscillation
+- Escapes shallow local minima
+
+### RMSProp
+
+$$v_{t+1} = \beta v_t + (1-\beta)(\nabla_\theta J_t)^2$$
+$$\theta_{t+1} = \theta_t - \frac{\eta}{\sqrt{v_{t+1}} + \epsilon} \nabla_\theta J_t$$
+
+- Adapts learning rate **per parameter** based on recent gradient magnitudes
+- Large gradient history → small step; small history → large step
+- Good for RNNs; proposed by Hinton
+
+### Adam — Adaptive Moment Estimation
+
+$$m_{t+1} = \beta_1 m_t + (1-\beta_1) \nabla_\theta J_t \quad \text{(1st moment)}$$
+$$v_{t+1} = \beta_2 v_t + (1-\beta_2) (\nabla_\theta J_t)^2 \quad \text{(2nd moment)}$$
+
+**Bias correction** (important in early steps when $m_0 = v_0 = 0$):
+$$\hat{m}_{t+1} = \frac{m_{t+1}}{1-\beta_1^{t+1}}, \qquad \hat{v}_{t+1} = \frac{v_{t+1}}{1-\beta_2^{t+1}}$$
+
+$$\theta_{t+1} = \theta_t - \frac{\eta}{\sqrt{\hat{v}_{t+1}} + \epsilon} \hat{m}_{t+1}$$
+
+Default: $\beta_1 = 0.9$, $\beta_2 = 0.999$, $\epsilon = 10^{-8}$, $\eta = 10^{-3}$.
+
+Adam combines momentum (1st moment) with adaptive learning rates (2nd moment) → **default optimizer for most tasks.**
+
+### PyTorch Optimizer Usage
+
+```python
+import torch.optim as optim
+
+model = ...
+
+# SGD
+optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4)
+
+# Adam
+optimizer = optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.999), eps=1e-8)
+
+# Training loop step
+optimizer.zero_grad()       # 1. clear gradients
+loss.backward()             # 2. compute gradients
+optimizer.step()            # 3. update parameters
+```
+
+## Interactive: Loss Functions & Optimizer Paths
+
+Switch between tabs to compare loss landscapes and how different optimizers navigate them.
+
+<LossOptimizerWidget />
+
+---
+
+## Mathematics: Optimizer Convergence Analysis
+
+<DerivationSteps>
+
+<DerivationStep number={1} title="SGD convergence rate">
+
+For a convex loss with Lipschitz gradient (constant $L$), SGD with decaying learning rate $\eta_t = \eta_0 / \sqrt{t}$ achieves:
+
+$$J(\theta_t) - J^* \leq \frac{C}{\sqrt{T}}$$
+
+for $T$ iterations. This $O(1/\sqrt{T})$ rate is optimal for stochastic first-order methods.
+
+For non-convex losses (typical in deep learning), SGD converges to a **stationary point** (where $\|\nabla J\| \to 0$) but not necessarily a global minimum. In practice, these stationary points tend to be good local minima or saddle points that SGD escapes via noise.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Adam: why bias correction matters">
+
+At step $t=1$ with $m_0 = 0$ and $\beta_1 = 0.9$:
+
+$$m_1 = 0.9 \cdot 0 + 0.1 \cdot g_1 = 0.1 g_1$$
+
+The true expected value should be $g_1$, but $m_1 = 0.1 g_1$ — **10× too small** due to zero initialization.
+
+Correction: $\hat{m}_1 = m_1 / (1 - 0.9^1) = 0.1g_1 / 0.1 = g_1$. ✓
+
+By step $t = 100$: $1 - \beta_1^{100} = 1 - 0.9^{100} \approx 0.99997$ — correction is negligible. Bias correction only matters in early training.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Learning rate schedules">
+
+The learning rate $\eta$ is the single most important hyperparameter. Common schedules:
+
+**Step decay:** $\eta_t = \eta_0 \cdot \gamma^{\lfloor t / s \rfloor}$ — drop by factor $\gamma$ every $s$ steps
+
+**Cosine annealing:** $\eta_t = \eta_{\min} + \frac{1}{2}(\eta_{\max} - \eta_{\min})(1 + \cos(\pi t / T))$
+
+**Warmup:** Start with small $\eta$, linearly increase to $\eta_{\max}$, then decay. Prevents early-training instability when gradients are large.
+
+In PyTorch: `optim.lr_scheduler.CosineAnnealingLR`, `LinearLR`, `OneCycleLR`.
+
+</DerivationStep>
+
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="What is the main advantage of Adam over plain SGD?"
+  options={[
+    "Adam requires no learning rate hyperparameter",
+    "Adam adapts the learning rate per-parameter using gradient history",
+    "Adam always finds the global minimum",
+    "Adam uses second-order information (Hessian)"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are true about PyTorch's CrossEntropyLoss?"
+  options={[
+    "It expects raw logits (not softmax probabilities) as input",
+    "It expects integer class labels (not one-hot vectors)",
+    "It combines log-softmax and NLLLoss in a numerically stable form",
+    "It should be preceded by an explicit softmax layer in the model",
+    "It works for binary and multiclass classification"
+  ]}
+  correct={[0, 1, 2]}
+/>

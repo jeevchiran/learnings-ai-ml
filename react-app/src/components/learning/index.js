@@ -4,3 +4,4 @@ export { default as DerivationSteps, DerivationStep } from './DerivationSteps.js
 export { default as CodeBlock } from './CodeBlock.jsx'
 export { InlineMath, BlockMath } from './MathBlock.jsx'
 export { default as QuizCard } from './QuizCard.jsx'
+export { default as MultiSelectQuiz } from './MultiSelectQuiz.jsx'

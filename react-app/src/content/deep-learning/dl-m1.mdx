@@ -1,0 +1,159 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import PerceptronWidget from '../../components/widgets/deep-learning/PerceptronWidget.jsx'
+
+# Module 1: The Perceptron
+
+<Bridge>
+**Where does it all begin?** In 1943, Warren McCulloch and Walter Pitts proposed the first mathematical model of a neuron. In 1957, Frank Rosenblatt built the Perceptron — a single artificial neuron that could learn to classify patterns. Every transformer, every diffusion model, every large language model you encounter today is built from stacking and connecting this one primitive. Understanding the perceptron from first principles is not a historical exercise — it is the foundation on which all of modern deep learning rests.
+</Bridge>
+
+## What is a Perceptron?
+
+A perceptron is the simplest possible artificial neural network: a single computational unit that takes a vector of inputs, computes a weighted sum, adds a bias, and passes the result through an **activation function** to produce an output.
+
+<ConceptBox title="Perceptron Definition">
+Given input vector $\mathbf{x} = (x_1, x_2, \ldots, x_n)^T$, weights $\mathbf{w} = (w_1, w_2, \ldots, w_n)^T$, and bias $b$, the perceptron computes:
+
+$$z = \mathbf{w}^T \mathbf{x} + b = \sum_{i=1}^{n} w_i x_i + b$$
+
+$$\hat{y} = g(z)$$
+
+where $g$ is an activation function (classically the Heaviside step function; modernly sigmoid or ReLU).
+</ConceptBox>
+
+## Why the Perceptron Matters
+
+The perceptron introduced three ideas that define all of deep learning:
+
+1. **Learnable weights** — the model adjusts $\mathbf{w}$ and $b$ based on data, not manual tuning.
+2. **Nonlinear activation** — even one nonlinearity makes the model capable of more than linear algebra alone.
+3. **Error-driven updates** — the training rule (adjusting weights when wrong) is the ancestor of gradient descent.
+
+The perceptron also has a famous **limitation**: it cannot solve the XOR problem. A single linear decision boundary cannot separate the XOR truth table. This limitation, not the perceptron itself, drove the invention of multilayer networks.
+
+## How It Works
+
+### The Geometric View
+
+The equation $\mathbf{w}^T \mathbf{x} + b = 0$ defines a **hyperplane** in input space. The perceptron classifies:
+- Points where $\mathbf{w}^T \mathbf{x} + b > 0$ → class 1
+- Points where $\mathbf{w}^T \mathbf{x} + b < 0$ → class 0
+
+The weights $\mathbf{w}$ define the **orientation** of this hyperplane; the bias $b$ defines its **offset from the origin**.
+
+### The Learning Rule
+
+The original perceptron learning rule (for binary classification with labels $y \in \{0, 1\}$):
+
+$$\mathbf{w} \leftarrow \mathbf{w} + \eta \cdot (y - \hat{y}) \cdot \mathbf{x}$$
+$$b \leftarrow b + \eta \cdot (y - \hat{y})$$
+
+where $\eta > 0$ is the learning rate. If the prediction is correct, no update occurs. If wrong, the boundary shifts toward the misclassified point.
+
+The **Perceptron Convergence Theorem** guarantees that if the data is linearly separable, this rule converges in a finite number of steps.
+
+## Interactive: Perceptron Playground
+
+Adjust weights, bias, and inputs to see how the decision boundary moves. The amber star shows your current input point $(x_1, x_2)$.
+
+<PerceptronWidget />
+
+## The XOR Problem
+
+XOR truth table:
+
+| $x_1$ | $x_2$ | XOR |
+|-------|-------|-----|
+| 0     | 0     | 0   |
+| 0     | 1     | 1   |
+| 1     | 0     | 1   |
+| 1     | 1     | 0   |
+
+No single line can separate the two classes. This is not a limitation of the perceptron's weights — it is a fundamental geometric impossibility. The fix: add a hidden layer (Module 2).
+
+---
+
+## Mathematics: Forward Propagation in a Single Neuron
+
+<DerivationSteps>
+
+<DerivationStep number={1} title="Linear combination (pre-activation)">
+
+Given $n$ inputs $x_1, \ldots, x_n$ with weights $w_1, \ldots, w_n$ and bias $b$:
+
+$$z = \sum_{i=1}^{n} w_i x_i + b = \mathbf{w}^T \mathbf{x} + b$$
+
+This is a dot product followed by a scalar offset. In matrix form for a batch of $m$ samples:
+
+$$\mathbf{z} = W \mathbf{X} + b$$
+
+where $W \in \mathbb{R}^{1 \times n}$ and $\mathbf{X} \in \mathbb{R}^{n \times m}$.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Activation function (post-activation)">
+
+The activation $g$ introduces nonlinearity. For the step function:
+
+$$g(z) = \begin{cases} 1 & \text{if } z \geq 0 \\ 0 & \text{if } z < 0 \end{cases}$$
+
+For the sigmoid (used in modern networks):
+
+$$g(z) = \sigma(z) = \frac{1}{1 + e^{-z}} \in (0, 1)$$
+
+The sigmoid output can be interpreted as a probability $P(\hat{y} = 1 \mid \mathbf{x})$.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Loss function (binary cross-entropy)">
+
+Given true label $y \in \{0, 1\}$ and prediction $\hat{y} = \sigma(z)$:
+
+$$\mathcal{L}(y, \hat{y}) = -\left[ y \log \hat{y} + (1 - y) \log(1 - \hat{y}) \right]$$
+
+This penalizes confident wrong predictions heavily (log approaches $-\infty$ as $\hat{y} \to 0$ when $y=1$).
+
+Over a dataset of $m$ samples:
+
+$$J = \frac{1}{m} \sum_{i=1}^{m} \mathcal{L}(y^{(i)}, \hat{y}^{(i)})$$
+
+</DerivationStep>
+
+<DerivationStep number={4} title="Gradient w.r.t. weights (used in backprop)">
+
+$$\frac{\partial J}{\partial w_j} = \frac{1}{m} \sum_{i=1}^m (\hat{y}^{(i)} - y^{(i)}) x_j^{(i)}$$
+
+In matrix form: $\frac{\partial J}{\partial \mathbf{w}} = \frac{1}{m} \mathbf{X} (\hat{\mathbf{y}} - \mathbf{y})^T$
+
+Notice: the gradient has the same beautiful form as the perceptron update rule — this is not a coincidence. The perceptron update IS gradient descent on BCE loss with a step function approximated by sigmoid.
+
+</DerivationStep>
+
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="Which of the following correctly describes the perceptron's decision boundary?"
+  options={[
+    "A curved surface that adapts to the data distribution",
+    "A hyperplane defined by w^T x + b = 0",
+    "A set of k cluster centers in input space",
+    "A probability distribution over input features"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are true about the original perceptron?"
+  options={[
+    "It can solve the XOR classification problem",
+    "It uses a weighted sum of inputs plus a bias",
+    "It is guaranteed to converge if data is linearly separable",
+    "It requires backpropagation to train",
+    "It was inspired by biological neurons"
+  ]}
+  correct={[1, 2, 4]}
+/>

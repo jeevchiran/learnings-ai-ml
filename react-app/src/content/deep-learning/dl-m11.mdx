@@ -1,0 +1,284 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import OverfittingWidget from '../../components/widgets/deep-learning/OverfittingWidget.jsx'
+
+# Module 11: Preventing Overfitting & PyTorch Examples
+
+<Bridge>
+**From Module 10:** You have the full toolkit: regularization (L1/L2, dropout) and normalization (BatchNorm, LayerNorm). This final module shows how to use them together to prevent overfitting — the gap between train and validation performance that kills real-world model utility. It also walks through a complete end-to-end PyTorch training loop so that everything from Module 1 to Module 10 comes together in working code.
+</Bridge>
+
+## What is Overfitting?
+
+Overfitting occurs when a model learns the **training data too well** — including its noise — and fails to generalize to unseen examples. Symptoms:
+
+- Training loss decreases → validation loss increases (divergence)
+- Training accuracy high → validation accuracy low (gap)
+- Model output is highly sensitive to small input perturbations
+
+<ConceptBox title="The Bias-Variance Tradeoff">
+Prediction error = Bias² + Variance + Irreducible noise
+
+- **High bias (underfitting):** Model too simple, cannot capture true pattern
+- **High variance (overfitting):** Model too complex, fits noise as well as signal
+- **Goal:** Find the sweet spot that minimizes total error on unseen data
+</ConceptBox>
+
+## Why Overfitting Happens
+
+With enough parameters, a neural network can memorize any training set with loss → 0. Neural networks with millions of parameters are massively overparameterized relative to typical dataset sizes. Several forces keep them from overfitting in practice:
+
+1. **Stochastic gradient noise** — mini-batches add noise that acts as implicit regularization
+2. **Early stopping** — stop before the model starts memorizing
+3. **Explicit regularization** — L2/dropout
+4. **Data augmentation** — show more diverse training examples
+
+## Early Stopping
+
+Monitor validation loss at each epoch. Stop training when validation loss stops improving for $k$ consecutive epochs (patience $k$).
+
+```python
+class EarlyStopping:
+    def __init__(self, patience=10, min_delta=1e-4):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.best_loss = float('inf')
+        self.counter = 0
+
+    def __call__(self, val_loss):
+        if val_loss < self.best_loss - self.min_delta:
+            self.best_loss = val_loss
+            self.counter = 0
+            return False   # continue training
+        self.counter += 1
+        return self.counter >= self.patience   # True = stop
+```
+
+## Data Augmentation
+
+Artificially expand the training set by applying label-preserving transformations:
+
+```python
+from torchvision import transforms
+
+train_transform = transforms.Compose([
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.RandomCrop(32, padding=4),
+    transforms.ColorJitter(brightness=0.2, contrast=0.2),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                         std=[0.229, 0.224, 0.225]),
+])
+```
+
+## Interactive: Overfitting & Early Stopping
+
+Increase model degree, reduce dropout/L2, and watch the gap between train and validation loss grow.
+
+<OverfittingWidget />
+
+---
+
+## End-to-End PyTorch Training Loop
+
+A complete, production-quality training loop for MNIST digit classification:
+
+```python
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+
+# ── 1. Data ─────────────────────────────────────────────
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))  # MNIST mean/std
+])
+
+train_ds = datasets.MNIST('./data', train=True,  download=True, transform=transform)
+val_ds   = datasets.MNIST('./data', train=False, download=True, transform=transform)
+
+train_loader = DataLoader(train_ds, batch_size=256, shuffle=True,  num_workers=2)
+val_loader   = DataLoader(val_ds,   batch_size=512, shuffle=False, num_workers=2)
+
+# ── 2. Model ─────────────────────────────────────────────
+class MNISTClassifier(nn.Module):
+    def __init__(self, dropout=0.3):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(784, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(512, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(256, 10),
+        )
+
+    def forward(self, x):
+        return self.net(x.view(x.size(0), -1))  # flatten: [B,1,28,28] → [B,784]
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+model  = MNISTClassifier(dropout=0.3).to(device)
+
+# ── 3. Loss & Optimizer ──────────────────────────────────
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=30)
+
+# ── 4. Training Loop ─────────────────────────────────────
+early_stop = EarlyStopping(patience=5)
+best_val_acc = 0.0
+
+def train_epoch(model, loader, optimizer, criterion, device):
+    model.train()
+    total_loss, correct, n = 0., 0, 0
+    for X, y in loader:
+        X, y = X.to(device), y.to(device)
+        optimizer.zero_grad()
+        logits = model(X)
+        loss   = criterion(logits, y)
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item() * len(y)
+        correct    += (logits.argmax(1) == y).sum().item()
+        n          += len(y)
+    return total_loss / n, correct / n
+
+def eval_epoch(model, loader, criterion, device):
+    model.eval()
+    total_loss, correct, n = 0., 0, 0
+    with torch.no_grad():
+        for X, y in loader:
+            X, y = X.to(device), y.to(device)
+            logits = model(X)
+            loss   = criterion(logits, y)
+            total_loss += loss.item() * len(y)
+            correct    += (logits.argmax(1) == y).sum().item()
+            n          += len(y)
+    return total_loss / n, correct / n
+
+for epoch in range(50):
+    train_loss, train_acc = train_epoch(model, train_loader, optimizer, criterion, device)
+    val_loss,   val_acc   = eval_epoch(model, val_loader, criterion, device)
+    scheduler.step()
+
+    print(f'Epoch {epoch+1:3d} | '
+          f'Train Loss: {train_loss:.4f}  Acc: {train_acc:.4f} | '
+          f'Val Loss: {val_loss:.4f}  Acc: {val_acc:.4f}')
+
+    if val_acc > best_val_acc:
+        best_val_acc = val_acc
+        torch.save(model.state_dict(), 'best_model.pt')
+
+    if early_stop(val_loss):
+        print(f'Early stop at epoch {epoch+1}')
+        break
+
+print(f'Best val accuracy: {best_val_acc:.4f}')
+```
+
+## Regularization in PyTorch — Quick Reference
+
+```python
+# L2 via optimizer weight_decay
+optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+
+# L1 manual (PyTorch has no built-in L1 in optimizer)
+l1_lambda = 1e-5
+l1_norm = sum(p.abs().sum() for p in model.parameters())
+loss = criterion(output, target) + l1_lambda * l1_norm
+
+# Dropout (built-in via nn.Dropout, no extra code needed)
+# BatchNorm (built-in via nn.BatchNorm1d)
+# Early stopping (custom class above, or use PyTorch Lightning)
+
+# Gradient clipping (prevents exploding gradients)
+nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+```
+
+---
+
+## Mathematics: Generalization Bounds
+
+<DerivationSteps>
+
+<DerivationStep number={1} title="Train-test gap and VC dimension">
+
+For a hypothesis class $\mathcal{H}$ with VC dimension $d$, the generalization bound (with probability $1-\delta$):
+
+$$J_{\text{test}}(\theta) \leq J_{\text{train}}(\theta) + \sqrt{\frac{d \cdot \log(2m/d) + \log(2/\delta)}{2m}}$$
+
+where $m$ is the training set size. The gap scales as $O(\sqrt{d/m})$.
+
+Neural networks have astronomically high VC dimension yet generalize well — this remains an open theoretical question ("double descent" phenomenon).
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Early stopping as implicit regularization">
+
+Early stopping at epoch $t^*$ corresponds to an $L2$ regularizer with $\lambda \propto 1/(\eta t^*)$:
+
+$$\theta_{t^*} \approx \arg\min_\theta \left[ J(\theta) + \frac{1}{2\eta t^*} \|\theta - \theta_0\|^2 \right]$$
+
+Stopping earlier (smaller $t^*$) → stronger regularization. This equivalence holds exactly for convex objectives with gradient descent.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Dropout as ensemble approximation">
+
+With $n$ neurons and dropout rate $p$, we train a distribution over $2^n$ sub-networks. The exact ensemble prediction is:
+
+$$p(\hat{y} \mid x) = \sum_{\mathbf{m}} p(\mathbf{m}) p(\hat{y} \mid x, \mathbf{m})$$
+
+where $\mathbf{m}$ is the dropout mask. Computing this exactly is intractable. The standard inference approximation (no dropout, weights scaled by $(1-p)$) is a **geometric mean** approximation to this ensemble:
+
+$$p_{\text{approx}}(\hat{y} \mid x) \approx \exp\!\left( \mathbb{E}_\mathbf{m} [\log p(\hat{y} \mid x, \mathbf{m})] \right)$$
+
+This approximation is tight when $p$ is small and $n$ is large.
+
+</DerivationStep>
+
+<DerivationStep number={4} title="Putting it all together — the regularized training objective">
+
+The full training objective with all techniques combined:
+
+$$J_\text{full}(\theta) = \underbrace{\frac{1}{m}\sum_{i=1}^m \mathcal{L}(\hat{y}^{(i)}, y^{(i)})}_\text{task loss} + \underbrace{\frac{\lambda_2}{2m}\|\theta\|_2^2}_\text{L2} + \underbrace{\frac{\lambda_1}{m}\|\theta\|_1}_\text{L1}$$
+
+Dropout and BatchNorm are not added to the objective — they modify the computation graph during training and have no explicit loss term.
+
+Gradient of the full objective:
+$$\nabla_\theta J_\text{full} = \nabla_\theta J + \frac{\lambda_2}{m}\theta + \frac{\lambda_1}{m}\text{sign}(\theta)$$
+
+</DerivationStep>
+
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="What does early stopping prevent, and how does it work?"
+  options={[
+    "It prevents vanishing gradients by resetting weights to initialization when loss spikes",
+    "It prevents overfitting by halting training when validation loss stops improving",
+    "It prevents exploding gradients by clipping the gradient norm",
+    "It prevents underfitting by increasing model capacity when train loss stagnates"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following best practices are recommended in a production PyTorch training loop?"
+  options={[
+    "Call model.train() before training epochs and model.eval() before validation",
+    "Use torch.no_grad() during validation to skip graph building",
+    "Call optimizer.zero_grad() before every loss.backward()",
+    "Apply dropout at inference time to get uncertainty estimates (MC Dropout)",
+    "Use CrossEntropyLoss with logits directly rather than softmax + NLLLoss"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

@@ -1,0 +1,183 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import ActivationWidget from '../../components/widgets/deep-learning/ActivationWidget.jsx'
+
+# Module 7: Activation Functions
+
+<Bridge>
+**From Module 6:** The backpropagation formula $\delta^{[l]} = (W^{[l+1]})^T \delta^{[l+1]} \odot g'^{[l]}(Z^{[l]})$ shows that the **derivative of the activation function** appears in every gradient computation. The choice of activation function directly controls how easily gradients flow backward — and whether the network can be trained at all. This module covers every major activation function, its derivative, and when to use each one.
+</Bridge>
+
+## What is an Activation Function?
+
+An activation function $g : \mathbb{R} \to \mathbb{R}$ is applied element-wise to the pre-activation $\mathbf{z}^{[l]}$ to produce the layer's output $\mathbf{a}^{[l]} = g(\mathbf{z}^{[l]})$.
+
+<ConceptBox title="Why activations must be nonlinear">
+Without nonlinear activations, a composition of $L$ linear layers reduces to one linear layer: $A^{[L]} = W^{[L]}\cdots W^{[1]} X = \tilde{W}X$. Nonlinearity is what allows deep networks to represent complex functions (Universal Approximation Theorem, Module 2).
+</ConceptBox>
+
+## The Activation Zoo
+
+### Sigmoid
+
+$$\sigma(z) = \frac{1}{1+e^{-z}}, \qquad \sigma'(z) = \sigma(z)(1-\sigma(z))$$
+
+**Range:** $(0, 1)$ — natural probability interpretation
+
+**Problems:**
+- **Vanishing gradient:** $\sigma'(z) \leq 0.25$ always, and approaches 0 for $|z| \gg 0$. Gradients shrink at every layer, making deep networks untrainable.
+- **Not zero-centered:** All outputs are positive, so gradients for weights are either all positive or all negative — inefficient zig-zagging in weight space.
+
+**Use:** Output layer for binary classification only.
+
+### Tanh
+
+$$\tanh(z) = \frac{e^z - e^{-z}}{e^z + e^{-z}}, \qquad \tanh'(z) = 1 - \tanh^2(z)$$
+
+**Range:** $(-1, 1)$ — zero-centered (better than sigmoid)
+
+**Problems:** Still saturates; $\tanh'(z) \to 0$ for large $|z|$. Vanishing gradient remains.
+
+**Use:** Hidden layers when you need a zero-centered bounded output (RNNs, some legacy architectures).
+
+### ReLU — Rectified Linear Unit
+
+$$\text{ReLU}(z) = \max(0, z), \qquad \text{ReLU}'(z) = \begin{cases} 1 & z > 0 \\ 0 & z \leq 0 \end{cases}$$
+
+**Why ReLU changed everything:**
+- No vanishing gradient for positive activations (gradient = 1 exactly)
+- Sparse activations (roughly half of neurons are zero → efficient)
+- Computationally trivial (single comparison)
+
+**Problems:**
+- **Dying ReLU:** If $z < 0$ always (e.g., after a large negative weight update), the neuron outputs 0 forever and its gradient is always 0 — it "dies."
+- Not zero-centered, unbounded output
+
+**Use:** Default for hidden layers in MLPs and CNNs.
+
+### Leaky ReLU
+
+$$f(z) = \begin{cases} z & z > 0 \\ \alpha z & z \leq 0 \end{cases}, \qquad f'(z) = \begin{cases} 1 & z > 0 \\ \alpha & z \leq 0 \end{cases}$$
+
+where $\alpha \approx 0.01$. Fixes dying ReLU by allowing a small negative gradient.
+
+**Parametric ReLU (PReLU):** $\alpha$ is a learned parameter.
+
+### ELU — Exponential Linear Unit
+
+$$\text{ELU}(z) = \begin{cases} z & z > 0 \\ \alpha(e^z - 1) & z \leq 0 \end{cases}$$
+
+Smooth at $z=0$, negative saturation pushes mean activations toward zero, no dead neurons.
+
+### GELU — Gaussian Error Linear Unit
+
+$$\text{GELU}(z) \approx 0.5z \left(1 + \tanh\!\left(\sqrt{\tfrac{2}{\pi}}\left(z + 0.044715z^3\right)\right)\right)$$
+
+**Stochastic interpretation:** $\text{GELU}(z) = z \cdot P(X \leq z)$ where $X \sim \mathcal{N}(0, 1)$. Gates activations probabilistically based on their magnitude.
+
+**Use:** Transformers (BERT, GPT), modern MLPs. Outperforms ReLU in many settings.
+
+### Softmax (Output Only)
+
+$$\text{softmax}(\mathbf{z})_k = \frac{e^{z_k}}{\sum_{j=1}^K e^{z_j}}$$
+
+Not used in hidden layers — used as the final layer for $K$-class classification. Ensures outputs sum to 1 (probability distribution). In PyTorch, use `nn.CrossEntropyLoss` which folds softmax in numerically.
+
+## Choosing an Activation Function
+
+| Scenario | Recommendation |
+|----------|----------------|
+| Hidden layers (default) | ReLU |
+| Deep network, ReLU dying neurons | Leaky ReLU / ELU |
+| Transformer architectures | GELU |
+| Output: binary classification | Sigmoid |
+| Output: multiclass | Softmax (via CrossEntropyLoss) |
+| Output: regression | None (linear) |
+
+## Interactive: Activation Explorer
+
+Compare activation functions and their derivatives — the derivative is what appears in the backprop formula $g'(Z^{[l]})$.
+
+<ActivationWidget />
+
+---
+
+## Mathematics: Activation Derivatives in Backprop
+
+<DerivationSteps>
+
+<DerivationStep number={1} title="The role of g'(Z) in backprop">
+
+From Module 6, the error signal at layer $l$:
+
+$$\delta^{[l]} = (W^{[l+1]})^T \delta^{[l+1]} \odot \underbrace{g'^{[l]}(Z^{[l]})}_{\text{activation derivative}}$$
+
+If $g'^{[l]}(z) \approx 0$ for most values of $z$ (saturation), then $\delta^{[l]}$ approaches zero, and the gradient cannot propagate further — this is **vanishing gradient**.
+
+If $g'^{[l]}(z)$ is constant (ReLU for $z > 0$: $g' = 1$), the gradient passes through unchanged.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Sigmoid saturation analysis">
+
+$\sigma'(z) = \sigma(z)(1 - \sigma(z))$
+
+Maximum at $z = 0$: $\sigma'(0) = 0.25$
+
+For $|z| = 5$: $\sigma'(5) \approx 0.0066$
+
+In an $L$-layer network with all sigmoid activations, the gradient at layer 1 is bounded by:
+
+$$\left|\delta^{[1]}\right| \leq (0.25)^{L-1} \cdot \left|\delta^{[L]}\right|$$
+
+For $L = 10$ hidden layers: attenuation $\leq (0.25)^9 \approx 3.8 \times 10^{-6}$ — gradient effectively zero.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="ReLU gradient flow">
+
+For ReLU with $z > 0$: $g'(z) = 1$. The gradient passes through exactly:
+
+$$\delta^{[l]} = (W^{[l+1]})^T \delta^{[l+1]} \odot \mathbf{1}_{z^{[l]} > 0}$$
+
+The indicator $\mathbf{1}_{z > 0}$ is the "ReLU mask" — neurons active in the forward pass carry gradient, dead neurons (z ≤ 0) block it. This **sparse gradient flow** is actually beneficial: it acts as a regularizer and speeds up training.
+
+</DerivationStep>
+
+<DerivationStep number={4} title="GELU motivation from first principles">
+
+GELU applies a soft, stochastic gate. If we model inputs as $\mathcal{N}(0,1)$, the probability that input $x$ is "active" (above a standard normal threshold) is $\Phi(x)$ (CDF). GELU is:
+
+$$\text{GELU}(x) = x \cdot \Phi(x)$$
+
+Unlike ReLU which hard-gates (0 or 1), GELU soft-gates proportional to the input's own magnitude. Empirically, this smoother landscape makes optimization easier, especially for attention mechanisms.
+
+</DerivationStep>
+
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="What is the maximum value of the sigmoid derivative σ'(z) at any z?"
+  options={[
+    "1.0",
+    "0.5",
+    "0.25",
+    "0.1"
+  ]}
+  correct={2}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are limitations of the ReLU activation function?"
+  options={[
+    "Its derivative is 0 for z ≤ 0, causing dying neurons",
+    "It is more computationally expensive than sigmoid",
+    "It is not zero-centered (always non-negative output)",
+    "It causes vanishing gradients for positive activations",
+    "It can have unbounded output for large positive z"
+  ]}
+  correct={[0, 2, 4]}
+/>

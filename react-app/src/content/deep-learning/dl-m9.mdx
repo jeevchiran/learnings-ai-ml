@@ -1,0 +1,192 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import WeightInitWidget from '../../components/widgets/deep-learning/WeightInitWidget.jsx'
+
+# Module 9: Weight Initialization
+
+<Bridge>
+**From Module 8:** You have loss functions and optimizers. Before training starts, there is one critical choice that determines whether gradients will flow at all: **how to initialize the weights**. Initialize wrong — all zeros, or too large, or too small — and backpropagation will fail before it begins. Initialize right, and even very deep networks train efficiently. This module derives exactly what "right" means from first principles.
+</Bridge>
+
+## What is Weight Initialization?
+
+Weight initialization sets the starting values of all parameters $W^{[l]}$ and $b^{[l]}$ before the first forward pass. Biases are almost always initialized to zero. The weight matrices require careful thought.
+
+<ConceptBox title="Why not zero weights?">
+If all weights are zero, every neuron computes the same pre-activation $z = \mathbf{w}^T\mathbf{x} + 0 = 0$. The gradient is the same for every weight in a layer. Every update is identical. **All neurons learn the same function forever.** This "symmetry breaking" requirement is why random initialization is essential.
+</ConceptBox>
+
+## The Problem: Vanishing and Exploding Gradients
+
+### Signal Propagation Analysis
+
+Consider a deep network with $L$ layers, each initialized with weights from $\mathcal{N}(0, \sigma^2)$. What happens to the **variance of activations** as the signal passes through layers?
+
+For a linear layer with $n$ inputs (before activation):
+
+$$\text{Var}(z^{[l]}) = n \cdot \sigma^2 \cdot \text{Var}(a^{[l-1]})$$
+
+**If $n \cdot \sigma^2 > 1$:** Variance grows exponentially with depth → activations explode → NaN
+
+**If $n \cdot \sigma^2 < 1$:** Variance shrinks exponentially with depth → activations vanish → gradients ≈ 0
+
+**Goal:** $n \cdot \sigma^2 = 1$ — preserve signal variance through the forward pass.
+
+## Initialization Strategies
+
+### All Zeros
+
+$$W^{[l]}_{ij} = 0$$
+
+Symmetry problem: all neurons identical, no learning occurs. Never use for weights (biases are fine).
+
+### Small Random Normal
+
+$$W^{[l]}_{ij} \sim \mathcal{N}(0, 0.01^2)$$
+
+Works for shallow networks but vanishes in deep ones — $\sigma = 0.01$ makes variance shrink by factor $(n \cdot 10^{-4})^L$.
+
+### Large Random Normal
+
+$$W^{[l]}_{ij} \sim \mathcal{N}(0, 1)$$
+
+Variance grows as $n^L$ — explodes in deep networks. Saturates sigmoid/tanh activations.
+
+### Xavier / Glorot Initialization
+
+**Proposed by:** Glorot & Bengio (2010)
+
+**Derived for:** Tanh/sigmoid activations (where $g'(0) \approx 1$)
+
+Setting $\text{Var}(W^{[l]}) = \frac{2}{n^{[l-1]} + n^{[l]}}$ satisfies the variance preservation condition in both the forward pass (signal) and backward pass (gradient):
+
+$$W^{[l]}_{ij} \sim \mathcal{N}\!\left(0, \frac{2}{n^{[l-1]} + n^{[l]}}\right) \quad \text{or} \quad \mathcal{U}\!\left(-\sqrt{\frac{6}{n^{[l-1]}+n^{[l]}}}, \sqrt{\frac{6}{n^{[l-1]}+n^{[l]}}}\right)$$
+
+PyTorch: `nn.init.xavier_normal_(tensor)` or `nn.init.xavier_uniform_(tensor)`
+
+### He / Kaiming Initialization
+
+**Proposed by:** He et al. (2015)
+
+**Derived for:** ReLU activations
+
+ReLU zeros out half of its inputs (the negative half), so the effective number of active inputs is $n/2$. To preserve variance through a ReLU:
+
+$$\text{Var}(W^{[l]}) = \frac{2}{n^{[l-1]}}$$
+
+$$W^{[l]}_{ij} \sim \mathcal{N}\!\left(0, \frac{2}{n^{[l-1]}}\right)$$
+
+**This is the default for ReLU networks** and is what PyTorch's `nn.Linear` uses by default (with $\mathcal{U}$).
+
+PyTorch: `nn.init.kaiming_normal_(tensor, nonlinearity='relu')`
+
+## Custom Initialization in PyTorch
+
+```python
+import torch.nn as nn
+
+model = nn.Sequential(nn.Linear(256, 128), nn.ReLU(), nn.Linear(128, 10))
+
+def init_weights(module):
+    if isinstance(module, nn.Linear):
+        nn.init.kaiming_normal_(module.weight, nonlinearity='relu')
+        nn.init.zeros_(module.bias)
+
+model.apply(init_weights)  # applies recursively to all submodules
+```
+
+## Interactive: Weight Distribution Explorer
+
+See how different initialization strategies affect the weight distribution and signal variance through layers. The highlighted strategy is active.
+
+<WeightInitWidget />
+
+---
+
+## Mathematics: Deriving He Initialization
+
+<DerivationSteps>
+
+<DerivationStep number={1} title="Variance propagation through a linear layer">
+
+For a linear layer $z_j = \sum_{k=1}^{n} w_{jk} a_k + b_j$ with weights $w_{jk} \overset{i.i.d.}{\sim} (0, \sigma^2_w)$ and inputs $a_k$ independent with $\mathbb{E}[a_k] = 0$, $\text{Var}(a_k) = \sigma^2_a$:
+
+$$\text{Var}(z_j) = \sum_{k=1}^n \text{Var}(w_{jk}) \cdot \text{Var}(a_k) = n \cdot \sigma^2_w \cdot \sigma^2_a$$
+
+(Cross-terms vanish by independence of weights and inputs.)
+
+</DerivationStep>
+
+<DerivationStep number={2} title="ReLU cuts variance in half">
+
+For $a = \text{ReLU}(z)$ where $z \sim \mathcal{N}(0, \sigma^2_z)$:
+
+$$\mathbb{E}[a] = \mathbb{E}[\max(0, z)] = \frac{\sigma_z}{\sqrt{2\pi}}$$
+
+$$\text{Var}(a) = \mathbb{E}[a^2] - (\mathbb{E}[a])^2 = \frac{\sigma_z^2}{2} - \frac{\sigma_z^2}{2\pi} \approx \frac{\sigma_z^2}{2}$$
+
+ReLU approximately **halves the variance** (the negative half is zeroed out).
+
+</DerivationStep>
+
+<DerivationStep number={3} title="He initialization derivation">
+
+Composing steps 1 and 2 through layer $l$:
+
+$$\text{Var}(z^{[l]}) = n^{[l-1]} \cdot \sigma^2_{w^{[l]}} \cdot \text{Var}(a^{[l-1]})$$
+
+$$\text{Var}(a^{[l]}) = \frac{1}{2} \text{Var}(z^{[l]}) = \frac{n^{[l-1]} \cdot \sigma^2_{w^{[l]}}}{2} \cdot \text{Var}(a^{[l-1]})$$
+
+For $\text{Var}(a^{[l]}) = \text{Var}(a^{[l-1]})$ (variance preserved):
+
+$$\frac{n^{[l-1]} \cdot \sigma^2_{w^{[l]}}}{2} = 1 \implies \sigma^2_{w^{[l]}} = \frac{2}{n^{[l-1]}}$$
+
+$$\boxed{W^{[l]} \sim \mathcal{N}\!\left(0, \frac{2}{n^{[l-1]}}\right)}$$
+
+</DerivationStep>
+
+<DerivationStep number={4} title="Xavier derivation (tanh/sigmoid)">
+
+For tanh activation: $\text{Var}(\text{tanh}(z)) \approx \text{Var}(z)$ when $z$ is small (near-linear region).
+
+Setting variance preservation in both forward and backward passes simultaneously:
+
+Forward: $n^{[l-1]} \sigma_w^2 = 1$
+
+Backward: $n^{[l]} \sigma_w^2 = 1$
+
+Compromise (geometric mean):
+
+$$\sigma^2_w = \frac{2}{n^{[l-1]} + n^{[l]}}$$
+
+For uniform init: $W \sim \mathcal{U}(-r, r)$ where $r = \sqrt{6/(n^{[l-1]}+n^{[l]})}$ (since $\text{Var}(\mathcal{U}(-r,r)) = r^2/3$).
+
+</DerivationStep>
+
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="Why must weight initialization break symmetry (not use all zeros)?"
+  options={[
+    "Zero weights cause numerical overflow during the first forward pass",
+    "All neurons compute the same gradient, so they update identically and remain identical",
+    "Zero initialization violates the requirements of the universal approximation theorem",
+    "PyTorch raises an error if weights are initialized to zero"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which initialization strategies are correctly matched to their target activation?"
+  options={[
+    "Xavier/Glorot — designed for tanh and sigmoid activations",
+    "He/Kaiming — designed for ReLU, uses 2/n_in",
+    "All-zeros — valid for biases but not weights",
+    "Small random normal — optimal for deep networks (50+ layers)",
+    "He init sets variance to 2/n_in to compensate for ReLU zeroing half its inputs"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

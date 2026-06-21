@@ -3,7 +3,7 @@ import {
   ConceptBox, Bridge,
   DerivationSteps, DerivationStep,
   CodeBlock, InlineMath, BlockMath,
-  QuizCard,
+  QuizCard, MultiSelectQuiz,
 } from './learning/index.js'
 
 // Map MDX element names to React components.
@@ -17,6 +17,7 @@ const components = {
   InlineMath,
   BlockMath,
   QuizCard,
+  MultiSelectQuiz,
   // Override <code> inside <pre> to use CodeBlock
   pre: ({ children }) => children,
   code: (props) => {

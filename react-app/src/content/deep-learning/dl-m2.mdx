@@ -1,0 +1,162 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import NeuralNetworkWidget from '../../components/widgets/deep-learning/NeuralNetworkWidget.jsx'
+
+# Module 2: Hidden Layers & Multilayer Perceptrons
+
+<Bridge>
+**From Module 1:** A single perceptron draws one straight line. XOR is not linearly separable, so one perceptron fails. The solution: stack multiple perceptrons into layers. The intermediate layers are called **hidden layers** because their outputs are never directly observed as targets — they are internal representations that the network learns to construct. This module explains how stacking layers overcomes the XOR problem and, more profoundly, creates models that can approximate any function.
+</Bridge>
+
+## What is a Multilayer Perceptron (MLP)?
+
+A **Multilayer Perceptron** (MLP) is a feedforward neural network with at least one hidden layer between input and output. Each layer is a set of perceptrons whose outputs feed into the next layer.
+
+<ConceptBox title="MLP Structure">
+An MLP with $L$ layers has:
+- **Layer 0 (input):** $n^{[0]}$ features $\mathbf{x} \in \mathbb{R}^{n^{[0]}}$
+- **Layer $l$ (hidden, $1 \le l \le L-1$):** $n^{[l]}$ neurons computing $\mathbf{a}^{[l]} = g^{[l]}(W^{[l]}\mathbf{a}^{[l-1]} + \mathbf{b}^{[l]})$
+- **Layer $L$ (output):** $n^{[L]}$ output neurons
+
+Each weight matrix $W^{[l]} \in \mathbb{R}^{n^{[l]} \times n^{[l-1]}}$ connects layer $l-1$ to layer $l$.
+</ConceptBox>
+
+## Why Hidden Layers?
+
+### Solving XOR
+
+XOR is the canonical example. A two-hidden-unit network with step activations can solve it exactly:
+
+- Hidden unit 1: $h_1 = \text{step}(x_1 + x_2 - 0.5)$ — "is at least one input on?"
+- Hidden unit 2: $h_2 = \text{step}(x_1 + x_2 - 1.5)$ — "are both inputs on?"
+- Output: $\hat{y} = \text{step}(h_1 - h_2 - 0.5)$
+
+The hidden layer **transforms** the XOR problem into a linearly separable one in $(h_1, h_2)$ space.
+
+### Universal Approximation Theorem
+
+<ConceptBox title="Universal Approximation Theorem (Cybenko, 1989)">
+A feedforward network with a single hidden layer containing a **finite** number of neurons with any non-constant, bounded, and continuous activation function can approximate any continuous function on a compact subset of $\mathbb{R}^n$ to arbitrary accuracy.
+</ConceptBox>
+
+**Important caveats:**
+1. The theorem guarantees existence, not learnability — finding the weights may require exponentially many neurons.
+2. **Depth is more efficient than width.** Deep networks can represent exponentially more functions than shallow networks of the same parameter count.
+3. The theorem tells us MLPs are expressive. Training (backpropagation) tells us how to find the right weights.
+
+## How Hidden Layers Work
+
+### Feature Hierarchy
+
+Each layer builds higher-level representations:
+- **Layer 1:** Detects local patterns (edges, simple correlations)
+- **Layer 2:** Combines local patterns into shapes
+- **Layer 3+:** Combines shapes into concepts
+
+This is not hand-engineered — the network learns what features are useful for the final task.
+
+### Notation (used throughout the course)
+
+For layer $l$ with weight matrix $W^{[l]}$ and bias vector $\mathbf{b}^{[l]}$:
+
+$$\mathbf{z}^{[l]} = W^{[l]} \mathbf{a}^{[l-1]} + \mathbf{b}^{[l]} \quad \text{(pre-activation)}$$
+$$\mathbf{a}^{[l]} = g^{[l]}(\mathbf{z}^{[l]}) \quad \text{(post-activation)}$$
+
+where $\mathbf{a}^{[0]} = \mathbf{x}$ is the input.
+
+**Dimensions:**
+- $W^{[l]} \in \mathbb{R}^{n^{[l]} \times n^{[l-1]}}$
+- $\mathbf{b}^{[l]} \in \mathbb{R}^{n^{[l]}}$
+- $\mathbf{z}^{[l]}, \mathbf{a}^{[l]} \in \mathbb{R}^{n^{[l]}}$
+
+## Depth vs Width
+
+| Aspect | Shallow (1 wide hidden layer) | Deep (many narrow layers) |
+|--------|-------------------------------|--------------------------|
+| Expressiveness | Needs exponentially more neurons | Efficient with depth |
+| Training difficulty | Generally easier | Vanishing gradients, needs careful init |
+| Inductive bias | Less structured features | Hierarchical features |
+| Practical performance | Works for simple tasks | Dominates complex tasks |
+
+The consensus in practice: **more layers + nonlinear activations + proper training = better models.**
+
+## Interactive: Configure and Forward Pass
+
+Build a network, set inputs, and run the forward pass. Colors show activation strength at each neuron.
+
+<NeuralNetworkWidget />
+
+---
+
+## Mathematics: L-Layer Forward Propagation
+
+<DerivationSteps>
+
+<DerivationStep number={1} title="Initialize with input">
+
+Set $\mathbf{A}^{[0]} = \mathbf{X} \in \mathbb{R}^{n^{[0]} \times m}$ where $m$ is the batch size.
+
+For a single sample: $\mathbf{a}^{[0]} = \mathbf{x} \in \mathbb{R}^{n^{[0]}}$.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Layer-by-layer computation">
+
+For each layer $l = 1, 2, \ldots, L$:
+
+$$\mathbf{Z}^{[l]} = W^{[l]} \mathbf{A}^{[l-1]} + \mathbf{b}^{[l]}$$
+$$\mathbf{A}^{[l]} = g^{[l]}(\mathbf{Z}^{[l]})$$
+
+The activation $g^{[l]}$ is applied **element-wise**. Different layers can have different activations (e.g., ReLU in hidden layers, sigmoid/softmax at output).
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Output and prediction">
+
+The network output is $\hat{\mathbf{Y}} = \mathbf{A}^{[L]}$.
+
+For binary classification: $\hat{y} = \sigma(z^{[L]}) \in (0, 1)$
+
+For multiclass classification: $\hat{\mathbf{y}} = \text{softmax}(\mathbf{z}^{[L]})$ where:
+
+$$\text{softmax}(\mathbf{z})_k = \frac{e^{z_k}}{\sum_{j=1}^K e^{z_j}}$$
+
+</DerivationStep>
+
+<DerivationStep number={4} title="Why nonlinearity is essential">
+
+If all $g^{[l]}$ were linear (or identity), then:
+
+$$\mathbf{A}^{[L]} = W^{[L]} \cdots W^{[2]} W^{[1]} \mathbf{X} + \text{bias terms}$$
+
+This collapses to a single linear transformation $\tilde{W}\mathbf{X} + \tilde{\mathbf{b}}$ — equivalent to a single-layer network regardless of depth. **Nonlinearity is what makes depth matter.**
+
+</DerivationStep>
+
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="Why can't a network without nonlinear activation functions benefit from additional hidden layers?"
+  options={[
+    "Because more layers increase computation time unnecessarily",
+    "Because linear transformations composed together are still a single linear transformation",
+    "Because bias terms cancel out across layers",
+    "Because gradient descent only works on single-layer networks"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the Universal Approximation Theorem are correct?"
+  options={[
+    "A single hidden layer with enough neurons can approximate any continuous function",
+    "The theorem guarantees that training will find the optimal weights",
+    "Deeper networks are generally more parameter-efficient than wider shallow networks",
+    "The theorem applies only to sigmoid activation functions",
+    "Nonlinear activations are required for the theorem to hold"
+  ]}
+  correct={[0, 2, 4]}
+/>

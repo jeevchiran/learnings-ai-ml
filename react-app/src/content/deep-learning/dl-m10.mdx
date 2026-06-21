@@ -1,0 +1,214 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import RegNormWidget from '../../components/widgets/deep-learning/RegNormWidget.jsx'
+
+# Module 10: Regularization & Normalization
+
+<Bridge>
+**From Module 9:** Good initialization gets training started. But as training progresses, two problems emerge: the model may **overfit** the training set (memorize noise), and training may become **unstable** (loss oscillates, gradients explode). Regularization and normalization are the two families of techniques that address these problems — the first by constraining what the model can learn, the second by controlling what values propagate through the network.
+</Bridge>
+
+## Part 1: Regularization
+
+### What is Regularization?
+
+Regularization adds a penalty term to the loss function that discourages large or complex weight values. The penalized objective is:
+
+$$J_{\text{reg}}(\theta) = J(\theta) + \lambda R(\theta)$$
+
+where $\lambda > 0$ controls regularization strength and $R$ is the penalty.
+
+### L2 Regularization (Weight Decay)
+
+$$R_2(\theta) = \|\theta\|_2^2 = \sum_{l,i,j} (W^{[l]}_{ij})^2$$
+
+$$J_{\text{L2}} = J + \frac{\lambda}{2m} \sum_{l} \|W^{[l]}\|_F^2$$
+
+The gradient update becomes:
+$$W^{[l]} \leftarrow W^{[l]} - \eta \left( \frac{\partial J}{\partial W^{[l]}} + \frac{\lambda}{m} W^{[l]} \right) = W^{[l]} \left(1 - \frac{\eta \lambda}{m}\right) - \eta \frac{\partial J}{\partial W^{[l]}}$$
+
+The factor $(1 - \eta\lambda/m) < 1$ **shrinks all weights toward zero** each step — hence "weight decay."
+
+**Effect:** Smooth weight distribution, prevents any single feature from dominating. Dense but small weights.
+
+```python
+# In PyTorch: weight_decay in optimizer is L2 regularization
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+```
+
+### L1 Regularization (Lasso)
+
+$$R_1(\theta) = \|\theta\|_1 = \sum_{l,i,j} |W^{[l]}_{ij}|$$
+
+Gradient (subgradient at 0): $\frac{\partial R_1}{\partial w} = \text{sign}(w)$
+
+**Effect:** Pushes small weights to **exactly zero** (sparsity). Useful for feature selection.
+
+<ConceptBox title="L1 vs L2 Geometry">
+- **L2:** Penalty contours are spheres. Minimum tends to have all weights small but nonzero.
+- **L1:** Penalty contours are diamonds. Corners of diamonds touch axis-aligned hyperplanes → solutions often lie exactly on coordinate axes (many weights exactly zero).
+</ConceptBox>
+
+### Dropout
+
+Proposed by Srivastava et al. (2014). During training, each neuron's output is set to zero with probability $p$ (the dropout rate), independently at each training step.
+
+$$a^{[l]}_{\text{drop}} = a^{[l]} \odot \mathbf{m}, \quad m_j \sim \text{Bernoulli}(1-p)$$
+
+The output is also scaled by $\frac{1}{1-p}$ to keep the expected value unchanged (inverted dropout).
+
+At inference time, all neurons are active, but weights are effectively multiplied by $(1-p)$ — already handled by the training scaling.
+
+**Why it works:**
+1. Each training step uses a random sub-network — the ensemble of $2^n$ sub-networks prevents co-adaptation.
+2. Forces each neuron to be useful independently, improving generalization.
+
+```python
+model = nn.Sequential(
+    nn.Linear(784, 512),
+    nn.ReLU(),
+    nn.Dropout(p=0.5),          # 50% dropout
+    nn.Linear(512, 10),
+)
+model.train()   # dropout active
+model.eval()    # dropout disabled
+```
+
+## Part 2: Normalization
+
+### Why Normalize Activations?
+
+As training progresses, the distribution of each layer's inputs shifts as weights in lower layers change (Internal Covariate Shift). This forces later layers to continuously adapt to a new distribution — slowing training. Normalization fixes the distribution at each layer.
+
+### Batch Normalization (BatchNorm)
+
+**Proposed by:** Ioffe & Szegedy (2015)
+
+For a mini-batch of $m$ samples, normalize each feature dimension:
+
+$$\hat{z}^{[l]}_j = \frac{z^{[l]}_j - \mu^{[l]}_j}{\sqrt{(\sigma^{[l]}_j)^2 + \epsilon}}$$
+
+Then apply learned scale $\gamma$ and shift $\beta$:
+
+$$\tilde{z}^{[l]}_j = \gamma^{[l]}_j \hat{z}^{[l]}_j + \beta^{[l]}_j$$
+
+where $\mu_j = \frac{1}{m}\sum_i z_{ij}$ and $(\sigma_j)^2 = \frac{1}{m}\sum_i (z_{ij} - \mu_j)^2$ are computed over the batch.
+
+**At inference:** Uses running exponential average of $\mu$ and $\sigma^2$ accumulated during training (stored as buffers, not parameters).
+
+**Benefits:**
+- Allows higher learning rates
+- Reduces sensitivity to initialization
+- Acts as mild regularizer (due to mini-batch noise in statistics)
+
+```python
+model = nn.Sequential(
+    nn.Linear(256, 128),
+    nn.BatchNorm1d(128),         # after linear, before activation
+    nn.ReLU(),
+    nn.Linear(128, 64),
+    nn.BatchNorm1d(64),
+    nn.ReLU(),
+)
+```
+
+### Layer Normalization (LayerNorm)
+
+Normalizes across the **feature dimension** for each sample independently (not across the batch).
+
+$$\hat{z}_i = \frac{z_i - \mu}{\sqrt{\sigma^2 + \epsilon}}, \quad \mu = \frac{1}{d}\sum_{j=1}^d z_j, \quad \sigma^2 = \frac{1}{d}\sum_{j=1}^d (z_j - \mu)^2$$
+
+**Key advantage:** Behavior is identical at training and inference time (no batch statistics). **Required for transformers** (batch size can be 1 during inference).
+
+```python
+model = nn.Sequential(
+    nn.Linear(512, 512),
+    nn.LayerNorm(512),
+    nn.GELU(),
+)
+```
+
+| Feature | BatchNorm | LayerNorm |
+|---------|-----------|-----------|
+| Normalizes over | Batch dimension per feature | Feature dimension per sample |
+| Works at batch size 1? | No (statistics undefined) | Yes |
+| Training/inference difference? | Yes (running stats) | No |
+| Primary use | CNNs, MLPs | Transformers, RNNs |
+
+## Interactive: Regularization & Normalization Effects
+
+<RegNormWidget />
+
+---
+
+## Mathematics: Batch Norm Gradient
+
+<DerivationSteps>
+
+<DerivationStep number={1} title="Forward pass of BatchNorm">
+
+Given input $\mathbf{z} \in \mathbb{R}^{m \times d}$ (batch of $m$, dimension $d$):
+
+$$\mu_j = \frac{1}{m}\sum_{i=1}^m z_{ij}$$
+
+$$\sigma^2_j = \frac{1}{m}\sum_{i=1}^m (z_{ij} - \mu_j)^2$$
+
+$$\hat{z}_{ij} = \frac{z_{ij} - \mu_j}{\sqrt{\sigma^2_j + \epsilon}}$$
+
+$$\tilde{z}_{ij} = \gamma_j \hat{z}_{ij} + \beta_j$$
+
+The learnable parameters $\gamma, \beta \in \mathbb{R}^d$ allow the network to **undo** normalization if it is beneficial.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="L2 regularization as weight decay">
+
+The regularized loss gradient:
+
+$$\nabla_{W^{[l]}} J_\text{L2} = \nabla_{W^{[l]}} J + \frac{\lambda}{m} W^{[l]}$$
+
+The update rule:
+
+$$W^{[l]} \leftarrow W^{[l]} - \eta \nabla_{W^{[l]}} J_\text{L2} = \underbrace{\left(1 - \frac{\eta\lambda}{m}\right)}_{\text{decay factor}} W^{[l]} - \eta \nabla_{W^{[l]}} J$$
+
+Each step, weights are multiplied by $(1 - \eta\lambda/m)$. For $\eta = 0.01$, $\lambda = 0.01$, $m = 100$: decay factor $= 0.999999$ — weights shrink very slowly relative to gradient steps.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Dropout as a regularizer: mathematical view">
+
+Dropout is equivalent to training a different network architecture each step. With $n$ neurons, there are $2^n$ possible dropout masks. The effective model at inference is the **geometric mean** of all $2^n$ sub-networks.
+
+This ensemble interpretation explains why dropout works: it prevents reliance on any single neuron (co-adaptation) and forces distributed, redundant representations.
+
+The inverted dropout scaling factor: since each neuron is kept with probability $(1-p)$, scaling by $\frac{1}{1-p}$ at training ensures $\mathbb{E}[a_\text{drop}] = a$ (unbiased estimate).
+
+</DerivationStep>
+
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="What is the key difference between L1 and L2 regularization in terms of their effect on weights?"
+  options={[
+    "L1 shrinks all weights proportionally; L2 pushes small weights to exactly zero",
+    "L2 shrinks all weights proportionally; L1 pushes some weights to exactly zero (sparsity)",
+    "L1 prevents vanishing gradients; L2 prevents exploding gradients",
+    "L2 is for binary classification; L1 is for regression"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are true about Batch Normalization?"
+  options={[
+    "It normalizes activations over the batch dimension per feature",
+    "It uses learned parameters γ (scale) and β (shift)",
+    "Its behavior is identical during training and inference",
+    "It stores running mean and variance for inference as buffers",
+    "LayerNorm is preferred over BatchNorm for transformer models"
+  ]}
+  correct={[0, 1, 3, 4]}
+/>

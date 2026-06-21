@@ -1,0 +1,198 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import NeuralNetworkWidget from '../../components/widgets/deep-learning/NeuralNetworkWidget.jsx'
+
+# Module 5: Forward Propagation
+
+<Bridge>
+**From Module 4:** You know how to define a model (`nn.Module`) and load data. When you call `output = model(input)`, PyTorch executes the `forward()` method — this is **forward propagation**. This module formalizes exactly what happens mathematically during that call: how signals flow from input to output, what gets cached (and why), and how the shapes of tensors change at each layer. This understanding is the prerequisite for Module 6, where we reverse this process to compute gradients.
+</Bridge>
+
+## What is Forward Propagation?
+
+Forward propagation is the process of computing a network's prediction $\hat{\mathbf{y}}$ from an input $\mathbf{x}$ by sequentially applying each layer's transformation. The forward pass has two purposes:
+
+1. **Produce the prediction** $\hat{\mathbf{y}} = f_\theta(\mathbf{x})$
+2. **Cache intermediate values** $(\mathbf{Z}^{[l]}, \mathbf{A}^{[l]})$ that will be needed during backpropagation
+
+## Why Cache Intermediate Values?
+
+During backpropagation (Module 6), the gradient at layer $l$ requires both the **upstream gradient** and the **local gradient** at that layer. The local gradient depends on the activation $\mathbf{A}^{[l-1]}$ (to compute $\partial \mathbf{Z}^{[l]}/\partial W^{[l]}$) and the pre-activation $\mathbf{Z}^{[l]}$ (to compute $g'^{[l]}(\mathbf{Z}^{[l]})$).
+
+PyTorch's autograd graph stores exactly these values. This is why **inference-only code** should use `torch.no_grad()` — it skips building the graph and saves memory.
+
+## How Forward Propagation Works
+
+### Layer-by-Layer (L-layer network)
+
+```python
+# Manual forward pass — what nn.Sequential or nn.Module does internally
+def forward_L_layer(X, params):
+    """params: list of (W, b) tuples for each layer"""
+    A = X  # A[0] = X
+    caches = []
+
+    for W, b in params[:-1]:         # hidden layers with ReLU
+        Z = A @ W.T + b
+        A = torch.relu(Z)
+        caches.append((Z, A))
+
+    W, b = params[-1]                # output layer (no activation here)
+    Z = A @ W.T + b
+    A_out = torch.sigmoid(Z)         # binary classification
+    caches.append((Z, A_out))
+
+    return A_out, caches
+```
+
+### Dimension Tracking
+
+This is the most common source of bugs. For each layer, track shapes carefully:
+
+| Quantity | Shape (batch convention) | Notes |
+|----------|--------------------------|-------|
+| $X$ (input) | $[m, n^{[0]}]$ | $m$ samples, $n^{[0]}$ features |
+| $W^{[l]}$ | $[n^{[l]}, n^{[l-1]}]$ | `nn.Linear` stores it this way |
+| $\mathbf{b}^{[l]}$ | $[n^{[l]}]$ | broadcast over batch |
+| $Z^{[l]}$ | $[m, n^{[l]}]$ | pre-activation |
+| $A^{[l]}$ | $[m, n^{[l]}]$ | post-activation |
+
+PyTorch's `nn.Linear` uses `X @ W.T + b`, so you get `[m, n_out]`.
+
+### PyTorch Forward Pass
+
+```python
+import torch
+import torch.nn as nn
+
+model = nn.Sequential(
+    nn.Linear(4, 8),
+    nn.ReLU(),
+    nn.Linear(8, 4),
+    nn.ReLU(),
+    nn.Linear(4, 1),
+    nn.Sigmoid(),
+)
+
+X = torch.randn(32, 4)   # batch of 32 samples, 4 features
+
+# Normal training forward (builds autograd graph)
+y_hat = model(X)          # shape [32, 1]
+
+# Inference — skip autograd (saves memory, faster)
+with torch.no_grad():
+    y_hat = model(X)
+```
+
+### Verifying Shapes
+
+Always verify shapes when building a new model:
+
+```python
+model = nn.Sequential(
+    nn.Linear(784, 256), nn.ReLU(),
+    nn.Linear(256, 128), nn.ReLU(),
+    nn.Linear(128, 10),
+)
+
+x = torch.randn(1, 784)    # single sample
+for name, layer in model.named_modules():
+    if hasattr(layer, 'forward'):
+        x = layer(x)
+        print(f'{name}: {tuple(x.shape)}')
+```
+
+## Interactive: Forward Pass Visualization
+
+Configure the network, set inputs, and click Forward Pass to see activations propagate through layers.
+
+<NeuralNetworkWidget />
+
+---
+
+## Mathematics: Complete Forward Pass Derivation
+
+<DerivationSteps>
+
+<DerivationStep number={1} title="Layer l pre-activation">
+
+For layer $l \in \{1, \ldots, L\}$, with $\mathbf{A}^{[0]} = \mathbf{X}$:
+
+$$\mathbf{Z}^{[l]} = W^{[l]} \mathbf{A}^{[l-1]} + \mathbf{b}^{[l]}$$
+
+Dimensions: $Z^{[l]} \in \mathbb{R}^{n^{[l]} \times m}$ (math convention, columns = samples).
+
+Each column $\mathbf{z}^{[l](i)} = W^{[l]} \mathbf{a}^{[l-1](i)} + \mathbf{b}^{[l]}$ is independent for different samples — the batch dimension is parallelized.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Layer l activation">
+
+$$\mathbf{A}^{[l]} = g^{[l]}(\mathbf{Z}^{[l]})$$
+
+The activation function $g^{[l]}$ is applied **element-wise** to every entry of $\mathbf{Z}^{[l]}$.
+
+For hidden layers (typically): $g^{[l]} = \text{ReLU}$, $\max(0, \cdot)$
+
+For output (binary classification): $g^{[L]} = \sigma$, $\frac{1}{1+e^{-z}}$
+
+For output (multiclass): $g^{[L]} = \text{softmax}$
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Loss computation">
+
+Given output $\hat{Y} = A^{[L]} \in \mathbb{R}^{n^{[L]} \times m}$ and true labels $Y \in \mathbb{R}^{n^{[L]} \times m}$:
+
+**Binary cross-entropy** (per sample, $n^{[L]} = 1$):
+$$\mathcal{L}^{(i)} = -y^{(i)} \log \hat{y}^{(i)} - (1 - y^{(i)}) \log(1 - \hat{y}^{(i)})$$
+
+**Categorical cross-entropy** (per sample, one-hot $Y$, $n^{[L]} = K$):
+$$\mathcal{L}^{(i)} = -\sum_{k=1}^K y_k^{(i)} \log \hat{y}_k^{(i)}$$
+
+**Batch loss:**
+$$J(\theta) = \frac{1}{m} \sum_{i=1}^m \mathcal{L}^{(i)}$$
+
+</DerivationStep>
+
+<DerivationStep number={4} title="Why the forward pass must be numerically stable">
+
+**Problem:** For large negative $z$, $e^{-z}$ overflows (returns `inf`). For large positive $z$, $e^{z}$ overflows.
+
+**Solution 1 (sigmoid):** PyTorch uses the stable form:
+$$\sigma(z) = \begin{cases} \frac{1}{1+e^{-z}} & z \geq 0 \\ \frac{e^z}{1+e^z} & z < 0 \end{cases}$$
+
+**Solution 2 (softmax):** Subtract $\max_k z_k$ before exponentiating:
+$$\text{softmax}(\mathbf{z})_k = \frac{e^{z_k - \max(\mathbf{z})}}{\sum_j e^{z_j - \max(\mathbf{z})}}$$
+
+`nn.CrossEntropyLoss` in PyTorch combines `log_softmax + NLLLoss` in a numerically stable single step — avoid applying softmax then passing to CrossEntropyLoss.
+
+</DerivationStep>
+
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="Why should you use torch.no_grad() during inference?"
+  options={[
+    "Because PyTorch raises an error without it during inference",
+    "To skip building the autograd graph, saving memory and computation",
+    "Because gradients are required during the forward pass",
+    "To enable batch normalization inference mode"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are true about forward propagation shapes in PyTorch's batch-first convention?"
+  options={[
+    "Input X has shape [batch_size, n_features]",
+    "nn.Linear(in, out) weight has shape [out, in]",
+    "Z and A at each layer have shape [batch_size, n_layer]",
+    "The bias vector is automatically broadcast over the batch dimension",
+    "All layers must have the same number of neurons"
+  ]}
+  correct={[0, 1, 2, 3]}
+/>

@@ -1,0 +1,244 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Module 4: PyTorch — Data Handling & Parameters
+
+<Bridge>
+**From Module 3:** You can create tensors, multiply them, and run them on GPU. The next step is structuring your code for real training: loading data in batches, defining models as reusable modules, and managing learnable parameters. PyTorch provides three abstractions for this — `Dataset`, `DataLoader`, and `nn.Module` — and together they define the standard deep learning workflow used everywhere from academic papers to production systems.
+</Bridge>
+
+## What: The Three Pillars
+
+<ConceptBox title="Three PyTorch Training Abstractions">
+1. **`torch.utils.data.Dataset`** — wraps your data, defines how to access one sample
+2. **`torch.utils.data.DataLoader`** — batches, shuffles, and parallelizes data loading
+3. **`torch.nn.Module`** — defines the model architecture, holds parameters
+</ConceptBox>
+
+## Why These Abstractions Matter
+
+- **Dataset/DataLoader** separate data logic from model logic. You can swap datasets without touching the model, add augmentation without touching training, and load data in background threads without changing anything else.
+- **`nn.Module`** makes parameter tracking automatic: every `nn.Parameter` registered in a module is included in `model.parameters()`, which is what you pass to the optimizer.
+
+## How: Dataset and DataLoader
+
+### Custom Dataset
+
+```python
+from torch.utils.data import Dataset, DataLoader
+import torch
+
+class MyDataset(Dataset):
+    def __init__(self, X, y):
+        # X: [N, features], y: [N]
+        self.X = torch.tensor(X, dtype=torch.float32)
+        self.y = torch.tensor(y, dtype=torch.float32)
+
+    def __len__(self):
+        return len(self.y)          # total number of samples
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.y[idx]   # return one sample
+
+# Usage
+dataset = MyDataset(X_train, y_train)
+loader  = DataLoader(dataset, batch_size=32, shuffle=True, num_workers=4)
+
+for X_batch, y_batch in loader:
+    # X_batch shape: [32, features]
+    # y_batch shape: [32]
+    pass
+```
+
+### DataLoader Options
+
+```python
+loader = DataLoader(
+    dataset,
+    batch_size=64,          # samples per mini-batch
+    shuffle=True,           # re-shuffle each epoch (training only)
+    num_workers=4,          # parallel data loading threads
+    pin_memory=True,        # faster CPU→GPU transfer
+    drop_last=False,        # drop incomplete final batch?
+)
+```
+
+<ConceptBox title="Why shuffle=True during training?">
+SGD-based optimizers assume mini-batches are i.i.d. draws from the full dataset. If data is ordered (e.g., all class-0 samples first), the model sees non-representative batches and loss oscillates. Shuffling each epoch ensures every mini-batch is representative.
+</ConceptBox>
+
+## How: nn.Module — Defining Models
+
+### Subclassing nn.Module
+
+```python
+import torch.nn as nn
+import torch.nn.functional as F
+
+class MLP(nn.Module):
+    def __init__(self, in_features, hidden, out_features):
+        super().__init__()
+        # nn.Linear creates W (shape [out, in]) and b (shape [out])
+        self.fc1 = nn.Linear(in_features, hidden)
+        self.fc2 = nn.Linear(hidden, hidden)
+        self.fc3 = nn.Linear(hidden, out_features)
+        self.dropout = nn.Dropout(p=0.3)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))    # activation applied manually
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)            # no activation: loss handles it
+        return x
+
+model = MLP(in_features=784, hidden=256, out_features=10)
+```
+
+### Sequential API (simpler models)
+
+```python
+model = nn.Sequential(
+    nn.Linear(784, 256),
+    nn.ReLU(),
+    nn.Dropout(0.3),
+    nn.Linear(256, 128),
+    nn.ReLU(),
+    nn.Linear(128, 10),
+)
+```
+
+## How: Parameters in PyTorch
+
+### What is a Parameter?
+
+`nn.Parameter` is a tensor that is automatically registered as a learnable weight when assigned to a module attribute. `nn.Linear` creates parameters `weight` and `bias` for you.
+
+```python
+class ManualLinear(nn.Module):
+    def __init__(self, in_f, out_f):
+        super().__init__()
+        # torch.nn.Parameter wraps a tensor and registers it
+        self.weight = nn.Parameter(torch.randn(out_f, in_f) * 0.01)
+        self.bias   = nn.Parameter(torch.zeros(out_f))
+
+    def forward(self, x):
+        return x @ self.weight.T + self.bias
+```
+
+### Inspecting Parameters
+
+```python
+model = MLP(784, 256, 10)
+
+# Count all learnable parameters
+total = sum(p.numel() for p in model.parameters())
+print(f'Total parameters: {total:,}')
+
+# Named parameters
+for name, param in model.named_parameters():
+    print(f'{name}: shape={tuple(param.shape)}, requires_grad={param.requires_grad}')
+
+# Access specific layer's weights
+print(model.fc1.weight.shape)  # [256, 784]
+print(model.fc1.bias.shape)    # [256]
+```
+
+### Buffers vs Parameters
+
+- **Parameters (`nn.Parameter`):** Tensors that are updated by the optimizer (weights, biases)
+- **Buffers (`register_buffer`):** Tensors that belong to the model but are NOT updated by the optimizer (e.g., running mean in BatchNorm)
+
+```python
+class Model(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(4, 4))
+        self.register_buffer('running_mean', torch.zeros(4))  # not trained
+```
+
+### State Dictionary
+
+The state dict maps parameter names to tensors — used for saving/loading models.
+
+```python
+# Save
+torch.save(model.state_dict(), 'model.pt')
+
+# Load
+loaded = MLP(784, 256, 10)
+loaded.load_state_dict(torch.load('model.pt'))
+loaded.eval()
+```
+
+---
+
+## Mathematics: Batch Forward Propagation
+
+<DerivationSteps>
+
+<DerivationStep number={1} title="nn.Linear under the hood">
+
+`nn.Linear(in_features, out_features)` computes:
+
+$$\mathbf{z} = \mathbf{x} W^T + \mathbf{b}$$
+
+where $W \in \mathbb{R}^{n_{out} \times n_{in}}$ and PyTorch stores it as rows for cache efficiency.
+
+For a batch $X \in \mathbb{R}^{m \times n_{in}}$ (rows are samples, PyTorch convention):
+$$Z = X W^T + \mathbf{b}^T \in \mathbb{R}^{m \times n_{out}}$$
+
+Note: PyTorch's convention is `[batch, features]` (rows = samples), so $W^T$ is used, not $W$. This transposes the convention from our math notation in Module 2.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Parameter count formula">
+
+For an MLP with layers $[n_0, n_1, n_2, \ldots, n_L]$:
+
+$$\text{Parameters} = \sum_{l=1}^{L} \underbrace{n^{[l]} \cdot n^{[l-1]}}_{\text{weights}} + \underbrace{n^{[l]}}_{\text{biases}} = \sum_{l=1}^{L} n^{[l]}(n^{[l-1]} + 1)$$
+
+Example: `[784, 256, 128, 10]` → $256 \cdot 785 + 128 \cdot 257 + 10 \cdot 129 = 234,634$ parameters.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Mini-batch gradient descent">
+
+Given loss on a mini-batch of $m$ samples:
+$$J_{\text{batch}} = \frac{1}{m} \sum_{i=1}^{m} \mathcal{L}(\hat{y}^{(i)}, y^{(i)})$$
+
+The gradient estimate $\nabla_{\theta} J_{\text{batch}}$ is an unbiased estimate of the true gradient $\nabla_{\theta} J$:
+
+$$\mathbb{E}[\nabla_\theta J_\text{batch}] = \nabla_\theta J$$
+
+Smaller batches: more noise but faster updates, better generalization.
+Larger batches: lower variance estimate but need more memory, may converge to sharper minima.
+
+</DerivationStep>
+
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="What is the correct signature for __getitem__ in a PyTorch Dataset?"
+  options={[
+    "def __getitem__(self): return self.data",
+    "def __getitem__(self, idx): return one_sample",
+    "def __getitem__(self, start, end): return slice",
+    "def __getitem__(self, idx, batch_size): return batch"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are true about nn.Parameter vs register_buffer?"
+  options={[
+    "nn.Parameter tensors are updated by the optimizer during training",
+    "Buffers are included in model.parameters() output",
+    "Buffers are saved in the model's state_dict",
+    "nn.Parameter automatically sets requires_grad=True",
+    "Buffers should be used for learnable scale/shift parameters"
+  ]}
+  correct={[0, 2, 3]}
+/>

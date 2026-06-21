@@ -1,0 +1,212 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import BackpropWidget from '../../components/widgets/deep-learning/BackpropWidget.jsx'
+
+# Module 6: Backward Propagation
+
+<Bridge>
+**From Module 5:** Forward propagation computes the prediction and caches $(Z^{[l]}, A^{[l]})$ for each layer. Now we need to answer: given the loss, how should we update each weight to reduce it? The answer is **backpropagation** — applying the chain rule of calculus in reverse order through the network. This module derives every gradient from first principles and shows how PyTorch's autograd implements this automatically.
+</Bridge>
+
+## What is Backpropagation?
+
+Backpropagation (Rumelhart, Hinton, Williams, 1986) is an efficient algorithm to compute $\frac{\partial J}{\partial \theta}$ for all parameters $\theta$ simultaneously, using the chain rule to propagate gradients from the output layer backward to the input.
+
+<ConceptBox title="The Chain Rule (core of backprop)">
+For a composition $J = f(g(h(\mathbf{x})))$:
+
+$$\frac{\partial J}{\partial \mathbf{x}} = \frac{\partial J}{\partial f} \cdot \frac{\partial f}{\partial g} \cdot \frac{\partial g}{\partial h} \cdot \frac{\partial h}{\partial \mathbf{x}}$$
+
+Backprop applies this layer by layer. Each layer receives a **gradient from above**, computes the **local gradient**, and passes the product backward.
+</ConceptBox>
+
+## Why This Algorithm Works
+
+For a network with $L$ layers and $P$ total parameters, naive finite differences would require $O(P)$ forward passes to estimate all gradients. Backprop computes **all gradients in $O(1)$ forward + $O(1)$ backward passes** by reusing computations (the cached $Z^{[l]}, A^{[l]}$ values).
+
+This is the key insight: the computational cost of computing all gradients is the same order as computing the loss once.
+
+## How Backpropagation Works
+
+### Defining Error Signals
+
+Define the **error signal** (upstream gradient) at layer $l$ as:
+
+$$\boldsymbol{\delta}^{[l]} = \frac{\partial J}{\partial \mathbf{Z}^{[l]}}$$
+
+This is the gradient of the loss with respect to the pre-activation at layer $l$ — it tells us how much changing $Z^{[l]}$ would change the loss.
+
+### Step-by-Step Derivation
+
+**Output layer** (assume binary cross-entropy + sigmoid):
+$$\boldsymbol{\delta}^{[L]} = \mathbf{A}^{[L]} - \mathbf{Y}$$
+
+This elegant result comes from the derivative of BCE + sigmoid canceling cleanly (see derivation below).
+
+**Hidden layer $l$ (from $\delta^{[l+1]}$ to $\delta^{[l]}$):**
+
+$$\boldsymbol{\delta}^{[l]} = \left( W^{[l+1]} \right)^T \boldsymbol{\delta}^{[l+1]} \odot g'^{[l]}(\mathbf{Z}^{[l]})$$
+
+where $\odot$ is element-wise multiplication and $g'^{[l]}$ is the derivative of the activation function at layer $l$.
+
+**Parameter gradients (from $\delta^{[l]}$):**
+
+$$\frac{\partial J}{\partial W^{[l]}} = \frac{1}{m} \boldsymbol{\delta}^{[l]} \left(\mathbf{A}^{[l-1]}\right)^T$$
+
+$$\frac{\partial J}{\partial \mathbf{b}^{[l]}} = \frac{1}{m} \sum_{i=1}^{m} \boldsymbol{\delta}^{[l](i)} = \frac{1}{m} \boldsymbol{\delta}^{[l]} \mathbf{1}$$
+
+### PyTorch Autograd
+
+PyTorch builds a **computation graph** during the forward pass. Calling `.backward()` traverses it in reverse, applying the chain rule at each node.
+
+```python
+import torch
+import torch.nn as nn
+
+model = nn.Sequential(nn.Linear(4, 8), nn.ReLU(), nn.Linear(8, 1), nn.Sigmoid())
+X = torch.randn(16, 4)
+y = torch.randint(0, 2, (16, 1)).float()
+
+# Forward
+y_hat = model(X)
+loss = nn.BCELoss()(y_hat, y)
+
+# Backward — PyTorch fills .grad for every parameter
+loss.backward()
+
+# Access gradients
+for name, param in model.named_parameters():
+    print(f'{name}: grad shape={tuple(param.grad.shape)}')
+
+# Weight update (manual SGD)
+lr = 0.01
+with torch.no_grad():
+    for param in model.parameters():
+        param -= lr * param.grad
+
+# Zero gradients before next batch (CRITICAL — PyTorch accumulates by default)
+model.zero_grad()
+```
+
+<ConceptBox title="Why model.zero_grad()?">
+PyTorch **accumulates** gradients by default (`.grad +=`). This is useful for gradient accumulation tricks but means you **must** zero gradients before each new backward pass, or you'll be summing gradients from multiple batches.
+</ConceptBox>
+
+## Interactive: Step Through Backprop
+
+Walk through the forward and backward pass of a small 2→2→1 network. Click Next to advance through each step.
+
+<BackpropWidget />
+
+---
+
+## Mathematics: Complete Backpropagation Derivation
+
+<DerivationSteps>
+
+<DerivationStep number={1} title="Output layer error signal (BCE + sigmoid)">
+
+For sample $i$, with $\hat{y} = \sigma(z^{[L]})$ and BCE loss:
+
+$$\mathcal{L} = -y \log \hat{y} - (1-y)\log(1-\hat{y})$$
+
+$$\frac{\partial \mathcal{L}}{\partial \hat{y}} = -\frac{y}{\hat{y}} + \frac{1-y}{1-\hat{y}} = \frac{\hat{y} - y}{\hat{y}(1-\hat{y})}$$
+
+The sigmoid derivative: $\sigma'(z) = \sigma(z)(1-\sigma(z)) = \hat{y}(1-\hat{y})$
+
+Applying chain rule:
+$$\delta^{[L]} = \frac{\partial \mathcal{L}}{\partial z^{[L]}} = \frac{\partial \mathcal{L}}{\partial \hat{y}} \cdot \sigma'(z^{[L]}) = \frac{\hat{y}-y}{\hat{y}(1-\hat{y})} \cdot \hat{y}(1-\hat{y}) = \hat{y} - y$$
+
+**The $\hat{y}(1-\hat{y})$ terms cancel exactly.** This is why BCE + sigmoid is the natural pairing.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Parameter gradients from δ">
+
+From $\delta^{[l]} = \partial J / \partial Z^{[l]}$, the gradients of $J$ with respect to $W^{[l]}$ follow from:
+
+$$Z^{[l]} = W^{[l]} A^{[l-1]} + b^{[l]}$$
+
+By the matrix chain rule:
+
+$$\frac{\partial J}{\partial W^{[l]}} = \frac{1}{m} \delta^{[l]} (A^{[l-1]})^T$$
+
+$$\frac{\partial J}{\partial b^{[l]}} = \frac{1}{m} \delta^{[l]} \mathbf{1}_m$$
+
+where $\mathbf{1}_m$ is a vector of ones (sums over the batch dimension).
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Propagating the error signal backward">
+
+To compute $\delta^{[l]}$ from $\delta^{[l+1]}$, we use:
+
+$$\frac{\partial J}{\partial A^{[l]}} = (W^{[l+1]})^T \delta^{[l+1]}$$
+
+Then, since $A^{[l]} = g^{[l]}(Z^{[l]})$:
+
+$$\delta^{[l]} = \frac{\partial J}{\partial Z^{[l]}} = \frac{\partial J}{\partial A^{[l]}} \odot g'^{[l]}(Z^{[l]})$$
+
+$$\boxed{\delta^{[l]} = (W^{[l+1]})^T \delta^{[l+1]} \odot g'^{[l]}(Z^{[l]})}$$
+
+This is the recursive formula for backpropagation. Given $\delta^{[L]}$ at the output, we can compute $\delta^{[L-1]}, \delta^{[L-2]}, \ldots, \delta^{[1]}$ in sequence.
+
+</DerivationStep>
+
+<DerivationStep number={4} title="Softmax + Cross-entropy (multiclass)">
+
+For multiclass ($K$ classes), output $\hat{\mathbf{y}} = \text{softmax}(\mathbf{z}^{[L]})$, label one-hot $\mathbf{y}$:
+
+$$\mathcal{L} = -\sum_{k=1}^K y_k \log \hat{y}_k$$
+
+The combined gradient of softmax + cross-entropy:
+
+$$\delta^{[L]} = \frac{\partial \mathcal{L}}{\partial \mathbf{z}^{[L]}} = \hat{\mathbf{y}} - \mathbf{y}$$
+
+Same form as BCE + sigmoid! This is the **most important formula in classification networks.** PyTorch's `nn.CrossEntropyLoss` computes this directly without requiring explicit softmax.
+
+</DerivationStep>
+
+<DerivationStep number={5} title="Full algorithm summary">
+
+**Forward pass** (save cache):
+For $l = 1$ to $L$: compute $Z^{[l]} = W^{[l]} A^{[l-1]} + b^{[l]}$ and $A^{[l]} = g^{[l]}(Z^{[l]})$
+
+**Backward pass** (use cache):
+1. $\delta^{[L]} = A^{[L]} - Y$ (BCE/CE output gradient)
+2. For $l = L$ down to $1$:
+   - $dW^{[l]} = \frac{1}{m} \delta^{[l]} (A^{[l-1]})^T$
+   - $db^{[l]} = \frac{1}{m} \delta^{[l]} \mathbf{1}$
+   - $\delta^{[l-1]} = (W^{[l]})^T \delta^{[l]} \odot g'^{[l-1]}(Z^{[l-1]})$
+
+**Update:** $W^{[l]} \leftarrow W^{[l]} - \alpha \, dW^{[l]}$, $b^{[l]} \leftarrow b^{[l]} - \alpha \, db^{[l]}$
+
+</DerivationStep>
+
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="For binary cross-entropy loss with sigmoid output, what is the output layer error signal δ[L]?"
+  options={[
+    "∂L/∂z[L] = σ(z) * (1 - σ(z))",
+    "∂L/∂z[L] = ŷ - y",
+    "∂L/∂z[L] = y * log(ŷ)",
+    "∂L/∂z[L] = (ŷ - y)²"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are true about backpropagation?"
+  options={[
+    "It applies the chain rule recursively from output to input",
+    "The cached Z[l] and A[l] values from the forward pass are used during backprop",
+    "PyTorch accumulates gradients by default, requiring zero_grad() before each backward",
+    "Backprop requires O(P) forward passes to compute P parameter gradients",
+    "The gradient of CE+softmax at the output is ŷ − y"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>
