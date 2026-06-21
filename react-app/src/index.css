@@ -1,3 +1,5 @@
+@import 'katex/dist/katex.min.css';
+
 /* ── Custom Properties ─────────────────────────────── */
 :root {
   --bg: #ffffff;
@@ -504,9 +506,6 @@ button { font-family: inherit; }
 }
 
 /* ── Learning Components ─────────────────────────────── */
-
-/* Import KaTeX styles — rehype-katex needs this at the app level */
-@import 'katex/dist/katex.min.css';
 
 .lc-concept-box {
   border: 1px solid var(--border);

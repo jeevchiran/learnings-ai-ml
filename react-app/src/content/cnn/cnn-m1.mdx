@@ -9,7 +9,7 @@ import CNNParamsWidget from '../../components/widgets/cnn/CNNParamsWidget.jsx'
 
 ## What is the problem?
 
-An image is a 3-D tensor — height × width × colour channels. A $32 \times 32$ RGB image has $32 \times 32 \times 3 = 3{,}072$ values. Feeding this into a fully-connected layer with 1{,}000 hidden units requires:
+An image is a 3-D tensor — height × width × colour channels. A $32 \times 32$ RGB image has $32 \times 32 \times 3 = 3{,}072$ values. Feeding this into a fully-connected layer with 1,000 hidden units requires:
 
 $$3{,}072 \times 1{,}000 + 1{,}000 = 3{,}073{,}000 \text{ parameters in one layer}$$
 
@@ -66,7 +66,7 @@ A $3 \times 3$ convolutional layer with 32 output filters on a $32 \times 32 \ti
 | MaxPool(2×2) | 8×8×64 | 0 |
 | Flatten | 4096 | 0 |
 | FC (4096→512) | 512 | $4096 \times 512 + 512 = 2{,}097{,}664$ |
-| FC (512→10) | 10 | 5{,}130 |
+| FC (512→10) | 10 | 5,130 |
 | **Total** | | **2,122,186** |
 
 The CNN uses 42% fewer parameters *and* achieves far better accuracy (≈80% vs ≈55% on CIFAR-10) because the inductive biases match image structure.
