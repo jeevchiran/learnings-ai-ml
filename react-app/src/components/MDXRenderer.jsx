@@ -23,7 +23,11 @@ const components = {
   code: (props) => {
     const { className, children } = props
     const lang = className?.replace('language-', '') ?? ''
-    if (!lang) return <code>{children}</code>
+    if (!lang) {
+      // multiline = came from a fenced block without language tag → style as code block
+      if (String(children).includes('\n')) return <CodeBlock lang="text">{children}</CodeBlock>
+      return <code>{children}</code>
+    }
     return <CodeBlock lang={lang}>{children}</CodeBlock>
   },
 }
