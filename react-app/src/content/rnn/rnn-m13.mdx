@@ -1,0 +1,200 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Module 13: Time Series & Sequence Classification
+
+<Bridge>
+**From Module 12:** the four sequence patterns are clear. Now let's put them into practice with two concrete use cases — time-series forecasting and sequence classification — with complete PyTorch code you can run and adapt.
+</Bridge>
+
+## Use case 1 — Time-series forecasting
+
+Given the last $T$ observations of a univariate signal, predict the next $k$ values.
+
+**Example:** 30 days of daily sales → forecast next 7 days.
+
+### Architecture
+
+```python
+import torch
+import torch.nn as nn
+
+class TimeSeriesLSTM(nn.Module):
+    def __init__(self, input_size=1, hidden=64, num_layers=2,
+                 forecast_horizon=7, dropout=0.2):
+        super().__init__()
+        self.lstm = nn.LSTM(
+            input_size=input_size,
+            hidden_size=hidden,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=dropout
+        )
+        self.fc = nn.Linear(hidden, forecast_horizon)
+
+    def forward(self, x):
+        # x: (batch, seq_len, input_size)
+        out, (h_n, _) = self.lstm(x)
+        # Use final hidden state for many-to-one prediction
+        return self.fc(h_n[-1])   # h_n[-1]: last layer's final state
+```
+
+### Training loop
+
+```python
+model = TimeSeriesLSTM(input_size=1, hidden=64, forecast_horizon=7)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+criterion = nn.MSELoss()
+
+for epoch in range(100):
+    model.train()
+    for x_batch, y_batch in train_loader:
+        # x_batch: (batch, 30, 1), y_batch: (batch, 7)
+        optimizer.zero_grad()
+        pred = model(x_batch)
+        loss = criterion(pred, y_batch)
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        optimizer.step()
+```
+
+### Data preparation — sliding window
+
+```python
+def create_windows(series, window=30, horizon=7):
+    """Create (input, target) pairs via sliding window."""
+    X, Y = [], []
+    for i in range(len(series) - window - horizon + 1):
+        X.append(series[i : i + window])
+        Y.append(series[i + window : i + window + horizon])
+    return torch.tensor(X).float().unsqueeze(-1), torch.tensor(Y).float()
+
+# Normalise before windowing (critical for LSTM convergence)
+mean, std = series.mean(), series.std()
+series_norm = (series - mean) / std
+X, Y = create_windows(series_norm, window=30, horizon=7)
+```
+
+<ConceptBox title="Normalisation is critical for time series">
+LSTMs are sensitive to input scale. If your signal ranges from 0 to 10,000, the weight matrices must compensate — this makes optimisation harder. Always normalise to zero mean and unit variance (z-score), or scale to [0, 1]. The forecast outputs will be in normalised space; multiply by std and add mean to recover the original scale.
+</ConceptBox>
+
+## Use case 2 — Sequence classification
+
+Classify an entire sequence into a discrete category. Example: classify whether an ECG recording shows normal rhythm, atrial fibrillation, or other anomaly.
+
+### Architecture
+
+```python
+class SequenceClassifier(nn.Module):
+    def __init__(self, input_dim, hidden=128, num_layers=2,
+                 num_classes=3, dropout=0.3):
+        super().__init__()
+        self.lstm = nn.LSTM(input_dim, hidden, num_layers,
+                            batch_first=True, dropout=dropout,
+                            bidirectional=True)
+        # Bidirectional: each direction has 'hidden' units → 2*hidden total
+        self.dropout = nn.Dropout(dropout)
+        self.fc = nn.Linear(2 * hidden, num_classes)
+
+    def forward(self, x, lengths=None):
+        if lengths is not None:
+            from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+            packed = pack_padded_sequence(x, lengths.cpu(),
+                                          batch_first=True, enforce_sorted=False)
+            out_packed, (h_n, _) = self.lstm(packed)
+            out, _ = pad_packed_sequence(out_packed, batch_first=True)
+        else:
+            out, (h_n, _) = self.lstm(x)
+
+        # h_n: (num_layers * 2, batch, hidden) for bidirectional
+        # Take the last layer's forward and backward hidden states
+        h_fwd = h_n[-2]   # forward, last layer
+        h_bwd = h_n[-1]   # backward, last layer
+        h = torch.cat([h_fwd, h_bwd], dim=-1)   # (batch, 2*hidden)
+        return self.fc(self.dropout(h))
+```
+
+### Training with class imbalance handling
+
+```python
+# If classes are imbalanced, weight the loss
+class_counts = torch.tensor([1000, 200, 300], dtype=torch.float)
+class_weights = 1.0 / class_counts
+class_weights /= class_weights.sum()
+
+criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
+
+def train_epoch(model, loader, optimizer):
+    model.train()
+    total_loss, correct, total = 0, 0, 0
+    for x, lengths, labels in loader:
+        x, labels = x.to(device), labels.to(device)
+        optimizer.zero_grad()
+        logits = model(x, lengths)
+        loss = criterion(logits, labels)
+        loss.backward()
+        nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        optimizer.step()
+        total_loss += loss.item()
+        correct += (logits.argmax(1) == labels).sum().item()
+        total += labels.shape[0]
+    return total_loss / len(loader), correct / total
+```
+
+## Common failure modes and fixes
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Loss NaN after a few steps | Exploding gradients | Add `clip_grad_norm_` with max_norm=1.0 |
+| Model predicts same class always | Class imbalance | Use `CrossEntropyLoss(weight=...)` |
+| Good train loss, bad val loss | Overfitting | Add dropout, reduce num_layers or hidden size |
+| Very slow convergence | Input not normalised | Z-score normalise input features |
+| Worse than baseline | Sequence too short | Try CNN or MLP instead — RNN overhead may not pay |
+
+## When NOT to use an LSTM
+
+| Situation | Better choice |
+|-----------|--------------|
+| Sequence length < 10 | MLP or CNN — RNN overhead doesn't pay |
+| Fixed-length, no temporal structure | MLP |
+| Very long sequences (>500) | Transformer with attention |
+| Tabular data with no time dimension | Gradient boosted trees |
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Why bidirectional helps sequence classification">
+
+For a many-to-one task, we use the final hidden state. The forward RNN's final state $\overrightarrow{\mathbf{h}}_T$ has seen all tokens left-to-right — but tokens near $T$ are most recent in its memory, and tokens near 1 may have faded (vanishing gradient). The backward RNN's state $\overleftarrow{\mathbf{h}}_1$ has seen all tokens right-to-left — tokens near 1 are most recent for it.
+
+Concatenating $[\overrightarrow{\mathbf{h}}_T; \overleftarrow{\mathbf{h}}_1]$ gives a representation where both ends of the sequence are "recent" for one of the two directions. For classification tasks where the label depends on the whole sequence, this usually improves accuracy over a unidirectional LSTM.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="In the TimeSeriesLSTM, why is h_n[-1] used instead of the full output tensor for forecasting?"
+  options={[
+    "h_n[-1] is faster to compute than the full output",
+    "For many-to-one forecasting, we want a single summary of the full sequence — the last layer's final hidden state — not per-step predictions",
+    "The full output contains hidden states from all layers, which would be too large for the linear layer",
+    "h_n[-1] automatically accounts for padding while the full output does not"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of these preprocessing steps are important when using an LSTM for time-series data?"
+  options={[
+    "Z-score normalisation of input features to zero mean and unit variance",
+    "Creating sliding window pairs (input window, forecast horizon) from the raw time series",
+    "Sorting all sequences by their value before feeding to the LSTM",
+    "Gradient clipping to prevent exploding gradients during training",
+    "Using teacher forcing during inference to improve forecast accuracy"
+  ]}
+  correct={[0, 1, 3]}
+/>

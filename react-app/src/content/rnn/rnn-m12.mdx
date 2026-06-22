@@ -1,0 +1,152 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import SequencePatternWidget from '../../components/widgets/rnn/SequencePatternWidget.jsx'
+
+# Module 12: Sequence Modeling Patterns
+
+<Bridge>
+**From Module 11:** we can now handle sequences of any length efficiently. Before diving into specific applications, let's map out the four canonical I/O patterns that every RNN task fits into. Choosing the right pattern is the first architectural decision.
+</Bridge>
+
+## The four patterns
+
+Every RNN task maps to one of these four input-output configurations:
+
+<SequencePatternWidget />
+
+## Pattern 1 — Many to One
+
+**Setup:** process a full sequence, emit a single output at the end.
+
+**Architecture:** Run RNN over the entire input sequence. Use only the final hidden state $\mathbf{h}_T$ for prediction.
+
+```python
+class ManyToOneRNN(nn.Module):
+    def __init__(self, input_dim, hidden, num_classes):
+        super().__init__()
+        self.lstm = nn.LSTM(input_dim, hidden, batch_first=True)
+        self.fc = nn.Linear(hidden, num_classes)
+
+    def forward(self, x):
+        _, (h_n, _) = self.lstm(x)
+        # h_n: (1, batch, hidden) → squeeze to (batch, hidden)
+        return self.fc(h_n.squeeze(0))
+```
+
+**Examples:** sentiment analysis, document classification, sequence-level regression (predict one number from a time series).
+
+**Key point:** only the final $\mathbf{h}_T$ is used. All earlier hidden states are intermediate — they exist only to build up context for $\mathbf{h}_T$.
+
+## Pattern 2 — One to Many
+
+**Setup:** single input (or no input), generate a sequence of outputs.
+
+**Architecture:** feed a context vector as the initial hidden state $\mathbf{h}_0$, then generate autoregressively — each output becomes the next input.
+
+```python
+class OneToManyRNN(nn.Module):
+    def __init__(self, context_dim, hidden, vocab_size):
+        super().__init__()
+        self.init_h = nn.Linear(context_dim, hidden)
+        self.lstm = nn.LSTMCell(vocab_size, hidden)
+        self.fc = nn.Linear(hidden, vocab_size)
+
+    def forward(self, context, max_len):
+        h = self.init_h(context)   # (batch, hidden)
+        c = torch.zeros_like(h)
+        outputs = []
+        x = torch.zeros(h.shape[0], self.vocab_size)  # start token
+        for _ in range(max_len):
+            h, c = self.lstm(x, (h, c))
+            logits = self.fc(h)
+            outputs.append(logits)
+            x = F.softmax(logits, dim=-1)  # feed prediction as next input
+        return torch.stack(outputs, dim=1)
+```
+
+**Examples:** image captioning (image features → description), music generation from a seed chord, response generation from a query embedding.
+
+## Pattern 3 — Many to Many (synced)
+
+**Setup:** for each input, produce an output at the same time step.
+
+**Architecture:** apply output layer to every hidden state, not just the last.
+
+```python
+class ManyToManyRNN(nn.Module):
+    def __init__(self, input_dim, hidden, num_labels):
+        super().__init__()
+        self.lstm = nn.LSTM(input_dim, hidden, batch_first=True)
+        self.fc = nn.Linear(hidden, num_labels)
+
+    def forward(self, x):
+        output, _ = self.lstm(x)
+        # output: (batch, seq_len, hidden)
+        return self.fc(output)   # (batch, seq_len, num_labels)
+```
+
+**Examples:** named entity recognition (one label per word), POS tagging, speech-to-phoneme alignment, per-frame gesture recognition.
+
+**Key point:** output length equals input length. Loss is computed at every step.
+
+## Pattern 4 — Many to Many (encoder-decoder)
+
+**Setup:** read the full input sequence, then generate the output sequence of (potentially) different length.
+
+**Architecture:** encoder reads input and produces a context vector; decoder generates output word-by-word conditioned on the context.
+
+```python
+# Encoder
+encoder = nn.LSTM(src_embed_dim, hidden, batch_first=True)
+src_output, (h_n, c_n) = encoder(src_embedded)
+context = (h_n, c_n)   # final state as context
+
+# Decoder (autoregressive)
+decoder = nn.LSTM(tgt_embed_dim, hidden, batch_first=True)
+tgt_embedded_shifted = tgt_embedded[:, :-1]   # teacher forcing: feed ground truth
+dec_output, _ = decoder(tgt_embedded_shifted, context)
+logits = output_layer(dec_output)   # (batch, tgt_len-1, vocab_size)
+```
+
+**Examples:** machine translation (English → French), speech recognition (audio → text), text summarization, code generation.
+
+**Key point:** the bottleneck is the context vector — it must compress the entire source into a fixed-size vector. Attention mechanisms address this by allowing the decoder to look at all encoder states directly.
+
+## Choosing the right pattern
+
+| Question | Answer → Pattern |
+|----------|-----------------|
+| One label for the whole sequence? | Many-to-one |
+| Generate a sequence from a prompt/image? | One-to-many |
+| Label each element of the input? | Many-to-many synced |
+| Transform one sequence into another (different structure/length)? | Many-to-many encoder-decoder |
+
+<ConceptBox title="Teacher forcing">
+During training of decoder-based models (one-to-many, encoder-decoder), the true target tokens are fed as inputs at each step rather than the model's own predictions. This is called **teacher forcing**. It makes training more stable (no error accumulation) but creates a train-test mismatch — at inference time, the model feeds its own (potentially wrong) predictions back. Scheduled sampling gradually replaces ground-truth with model predictions during training to close this gap.
+</ConceptBox>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="A model must tag every word in a sentence as Person, Location, Organization, or Other (NER). Which pattern does this use?"
+  options={[
+    "Many-to-one — the output is a single sequence-level label",
+    "One-to-many — the output grows from one starting token",
+    "Many-to-many synced — one label per input token, lengths match",
+    "Many-to-many encoder-decoder — input and output have different structures"
+  ]}
+  correct={2}
+/>
+
+<MultiSelectQuiz
+  question="Which of these are correct statements about the encoder-decoder pattern?"
+  options={[
+    "The encoder reads the full source sequence and produces a context vector (its final hidden state)",
+    "The decoder generates one output token per input token — lengths must match",
+    "Teacher forcing feeds ground-truth tokens to the decoder during training to stabilise gradients",
+    "At inference time, the decoder feeds its own previous prediction as the next input",
+    "The encoder-decoder bottleneck (single context vector) is one motivation for the attention mechanism"
+  ]}
+  correct={[0, 2, 3, 4]}
+/>

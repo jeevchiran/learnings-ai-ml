@@ -1,0 +1,148 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import GradientFlowWidget from '../../components/widgets/rnn/GradientFlowWidget.jsx'
+
+# Module 9: Gradient Problems in RNNs
+
+<Bridge>
+**From Module 8:** BPTT sends gradients backward through every time step — multiplying by $\mathbf{W}_h^T$ and the tanh derivative at each step. Module 7 warned that this product is the critical bottleneck. Now let's examine what happens when that product becomes either very small or very large, and what practitioners do about it.
+</Bridge>
+
+## The two failure modes
+
+During BPTT, the gradient at step 1 is related to the gradient at step $T$ by:
+
+$$\frac{\partial \mathbf{h}_T}{\partial \mathbf{h}_1} = \prod_{t=2}^{T} \mathbf{W}_h^T \cdot \text{diag}(1 - \mathbf{h}_t^2)$$
+
+Two things can go wrong:
+
+**Vanishing gradients** — the product collapses to near zero. Gradients at early steps are too small to update weights meaningfully. The network cannot learn long-range dependencies.
+
+**Exploding gradients** — the product grows without bound. Gradients become so large that a single update overshoots, destabilising training. Loss may oscillate or diverge to NaN.
+
+## Interactive: gradient magnitude over time
+
+Use the widget to see how gradient magnitude changes across time steps for each regime. Switch between Vanishing, Healthy, and Exploding, and observe what happens as you increase T.
+
+<GradientFlowWidget />
+
+## Vanishing gradients — why they happen
+
+There are two multiplied contributions at each backward step:
+
+**Source 1 — $\mathbf{W}_h$ spectral radius:** if $\|\mathbf{W}_h\|_2 < 1$ (all singular values smaller than 1), each multiplication shrinks the gradient. After $T$ steps: exponential decay.
+
+**Source 2 — tanh saturation:** $\tanh'(z) = 1 - \tanh^2(z)$. When $|z|$ is large (inputs push the hidden state near ±1), $\tanh'(z) \approx 0$.
+
+Both effects often happen simultaneously. The hidden state $\mathbf{h}_{t-1}$ gets large when $\mathbf{W}_h$ amplifies, but tanh saturates it to ±1 — giving $\tanh' \approx 0$. Every step multiplies by something near zero, so gradients from step 100 back to step 1 vanish exponentially.
+
+**The practical consequence:** the RNN cannot learn that a word at position 1 is relevant to the prediction at position 100. It has no effective gradient signal connecting these positions. In language modeling, this is why vanilla RNNs struggle with subject-verb agreement across long relative clauses.
+
+## Exploding gradients — why they happen
+
+If $\|\mathbf{W}_h\|_2 > 1$, each multiplication amplifies the gradient. After $T$ steps: exponential growth.
+
+**The practical consequence:** a single gradient update makes the weights jump by an enormous amount, overshooting any reasonable minimum. The loss spikes, and training diverges.
+
+In practice, exploding gradients are easier to detect (loss goes to NaN) and easier to fix (gradient clipping). Vanishing gradients are insidious — training proceeds but the model simply doesn't learn long-range patterns.
+
+## Fix 1 — Gradient clipping (for exploding)
+
+Cap the gradient norm before applying the update:
+
+$$\text{if } \|\mathbf{g}\|_2 > \theta: \quad \mathbf{g} \leftarrow \frac{\theta}{\|\mathbf{g}\|_2} \mathbf{g}$$
+
+This rescales the gradient vector to have norm exactly $\theta$ when it exceeds the threshold. Direction is preserved; magnitude is capped.
+
+```python
+optimizer.zero_grad()
+loss.backward()
+torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+optimizer.step()
+```
+
+`max_norm=1.0` is a common default. The key: call this between `loss.backward()` and `optimizer.step()`.
+
+<ConceptBox title="Why clipping works but truncation doesn't">
+Gradient clipping rescales without changing direction — the update still points in a sensible direction, just with controlled magnitude. Truncating gradients to zero (zeroing any component exceeding a threshold) would change the direction and may not converge. Clipping the norm (not the components) is the standard approach.
+</ConceptBox>
+
+## Fix 2 — Better initialisation (for vanishing)
+
+Initialising $\mathbf{W}_h$ as an **orthogonal matrix** keeps its singular values exactly 1, so $\|\mathbf{W}_h\|_2 = 1$. Gradients neither grow nor shrink due to the weight matrix alone — only the tanh derivative causes shrinkage.
+
+In PyTorch:
+```python
+nn.init.orthogonal_(rnn.weight_hh_l0)
+```
+
+## Fix 3 — LSTM and GRU (the real solution)
+
+Gradient clipping and orthogonal initialisation are band-aids. The real fix is to redesign the cell so that gradients can flow without going through tanh repeatedly — this is exactly what LSTM and GRU do (Module 10).
+
+Their key insight: instead of computing $\mathbf{h}_t$ entirely from scratch via tanh at every step, maintain a separate **cell state** that is updated *additively* rather than through a squash function. Additive updates produce constant-magnitude gradients along the cell state dimension.
+
+## Fix 4 — Gradient penalty / weight constraints
+
+Some approaches regularize $\mathbf{W}_h$ to keep its spectral radius near 1 (unitary or orthogonal RNNs). This is more principled than initialisation but adds training complexity.
+
+## The fundamental limitation
+
+Even with these fixes, vanilla RNNs struggle beyond ~100–200 step dependencies. This is a mathematical property of the recurrent structure: the gradient must pass through the same weight matrix repeatedly. LSTM reduces the damage; it does not eliminate it. For very long sequences (thousands of tokens), Transformer-based models (which use direct attention connections, not recurrence) are now the dominant approach.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Formal condition for vanishing vs exploding">
+
+Let $\lambda_{\max}$ be the largest singular value of $\mathbf{W}_h$ and $\gamma = \max_t \tanh'(z_{t,i})$ where $i$ indexes hidden units.
+
+The product of $T-1$ local Jacobians satisfies:
+
+$$\left\|\frac{\partial \mathbf{h}_T}{\partial \mathbf{h}_1}\right\|_F \leq (\lambda_{\max} \cdot \gamma)^{T-1}$$
+
+- If $\lambda_{\max} \cdot \gamma < 1$: gradient **vanishes** at rate $(< 1)^{T-1}$
+- If $\lambda_{\max} \cdot \gamma > 1$: gradient **explodes** at rate $(> 1)^{T-1}$
+- If $\lambda_{\max} \cdot \gamma = 1$: gradient is constant-norm — the ideal case
+
+Since $\gamma = \max \tanh'(z) \leq 1$ (tanh derivative is always $\leq 1$), even if $\lambda_{\max} = 1$ the gradient can still vanish if tanh is saturated. The LSTM cell state avoids this by having a direct additive path.
+
+</DerivationStep>
+<DerivationStep number={2} title="Gradient clipping — norm computation">
+
+Given all parameters $\boldsymbol{\theta} = [\theta_1, \ldots, \theta_p]$ with gradients $\mathbf{g} = [\nabla_{\theta_1}\mathcal{L}, \ldots, \nabla_{\theta_p}\mathcal{L}]$:
+
+$$\|\mathbf{g}\|_2 = \sqrt{\sum_{i=1}^{p} g_i^2}$$
+
+If $\|\mathbf{g}\|_2 > \theta_{\text{clip}}$, set $\mathbf{g} \leftarrow \mathbf{g} \cdot \frac{\theta_{\text{clip}}}{\|\mathbf{g}\|_2}$.
+
+The update $\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} - \alpha \mathbf{g}$ then has maximum step size $\alpha \theta_{\text{clip}}$, regardless of how explosive the gradient is.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="A vanilla RNN is trained on sequences of length T=150 to predict whether a sentence is positive or negative. The model achieves near-random performance despite low training loss. The most likely cause is:"
+  options={[
+    "The learning rate is too high, causing gradient explosion",
+    "Vanishing gradients — the sentiment-determining words at the beginning of the sequence produce near-zero gradients by the time they reach the final loss",
+    "The hidden state is too small to represent 150-token sequences",
+    "The tanh activation is not appropriate for binary classification"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of these are correct statements about gradient clipping in RNN training?"
+  options={[
+    "Gradient clipping rescales the gradient vector to have norm ≤ max_norm, preserving direction",
+    "Gradient clipping fixes vanishing gradients as effectively as it fixes exploding gradients",
+    "torch.nn.utils.clip_grad_norm_ must be called after loss.backward() but before optimizer.step()",
+    "Clipping prevents loss from going to NaN during exploding gradient episodes",
+    "Gradient clipping eliminates the need for LSTM or GRU architectures"
+  ]}
+  correct={[0, 2, 3]}
+/>

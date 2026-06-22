@@ -1,0 +1,152 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import RNNCellWidget from '../../components/widgets/rnn/RNNCellWidget.jsx'
+
+# Module 6: Anatomy of an RNN Cell
+
+<Bridge>
+**From Module 5:** you know the overall structure — an RNN is a cell copied $T$ times in a line. Now we open the cell and understand every computation inside it. One equation, four operations, two inputs, two outputs — let's make it concrete.
+</Bridge>
+
+## The cell equation
+
+The standard ("vanilla") RNN cell computes:
+
+$$\mathbf{h}_t = \tanh\!\left(\mathbf{W}_h \mathbf{h}_{t-1} + \mathbf{W}_x \mathbf{x}_t + \mathbf{b}\right)$$
+
+That's it. Let's dissect every term.
+
+| Term | Shape | Role |
+|------|-------|------|
+| $\mathbf{h}_{t-1}$ | $(n,)$ | Previous hidden state — the "memory" input |
+| $\mathbf{W}_h$ | $(n \times n)$ | Recurrent weight matrix — transforms past state |
+| $\mathbf{x}_t$ | $(d,)$ | Current input — the "new information" |
+| $\mathbf{W}_x$ | $(n \times d)$ | Input weight matrix — encodes current input |
+| $\mathbf{b}$ | $(n,)$ | Bias vector |
+| $\tanh$ | — | Non-linearity: squashes pre-activation to $(-1, 1)$ |
+| $\mathbf{h}_t$ | $(n,)$ | New hidden state — output passed to next step |
+
+## Step-by-step walkthrough
+
+**Step 1 — Linear combination from past:**
+
+$$\mathbf{z}_h = \mathbf{W}_h \mathbf{h}_{t-1}$$
+
+This asks: "given where we were, where does the past suggest we should go?" $\mathbf{W}_h$ learns how to combine elements of the previous state.
+
+**Step 2 — Linear combination from present:**
+
+$$\mathbf{z}_x = \mathbf{W}_x \mathbf{x}_t$$
+
+This asks: "what does the current input say, independently?" $\mathbf{W}_x$ learns how to encode the raw input into the hidden space.
+
+**Step 3 — Combine and bias:**
+
+$$\mathbf{z} = \mathbf{z}_h + \mathbf{z}_x + \mathbf{b}$$
+
+The two signals are added (not concatenated). This is equivalent to writing it as a single matrix:
+
+$$\mathbf{z} = [\mathbf{W}_h \mid \mathbf{W}_x] \begin{bmatrix}\mathbf{h}_{t-1} \\ \mathbf{x}_t \end{bmatrix} + \mathbf{b} = \mathbf{W}_{hx} [\mathbf{h}_{t-1}; \mathbf{x}_t] + \mathbf{b}$$
+
+**Step 4 — Non-linearity:**
+
+$$\mathbf{h}_t = \tanh(\mathbf{z})$$
+
+tanh is applied element-wise. Values $\mathbf{z}_i \gg 0$ are squashed near $+1$; values $\mathbf{z}_i \ll 0$ near $-1$; values near zero stay roughly linear.
+
+## Interactive: explore the cell computation
+
+Adjust $x_t$ and $h_{t-1}$ to see how the cell's output $h_t$ changes. Notice how the tanh derivative (gradient scale) drops when inputs are large — the harbinger of vanishing gradients.
+
+<RNNCellWidget />
+
+## The output layer
+
+The hidden state is then used to produce an output:
+
+$$\hat{\mathbf{y}}_t = \mathbf{W}_y \mathbf{h}_t + \mathbf{b}_y$$
+
+For classification: apply softmax to $\hat{\mathbf{y}}_t$ to get class probabilities.
+
+For regression: use $\hat{\mathbf{y}}_t$ directly.
+
+For language modeling: $\mathbf{W}_y \in \mathbb{R}^{|V| \times n}$ maps hidden state to vocabulary logits — one logit per word.
+
+Note: computing $\hat{\mathbf{y}}_t$ is optional at every step. Many applications only need $\hat{\mathbf{y}}_T$ (the output after the last token). Others need $\hat{\mathbf{y}}_t$ at every step (tagging).
+
+## Why tanh? Why not ReLU?
+
+ReLU is the standard activation for feedforward layers. Why does the vanilla RNN use tanh?
+
+| Property | tanh | ReLU |
+|----------|------|------|
+| Output range | $(-1, 1)$ — bounded | $[0, \infty)$ — unbounded |
+| Gradient at zero | 1 | 1 |
+| Gradient far from zero | Near 0 (saturation) | 0 (dead) or 1 (positive) |
+| Suitability for recurrence | Bounded states → stable | Unbounded states → explode |
+
+The hidden state $\mathbf{h}_t$ flows into $\mathbf{W}_h \mathbf{h}_{t-1}$ at the next step. If $\mathbf{h}_t$ can grow without bound (ReLU), applying $\mathbf{W}_h$ repeatedly makes norms explode. The tanh bound prevents this.
+
+In practice, ReLU-based RNNs require careful weight initialisation (initialise $\mathbf{W}_h$ near the identity to prevent explosion). The LSTM and GRU architectures (Module 10) use a combination of sigmoid and tanh gates to control information flow more precisely.
+
+<ConceptBox title="The concatenated weight form">
+The cell equation $\mathbf{h}_t = \tanh(\mathbf{W}_h \mathbf{h}_{t-1} + \mathbf{W}_x \mathbf{x}_t + \mathbf{b})$ is sometimes written equivalently as $\mathbf{h}_t = \tanh(\mathbf{W}[\mathbf{h}_{t-1};\mathbf{x}_t] + \mathbf{b})$ where $\mathbf{W} = [\mathbf{W}_h \mid \mathbf{W}_x] \in \mathbb{R}^{n \times (n+d)}$. In PyTorch's `nn.RNN` implementation, this is exactly what happens internally — the input and hidden state are concatenated, then multiplied by a combined weight matrix, which is more cache-efficient.
+</ConceptBox>
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Dimension check — every matrix shape">
+
+Input dimension: $d$. Hidden size: $n$. Vocabulary/output size: $k$.
+
+$$\mathbf{x}_t \in \mathbb{R}^d, \quad \mathbf{h}_{t-1} \in \mathbb{R}^n$$
+$$\mathbf{W}_x \in \mathbb{R}^{n \times d}: \quad \mathbf{W}_x \mathbf{x}_t \in \mathbb{R}^n$$
+$$\mathbf{W}_h \in \mathbb{R}^{n \times n}: \quad \mathbf{W}_h \mathbf{h}_{t-1} \in \mathbb{R}^n$$
+$$\mathbf{z} = \mathbf{W}_h \mathbf{h}_{t-1} + \mathbf{W}_x \mathbf{x}_t + \mathbf{b} \in \mathbb{R}^n \quad ✓$$
+$$\mathbf{h}_t = \tanh(\mathbf{z}) \in \mathbb{R}^n$$
+$$\hat{\mathbf{y}}_t = \mathbf{W}_y \mathbf{h}_t + \mathbf{b}_y, \quad \mathbf{W}_y \in \mathbb{R}^{k \times n} \Rightarrow \hat{\mathbf{y}}_t \in \mathbb{R}^k \quad ✓$$
+
+</DerivationStep>
+<DerivationStep number={2} title="Numerical worked example">
+
+Let $d=2, n=3$. Suppose:
+
+$$\mathbf{W}_h = \begin{bmatrix}0.5 & -0.3 & 0.2 \\ 0.1 & 0.8 & -0.4 \\ 0.6 & 0.3 & 0.7\end{bmatrix}, \quad \mathbf{W}_x = \begin{bmatrix}0.4 & -0.2 \\ 0.7 & 0.5 \\ -0.1 & 0.9\end{bmatrix}, \quad \mathbf{b} = \begin{bmatrix}0.1 \\ -0.2 \\ 0.0\end{bmatrix}$$
+
+With $\mathbf{h}_0 = [0,0,0]$ and $\mathbf{x}_1 = [0.6, 0.4]$:
+
+$$\mathbf{z} = \mathbf{W}_h \mathbf{0} + \mathbf{W}_x [0.6, 0.4]^T + \mathbf{b}$$
+$$= [0.4(0.6)+(-0.2)(0.4), \; 0.7(0.6)+0.5(0.4), \; (-0.1)(0.6)+0.9(0.4)] + [0.1, -0.2, 0.0]$$
+$$= [0.24-0.08, \; 0.42+0.20, \; -0.06+0.36] + [0.1, -0.2, 0.0]$$
+$$= [0.16, 0.62, 0.30] + [0.1, -0.2, 0.0] = [0.26, 0.42, 0.30]$$
+$$\mathbf{h}_1 = \tanh([0.26, 0.42, 0.30]) = [0.254, 0.399, 0.291]$$
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="In a vanilla RNN cell with hidden size n=256 and input size d=100, how many parameters does W_h have?"
+  options={[
+    "100 × 256 = 25,600",
+    "256 × 256 = 65,536",
+    "256 × 100 + 256 = 25,856",
+    "256 + 100 = 356"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements correctly describe the tanh activation in a vanilla RNN cell?"
+  options={[
+    "tanh bounds the hidden state to the range (-1, 1), preventing unbounded growth",
+    "tanh has derivative 1 - tanh²(z), which approaches 0 when |z| is large",
+    "tanh is used because it is faster to compute than ReLU",
+    "The near-zero derivative of tanh at saturation contributes to the vanishing gradient problem in RNNs",
+    "tanh cannot handle negative inputs and clips them to 0"
+  ]}
+  correct={[0, 1, 3]}
+/>

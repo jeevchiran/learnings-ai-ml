@@ -1,0 +1,151 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import RNNUnfoldWidget from '../../components/widgets/rnn/RNNUnfoldWidget.jsx'
+
+# Module 5: RNN Architecture Overview
+
+<Bridge>
+**From Module 4:** we've seen what RNNs can do. Now let's see how they work structurally — the two views of the same computation, and what information flows where. This module gives you the mental model before we zoom into individual cells (Module 6).
+</Bridge>
+
+## Two views of the same network
+
+An RNN can be drawn in two equivalent ways. The choice of view depends on what you want to reason about.
+
+### Folded view — the recurrence loop
+
+The folded diagram shows a single cell with a **self-loop**: the output (hidden state $\mathbf{h}_t$) is fed back as input to the same cell at the next time step.
+
+```
+        ┌─────┐
+x_t ──→ │     │──→ h_t
+        │ RNN │ ↗
+        └─────┘
+           ↑
+         h_{t-1} (from previous step — the loop)
+```
+
+This compact view emphasises that *there is only one set of weights* — the same cell is reused every step. The loop is the defining structural feature.
+
+### Unfolded view — the computational graph
+
+The unfolded diagram copies the cell $T$ times, one per time step, and shows the hidden state passing right:
+
+```
+h₀ →[RNN]→ h₁ →[RNN]→ h₂ →[RNN]→ h₃ →[RNN]→ h₄
+      ↑           ↑           ↑           ↑
+      x₁          x₂          x₃          x₄
+```
+
+Each box uses the same weights. The unfolded view is what you use to reason about **backpropagation through time** (BPTT, Module 8) — the gradient of the final loss must flow backward through each copy.
+
+## Interactive: watch the RNN unfold
+
+Use the widget below to see an RNN process a sequence step by step. The teal colour grows as the hidden state accumulates signal from each new input.
+
+<RNNUnfoldWidget />
+
+## What flows in and out
+
+At each step $t$, three things participate:
+
+| Signal | Symbol | Direction | Shape |
+|--------|--------|-----------|-------|
+| Input | $\mathbf{x}_t$ | Into cell from outside | $(d,)$ |
+| Previous hidden state | $\mathbf{h}_{t-1}$ | Into cell from left | $(n,)$ |
+| New hidden state | $\mathbf{h}_t$ | Out of cell to right | $(n,)$ |
+| Output (optional) | $\hat{\mathbf{y}}_t$ | Out of cell downward | $(k,)$ |
+
+The hidden state is the **only connection between time steps**. All information the network has from $x_1, \ldots, x_{t-1}$ is compressed into the $n$-dimensional vector $\mathbf{h}_{t-1}$. This is both the power of RNNs (compact, parameter-efficient) and their limitation (a bottleneck — Module 9).
+
+## Initial hidden state $\mathbf{h}_0$
+
+The first cell has no predecessor. By convention, $\mathbf{h}_0 = \mathbf{0}$ (zero vector). Alternatively:
+- $\mathbf{h}_0$ can be a **learned parameter** (trained by gradient descent)
+- $\mathbf{h}_0$ can be **computed from a context vector** (encoder-decoder architecture)
+
+In practice, zero initialisation works well for most tasks. Learned $\mathbf{h}_0$ adds $n$ parameters and sometimes helps on tasks where the network needs to "start" in a particular configuration.
+
+## Reading the output
+
+Where does the final prediction come from? There are two conventions:
+
+**Last hidden state** — use $\mathbf{h}_T$ (after reading all inputs) to make a single prediction. Used for many-to-one tasks like sentiment classification.
+
+**All hidden states** — use $\mathbf{h}_1, \ldots, \mathbf{h}_T$, one prediction per step. Used for many-to-many tasks like NER tagging.
+
+```python
+import torch.nn as nn
+
+rnn = nn.RNN(input_size=50, hidden_size=128, batch_first=True)
+# Input: (batch, seq_len, 50)
+output, h_n = rnn(x)
+# output: (batch, seq_len, 128) — all hidden states h_1...h_T
+# h_n:    (1, batch, 128)       — final hidden state h_T
+```
+
+For classification, a linear layer maps $\mathbf{h}_T$ to class logits:
+
+```python
+classifier = nn.Linear(128, num_classes)
+logits = classifier(h_n.squeeze(0))  # (batch, num_classes)
+```
+
+<ConceptBox title="Depth vs width in RNNs">
+A single-layer RNN has one hidden state per step. A **stacked (deep) RNN** adds multiple layers: the output of RNN layer 1 becomes the input to RNN layer 2 at each time step. Depth adds capacity to model more complex functions of the history. In PyTorch, `nn.RNN(num_layers=2)` gives a 2-layer stacked RNN. The tradeoff: more parameters, slower training, potentially better performance.
+</ConceptBox>
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Stacked RNN — formal notation">
+
+For a two-layer RNN with hidden sizes $n_1$ and $n_2$:
+
+**Layer 1:** $\mathbf{h}_t^{(1)} = \tanh(\mathbf{W}_h^{(1)} \mathbf{h}_{t-1}^{(1)} + \mathbf{W}_x^{(1)} \mathbf{x}_t + \mathbf{b}^{(1)})$
+
+**Layer 2:** $\mathbf{h}_t^{(2)} = \tanh(\mathbf{W}_h^{(2)} \mathbf{h}_{t-1}^{(2)} + \mathbf{W}_x^{(2)} \mathbf{h}_t^{(1)} + \mathbf{b}^{(2)})$
+
+The output of the second layer is what we use for prediction: $\hat{\mathbf{y}}_t = \mathbf{W}_y \mathbf{h}_t^{(2)} + \mathbf{b}_y$.
+
+Total parameters: $(n_1 \cdot d + n_1^2 + n_1) + (n_2 \cdot n_1 + n_2^2 + n_2) + (k \cdot n_2 + k)$.
+
+</DerivationStep>
+<DerivationStep number={2} title="Bidirectional RNN">
+
+A **bidirectional RNN** runs two separate RNNs: one left-to-right (forward) and one right-to-left (backward). Their hidden states are concatenated at each step:
+
+$$\overrightarrow{\mathbf{h}}_t = \text{RNN}_\text{fwd}(\mathbf{x}_t, \overrightarrow{\mathbf{h}}_{t-1})$$
+$$\overleftarrow{\mathbf{h}}_t = \text{RNN}_\text{bwd}(\mathbf{x}_t, \overleftarrow{\mathbf{h}}_{t+1})$$
+$$\mathbf{h}_t = [\overrightarrow{\mathbf{h}}_t \,;\, \overleftarrow{\mathbf{h}}_t]$$
+
+This gives each position access to **both past and future context**. Useful for NER and POS tagging where the word "Washington" may be a person (Washington Carver) or a place (Washington D.C.) — the following words disambiguate. **Cannot be used for generation** (you don't have future context at inference time).
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="In the unfolded RNN diagram with T=5 steps, how many distinct sets of weight matrices W_h and W_x are there?"
+  options={[
+    "5 — one per time step",
+    "10 — two per time step",
+    "1 — the same weights are shared across all steps",
+    "3 — W_h, W_x, W_y, each used T times"
+  ]}
+  correct={2}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the RNN hidden state h_T (the final state) are correct?"
+  options={[
+    "h_T contains information only from the last input x_T",
+    "h_T is a compressed representation of the entire input sequence x_1, ..., x_T",
+    "h_T has the same dimension as the input x_T",
+    "h_T can be used directly as input to a linear classifier for many-to-one tasks",
+    "h_T is re-initialised to zero at the start of every new sequence"
+  ]}
+  correct={[1, 3]}
+/>

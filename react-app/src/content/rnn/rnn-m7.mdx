@@ -1,0 +1,140 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Module 7: Shared Weights Across Time
+
+<Bridge>
+**From Module 6:** we opened the RNN cell and saw the equations. One crucial detail was mentioned but not fully explained: the same weight matrices $\mathbf{W}_h$, $\mathbf{W}_x$, and $\mathbf{W}_y$ apply at every time step. This is not an implementation shortcut — it's a core design decision with deep consequences. This module explains why.
+</Bridge>
+
+## What weight sharing means
+
+In the unfolded RNN, you see $T$ copies of the cell. Each copy looks identical:
+
+```
+h₀ →[W_h, W_x]→ h₁ →[W_h, W_x]→ h₂ →[W_h, W_x]→ h₃
+          ↑                 ↑                 ↑
+          x₁                x₂                x₃
+```
+
+Those $[\mathbf{W}_h, \mathbf{W}_x]$ labels are *the same matrices* — not different weights per step. There is one copy of $\mathbf{W}_h$ in memory; all three copies of the cell read from and write gradients to the same matrix.
+
+Compare this to an MLP applied to a flattened sequence:
+
+```
+[x₁, x₂, x₃] → W₁ → h₁ → W₂ → output
+```
+
+Here, position 1's contribution to $h_1$ uses one row of $W_1$; position 2's uses a different row. Each position has **dedicated weights** — the model must learn the same pattern independently for each position. Weight sharing forces the network to generalise the pattern across all positions.
+
+## Why share? Three reasons
+
+### 1 · Handles sequences of any length
+
+If each time step had its own weights ($\mathbf{W}_h^{(t)}$, $\mathbf{W}_x^{(t)}$), the parameter count would grow linearly with $T$:
+
+$$\text{params with dedicated weights} = T \times (nd + n^2 + n + kn + k)$$
+
+With sharing, it's constant regardless of $T$:
+
+$$\text{params with sharing} = nd + n^2 + n + kn + k$$
+
+More importantly, at test time you can process sequences of length $T_{test} \neq T_{train}$ — the model has never seen this length but uses the same weights. Without sharing, you'd need to train separate weights for every possible sequence length.
+
+### 2 · The same pattern appears at different positions
+
+In language, the word "not" negates what follows — whether it's at position 3 or position 27. In time series, a sudden spike means the same thing at any time index. The network should apply the same transformation ("I see a negator", "I see a spike") wherever it occurs.
+
+Weight sharing is the architectural choice that says: **the function we apply at step $t$ should not depend on $t$**. This is analogous to how a CNN uses the same kernel across all spatial positions (translation equivariance).
+
+### 3 · Gradient signal from many positions
+
+When backpropagating, the gradient of the loss with respect to $\mathbf{W}_x$ accumulates contributions from every time step:
+
+$$\frac{\partial \mathcal{L}}{\partial \mathbf{W}_x} = \sum_{t=1}^{T} \frac{\partial \mathcal{L}}{\partial \mathbf{h}_t} \cdot \frac{\partial \mathbf{h}_t}{\partial \mathbf{z}_t} \cdot \frac{\partial \mathbf{z}_t}{\partial \mathbf{W}_x} = \sum_{t=1}^{T} \boldsymbol{\delta}_t \mathbf{x}_t^T$$
+
+The weight matrix $\mathbf{W}_x$ is updated with information from all $T$ positions in a single sequence. This gives richer gradient signal than if each position updated its own private weights.
+
+<ConceptBox title="The analogy to CNN weight sharing">
+A CNN kernel of size $3 \times 3$ slides over every position in an image — the same 9 weights detect an edge wherever it appears. An RNN weight matrix slides over every time step — the same weights process a pattern wherever it appears in the sequence. Both designs encode the inductive bias: "useful patterns are position-independent." For images, this is spatial invariance; for sequences, this is temporal invariance.
+</ConceptBox>
+
+## The consequence: unrolled parameter reuse
+
+Consider a sequence of length $T=100$. The cell equation is:
+
+$$\mathbf{h}_t = \tanh(\mathbf{W}_h \mathbf{h}_{t-1} + \mathbf{W}_x \mathbf{x}_t + \mathbf{b})$$
+
+When we unroll for backpropagation, $\mathbf{W}_h$ appears in **every** step. The gradient of the loss at step 100 must pass through $\mathbf{W}_h$ ninety-nine times as it travels back to step 1:
+
+$$\frac{\partial \mathbf{h}_{100}}{\partial \mathbf{h}_1} = \prod_{t=2}^{100} \frac{\partial \mathbf{h}_t}{\partial \mathbf{h}_{t-1}} = \prod_{t=2}^{100} \mathbf{W}_h^T \cdot \text{diag}(\tanh'(\mathbf{z}_t))$$
+
+This product is what causes the gradient problem (Module 9). The same weight matrix $\mathbf{W}_h$ is multiplied with itself 99 times — eigenvalues smaller than 1 vanish, larger than 1 explode.
+
+## Parameter count comparison: MLP vs RNN on sequences
+
+Suppose we want to classify sequences of $T=50$ tokens, each of dimension $d=100$, into $k=10$ classes. Hidden size $n=128$.
+
+| Architecture | Parameter count | Handles $T_{test} \neq 50$? |
+|-------------|-----------------|----------------------------|
+| MLP (flattened) | $5000 \times 128 + 128 + 128 \times 10 + 10 = 641{,}418$ | No |
+| RNN (shared) | $100 \times 128 + 128^2 + 128 + 10 \times 128 + 10 = 30{,}090$ | Yes |
+
+The RNN uses **21× fewer parameters** while being length-agnostic. The MLP's weight column for position 37's token has no relationship to the column for position 38 — the RNN's $\mathbf{W}_x$ processes both the same way.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Gradient of loss w.r.t. W_x — accumulation across steps">
+
+The total loss is $\mathcal{L} = \sum_{t=1}^{T} \mathcal{L}_t$ (for many-to-many) or $\mathcal{L} = \mathcal{L}_T$ (for many-to-one).
+
+For many-to-one with loss only at step $T$:
+
+$$\frac{\partial \mathcal{L}}{\partial \mathbf{W}_x} = \sum_{t=1}^{T} \frac{\partial \mathcal{L}}{\partial \mathbf{h}_t} \frac{\partial \mathbf{h}_t}{\partial \mathbf{z}_t} \mathbf{x}_t^T$$
+
+where $\frac{\partial \mathcal{L}}{\partial \mathbf{h}_t}$ flows backward from step $T$ through the chain rule, and $\frac{\partial \mathbf{h}_t}{\partial \mathbf{z}_t} = \text{diag}(1 - \mathbf{h}_t^{\odot 2})$ is the diagonal Jacobian of tanh.
+
+Note that the same $\mathbf{W}_x$ accumulates gradients from all $T$ steps. After the full backward pass, a single update is applied:
+
+$$\mathbf{W}_x \leftarrow \mathbf{W}_x - \alpha \frac{\partial \mathcal{L}}{\partial \mathbf{W}_x}$$
+
+</DerivationStep>
+<DerivationStep number={2} title="Why W_h is the critical matrix for long-range dependencies">
+
+For the gradient to flow from step $T$ back to step 1, it must pass through the factor:
+
+$$\prod_{t=2}^{T} \frac{\partial \mathbf{h}_t}{\partial \mathbf{h}_{t-1}} = \prod_{t=2}^{T} \left(\mathbf{W}_h^T \cdot \text{diag}(\tanh'(\mathbf{z}_t))\right)$$
+
+If the spectral radius $\rho(\mathbf{W}_h) < 1$ (all singular values < 1), the product collapses toward zero exponentially. If $\rho(\mathbf{W}_h) > 1$, it grows exponentially.
+
+The weight $\mathbf{W}_x$ does not appear in this product — it affects the gradient from the current step only. Only $\mathbf{W}_h$ governs long-range gradient flow. This is why orthogonal initialisation of $\mathbf{W}_h$ (keeping $\rho(\mathbf{W}_h) = 1$) is a popular technique for stabilising RNN training.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="An RNN processes sequences of length T=20 during training. At test time, it receives a sequence of length T=35. What happens?"
+  options={[
+    "The model crashes — the weight matrices have wrong dimensions for length 35",
+    "The model works correctly — the same weights are applied at every step regardless of T",
+    "The model works but output quality degrades because the hidden state overflows",
+    "The model must be retrained with T=35 sequences"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of these are genuine benefits of sharing weights across time steps in an RNN?"
+  options={[
+    "The model can process sequences of any length with a fixed parameter budget",
+    "The same feature detector (weights) can be applied regardless of where a pattern appears in the sequence",
+    "Gradient signal from all T steps accumulates into a single update for W_x",
+    "Shared weights prevent the vanishing gradient problem",
+    "Training is faster because only one set of weights needs updating per batch"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

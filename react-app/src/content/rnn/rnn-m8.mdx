@@ -1,0 +1,169 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import RNNUnfoldWidget from '../../components/widgets/rnn/RNNUnfoldWidget.jsx'
+
+# Module 8: Backpropagation Through Time (BPTT)
+
+<Bridge>
+**From Module 7:** the same weight matrices apply at every time step, and gradients accumulate across all positions. Now we formalise exactly how training works — how error signals travel backward through the unfolded RNN. This is called Backpropagation Through Time (BPTT), and it's what makes RNN training hard.
+</Bridge>
+
+## The core idea
+
+Training an RNN is the same as training any neural network: compute the loss, compute gradients of the loss with respect to every parameter, update parameters. The only difference is that the **computational graph extends through time**.
+
+When we unroll the RNN, we get a graph that looks like a very deep feedforward network — one layer per time step. BPTT is just standard backpropagation applied to this unrolled graph.
+
+## Forward pass — unrolling through time
+
+Given an input sequence $(\mathbf{x}_1, \ldots, \mathbf{x}_T)$ and target sequence or label $(\mathbf{y}_1, \ldots, \mathbf{y}_T)$ (or just $\mathbf{y}_T$):
+
+**For** $t = 1, 2, \ldots, T$:
+$$\mathbf{z}_t = \mathbf{W}_h \mathbf{h}_{t-1} + \mathbf{W}_x \mathbf{x}_t + \mathbf{b}$$
+$$\mathbf{h}_t = \tanh(\mathbf{z}_t)$$
+$$\hat{\mathbf{y}}_t = \mathbf{W}_y \mathbf{h}_t + \mathbf{b}_y$$
+
+Compute loss: $\mathcal{L} = \sum_{t=1}^{T} \mathcal{L}_t(\hat{\mathbf{y}}_t, \mathbf{y}_t)$
+
+All $\mathbf{h}_t$ values must be **cached** during the forward pass — the backward pass needs them.
+
+## Backward pass — gradients flow back through time
+
+Now we compute $\partial \mathcal{L} / \partial \mathbf{W}_h$, $\partial \mathcal{L} / \partial \mathbf{W}_x$, $\partial \mathcal{L} / \partial \mathbf{b}$.
+
+**Step 1 — Gradient at output:**
+
+$$\frac{\partial \mathcal{L}_t}{\partial \hat{\mathbf{y}}_t} \quad \text{(standard loss gradient)}$$
+
+**Step 2 — Gradient of hidden state from output:**
+
+$$\frac{\partial \mathcal{L}_t}{\partial \mathbf{h}_t} = \mathbf{W}_y^T \frac{\partial \mathcal{L}_t}{\partial \hat{\mathbf{y}}_t}$$
+
+**Step 3 — Total gradient of h_t** (from both output at $t$ and all future steps):
+
+$$\boldsymbol{\delta}_t^h = \frac{\partial \mathcal{L}_t}{\partial \mathbf{h}_t} + \mathbf{W}_h^T \boldsymbol{\delta}_{t+1}^z$$
+
+where $\boldsymbol{\delta}_{t+1}^z$ is the gradient from the next step (flowing backward).
+
+**Step 4 — Gradient through tanh:**
+
+$$\boldsymbol{\delta}_t^z = \boldsymbol{\delta}_t^h \odot (1 - \mathbf{h}_t^{\odot 2})$$
+
+The $\odot$ is element-wise (Hadamard) product. The factor $(1 - \mathbf{h}_t^2)$ is the tanh derivative — this is where gradients shrink when the hidden state is saturated.
+
+**Step 5 — Accumulate weight gradients:**
+
+$$\frac{\partial \mathcal{L}}{\partial \mathbf{W}_h} += \boldsymbol{\delta}_t^z \mathbf{h}_{t-1}^T, \quad \frac{\partial \mathcal{L}}{\partial \mathbf{W}_x} += \boldsymbol{\delta}_t^z \mathbf{x}_t^T, \quad \frac{\partial \mathcal{L}}{\partial \mathbf{b}} += \boldsymbol{\delta}_t^z$$
+
+Repeat for $t = T, T-1, \ldots, 1$.
+
+## Visualising gradient flow — backward through time
+
+The widget below shows the BPTT direction. Toggle "BPTT mode" to see the gradient flowing right-to-left through the unrolled graph.
+
+<RNNUnfoldWidget showBPTT={true} />
+
+## The chain of matrix multiplications
+
+The gradient from the final step $T$ reaching step 1 passes through $T-1$ applications of $\mathbf{W}_h^T$:
+
+$$\frac{\partial \mathbf{h}_T}{\partial \mathbf{h}_1} = \prod_{t=2}^{T} \mathbf{W}_h^T \cdot \text{diag}(1 - \mathbf{h}_t^2)$$
+
+Each factor $\mathbf{W}_h^T \cdot \text{diag}(1 - \mathbf{h}_t^2)$ has spectral radius (largest singular value) bounded by:
+
+$$\rho \approx \|\mathbf{W}_h\| \cdot \max_t(1 - h_{t,i}^2)$$
+
+For $T=100$ steps and $\rho=0.9$: gradient shrinks by $0.9^{99} \approx 0.00003$. This is the **vanishing gradient problem** — covered in depth in Module 9.
+
+## Truncated BPTT — the practical version
+
+Full BPTT over very long sequences is computationally expensive (memory scales with $T$). **Truncated BPTT** processes the sequence in chunks of length $k$:
+
+1. Run forward pass for steps $t$ to $t+k$
+2. Run backward pass only through these $k$ steps
+3. Carry the hidden state forward to the next chunk (but don't backpropagate through it)
+4. Repeat
+
+```python
+hidden = torch.zeros(1, batch_size, n_hidden)
+optimizer.zero_grad()
+for chunk_start in range(0, T, chunk_size):
+    x_chunk = x[:, chunk_start:chunk_start + chunk_size]
+    y_chunk = y[:, chunk_start:chunk_start + chunk_size]
+
+    # Detach hidden to stop gradient flowing into previous chunk
+    hidden = hidden.detach()
+
+    output, hidden = rnn(x_chunk, hidden)
+    loss = criterion(output, y_chunk)
+    loss.backward()   # backprop only through chunk_size steps
+    optimizer.step()
+    optimizer.zero_grad()
+```
+
+`hidden.detach()` is the key line — it stops gradient from flowing back through previous chunks while still forwarding the hidden state as context.
+
+<ConceptBox title="BPTT vs truncated BPTT">
+Full BPTT is exact but requires storing all activations for T steps and computing T matrix products in the backward pass. Truncated BPTT (chunk size k) requires only k-step activations and is k/T times cheaper in memory. The tradeoff: gradients can only flow k steps backward, so dependencies longer than k steps will not be learned. In practice, k=35 works well for most language modeling tasks. LSTM and GRU (Module 10) partially mitigate this by providing a better gradient highway.
+</ConceptBox>
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Full gradient of L w.r.t. W_h — derivation">
+
+The total loss is $\mathcal{L} = \sum_{t=1}^{T} \mathcal{L}_t$.
+
+By the chain rule:
+
+$$\frac{\partial \mathcal{L}}{\partial \mathbf{W}_h} = \sum_{t=1}^{T} \frac{\partial \mathcal{L}_t}{\partial \mathbf{W}_h}$$
+
+Each $\mathcal{L}_t$ depends on $\mathbf{h}_t$, which depends on $\mathbf{h}_{t-1}, \ldots, \mathbf{h}_1$ through the recurrence. By applying the chain rule through the recurrence:
+
+$$\frac{\partial \mathcal{L}_t}{\partial \mathbf{W}_h} = \sum_{k=1}^{t} \frac{\partial \mathcal{L}_t}{\partial \mathbf{h}_t} \cdot \frac{\partial \mathbf{h}_t}{\partial \mathbf{h}_k} \cdot \frac{\partial \mathbf{h}_k}{\partial \mathbf{W}_h}$$
+
+where $\frac{\partial \mathbf{h}_t}{\partial \mathbf{h}_k} = \prod_{i=k+1}^{t} \frac{\partial \mathbf{h}_i}{\partial \mathbf{h}_{i-1}}$ involves the repeated matrix product of local Jacobians.
+
+</DerivationStep>
+<DerivationStep number={2} title="Why BPTT is equivalent to a deep network backward pass">
+
+Unroll the RNN for $T$ steps. The resulting graph is:
+
+$$\mathbf{h}_0 \to \mathbf{h}_1 \to \mathbf{h}_2 \to \cdots \to \mathbf{h}_T \to \mathcal{L}$$
+
+This is a feedforward network of depth $T$ where:
+- All "layers" share the same weights $(\mathbf{W}_h, \mathbf{W}_x, \mathbf{b})$
+- Layer $t$ takes $[\mathbf{h}_{t-1}, \mathbf{x}_t]$ and produces $\mathbf{h}_t$
+
+Standard backpropagation on this graph is exactly BPTT. The only difference from a normal deep network: weights are shared, so gradients at every layer accumulate into the same update.
+
+Memory complexity: $O(T \cdot n)$ — we must store all $\mathbf{h}_t$ for the backward pass.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="During BPTT, why must all hidden states h₁, h₂, ..., h_T be cached during the forward pass?"
+  options={[
+    "To compute the loss at each step without recomputing the forward pass",
+    "The backward pass needs h_t to compute the tanh derivative (1 − h_t²) at each step",
+    "Caching speeds up the forward pass on the next training epoch",
+    "PyTorch requires all intermediate values to be stored for any model"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of these statements about truncated BPTT are correct?"
+  options={[
+    "It reduces memory usage by not storing activations for the full sequence length",
+    "It allows gradients to flow across the full sequence — just more slowly",
+    "The hidden state is passed between chunks so context is not completely lost",
+    "hidden.detach() stops the gradient but preserves the hidden state value for the next chunk",
+    "Truncated BPTT with chunk size k can learn dependencies longer than k steps"
+  ]}
+  correct={[0, 2, 3]}
+/>

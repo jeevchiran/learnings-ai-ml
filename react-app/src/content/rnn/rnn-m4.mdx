@@ -1,0 +1,128 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Module 4: Applications of RNNs
+
+<Bridge>
+**From Module 3:** we've established why order matters and why standard networks can't handle it. Before diving into architecture, let's survey the landscape of what RNNs actually build — the motivation for everything that follows in this track.
+</Bridge>
+
+## The application map
+
+RNNs power a wide range of real-world systems. The common thread: all inputs are ordered sequences, and the output is either another sequence or a summary of a sequence.
+
+| Application | Input | Output | Pattern |
+|-------------|-------|--------|---------|
+| Sentiment analysis | "Great film, loved it" | Positive | Many → one |
+| Text classification | News article | Category | Many → one |
+| Named entity recognition | "Apple Inc. is in Cupertino" | PER O O LOC | Many → many (synced) |
+| POS tagging | "She runs fast" | PRON VERB ADV | Many → many (synced) |
+| Language modeling | "The cat sat on the" | "mat" (next word) | Many → one (rolled) |
+| Machine translation | "Hello world" | "Hola mundo" | Many → many (encoder-decoder) |
+| Speech recognition | Audio signal | "Call my mom" | Many → many (async) |
+| Image captioning | Image features | "A dog chasing a ball" | One → many |
+| Music generation | Seed melody | Extended melody | One → many |
+| Time-series forecasting | Last 30 days of sales | Next 7 days | Many → many |
+| Anomaly detection | Server log sequence | Anomaly flag | Many → one |
+| Handwriting recognition | Pen stroke sequence | Text | Many → many |
+
+## Four canonical patterns
+
+Every RNN application falls into one of four I/O patterns. We'll explore these in depth in Module 12 — here's a quick preview.
+
+**Many-to-one** — consume a sequence, emit a single summary. Used for classification and regression over sequences.
+
+```
+x₁ → x₂ → x₃ → x₄ → [RNN] → ŷ
+```
+
+**One-to-many** — take a single input (or context vector), generate a sequence. Used for image captioning and text generation from a prompt.
+
+```
+[seed] → RNN → y₁ → y₂ → y₃ → y₄
+```
+
+**Many-to-many (synced)** — output at every time step, aligned to input. Used when every element of the input needs a label.
+
+```
+x₁ → y₁ | x₂ → y₂ | x₃ → y₃
+```
+
+**Many-to-many (encoder-decoder)** — read the entire input first (encoder), then generate the output sequence (decoder). Used when input and output have different lengths or structures, like translation.
+
+```
+Encoder: x₁ → x₂ → x₃ → context
+Decoder: context → y₁ → y₂ → y₃ → y₄
+```
+
+## Spotlight: Language Modeling
+
+A language model predicts $P(w_t \mid w_1, \ldots, w_{t-1})$ — the probability of the next word given all previous words. An RNN maintains $\mathbf{h}_{t-1}$ which compresses the entire history, then produces:
+
+$$\hat{\mathbf{y}}_t = \text{softmax}(\mathbf{W}_y \mathbf{h}_t + \mathbf{b}_y)$$
+
+where $\hat{\mathbf{y}}_t$ is a probability distribution over the vocabulary. Training maximises log-likelihood:
+
+$$\mathcal{L} = -\sum_{t=1}^{T} \log P(w_t \mid w_1, \ldots, w_{t-1})$$
+
+This is the foundation of all modern NLP. GPT-2, GPT-3, and their successors all descend from this idea — though they replace the RNN with the Transformer (attention) mechanism.
+
+## Spotlight: Machine Translation
+
+The encoder-decoder architecture was the first to successfully translate between languages with deep learning. The encoder reads the source sentence and produces a context vector $\mathbf{c}$ (the final hidden state). The decoder generates the target language word-by-word, conditioned on $\mathbf{c}$:
+
+```python
+# Conceptual pseudocode
+context = encoder(source_tokens)       # h_T of source
+output_tokens = decoder(context)       # generate target autoregressively
+```
+
+The bottleneck: $\mathbf{c}$ must compress the entire source sentence into a single fixed-size vector. Long sentences lose information. The **attention mechanism** (precursor to Transformers) solved this by allowing the decoder to look back at all encoder hidden states at each decoding step.
+
+## Spotlight: Time-Series Forecasting
+
+Stock prices, weather, energy demand, web traffic — all are time series. An LSTM (Module 10) is well-suited here:
+
+```python
+# Simplified structure
+model = nn.LSTM(input_size=1, hidden_size=64, num_layers=2, batch_first=True)
+# Input: (batch, seq_len, 1) — last 30 days
+# Output: LSTM hidden state → FC layer → next 7 days prediction
+```
+
+Key advantage over ARIMA and classical methods: the model *learns* which lags matter and what nonlinear patterns to exploit — without hand-specified lag windows.
+
+## Spotlight: Speech Recognition
+
+A speech signal is a sequence of 16,000 samples per second. After feature extraction (mel spectrograms), it becomes a sequence of ~100 frames per second. An RNN maps this to a sequence of characters or phonemes. The CTC (Connectionist Temporal Classification) loss handles the alignment mismatch between acoustic frames and text characters.
+
+<ConceptBox title="Why RNNs are no longer the dominant architecture">
+For many of these tasks, Transformers (BERT, GPT, Wav2Vec) have surpassed RNNs because attention can capture long-range dependencies more directly and can be parallelized during training. However, RNNs remain relevant for: (1) streaming applications where you can't wait for the full sequence, (2) edge devices with limited memory, (3) understanding the foundations that Transformers built upon. Everything in this track is foundational knowledge.
+</ConceptBox>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="A system translates English to German. The English input is 10 words; the German output is 12 words. Which RNN pattern should it use?"
+  options={[
+    "Many-to-one (the output is always a fixed-size category)",
+    "One-to-many (the input is one document, the output is many words)",
+    "Many-to-many synced (one German word per English word, length must match)",
+    "Many-to-many encoder-decoder (input and output differ in length and structure)"
+  ]}
+  correct={3}
+/>
+
+<MultiSelectQuiz
+  question="Which of these applications use the 'many-to-one' RNN pattern?"
+  options={[
+    "Classifying whether an email is spam (input = email tokens, output = spam/not-spam)",
+    "Tagging every word in a sentence as part of a named entity",
+    "Predicting whether a patient will be readmitted based on their medical event sequence",
+    "Generating a caption for an image",
+    "Summarizing a customer review as 1–5 stars",
+    "Translating a sentence from French to English"
+  ]}
+  correct={[0, 2, 4]}
+/>

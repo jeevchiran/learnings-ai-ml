@@ -1,0 +1,217 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import SentimentWidget from '../../components/widgets/rnn/SentimentWidget.jsx'
+
+# Module 14: RNNs in Language — NLP Applications
+
+<Bridge>
+**From Module 13:** we've seen RNNs applied to time series and classification. This final module covers their most prominent domain: natural language. Four tasks — sentiment analysis, named entity recognition, language modeling, and machine translation — each revealing a different dimension of what recurrent networks can do with text.
+</Bridge>
+
+## Task 1 — Sentiment Analysis (Many-to-One)
+
+Sentiment analysis classifies a text into polarity (positive/negative) or a rating (1–5 stars). It's a many-to-one task: consume every word, emit a single label.
+
+### Interactive: step through sentiment accumulation
+
+Watch how the LSTM's internal state accumulates sentiment as it reads each word. Notice how "but" and "not" flip the signal.
+
+<SentimentWidget />
+
+### Why order matters for sentiment
+
+A bag-of-words model sees the same words in "not bad" and "bad, not acceptable". An RNN's hidden state at position $t$ carries the context of all previous words — when it encounters "bad", it already knows "not" came before it.
+
+### PyTorch implementation
+
+```python
+class SentimentLSTM(nn.Module):
+    def __init__(self, vocab_size, embed_dim=128, hidden=256,
+                 num_layers=2, dropout=0.4):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
+        self.lstm = nn.LSTM(embed_dim, hidden, num_layers,
+                            batch_first=True, dropout=dropout,
+                            bidirectional=True)
+        self.dropout = nn.Dropout(dropout)
+        self.fc = nn.Linear(2 * hidden, 1)   # binary: positive/negative
+
+    def forward(self, tokens, lengths):
+        x = self.dropout(self.embedding(tokens))
+        packed = pack_padded_sequence(x, lengths.cpu(),
+                                      batch_first=True, enforce_sorted=False)
+        _, (h_n, _) = self.lstm(packed)
+        h = torch.cat([h_n[-2], h_n[-1]], dim=-1)   # bidir final states
+        return self.fc(self.dropout(h)).squeeze(-1)  # (batch,)
+
+# Loss: BCEWithLogitsLoss for binary, CrossEntropyLoss for multi-class
+```
+
+## Task 2 — Named Entity Recognition (Many-to-Many Synced)
+
+NER assigns a label to every token: PER (person), LOC (location), ORG (organisation), O (other).
+
+**Example:** `"Apple | acquired | Beats | in | Cupertino"` → `ORG | O | ORG | O | LOC`
+
+The IOB2 (Inside-Outside-Beginning) scheme handles multi-token entities:
+
+| Token | IOB2 tag | Meaning |
+|-------|----------|---------|
+| "New" | B-LOC | Beginning of a location |
+| "York" | I-LOC | Inside the location |
+| "City" | I-LOC | Still inside |
+| "is" | O | Not an entity |
+
+```python
+class NERModel(nn.Module):
+    def __init__(self, vocab_size, embed_dim, hidden, num_tags):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
+        self.bilstm = nn.LSTM(embed_dim, hidden, batch_first=True,
+                               bidirectional=True)
+        self.fc = nn.Linear(2 * hidden, num_tags)
+
+    def forward(self, tokens):
+        x = self.embedding(tokens)
+        out, _ = self.bilstm(x)
+        # out: (batch, seq_len, 2*hidden)
+        return self.fc(out)   # (batch, seq_len, num_tags)
+
+# Training: CrossEntropyLoss per token, mask padding positions
+```
+
+Bidirectional LSTM helps NER: "New" is tagged as B-LOC partly because "York" follows it — the backward direction captures this.
+
+## Task 3 — Language Modeling (Rolling Many-to-One)
+
+A language model predicts the next word given all previous words. At training time, this becomes a many-to-many task: given tokens $(w_1, \ldots, w_{T-1})$, predict $(w_2, \ldots, w_T)$.
+
+$$P(w_1, \ldots, w_T) = \prod_{t=1}^{T} P(w_t \mid w_1, \ldots, w_{t-1})$$
+
+```python
+class CharRNNLM(nn.Module):
+    def __init__(self, vocab_size, embed_dim=128, hidden=512, num_layers=3):
+        super().__init__()
+        self.embed = nn.Embedding(vocab_size, embed_dim)
+        self.lstm = nn.LSTM(embed_dim, hidden, num_layers,
+                            batch_first=True, dropout=0.5)
+        self.fc = nn.Linear(hidden, vocab_size)
+
+    def forward(self, x, hidden=None):
+        x = self.embed(x)
+        out, hidden = self.lstm(x, hidden)
+        # out: (batch, seq_len, hidden)
+        return self.fc(out), hidden   # logits: (batch, seq_len, vocab_size)
+
+# Loss: CrossEntropyLoss on shifted sequence
+# input:  [w_1, w_2, ..., w_{T-1}]
+# target: [w_2, w_3, ..., w_T]
+```
+
+**Perplexity:** the standard metric for language models:
+
+$$\text{PPL} = \exp\!\left(-\frac{1}{T}\sum_{t=1}^{T} \log P(w_t \mid w_{<t})\right)$$
+
+Lower is better. A random model over a 10,000-word vocabulary has PPL=10,000. A good RNN LM achieves 50–100 on standard benchmarks.
+
+## Task 4 — Machine Translation (Encoder-Decoder)
+
+Translation is a many-to-many encoder-decoder task. Source and target languages have different word orders, vocabulary sizes, and lengths.
+
+```python
+class Seq2SeqTranslator(nn.Module):
+    def __init__(self, src_vocab, tgt_vocab, embed=256, hidden=512):
+        super().__init__()
+        self.src_embed = nn.Embedding(src_vocab, embed, padding_idx=0)
+        self.tgt_embed = nn.Embedding(tgt_vocab, embed, padding_idx=0)
+        self.encoder = nn.LSTM(embed, hidden, batch_first=True)
+        self.decoder = nn.LSTM(embed, hidden, batch_first=True)
+        self.fc = nn.Linear(hidden, tgt_vocab)
+
+    def encode(self, src):
+        emb = self.src_embed(src)
+        _, (h, c) = self.encoder(emb)
+        return h, c   # context: (1, batch, hidden)
+
+    def decode_step(self, tgt_token, h, c):
+        emb = self.tgt_embed(tgt_token.unsqueeze(1))   # (batch, 1, embed)
+        out, (h, c) = self.decoder(emb, (h, c))
+        logits = self.fc(out.squeeze(1))               # (batch, tgt_vocab)
+        return logits, h, c
+
+    def forward(self, src, tgt):
+        h, c = self.encode(src)
+        # Teacher forcing: feed ground truth tgt[:-1] as input
+        tgt_in = tgt[:, :-1]
+        tgt_emb = self.tgt_embed(tgt_in)
+        out, _ = self.decoder(tgt_emb, (h, c))
+        return self.fc(out)   # (batch, tgt_len-1, tgt_vocab)
+```
+
+**The bottleneck problem:** the entire source sentence is compressed into the final hidden state $(h, c)$. For long sentences, important early words get diluted. The **attention mechanism** — predecessor to the Transformer — fixes this by allowing the decoder to look at all encoder hidden states directly, weighted by relevance.
+
+<ConceptBox title="From RNNs to Transformers">
+The encoder-decoder RNN with attention (Bahdanau, 2014) was the blueprint. "Attention is All You Need" (Vaswani et al., 2017) removed the recurrence entirely — replacing it with self-attention, which can directly connect any two positions in $O(1)$ steps (vs $O(T)$ for RNNs). Modern LLMs (GPT, BERT, T5) are all Transformer-based. Understanding RNNs — the gradient problem, the hidden state, the encoder-decoder pattern — is the prerequisite for understanding why Transformers were designed the way they were.
+</ConceptBox>
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Cross-entropy loss for language modeling">
+
+For a sequence of $T$ tokens with vocabulary size $|V|$, the LM loss is:
+
+$$\mathcal{L} = -\frac{1}{T} \sum_{t=1}^{T} \log P(w_t \mid w_1, \ldots, w_{t-1})$$
+
+In practice, this is `nn.CrossEntropyLoss` applied to the output logits at each position:
+
+```python
+logits, _ = model(x[:, :-1])          # (batch, T-1, vocab)
+targets = x[:, 1:]                     # (batch, T-1)
+loss = F.cross_entropy(
+    logits.reshape(-1, vocab_size),    # (batch*(T-1), vocab)
+    targets.reshape(-1)                # (batch*(T-1),)
+)
+```
+
+Perplexity = $e^{\text{loss}}$, since the loss is average negative log-probability in nats.
+
+</DerivationStep>
+<DerivationStep number={2} title="CRF layer for NER — beyond softmax">
+
+A simple BiLSTM-softmax predicts each tag independently. This can produce invalid sequences like `I-PER` after `O` (the "Inside" tag without a "Beginning"). A **Conditional Random Field (CRF)** layer adds a transition matrix that scores sequences of tags:
+
+$$P(\mathbf{y} \mid \mathbf{x}) = \frac{\exp(\text{score}(\mathbf{x}, \mathbf{y}))}{\sum_{\mathbf{y}'} \exp(\text{score}(\mathbf{x}, \mathbf{y}'))}$$
+
+where $\text{score}(\mathbf{x}, \mathbf{y}) = \sum_t [\text{emission}_t(y_t) + \text{transition}(y_{t-1}, y_t)]$.
+
+The `torchcrf` library provides a drop-in CRF layer for PyTorch. BiLSTM-CRF is the standard architecture for NER.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="In the language model, why is the input to the decoder x[:, :-1] while the target is x[:, 1:]?"
+  options={[
+    "The model receives the first T-1 tokens as input and must predict the last T-1 tokens, each shifted one position forward",
+    "The model skips the first token because it's always a special start token",
+    "x[:, :-1] removes padding; x[:, 1:] removes the end-of-sequence token",
+    "The model needs to process input and target in parallel, so both must have the same shape"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which of these statements about using RNNs for NLP applications are correct?"
+  options={[
+    "Bidirectional LSTMs improve NER because each token can be labeled using both past and future context",
+    "Language models are trained to predict the next token given all previous tokens",
+    "The encoder-decoder bottleneck (single context vector) is the main reason why attention was invented",
+    "Sentiment analysis using an RNN is more robust to negation than bag-of-words because the hidden state accumulates context",
+    "Machine translation requires the encoder and decoder to have the same vocabulary"
+  ]}
+  correct={[0, 1, 2, 3]}
+/>

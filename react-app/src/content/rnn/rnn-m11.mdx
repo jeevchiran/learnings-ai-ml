@@ -1,0 +1,160 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Module 11: Handling Variable-Length Sequences
+
+<Bridge>
+**From Module 10:** LSTMs and GRUs solve the gradient problem. Now comes a practical challenge that every production RNN faces: real-world sequences don't all have the same length. A batch of 32 sentences might have lengths ranging from 3 to 87 tokens. How do you efficiently process them together?
+</Bridge>
+
+## The batching problem
+
+GPUs are efficient at parallel matrix operations — but only when all tensors have the same shape. If you want to process 32 sequences simultaneously, they must form a rectangular tensor of shape `(32, T, d)`. When sequences have different lengths, you have two choices: padding or dynamic batching.
+
+## Solution 1 — Zero padding
+
+**Pad all sequences to the length of the longest one** in the batch. Shorter sequences get zeros appended:
+
+```
+Sequences:          Padded to length 5:
+[a, b, c]     →    [a, b, c, 0, 0]
+[x, y, z, w]  →    [x, y, z, w, 0]
+[p]           →    [p, 0, 0, 0, 0]
+```
+
+```python
+from torch.nn.utils.rnn import pad_sequence
+
+# sequences: list of tensors with varying lengths
+padded = pad_sequence(sequences, batch_first=True, padding_value=0)
+# padded: (batch_size, max_len, d)
+```
+
+**Problem:** the RNN will process pad tokens, updating the hidden state based on zeros. This corrupts the final hidden state for short sequences.
+
+## Solution 2 — Masking
+
+After padding, apply a **mask** to ignore pad positions in the loss:
+
+```python
+# lengths: (batch,) — true length of each sequence
+lengths = torch.tensor([3, 4, 1])   # for the example above
+max_len = padded.shape[1]           # 5
+
+mask = torch.arange(max_len).unsqueeze(0) < lengths.unsqueeze(1)
+# mask: [[T,T,T,F,F], [T,T,T,T,F], [T,F,F,F,F]]
+
+# Apply mask to loss
+loss = criterion(output, targets)   # (batch, seq_len)
+loss = (loss * mask.float()).sum() / mask.float().sum()
+```
+
+Masking ensures that pad positions don't contribute to parameter updates. But it doesn't stop the RNN from updating its hidden state at pad positions — for the final hidden state, you still get a corrupted value for short sequences.
+
+## Solution 3 — pack_padded_sequence
+
+PyTorch provides `pack_padded_sequence`, which skips pad positions entirely during the RNN forward pass:
+
+```python
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+
+# Inputs must be sorted by length (descending) for pack
+lengths_sorted, sort_idx = lengths.sort(descending=True)
+padded_sorted = padded[sort_idx]
+
+# Pack: removes pad tokens from computation
+packed = pack_padded_sequence(padded_sorted, lengths_sorted.cpu(),
+                               batch_first=True, enforce_sorted=True)
+
+# Run RNN on packed sequence — no wasted compute on pads
+output_packed, (h_n, c_n) = lstm(packed)
+
+# Unpack: reinsert pad tokens into output
+output, _ = pad_packed_sequence(output_packed, batch_first=True)
+```
+
+**What `pack_padded_sequence` does internally:** it rearranges the batch into a sequence of "real" tokens only, along with bookkeeping about which batch item each token belongs to. The RNN sees no zeros. The final hidden state $h_n$ is the correct final state for each sequence (not the state after processing pads).
+
+<ConceptBox title="Why sorting by length is required">
+The packed format interleaves tokens from different sequences step by step. At time step t, only sequences with length ≥ t are processed. Sorting by length ensures that when shorter sequences "drop out" of the batch, they drop out from the end — making the interleaving trivial to implement. With `enforce_sorted=False`, PyTorch handles the sorting internally, but there's a small overhead.
+</ConceptBox>
+
+## Extracting the correct final hidden state
+
+After unpacking, the `h_n` from the LSTM/GRU is already the correct final state per sequence (the state at the actual last token, not after padding). But from the `output` tensor, you need to extract position `lengths[i] - 1` for sequence `i`:
+
+```python
+# Gather final hidden state from output for each sequence
+batch_size = output.shape[0]
+idx = (lengths - 1).view(-1, 1, 1).expand(-1, 1, output.shape[2])
+final_hidden = output.gather(1, idx).squeeze(1)
+# final_hidden: (batch_size, hidden_size) — correct for all lengths
+```
+
+## Bucket sampling — minimising wasted padding
+
+Even with packing, some padding is inevitable in a batch. A practical trick: **sort training examples by length and create batches from similar-length sequences**. This minimises the total amount of padding in the batch.
+
+```python
+# Sort dataset by sequence length
+dataset_sorted = sorted(dataset, key=lambda x: len(x['tokens']))
+# Create batches from consecutive examples (similar lengths)
+# This reduces average padding by ~40-60% vs random batching
+```
+
+## Practical checklist for variable-length sequences
+
+| Step | Tool | Effect |
+|------|------|--------|
+| Pad to batch max length | `pad_sequence` | Rectangular tensor for GPU |
+| Skip pad tokens in RNN | `pack_padded_sequence` | Correct h_n, no wasted compute |
+| Mask loss | Manual mask | No gradient from pad positions |
+| Sort by length | Custom DataLoader | Minimise padding overhead |
+| Unsort after RNN | Index permutation | Restore original batch order |
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Memory cost of padding vs packing">
+
+Consider a batch of 64 sequences. Average length 30, max length 90. Input dimension $d=128$.
+
+**With padding:**
+- Tensor shape: $(64, 90, 128)$
+- Total elements: $64 \times 90 \times 128 = 737{,}280$
+- Wasted elements (pad): $64 \times (90-30) \times 128 = 491{,}520$ — 67% waste
+
+**With packing:**
+- Only real tokens processed: $64 \times 30 \times 128 = 245{,}760$ elements at RNN level
+- Savings: 67% fewer RNN computations
+
+For short sequences with a long outlier (say, average 10, max 200), packing reduces RNN compute by ~95%.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="You call lstm(packed_input) where packed_input was created with pack_padded_sequence. What does the returned h_n contain for a sequence of true length 7 in a batch padded to length 20?"
+  options={[
+    "The hidden state after processing 20 tokens (including 13 padding zeros)",
+    "The hidden state after processing 7 tokens — the actual last real token",
+    "The average hidden state across all 20 positions",
+    "The hidden state at position 7, but corrected by subtracting the padding contribution"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of these statements about pad_sequence and pack_padded_sequence are correct?"
+  options={[
+    "pad_sequence pads all sequences to the length of the longest one in the batch",
+    "pack_padded_sequence requires sequences to be sorted by length in descending order (or enforce_sorted=False)",
+    "Using pack_padded_sequence eliminates the need for a loss mask because pads are never processed",
+    "The output tensor from pad_packed_sequence has shape (batch, max_len, hidden_size)",
+    "pack_padded_sequence is required to use nn.LSTM — padding without packing will error"
+  ]}
+  correct={[0, 1, 3]}
+/>

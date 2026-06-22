@@ -1,0 +1,132 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Module 3: The Importance of Order
+
+<Bridge>
+**From Module 2:** we know MLPs are structurally incapable of modeling order. Now let's build a deep intuition for *why order is the central signal* in sequential data — through concrete linguistic and numerical examples that show how rearranging the same elements can completely reverse the meaning.
+</Bridge>
+
+## Language: identical words, opposite meanings
+
+Consider these four sentences built from overlapping words:
+
+| Sentence | Meaning |
+|----------|---------|
+| "The dog bit the man" | Dog harmed the man |
+| "The man bit the dog" | Man harmed the dog |
+| "Did the dog bite the man?" | Question — no assertion |
+| "The dog did not bite the man" | No harm at all |
+
+The same six core words. Entirely different meanings. Order is not decoration — it *is* the grammar.
+
+**Negation** is the sharpest example. In English, "not" flips the polarity of everything after it:
+
+```
+"The movie was great"           → Positive
+"The movie was not great"       → Negative
+"The movie was not bad at all"  → Positive (double negation context)
+```
+
+A model that doesn't track order cannot distinguish these. It sees the same tokens: {"movie", "was", "not", "great"} — and produces the same output regardless of position.
+
+## Numerical sequences: same values, different trend
+
+Take the sequence $[90, 95, 100, 105, 110]$. This represents a rising trend — up 5 each day. Now consider $[110, 105, 100, 95, 90]$ — a falling trend with the exact same values. Same set, opposite stories.
+
+In time-series forecasting:
+- An upward trend suggests buying
+- A downward trend suggests selling
+
+The causal question "does yesterday's price predict today's?" only makes sense if time is preserved. Shuffling the series destroys all predictive structure.
+
+<ConceptBox title="Why 'bag of words' fails for sentiment">
+A **bag-of-words** model represents a document as a multiset of tokens — it counts how many times each word appears, discarding all position information. "John loves Mary" and "Mary loves John" produce the exact same bag. "The food was not good" and "The food was good, not bad" share almost the same bag. Bag-of-words works well for topic classification (documents about "sport" contain sport-related words) but fails for any task where order changes meaning — sentiment, negation, entailment, coreference.
+</ConceptBox>
+
+## Dependencies at arbitrary distance
+
+Order matters not just locally (adjacent words) but across long distances:
+
+> *"The **trophy** did not fit in the suitcase because **it** was too big."*
+
+What does "it" refer to — the trophy or the suitcase? The answer requires tracking the referent ("trophy") from 5 tokens earlier and resolving the pronoun 8 tokens later. No fixed window of size 3 or 4 captures this.
+
+This is the **long-range dependency** problem. In language, an opening parenthesis must be closed, an if-clause must have a then-clause, a subject must agree with its verb — even when separated by entire clauses.
+
+In time series, long-range patterns include:
+- Seasonal trends (sell ice cream in summer, coats in winter)
+- Periodic signals (CPU load spikes every 24h)
+- Lag correlations (economic indicators affect prices 3 months later)
+
+## Order-sensitive tasks vs order-invariant tasks
+
+Not every task requires order. Here's a practical guide:
+
+| Task | Order matters? | Why |
+|------|---------------|-----|
+| Sentiment analysis | **Yes** | Negation, emphasis, sequence |
+| Topic classification | Mostly no | "Sports", "Politics" → bag-of-words often fine |
+| Machine translation | **Yes** | Grammar varies by language |
+| Named entity recognition | **Yes** | "New York" is a name; "York, New" is not |
+| Anomaly detection in time series | **Yes** | Pattern of change matters |
+| Image classification | No | Pixels in a spatial grid, not temporal order |
+| Set operations (max, min, sum) | No | Inherently permutation-invariant |
+
+Choosing the right architecture starts with asking: **does my output change if I shuffle the input?** If yes, you need an order-sensitive model.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Formalising order sensitivity">
+
+A function $f: \mathcal{X}^* \to \mathcal{Y}$ is **order-sensitive** if there exist sequences $\mathbf{x} = (x_1, \ldots, x_T)$ and a permutation $\pi$ such that:
+
+$$f(x_1, \ldots, x_T) \neq f(x_{\pi(1)}, \ldots, x_{\pi(T)})$$
+
+Language models, sequence classifiers, and transducers are all order-sensitive. Feedforward networks with positional embeddings are partially order-sensitive (they encode position via embeddings), but without recurrence or attention, long-range dependencies still cannot be captured.
+
+</DerivationStep>
+<DerivationStep number={2} title="The n-gram as a local order model">
+
+An n-gram model conditions on the $n-1$ preceding tokens:
+
+$$P(w_t \mid w_{t-1}, \ldots, w_{t-n+1})$$
+
+This captures local order within a window of size $n$. It is explicitly position-dependent (the sequence matters) but limited to $n-1$ steps of context. For $n=2$ (bigram), only the immediately preceding word is considered.
+
+Bigram accuracy breaks down on:
+- Negation: "not bad" — the bigram "not bad" is learned, but "not very good" requires seeing 3 tokens
+- Long agreement: "The list of items are/is" — the verb must agree with "list", not the closer "items"
+
+An RNN, by contrast, carries all context in $\mathbf{h}_{t-1}$ — theoretically unlimited reach, practically limited by the gradient problem (Modules 8–9).
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="A sentiment model receives the sentence 'The movie was not terrible'. A bag-of-words model rates 'terrible' negatively and predicts negative sentiment. What's missing?"
+  options={[
+    "The bag-of-words model needs more training data to learn negation",
+    "The word 'not' is in the stop-word list and was removed before prediction",
+    "The model has no representation of order, so 'not terrible' = 'terrible not' and the negation effect is invisible",
+    "Bag-of-words always fails on movie reviews specifically"
+  ]}
+  correct={2}
+/>
+
+<MultiSelectQuiz
+  question="Which of these tasks require order-sensitive modeling — where shuffling the input would change the correct output?"
+  options={[
+    "Counting how many times the word 'bank' appears in a document",
+    "Translating 'The cat chased the dog' from English to French",
+    "Predicting next month's temperature from the last 12 months of data",
+    "Finding the most common topic in a news article",
+    "Tagging each word as noun/verb/adjective (POS tagging)",
+    "Generating the next character in a partially typed password"
+  ]}
+  correct={[1, 2, 4, 5]}
+/>

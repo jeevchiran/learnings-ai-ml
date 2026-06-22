@@ -1,0 +1,116 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Module 2: Why MLPs Struggle with Sequential Data
+
+<Bridge>
+**From Module 1:** we established that sequential data requires order sensitivity and supports variable length. Now let's be precise about exactly how MLPs fail — not hand-waving, but three concrete architectural limitations. Understanding these failures is what makes the RNN solution feel *necessary* rather than arbitrary.
+</Bridge>
+
+## Failure 1 — Fixed input size
+
+An MLP maps $\mathbf{x} \in \mathbb{R}^d$ to $\hat{\mathbf{y}} \in \mathbb{R}^k$. The weight matrix $W \in \mathbb{R}^{n \times d}$ hardcodes the input dimension $d$ at construction time.
+
+Sequences don't have a fixed length. "Hi" has 2 characters. "Supercalifragilistic" has 20. Training a classifier on these means you need to decide on $d$ before training — then either pad short sequences or truncate long ones. Both are lossy.
+
+**Padding** adds zeros to short sequences to match the longest in the batch. The network must then learn to ignore the padded positions — or it will mistake "zero" for actual signal.
+
+**Truncation** throws away information from long sequences. For tasks where the meaning is at the end of the sequence (e.g. a plot twist in a long story), this is fatal.
+
+Neither approach is satisfying. The fundamental issue is that MLP architecture bakes length into its weights.
+
+## Failure 2 — No memory across positions
+
+Consider classifying the sentence: *"Despite the long wait, the food was not disappointing."*
+
+An MLP processes all tokens simultaneously as a flat vector. The word "not" is at position 9 of 10. The word "disappointing" is at position 10. The MLP connects position 9's weight row to position 9's input slot — but it has no mechanism to say "position 9 is negating position 10."
+
+To capture that relationship, an MLP would need to hard-code a connection between every pair of positions — a $d \times d$ attention table for every hidden unit. And even then, that connection is fixed, not learned from context.
+
+More precisely: an MLP with input $[x_1, x_2, \ldots, x_T]$ sees the entire sequence at once as a flat vector. There is no concept of "I have read $x_1$ through $x_5$, and now I'm at $x_6$." All positions contribute simultaneously, weighted by the corresponding columns of $W$. There is no **state** that accumulates as the sequence is processed.
+
+## Failure 3 — Permutation invariance
+
+This is the most fundamental flaw. Mathematically:
+
+$$\text{MLP}([x_1, x_2, x_3]) \neq \text{MLP}([x_2, x_1, x_3]) \quad \text{in general}$$
+
+...because the weight columns are position-specific. But the relationship is **only** about position, not about the content. If you reorder the inputs and fix the mapping, an MLP cannot distinguish order-dependent patterns from order-independent ones.
+
+Consider sentiment:
+
+| Sentence | Sentiment |
+|----------|-----------|
+| "The dog did not bite the man" | No harm |
+| "The man did not bite the dog" | No harm (same) |
+| "The dog bit the man, not the other way" | The dog bit |
+
+These three sentences use exactly the same words. The MLP, receiving the same bag of token embeddings, would produce the same output for all three — because it treats input as a bag, not a sequence.
+
+<ConceptBox title="Permutation invariance vs order sensitivity">
+A function $f$ is **permutation-invariant** if $f(\pi(\mathbf{x})) = f(\mathbf{x})$ for any permutation $\pi$. Sum and mean are permutation-invariant. An MLP with positional indexing is NOT permutation-invariant — but its notion of position is rigid (always slot 1, slot 2, …), not learned from content. An RNN is inherently order-sensitive: $h_t$ depends on the full history $x_1, \ldots, x_t$ in the exact order they were processed.
+</ConceptBox>
+
+## The sliding-window workaround and its limits
+
+One common workaround is a **sliding window**: for each position $t$, feed the MLP a fixed context window $[x_{t-k}, \ldots, x_t]$. This gives the model local order within the window.
+
+| Advantage | Limitation |
+|-----------|-----------|
+| Handles arbitrary position $t$ | Window size $k$ is fixed — long-range dependencies beyond $k$ are invisible |
+| Local order is captured | No shared history: what was in the window at $t{-}5$ is gone |
+| Efficient (no recurrence) | Still fails on tasks requiring full-sequence context (e.g. document classification) |
+
+N-gram language models are exactly this idea. They work well for short-range context (2–4 words) but cannot capture dependencies across 50 tokens.
+
+RNNs solve all three failures in a single design move: a **recurrent connection** that carries a hidden state from step to step, accumulating context without fixing a window size.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="MLP on padded sequences — what can go wrong">
+
+Suppose sequences are padded with zeros to length $T_{max}$. The MLP receives $\mathbf{x} = [x_1, \ldots, x_{T}, 0, \ldots, 0]$.
+
+The output is $\mathbf{h} = \sigma(W\mathbf{x} + \mathbf{b})$.
+
+The columns of $W$ corresponding to padding positions ($t > T$) receive input 0, so they contribute only $W[:, t] \cdot 0 = 0$ to $\mathbf{h}$.
+
+This seems harmless — but during training, gradients still flow through those columns (they're not frozen). With enough padding, the gradient signal for real positions is diluted by the zero-input columns pulling weights toward zero. In practice, masked loss must be applied carefully.
+
+</DerivationStep>
+<DerivationStep number={2} title="Why order matters for gradient flow">
+
+In an MLP, the output gradient flows only from loss → final layer → … → first layer, with no path that crosses between input positions. There is no connection in the architecture between $x_1$ and $x_2$ at the same level.
+
+In an RNN, $\mathbf{h}_t = f(\mathbf{h}_{t-1}, x_t)$ means the gradient of the loss at step $t$ flows not only through $x_t$ directly, but also backward through $\mathbf{h}_{t-1}$, $\mathbf{h}_{t-2}$, … all the way to $\mathbf{h}_0$. Every position can potentially influence every downstream prediction via the shared hidden state.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+## Quiz
+
+<QuizCard
+  question="An MLP is trained on movie reviews of fixed length 100 tokens. A test review has 150 tokens. What is the simplest fix, and what information is lost?"
+  options={[
+    "Use a wider hidden layer — no information is lost",
+    "Truncate to 100 tokens — the last 50 tokens are discarded",
+    "Feed the full 150 tokens in two forward passes — no information is lost",
+    "Pad to 150 and retrain — the model must be rebuilt from scratch"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of these limitations does a plain MLP have when applied to sequential data?"
+  options={[
+    "Cannot be trained with stochastic gradient descent",
+    "Requires fixed-length input, forcing padding or truncation",
+    "Has no mechanism to maintain state across positions in the sequence",
+    "Cannot represent non-linear functions of its input",
+    "Treats a reordering of the input tokens as a different signal only based on position, not learned content-based order",
+    "Cannot process text data at all"
+  ]}
+  correct={[1, 2, 4]}
+/>

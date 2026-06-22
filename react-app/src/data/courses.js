@@ -150,6 +150,29 @@ export const courses = [
       { id: 'cnn-m10', title: 'CIFAR-10 with PyTorch',                   file: 'cnn-m10.html', description: 'End-to-end: data pipeline, model, training, evaluation, confusion matrix, generalization analysis.',           readTime: 25 },
     ],
   },
+  {
+    id: 'rnn',
+    title: 'Recurrent Neural Networks',
+    description: '14 interactive modules from sequential data intuition to LSTM/GRU, BPTT, vanishing gradients, and NLP applications. PyTorch throughout.',
+    color: '#0f766e',
+    trackPath: 'rnn',
+    modules: [
+      { id: 'rnn-m1',  title: 'Introduction to Sequential Data',          file: 'rnn-m1.html',  description: 'What makes data sequential, why order matters, and where standard feedforward nets fall short.',              readTime: 12 },
+      { id: 'rnn-m2',  title: 'Why MLPs Struggle with Sequences',         file: 'rnn-m2.html',  description: 'Fixed input size, no memory, permutation invariance — three concrete failure modes with examples.',           readTime: 15 },
+      { id: 'rnn-m3',  title: 'The Importance of Order',                  file: 'rnn-m3.html',  description: 'Order sensitivity in language and time series. Why "dog bit man" ≠ "man bit dog" and what it demands.',      readTime: 12 },
+      { id: 'rnn-m4',  title: 'Applications of RNNs',                     file: 'rnn-m4.html',  description: 'Speech recognition, machine translation, text generation, NER, sentiment, music, and time-series forecasting.', readTime: 12 },
+      { id: 'rnn-m5',  title: 'RNN Architecture Overview',                file: 'rnn-m5.html',  description: 'Folded vs unfolded view, hidden state as memory, information flow across time — interactive unfold widget.',  readTime: 18 },
+      { id: 'rnn-m6',  title: 'Anatomy of an RNN Cell',                   file: 'rnn-m6.html',  description: 'Full cell equation h_t = tanh(W_h h_{t-1} + W_x x_t + b), interactive cell widget.',                       readTime: 20 },
+      { id: 'rnn-m7',  title: 'Shared Weights Across Time',               file: 'rnn-m7.html',  description: 'Why the same W_h and W_x apply at every step, parameter count, generalisation to any length.',              readTime: 18 },
+      { id: 'rnn-m8',  title: 'Backpropagation Through Time (BPTT)',       file: 'rnn-m8.html',  description: 'Unfolding for gradients, chain rule through time, gradient accumulation — full derivation.',                readTime: 25 },
+      { id: 'rnn-m9',  title: 'Gradient Problems in RNNs',                file: 'rnn-m9.html',  description: 'Vanishing and exploding gradients, the tanh saturation problem, gradient clipping — interactive widget.',    readTime: 20 },
+      { id: 'rnn-m10', title: 'LSTM & GRU — Extended Memory',             file: 'rnn-m10.html', description: 'Forget/input/output gates in LSTM, reset/update gates in GRU, why cell state avoids vanishing gradients.',   readTime: 25 },
+      { id: 'rnn-m11', title: 'Handling Variable-Length Sequences',        file: 'rnn-m11.html', description: 'Padding, masking, pack_padded_sequence, batching sequences of different lengths in PyTorch.',               readTime: 15 },
+      { id: 'rnn-m12', title: 'Sequence Modeling Patterns',               file: 'rnn-m12.html', description: 'Many-to-one, one-to-many, many-to-many (synced & encoder-decoder) — interactive pattern switcher.',          readTime: 15 },
+      { id: 'rnn-m13', title: 'Time Series & Sequence Classification',    file: 'rnn-m13.html', description: 'LSTM for time-series regression and sequence classification, full PyTorch code with training loop.',           readTime: 18 },
+      { id: 'rnn-m14', title: 'RNNs in Language — NLP Applications',      file: 'rnn-m14.html', description: 'Sentiment analysis, NER, language modeling, machine translation — step-through sentiment widget.',            readTime: 20 },
+    ],
+  },
 ];
 
 /* ── Derived lookups (built once at module load) ── */
