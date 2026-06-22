@@ -633,6 +633,19 @@ button { font-family: inherit; }
 .module-mdx th, .module-mdx td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
 .module-mdx th { background: var(--bg-hover); font-weight: 600; }
 
+/* ── Block Math ($$...$$) ────────────────────────────── */
+.module-mdx .math-display,
+.module-mdx .katex-display {
+  display: block;
+  text-align: center;
+  overflow-x: auto;
+  margin: 20px 0;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+}
+
 @media (max-width: 768px) {
   .module-mdx { padding: 16px 14px 32px; }
 }
