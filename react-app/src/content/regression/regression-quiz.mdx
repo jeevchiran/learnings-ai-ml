@@ -1,0 +1,157 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Track Quiz — Regression
+
+<ConceptBox title="End-of-track checkpoint">
+This quiz covers all 4 modules of the Regression track: linear regression assumptions and metrics (R², MSE, RMSE), the mathematics of OLS (normal equation, gradient descent, Gauss-Markov), logistic regression (sigmoid, decision boundary, L1/L2 regularisation, ROC/AUC), and the mathematics of logistic regression (MLE, cross-entropy loss, Newton's method, L2 as Gaussian prior). Expect conceptual, numerical, code-reading, and comparison questions.
+</ConceptBox>
+
+## Questions
+
+<MultiSelectQuiz
+  question="Which of the following are formal assumptions of the classical linear regression model required for OLS to be BLUE (Best Linear Unbiased Estimator)? (Select all that apply)"
+  options={[
+    'The relationship between predictors and response is linear',
+    'The error variance is constant across all observations (homoscedasticity)',
+    'The errors are independent of each other',
+    'The errors follow a normal distribution',
+    'All predictor variables must be standardised to zero mean and unit variance before fitting'
+  ]}
+  correct={[0, 1, 2, 3]}
+/>
+
+<QuizCard
+  question="Given the following summary statistics — x̄ = 5, ȳ = 10, Σ(xᵢ − x̄)(yᵢ − ȳ) = 40, Σ(xᵢ − x̄)² = 8 — what are the OLS slope β₁ and intercept β₀?"
+  options={[
+    'β₁ = 8, β₀ = −30',
+    'β₁ = 5, β₀ = −15',
+    'β₁ = 5, β₀ = 35',
+    'β₁ = 0.2, β₀ = 9'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="The normal equation for OLS is θ = (XᵀX)⁻¹Xᵀy. When should you prefer gradient descent over the normal equation?"
+  options={[
+    'When the number of features p is small (under 100) and n is large',
+    'When XᵀX is invertible and p is moderate — the normal equation is always slower',
+    'When p is very large (tens of thousands or more), because inverting XᵀX is O(p³) and becomes computationally prohibitive',
+    'When the response variable y is binary rather than continuous'
+  ]}
+  correct={2}
+/>
+
+<QuizCard
+  question="A model achieves R² = 0.91 on the training set and R² = 0.43 on the test set. What is the most likely diagnosis?"
+  options={[
+    'The model is underfitting — R² above 0.9 on training is a sign of a too-simple model',
+    'The model is overfitting — it has learned noise in the training data and does not generalise',
+    'Heteroscedasticity is present, inflating the training R²',
+    'The MSE was not normalised correctly when computing the test R²'
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following correctly describe the sigmoid function σ(z) = 1 / (1 + e⁻ᶻ) and its role in logistic regression? (Select all that apply)"
+  options={[
+    'σ(z) maps any real-valued input to the range (0, 1), making it interpretable as a probability',
+    'σ(0) = 0.5, so the decision boundary is where the linear combination of inputs equals zero',
+    'σ(z) is non-differentiable, which is why logistic regression uses hinge loss instead of log-likelihood',
+    'Computing σ(2) gives approximately 0.880',
+    'The sigmoid is the inverse of the logit (log-odds) function'
+  ]}
+  correct={[0, 1, 3, 4]}
+/>
+
+<QuizCard
+  question="If the predicted probability P(y = 1 | x) = 0.75, what is the log-odds (logit) value?"
+  options={[
+    '0.75',
+    '0.405',
+    '1.099',
+    '3.0'
+  ]}
+  correct={2}
+/>
+
+<QuizCard
+  question="In logistic regression, what does the negative log-likelihood loss equal when written in closed form for binary labels?"
+  options={[
+    'Mean squared error between predicted probabilities and true labels',
+    'Binary cross-entropy: −[y log(p) + (1 − y) log(1 − p)], summed over all observations',
+    'The sum of absolute differences between σ(z) and y',
+    'The KL divergence between the predicted distribution and a standard normal'
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="How do L1 and L2 regularisation differ in logistic regression? (Select all that apply)"
+  options={[
+    'L1 (Lasso) adds a penalty proportional to |β|, encouraging sparse solutions where some coefficients are exactly zero',
+    'L2 (Ridge) adds a penalty proportional to β², shrinking all coefficients toward zero but rarely to exactly zero',
+    'L2 regularisation is equivalent to placing a Gaussian prior on the coefficients in a Bayesian interpretation',
+    'L1 regularisation is equivalent to placing a Laplace prior on the coefficients',
+    'L2 regularisation makes the loss function non-convex, requiring heuristic optimisation'
+  ]}
+  correct={[0, 1, 2, 3]}
+/>
+
+<QuizCard
+  question="What does the ROC curve plot, and what does an AUC of 0.5 indicate?"
+  options={[
+    'Precision vs Recall at each threshold; AUC = 0.5 means the model is perfectly calibrated',
+    'True Positive Rate vs False Positive Rate at each decision threshold; AUC = 0.5 means the classifier performs no better than random guessing',
+    'Log-loss vs regularisation strength; AUC = 0.5 means the model is in the bias-variance sweet spot',
+    'Sensitivity vs Specificity at a fixed threshold of 0.5; AUC = 0.5 means equal false positive and false negative rates'
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following statements about the Gauss-Markov theorem are correct? (Select all that apply)"
+  options={[
+    'It states that OLS is the Best Linear Unbiased Estimator (BLUE) under the classical assumptions',
+    'BLUE means OLS has the smallest variance among all linear unbiased estimators',
+    'The theorem requires errors to be normally distributed',
+    'If homoscedasticity is violated, OLS is no longer BLUE — Weighted Least Squares may be more efficient',
+    'Gauss-Markov guarantees OLS is consistent regardless of model specification'
+  ]}
+  correct={[0, 1, 3]}
+/>
+
+<QuizCard
+  question="Newton's method updates model parameters using the gradient and the Hessian. Compared to gradient descent, Newton's method in logistic regression typically:"
+  options={[
+    'Converges in far fewer iterations because it uses second-order curvature information, but each step is more expensive to compute',
+    'Converges in the same number of iterations but requires less memory',
+    'Cannot be applied because the logistic loss is not twice-differentiable',
+    'Requires a manually tuned learning rate, making it harder to use than gradient descent'
+  ]}
+  correct={0}
+/>
+
+<QuizCard
+  question="A logistic regression model achieves 95% accuracy on a dataset where 95% of examples belong to class 0. What is the correct interpretation?"
+  options={[
+    'The model is excellent — 95% accuracy means it correctly classifies almost all examples',
+    'Accuracy is misleading here: a trivial classifier that always predicts class 0 would also achieve 95% accuracy. Metrics like AUC, precision, and recall are more informative for imbalanced classes',
+    'The model is overfitting — accuracy above 90% on a binary problem always indicates overfitting',
+    'This result proves logistic regression is not suited for binary classification'
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are differences between linear and logistic regression? (Select all that apply)"
+  options={[
+    'Linear regression predicts a continuous response; logistic regression predicts a probability for a categorical outcome',
+    'Logistic regression applies the sigmoid function to the linear combination of inputs to bound the output between 0 and 1',
+    'OLS (minimising squared residuals) is the loss function for logistic regression',
+    'Linear regression can be solved with a closed-form normal equation; logistic regression has no closed-form solution and requires iterative optimisation',
+    'Both models assume errors are normally distributed'
+  ]}
+  correct={[0, 1, 3]}
+/>

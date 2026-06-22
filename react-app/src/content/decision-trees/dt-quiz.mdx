@@ -1,0 +1,156 @@
+# Track Quiz — Decision Trees
+
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+<ConceptBox title="End-of-track checkpoint">
+This quiz covers all seven modules of the Decision Trees track — from axis-aligned splits and impurity measures, through Gini index calculations and pruning strategies, all the way to ensemble methods (bagging, random forests, gradient boosting) and hyperparameter tuning. Several questions require quick calculations; work through the numbers carefully.
+</ConceptBox>
+
+## Questions
+
+<QuizCard
+  question="A decision tree makes predictions by routing a data point from the root node down through a series of binary tests. What does a leaf node represent?"
+  options={[
+    "A feature threshold used to split the data left or right",
+    "The final predicted class label or regression value for all samples that reach it",
+    "An intermediate node whose impurity has not yet been reduced",
+    "The feature with the highest information gain at that depth"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="A node contains 40 samples: 25 belong to class A and 15 belong to class B. What is the Gini impurity of this node?"
+  options={[
+    "0.234",
+    "0.469",
+    "0.375",
+    "0.500"
+  ]}
+  correct={2}
+/>
+
+<QuizCard
+  question="A node contains 30 positive and 30 negative examples. What is the entropy of this node (in bits)?"
+  options={[
+    "0.0 bits",
+    "0.5 bits",
+    "1.0 bit",
+    "2.0 bits"
+  ]}
+  correct={2}
+/>
+
+<MultiSelectQuiz
+  question="A parent node has Gini impurity 0.48. After the best split, the left child has Gini 0.32 (n=20 samples) and the right child has Gini 0.25 (n=30 samples). Total samples = 50. Which of the following statements are correct? (Select all that apply.)"
+  options={[
+    "The weighted child Gini is (20/50) × 0.32 + (30/50) × 0.25 = 0.278",
+    "The information gain of this split is 0.48 − 0.278 = 0.202",
+    "The weighted child Gini is (20/50) × 0.32 + (30/50) × 0.25 = 0.128 + 0.150 = 0.278",
+    "A higher information gain means a worse split",
+    "CART uses this Gini-based information gain to select the best feature and threshold"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>
+
+<QuizCard
+  question="The CART algorithm searches for the best split on a continuous feature. What is the correct procedure for generating candidate thresholds?"
+  options={[
+    "Use every unique feature value as a candidate threshold",
+    "Sort the unique feature values and evaluate midpoints between consecutive sorted values as candidate thresholds",
+    "Sample random thresholds uniformly between the feature minimum and maximum",
+    "Use the mean and median of the feature as the only two candidate thresholds"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are genuine advantages of decision trees over linear models? (Select all that apply.)"
+  options={[
+    "They can capture non-linear relationships without feature engineering",
+    "They natively handle a mix of numeric and categorical features",
+    "They are interpretable — a single tree can be visualized and explained step by step",
+    "They have low variance and are stable when trained on slightly different datasets",
+    "They require no feature scaling or normalization"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>
+
+<QuizCard
+  question="You train a decision tree with no depth limit and observe perfect training accuracy but poor test accuracy. Which technique directly addresses this by penalizing tree complexity with a scalar α during post-training?"
+  options={[
+    "min_samples_split pre-pruning",
+    "max_depth pre-pruning",
+    "Cost-complexity pruning (ccp_alpha)",
+    "Bootstrap aggregating (bagging)"
+  ]}
+  correct={2}
+/>
+
+<QuizCard
+  question="In a Random Forest with p total features, how many features are randomly considered at each split for a classification task, and why is this beneficial?"
+  options={[
+    "All p features; this ensures the globally best split is always chosen",
+    "p/2 features; this halves training time without affecting accuracy",
+    "√p features; this decorrelates the individual trees, reducing ensemble variance",
+    "log₂(p) features; this minimizes entropy across the forest"
+  ]}
+  correct={2}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following correctly describe Out-of-Bag (OOB) error estimation in Random Forests? (Select all that apply.)"
+  options={[
+    "Each bootstrap sample leaves roughly 37 % of training points unused — these are the OOB samples for that tree",
+    "OOB error is computed by predicting each training point using only trees for which it was not in the bootstrap sample",
+    "OOB error requires a separate held-out validation set",
+    "OOB error is a free, approximately unbiased estimate of generalization error",
+    "OOB error equals training error when the forest is large enough"
+  ]}
+  correct={[0, 1, 3]}
+/>
+
+<QuizCard
+  question="In gradient boosting, the model at step m is updated as F_m(x) = F_{m−1}(x) + η · h_m(x), where h_m is a new weak learner. What does h_m fit to?"
+  options={[
+    "The original class labels directly",
+    "The pseudo-residuals — the negative gradient of the loss with respect to the current model's predictions",
+    "The features ranked by importance from the previous tree",
+    "Random bootstrap samples of the training targets"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="XGBoost improves on standard gradient boosting by using a second-order Taylor expansion of the loss. What is the practical benefit of this approach?"
+  options={[
+    "It eliminates the need for a learning rate",
+    "It allows exact computation of optimal leaf weights in closed form, leading to faster convergence",
+    "It replaces decision trees with linear models as base learners",
+    "It removes the need for regularization terms in the objective"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="You are tuning a gradient boosting model and want to reduce overfitting. Which hyperparameter changes move the model toward lower variance? (Select all that apply.)"
+  options={[
+    "Decrease max_depth",
+    "Decrease learning_rate (shrinkage)",
+    "Increase n_estimators without changing learning_rate",
+    "Decrease subsample (use a fraction of training rows per tree)",
+    "Decrease colsample_bytree (use a fraction of features per tree)"
+  ]}
+  correct={[0, 1, 3, 4]}
+/>
+
+<QuizCard
+  question="You compare two models: Model A uses `max_depth=2` and `n_estimators=500`; Model B uses `max_depth=8` and `n_estimators=50`. Assuming the same dataset and learning rate, which statement best describes the bias-variance tradeoff between them?"
+  options={[
+    "Model A has higher bias and lower variance; Model B has lower bias and higher variance",
+    "Model A has lower bias and higher variance; Model B has higher bias and lower variance",
+    "Both models have the same bias because they use the same algorithm",
+    "Model B always overfits regardless of n_estimators"
+  ]}
+  correct={0}
+/>

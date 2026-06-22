@@ -1,0 +1,152 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Track Quiz — Recurrent Neural Networks
+
+<ConceptBox title="End-of-track checkpoint">
+This quiz covers the full RNN track: why sequential data is different (order, variable length, long-range dependencies), why MLPs fail on sequences (fixed size, permutation invariance, no state), order importance and bag-of-words failures (negation, long-range context), the four sequence-to-sequence patterns and their applications, RNN architecture (folded vs unfolded views, h₀ convention), the RNN cell equation and tanh bounds, shared weights across timesteps and gradient accumulation, backpropagation through time (BPTT, truncated BPTT, hidden.detach()), vanishing and exploding gradients (spectral radius, clip_grad_norm_), LSTM and GRU gates (forget/input/output gates, additive cell update, two-gate GRU), variable-length sequence handling (pad_sequence, pack_padded_sequence, h_n), time series processing (sliding window, z-score normalisation, gradient clipping), and NLP applications (BiLSTM for NER, language model perplexity, encoder-decoder bottleneck). Expect conceptual, numerical, code-reading, diagnosis, and comparison questions.
+</ConceptBox>
+
+## Questions
+
+<QuizCard
+  question="A vanilla RNN has input dimension d = 50, hidden dimension n = 128, and output dimension k = 5. How many total learnable parameters does it have (W_x + W_h + b + W_y + b_y)?"
+  options={[
+    "22,917",
+    "23,557",
+    "24,197",
+    "16,900"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="An LSTM has input dimension d = 100 and hidden dimension n = 256. Each of the four gates has a weight matrix for the input (n × d), a weight matrix for the hidden state (n × n), and a bias vector (n). What is the total number of parameters across all four gates?"
+  options={[
+    "264,192",
+    "328,704",
+    "365,568",
+    "295,424"
+  ]}
+  correct={2}
+/>
+
+<QuizCard
+  question="A recurrent network's W_h matrix has a spectral radius of 0.9, and the tanh derivative is approximately 0.8 at every step. Starting from a gradient magnitude of 1.0 at the output, estimate the gradient magnitude after flowing back through T = 10 steps."
+  options={[
+    "Approximately 0.107",
+    "Approximately 0.037",
+    "Approximately 0.349",
+    "Approximately 0.900"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are valid reasons why a standard MLP is a poor choice for sequence classification tasks? (Select all that apply.)"
+  options={[
+    "MLPs require a fixed-length input, but sequences can vary in length",
+    "MLPs treat input positions symmetrically, losing word order information",
+    "MLPs cannot represent non-linear functions",
+    "MLPs carry no state across sequence positions during a forward pass"
+  ]}
+  correct={[0, 1, 3]}
+/>
+
+<QuizCard
+  question="Consider the sentence pair: 'The movie was not bad' vs 'The movie was bad.' A bag-of-words model assigns them almost the same representation. What linguistic phenomenon does this failure illustrate?"
+  options={[
+    "Covariate shift",
+    "Exposure bias",
+    "Negation and local order dependence",
+    "Label imbalance"
+  ]}
+  correct={2}
+/>
+
+<QuizCard
+  question="You are building a named-entity recognition (NER) system. Which RNN application pattern best describes this task?"
+  options={[
+    "Many-to-one: the sequence produces a single class label",
+    "One-to-many: a single input generates a sequence of labels",
+    "Many-to-many (synced): each input token produces a corresponding output label",
+    "Encoder-decoder: the input sequence is compressed before generating the output"
+  ]}
+  correct={2}
+/>
+
+<MultiSelectQuiz
+  question="Which statements correctly describe how shared weights in an RNN handle variable-length sequences? (Select all that apply.)"
+  options={[
+    "The same W_h and W_x matrices are applied at every timestep regardless of sequence length",
+    "Sharing weights means the total parameter count does not grow with sequence length",
+    "Each timestep uses its own separate copy of W_h to avoid gradient interference",
+    "During backpropagation, gradients with respect to W_h accumulate contributions from all T timesteps"
+  ]}
+  correct={[0, 1, 3]}
+/>
+
+<QuizCard
+  question="You see this code in a training loop:\n\n```python\nhidden = hidden.detach()\noutput, hidden = rnn(chunk, hidden)\n```\n\nWhat is the purpose of `hidden.detach()`?"
+  options={[
+    "It resets the hidden state to zero at the start of each batch",
+    "It prevents gradients from flowing back through the hidden state into previous chunks (truncated BPTT)",
+    "It converts the hidden state from float32 to float16 for efficiency",
+    "It copies the hidden state to the CPU before the next forward pass"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="An LSTM's cell update uses addition: c_t = f_t ⊙ c_{t-1} + i_t ⊙ c̃_t. Why is this additive update important for training?"
+  options={[
+    "Addition makes the cell state easier to visualise with GradCAM",
+    "The additive path allows gradients to flow back through time without being repeatedly multiplied by a gate weight, alleviating the vanishing gradient problem",
+    "Addition ensures the cell state values stay bounded between −1 and 1",
+    "Additive updates are faster to compute on GPU than multiplicative updates"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following statements about `pack_padded_sequence` in PyTorch are correct? (Select all that apply.)"
+  options={[
+    "It packs padded sequences so the RNN skips pad tokens during computation",
+    "It requires sequences to be sorted by length in descending order (when enforce_sorted=True)",
+    "The returned h_n tensor holds the correct final hidden state for each sequence, not the state at the last padded position",
+    "It increases memory usage because it stores the original padding alongside the packed data"
+  ]}
+  correct={[0, 1, 2]}
+/>
+
+<QuizCard
+  question="A language model assigns the following probabilities to the correct next word at each of 3 positions: P = 0.5, 0.25, 0.125. What is the cross-entropy loss (in nats) averaged over the 3 positions? (Use ln; ln 2 ≈ 0.693)"
+  options={[
+    "Approximately 0.693 nats",
+    "Approximately 1.386 nats",
+    "Approximately 1.733 nats",
+    "Approximately 2.079 nats"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following correctly describe the difference between an LSTM and a GRU? (Select all that apply.)"
+  options={[
+    "An LSTM has three gates (forget, input, output); a GRU has two gates (reset, update)",
+    "A GRU merges the cell state and hidden state into a single hidden state",
+    "An LSTM typically has more parameters than a GRU with the same hidden dimension",
+    "A GRU uses a sigmoid activation inside the cell candidate, while an LSTM uses tanh"
+  ]}
+  correct={[0, 1, 2]}
+/>
+
+<QuizCard
+  question="When training an RNN on a time series, gradient norms occasionally spike to thousands, causing NaN losses. Which intervention directly addresses this symptom?"
+  options={[
+    "Switching from MSE loss to cross-entropy loss",
+    "Calling torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0) before the optimiser step",
+    "Replacing z-score normalisation with min-max scaling",
+    "Increasing the hidden dimension to absorb larger gradient values"
+  ]}
+  correct={1}
+/>

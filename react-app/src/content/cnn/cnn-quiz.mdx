@@ -1,0 +1,152 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Track Quiz — Convolutional Neural Networks
+
+<ConceptBox title="End-of-track checkpoint">
+This quiz covers the full CNN track: why CNNs beat MLPs on images (locality, weight sharing, translation equivariance vs invariance, parameter explosion), the convolution operation (cross-correlation, output size formula, stride and padding effects), feature maps and filter banks (multi-channel convolutions, receptive field growth, parameter counting), pooling (max, average, global average pooling, spatial invariance), LeNet-style architecture stacking and layer-by-layer numerical analysis, backpropagation through convolutions (flipped kernel gradient, weight sharing in backprop), data augmentation strategies (flip, crop, color jitter, Cutout, Mixup), transfer learning (feature extraction vs fine-tuning, ResNet/EfficientNet), activation map interpretation (GradCAM, saliency maps), and the CIFAR-10 benchmark. Expect conceptual, numerical, code-reading, diagnosis, and comparison questions.
+</ConceptBox>
+
+## Questions
+
+<QuizCard
+  question="An MLP applied directly to a 224×224×3 image requires roughly how many input weights in the first hidden layer if the layer has 1000 units?"
+  options={[
+    "3,000 weights",
+    "150,528 weights",
+    "150,528,000 weights",
+    "602,112 weights"
+  ]}
+  correct={2}
+/>
+
+<QuizCard
+  question="A CNN with a 3×3 kernel, stride 1, and no padding applied to a 28×28 input produces an output of what spatial size?"
+  options={[
+    "28×28",
+    "27×27",
+    "26×26",
+    "25×25"
+  ]}
+  correct={2}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following statements correctly describe weight sharing in CNNs? (Select all that apply.)"
+  options={[
+    "The same filter kernel is slid across all spatial positions of the input",
+    "Weight sharing dramatically reduces the number of learnable parameters compared to a fully connected layer",
+    "Each spatial location in the feature map uses a different set of kernel weights",
+    "Weight sharing is what gives CNNs translation equivariance"
+  ]}
+  correct={[0, 1, 3]}
+/>
+
+<QuizCard
+  question="A convolutional layer has C_in = 3 input channels, C_out = 32 output channels, a 5×5 kernel, and a bias term per output channel. How many learnable parameters does it have?"
+  options={[
+    "2,400",
+    "2,432",
+    "4,800",
+    "4,832"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="You stack two Conv(3×3, padding=1) layers followed by a MaxPool(2×2) each on a 32×32 input. After both MaxPool layers, what is the spatial size of the feature map?"
+  options={[
+    "32×32",
+    "16×16",
+    "8×8",
+    "4×4"
+  ]}
+  correct={2}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are true about max pooling? (Select all that apply.)"
+  options={[
+    "Max pooling introduces no learnable parameters",
+    "Max pooling provides a degree of spatial invariance to small translations",
+    "Max pooling always uses a kernel of size 2×2",
+    "Max pooling reduces the spatial dimensions of the feature map"
+  ]}
+  correct={[0, 1, 3]}
+/>
+
+<QuizCard
+  question="In backpropagation through a convolutional layer, the gradient with respect to the input is computed by:"
+  options={[
+    "Sliding the original kernel over the upstream gradient map",
+    "Sliding a 180°-rotated (flipped) version of the kernel over the upstream gradient map",
+    "Multiplying the upstream gradient by the Jacobian of a fully connected layer",
+    "Applying global average pooling to the upstream gradient"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which data augmentation techniques alter pixel label information and therefore require mixing the targets as well as the inputs? (Select all that apply.)"
+  options={[
+    "Horizontal flip",
+    "Mixup",
+    "Random crop",
+    "Cutout"
+  ]}
+  correct={[1]}
+/>
+
+<QuizCard
+  question="You are using a pretrained ResNet-50 for a new 5-class classification task. In 'feature extraction' mode (as opposed to fine-tuning), which layers are updated during training?"
+  options={[
+    "All convolutional layers only",
+    "The final fully connected head only",
+    "The last two residual blocks plus the final head",
+    "No layers are updated — predictions use frozen features directly"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="GradCAM produces a class activation map. Which statements correctly describe how it works? (Select all that apply.)"
+  options={[
+    "It computes the gradient of the class score with respect to the final convolutional feature map",
+    "It weights each feature-map channel by the gradient flowing into that channel",
+    "It computes the gradient of the loss with respect to the raw input pixels",
+    "It applies a ReLU to the weighted sum before visualising the map"
+  ]}
+  correct={[0, 1, 3]}
+/>
+
+<QuizCard
+  question="A model trained with Mixup augmentation sees training examples (x̃, ỹ) = λ·(xᵢ, yᵢ) + (1−λ)·(xⱼ, yⱼ). What does λ control?"
+  options={[
+    "The learning rate schedule for the blended batch",
+    "The interpolation ratio between two training samples and their labels",
+    "The dropout probability applied to blended samples",
+    "The temperature of the softmax during training on blended samples"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="On the CIFAR-10 benchmark, what are the key dataset statistics?"
+  options={[
+    "50,000 images, 100 classes, 1×28×28 grayscale input",
+    "60,000 images, 10 classes, 3×32×32 RGB input",
+    "70,000 images, 10 classes, 1×32×32 grayscale input",
+    "60,000 images, 1000 classes, 3×224×224 RGB input"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="You read the following code snippet and must identify the receptive field after both layers:\n\n```python\nnn.Conv2d(3, 16, kernel_size=3, padding=0)  # layer 1\nnn.Conv2d(16, 32, kernel_size=3, padding=0)  # layer 2\n```\n\nWhat is the receptive field size in the original input after stacking these two layers?"
+  options={[
+    "3×3",
+    "5×5",
+    "6×6",
+    "9×9"
+  ]}
+  correct={1}
+/>

@@ -14,7 +14,8 @@ export const courses = [
       { id: 'eda-m6', title: 'Univariate Visualization',               file: '06-univariate-visualization.html',     description: 'Histograms, boxplots, and reading skew before comparing variables.',                      readTime: 15 },
       { id: 'eda-m7', title: 'Bivariate Analysis',                     file: '07-bivariate-analysis.html',           description: 'Scatter plots, groupby, and why a correlation can hide in dirty data.',                   readTime: 15 },
       { id: 'eda-m8', title: 'Multivariate Analysis',                  file: '08-multivariate-analysis.html',        description: 'Correlation matrices and pivot tables across several variables at once.',                  readTime: 15 },
-      { id: 'eda-m9', title: 'Capstone — End-to-End EDA Workflow',     file: '09-capstone-eda-workflow.html',        description: 'Chaining every prior step into one repeatable pipeline.',                                  readTime: 20 },
+      { id: 'eda-m9',   title: 'Capstone — End-to-End EDA Workflow',     file: '09-capstone-eda-workflow.html',        description: 'Chaining every prior step into one repeatable pipeline.',                                  readTime: 20 },
+      { id: 'eda-quiz', title: 'Track Quiz — Pandas EDA',               file: 'eda-quiz.html',                        description: '13 questions covering all EDA modules — IQR numericals, fillna strategy, visualisation, and workflow.', readTime: 20 },
     ],
   },
   {
@@ -28,7 +29,8 @@ export const courses = [
       { id: 'ht-m2', title: 'Errors, Alpha, p-value, Critical Value',   file: '02-errors-alpha-pvalue.html', description: 'Type I/II errors, significance level, power, p-value interpretation.',                  readTime: 18 },
       { id: 'ht-m3', title: 'One-Sample Z-Test',                        file: '03-one-sample-z.html',        description: 'Testing a population mean with known sigma. Full derivation, confidence intervals.',     readTime: 18 },
       { id: 'ht-m4', title: 'Two-Sample Tests and A/B Testing',         file: '04-two-sample-tests.html',    description: "Two-population Z-test, Welch's t-test, A/B testing, Cohen's d effect size.",            readTime: 20 },
-      { id: 'ht-m5', title: 'Paired t-Test',                            file: '05-paired-t.html',            description: 'Dependent samples, before-after designs, reduction to one-sample t on differences.',    readTime: 15 },
+      { id: 'ht-m5',   title: 'Paired t-Test',                            file: '05-paired-t.html',            description: 'Dependent samples, before-after designs, reduction to one-sample t on differences.',    readTime: 15 },
+      { id: 'ht-quiz', title: 'Track Quiz — Hypothesis Testing',         file: 'ht-quiz.html',                description: '13 questions — Z-score numericals, p-value traps, Type I/II errors, test selection, and effect size.', readTime: 20 },
     ],
   },
   {
@@ -48,6 +50,7 @@ export const courses = [
       { id: 'etl-pyspark-m8',  title: 'Data Exploration',                file: '08-data-exploration.html',             description: 'Summarize, profile, and understand your cleaned dataset.',                                  readTime: 15 },
       { id: 'etl-pyspark-m9',  title: 'Transformation Operations',       file: '09-transformation-operations.html',    description: 'Reshape, join, aggregate, and pivot data for analysis.',                                    readTime: 18 },
       { id: 'etl-pyspark-m10', title: 'Caching and Broadcast Variables', file: '10-caching-broadcasting.html',         description: 'Optimize your Spark pipeline with caching strategies and broadcast joins.',                  readTime: 15 },
+      { id: 'etl-quiz',        title: 'Track Quiz — PySpark & ETL',      file: 'etl-quiz.html',                        description: '13 questions covering RDDs vs DataFrames, SparkSQL, UDFs, transformations, and caching.', readTime: 20 },
     ],
   },
   {
@@ -60,7 +63,8 @@ export const courses = [
       { id: 'regression-m1', title: 'Linear Regression',                    file: '01-linear-regression.html',         description: 'Assumptions, coefficient interpretation, performance evaluation, house price prediction.',    readTime: 20 },
       { id: 'regression-m2', title: 'Mathematics of Linear Regression',     file: '02-math-linear-regression.html',    description: 'Normal equation derivation, gradient descent animation, Gauss-Markov theorem.',             readTime: 25 },
       { id: 'regression-m3', title: 'Logistic Regression',                  file: '03-logistic-regression.html',       description: 'Binary and multiclass classification, regularization, ROC curves.',                        readTime: 20 },
-      { id: 'regression-m4', title: 'Mathematics of Logistic Regression',   file: '04-math-logistic-regression.html',  description: "MLE, cross-entropy, Newton's method, Bayesian interpretation of regularization.",          readTime: 25 },
+      { id: 'regression-m4',   title: 'Mathematics of Logistic Regression',   file: '04-math-logistic-regression.html',  description: "MLE, cross-entropy, Newton's method, Bayesian interpretation of regularization.",     readTime: 25 },
+      { id: 'regression-quiz', title: 'Track Quiz — Regression',              file: 'regression-quiz.html',              description: '13 questions — slope numericals, log-odds, sigmoid, MLE, regularisation, and ROC/AUC.', readTime: 20 },
     ],
   },
   {
@@ -76,7 +80,8 @@ export const courses = [
       { id: 'dt-m4', title: 'Advantages, Limitations, and Pruning',       file: '04-advantages-limitations.html', description: 'Interpretability strengths, variance and instability, pre-pruning and cost-complexity.', readTime: 15 },
       { id: 'dt-m5', title: 'Bagging and Random Forests',                 file: '05-bagging-random-forests.html', description: 'Bootstrap aggregating, variance reduction, random feature subsets, OOB error.',       readTime: 20 },
       { id: 'dt-m6', title: 'Gradient Boosting',                          file: '06-gradient-boosting.html',      description: 'Functional gradient descent, pseudo-residuals, shrinkage, XGBoost overview.',        readTime: 22 },
-      { id: 'dt-m7', title: 'Hyperparameter Tuning',                      file: '07-hyperparameter-tuning.html',  description: 'Every knob for RF and GB through the bias-variance lens with interactive simulators.', readTime: 20 },
+      { id: 'dt-m7',   title: 'Hyperparameter Tuning',                      file: '07-hyperparameter-tuning.html',  description: 'Every knob for RF and GB through the bias-variance lens with interactive simulators.', readTime: 20 },
+      { id: 'dt-quiz', title: 'Track Quiz — Decision Trees & Ensembles',   file: 'dt-quiz.html',                   description: '13 questions — Gini numericals, info gain, pruning, Random Forests, and Gradient Boosting.', readTime: 20 },
     ],
   },
   {
@@ -89,7 +94,8 @@ export const courses = [
       { id: 'clustering-m1', title: 'Why Clustering? Intuition and K-Means', file: '01-clustering-intro.html',   description: 'Unsupervised learning, partitioning, real-world applications, animated demo.',         readTime: 12 },
       { id: 'clustering-m2', title: 'Distance, Means, and Centroids',        file: '02-distance-centroids.html', description: 'Euclidean, Manhattan, cosine distance. Centroid as minimiser of squared distances.',   readTime: 15 },
       { id: 'clustering-m3', title: 'Inertia (WCSS) and the Elbow Method',   file: '03-inertia-wcss.html',       description: 'WCSS as the K-means objective, coordinate descent view, elbow method and limits.',     readTime: 15 },
-      { id: 'clustering-m4', title: 'Silhouette Score and Evaluation',       file: '04-silhouette-metrics.html', description: 'Silhouette formula, silhouette plots, Davies-Bouldin, Calinski-Harabasz.',             readTime: 15 },
+      { id: 'clustering-m4',   title: 'Silhouette Score and Evaluation',       file: '04-silhouette-metrics.html', description: 'Silhouette formula, silhouette plots, Davies-Bouldin, Calinski-Harabasz.',           readTime: 15 },
+      { id: 'clustering-quiz', title: 'Track Quiz — K-Means Clustering',      file: 'clustering-quiz.html',       description: '13 questions — distance numericals, centroid updates, WCSS, elbow, and silhouette.', readTime: 20 },
     ],
   },
   {
@@ -108,7 +114,8 @@ export const courses = [
       { id: 'nlp-m7',  title: 'NER, IOB, CRF, SRL & Coreference',           file: '07-ner-iob-crf-srl-coreference.html',             description: 'Named entities, BIO tagging, CRF sequence models, semantic roles, coreference chains.',    readTime: 18 },
       { id: 'nlp-m8',  title: 'BoW, TF-IDF & Topic Modeling',               file: '08-bow-tfidf-topic-modeling.html',                 description: 'Bag of words, TF-IDF formula, IDF weighting, NMF topic modeling with Plotly heatmap.',    readTime: 18 },
       { id: 'nlp-m9',  title: 'Word Embeddings',                             file: '09-word-embeddings.html',                          description: 'word2vec skip-gram/CBOW, embedding space, cosine similarity, analogy tasks, BERT overview.', readTime: 20 },
-      { id: 'nlp-m10', title: 'N-gram Language Models & Applications',       file: '10-ngram-lm-applications.html',                   description: 'Chain rule, Laplace smoothing, perplexity, text generation, summarization, MT overview.',  readTime: 18 },
+      { id: 'nlp-m10',  title: 'N-gram Language Models & Applications',       file: '10-ngram-lm-applications.html',  description: 'Chain rule, Laplace smoothing, perplexity, text generation, summarization, MT overview.',  readTime: 18 },
+      { id: 'nlp-quiz', title: 'Track Quiz — Natural Language Processing',    file: 'nlp-quiz.html',                  description: '13 questions — edit distance numericals, TF-IDF, PMI, POS tagging, NER, and word2vec.', readTime: 20 },
     ],
   },
   {
@@ -128,7 +135,8 @@ export const courses = [
       { id: 'dl-m8',  title: 'Loss Functions & Optimizers',                file: 'dl-m8.html',  description: 'MSE, cross-entropy, BCE, NLL. SGD, momentum, Adam, RMSProp — math and intuition.',         readTime: 20 },
       { id: 'dl-m9',  title: 'Weight Initialization',                      file: 'dl-m9.html',  description: 'Vanishing/exploding gradients, Xavier/Glorot, He, orthogonal, signal propagation theory.',  readTime: 15 },
       { id: 'dl-m10', title: 'Regularization & Normalization',             file: 'dl-m10.html', description: 'L1/L2 regularization, dropout, batch normalization, layer normalization — math and code.',   readTime: 20 },
-      { id: 'dl-m11', title: 'Preventing Overfitting & PyTorch Examples',  file: 'dl-m11.html', description: 'Early stopping, data augmentation, end-to-end PyTorch training loop, MNIST walkthrough.',   readTime: 22 },
+      { id: 'dl-m11',  title: 'Preventing Overfitting & PyTorch Examples',  file: 'dl-m11.html', description: 'Early stopping, data augmentation, end-to-end PyTorch training loop, MNIST walkthrough.',   readTime: 22 },
+      { id: 'dl-quiz', title: 'Track Quiz — Foundations of Deep Learning',  file: 'dl-quiz.html', description: '13 questions — forward pass numericals, backprop chain rule, activations, optimisers, and regularisation.', readTime: 20 },
     ],
   },
   {
@@ -147,7 +155,8 @@ export const courses = [
       { id: 'cnn-m7',  title: 'Data Preparation & Augmentation',         file: 'cnn-m7.html',  description: 'Channel-wise normalization, random crops/flips/color jitter, Cutout, Mixup — with interactive widget.',        readTime: 18 },
       { id: 'cnn-m8',  title: 'Transfer Learning',                       file: 'cnn-m8.html',  description: 'Feature extraction vs fine-tuning, ResNet/EfficientNet, layer freezing, convergence comparison.',             readTime: 18 },
       { id: 'cnn-m9',  title: 'Visualizing CNN Activations',             file: 'cnn-m9.html',  description: 'Activation maps, GradCAM, saliency, filter visualization — interactive heatmap widget.',                      readTime: 16 },
-      { id: 'cnn-m10', title: 'CIFAR-10 with PyTorch',                   file: 'cnn-m10.html', description: 'End-to-end: data pipeline, model, training, evaluation, confusion matrix, generalization analysis.',           readTime: 25 },
+      { id: 'cnn-m10',  title: 'CIFAR-10 with PyTorch',                   file: 'cnn-m10.html',  description: 'End-to-end: data pipeline, model, training, evaluation, confusion matrix, generalization analysis.',         readTime: 25 },
+      { id: 'cnn-quiz', title: 'Track Quiz — Convolutional Neural Networks', file: 'cnn-quiz.html', description: '13 questions — output size formula, parameter count numericals, pooling, transfer learning, and GradCAM.', readTime: 20 },
     ],
   },
   {
@@ -170,7 +179,8 @@ export const courses = [
       { id: 'rnn-m11', title: 'Handling Variable-Length Sequences',        file: 'rnn-m11.html', description: 'Padding, masking, pack_padded_sequence, batching sequences of different lengths in PyTorch.',               readTime: 15 },
       { id: 'rnn-m12', title: 'Sequence Modeling Patterns',               file: 'rnn-m12.html', description: 'Many-to-one, one-to-many, many-to-many (synced & encoder-decoder) — interactive pattern switcher.',          readTime: 15 },
       { id: 'rnn-m13', title: 'Time Series & Sequence Classification',    file: 'rnn-m13.html', description: 'LSTM for time-series regression and sequence classification, full PyTorch code with training loop.',           readTime: 18 },
-      { id: 'rnn-m14', title: 'RNNs in Language — NLP Applications',      file: 'rnn-m14.html', description: 'Sentiment analysis, NER, language modeling, machine translation — step-through sentiment widget.',            readTime: 20 },
+      { id: 'rnn-m14',  title: 'RNNs in Language — NLP Applications',      file: 'rnn-m14.html',  description: 'Sentiment analysis, NER, language modeling, machine translation — step-through sentiment widget.',          readTime: 20 },
+      { id: 'rnn-quiz', title: 'Track Quiz — Recurrent Neural Networks',   file: 'rnn-quiz.html', description: '13 questions — BPTT gradient product, LSTM gate numericals, vanishing gradients, patterns, and NLP apps.', readTime: 20 },
     ],
   },
 ];
