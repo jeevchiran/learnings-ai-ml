@@ -25,6 +25,14 @@ export default function Sidebar({ dark, onToggleDark, mobileOpen, onClose }) {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
   }
 
+  const allOpen = courses.every(c => expanded[c.id]);
+  function toggleAll() {
+    const next = !allOpen;
+    const state = {};
+    courses.forEach(c => { state[c.id] = next; });
+    setExpanded(state);
+  }
+
   function goModule(id) {
     navigate(`/module/${id}`);
     onClose();
@@ -54,6 +62,11 @@ export default function Sidebar({ dark, onToggleDark, mobileOpen, onClose }) {
       </div>
 
       <nav className="sidebar-scroll" aria-label="Course navigation">
+        <div className="sidebar-expand-row">
+          <button className="expand-all-btn" onClick={toggleAll}>
+            {allOpen ? '⊟ Collapse All' : '⊞ Expand All'}
+          </button>
+        </div>
         {courses.map(course => {
           const isOpen = expanded[course.id];
           const { completed, total } = getTrackProgress(course.modules.map(m => m.id));
