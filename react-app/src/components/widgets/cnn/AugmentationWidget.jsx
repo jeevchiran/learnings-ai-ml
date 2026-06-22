@@ -12,7 +12,7 @@ const BASE = (() => {
     if (Math.abs(Math.sqrt(dr*dr+dc*dc) - 5) < 1) g[r][c] = 220
   }
   [[3,4],[3,7]].forEach(([row,col]) => { g[row][col] = 255; g[row][col+1] = 255 })
-  [[8,3],[8,8],[7,4],[7,7],[7,5],[7,6]].forEach(([row,col]) => g[row][col] = 255)
+  ;[[8,3],[8,8],[7,4],[7,7],[7,5],[7,6]].forEach(([row,col]) => g[row][col] = 255)
   return g
 })()
 
