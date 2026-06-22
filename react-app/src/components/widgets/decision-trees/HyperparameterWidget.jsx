@@ -179,6 +179,7 @@ function GBHeatmapWidget() {
       zmin: 0.07, zmax: 0.25,
       hovertemplate: 'n_estimators=%{x}<br>learning_rate=%{y}<br>Val MSE=%{z:.3f}<extra></extra>',
     }], plotlyLayout({
+      height: 320,
       title: { text: 'Simulated Validation MSE: learning_rate × n_estimators', font: { size: 13 } },
       xaxis: { title: 'n_estimators (M)', type: 'category' },
       yaxis: { title: 'learning_rate (η)', type: 'category' },
@@ -194,6 +195,7 @@ function GBHeatmapWidget() {
       { x: ms, y: ms.map(valMSEFn), mode: 'lines', name: 'Validation MSE', line: { color: '#dc2626', width: 2 } },
       { x: [result10.mStar], y: [result10.bestLoss], mode: 'markers', name: 'Optimal M*', marker: { color: '#16a34a', size: 10, symbol: 'star' } },
     ], plotlyLayout({
+      height: 300,
       title: { text: 'Training vs Validation Loss Curve', font: { size: 13 } },
       xaxis: { title: 'Boosting Iteration (m)' },
       yaxis: { title: 'MSE' },
@@ -202,7 +204,7 @@ function GBHeatmapWidget() {
       margin: { t: 50, r: 20, b: 50, l: 60 },
     }), PLOTLY_CONFIG)
 
-    Plotly.newPlot(esInteractRef.current, [], plotlyLayout({ margin: { t: 50, r: 20, b: 50, l: 60 } }), PLOTLY_CONFIG)
+    Plotly.newPlot(esInteractRef.current, [], plotlyLayout({ height: 300, margin: { t: 50, r: 20, b: 50, l: 60 } }), PLOTLY_CONFIG)
   }, [])
 
   useEffect(() => {
@@ -215,6 +217,7 @@ function GBHeatmapWidget() {
       { x: [result.mStar], y: [result.bestLoss], mode: 'markers', name: 'Optimal M*', marker: { color: '#16a34a', size: 11, symbol: 'star' } },
       { x: [result.mStop], y: [result.stopLoss], mode: 'markers', name: 'Early stop', marker: { color: '#d97706', size: 9, symbol: 'x' } },
     ], plotlyLayout({
+      height: 300,
       title: { text: `Early Stopping: patience = ${patience}`, font: { size: 13 } },
       xaxis: { title: 'Boosting Iteration (m)' },
       yaxis: { title: 'MSE' },

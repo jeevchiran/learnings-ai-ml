@@ -36,7 +36,7 @@ function serveTrackFiles() {
 export default defineConfig({
   plugins: [
     // MDX must come before react() so JSX transform sees compiled MDX
-    mdx({ remarkPlugins: [remarkGfm, remarkMath], rehypePlugins: [rehypeKatex] }),
+    mdx({ remarkPlugins: [remarkGfm, remarkMath], rehypePlugins: [rehypeKatex], providerImportSource: '@mdx-js/react' }),
     react(),
     serveTrackFiles(),
   ],
