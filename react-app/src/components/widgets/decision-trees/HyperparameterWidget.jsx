@@ -57,8 +57,8 @@ function RFWidget() {
   const [rfStats, setRFStats] = useState({ train: '—', oob: '—', bias: '—', variance: '—' })
 
   useEffect(() => {
-    Plotly.newPlot(oobRef.current, [], plotlyLayout({ margin: { t: 40, r: 20, b: 50, l: 60 } }), PLOTLY_CONFIG)
-    Plotly.newPlot(featRef.current, [], plotlyLayout({ margin: { t: 40, r: 20, b: 50, l: 60 } }), PLOTLY_CONFIG)
+    Plotly.newPlot(oobRef.current, [], plotlyLayout({ height: 300, margin: { t: 40, r: 20, b: 50, l: 60 } }), PLOTLY_CONFIG)
+    Plotly.newPlot(featRef.current, [], plotlyLayout({ height: 300, margin: { t: 40, r: 20, b: 50, l: 60 } }), PLOTLY_CONFIG)
   }, [])
 
   useEffect(() => {
@@ -85,6 +85,7 @@ function RFWidget() {
       { x: bVals, y: oobCurve, type: 'scatter', mode: 'lines', name: 'OOB Error', line: { color: '#dc2626', width: 2 } },
       { x: [nTrees], y: [oobErr], type: 'scatter', mode: 'markers', name: 'Current B', marker: { color: '#2563eb', size: 10 } },
     ], plotlyLayout({
+      height: 300,
       title: { text: 'OOB Error vs n_estimators', font: { size: 13 } },
       xaxis: { title: 'n_estimators (B)' },
       yaxis: { title: 'OOB Error', tickformat: '.0%' },
@@ -106,6 +107,7 @@ function RFWidget() {
       { x: [maxFeat], y: [featCurve[maxFeat - 1]], type: 'scatter', mode: 'markers', name: 'Current m', marker: { color: '#2563eb', size: 10 } },
       { x: [sqrtM], y: [featCurve[sqrtM - 1]], type: 'scatter', mode: 'markers', name: 'sqrt(p) default', marker: { color: '#16a34a', size: 8, symbol: 'diamond' } },
     ], plotlyLayout({
+      height: 300,
       title: { text: 'OOB Error vs max_features (m)', font: { size: 13 } },
       xaxis: { title: 'max_features (m)', dtick: 1 },
       yaxis: { title: 'OOB Error', tickformat: '.0%' },
@@ -131,7 +133,7 @@ function RFWidget() {
       </div>
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
         {[['Train Error', rfStats.train], ['OOB Error', rfStats.oob], ['Bias²', rfStats.bias], ['Variance', rfStats.variance]].map(([l, v]) => (
-          <div key={l} style={{ background: 'var(--bg-secondary, #f3f4f6)', borderRadius: 8, padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}>
+          <div key={l} style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}>
             <div style={{ color: 'var(--text-muted, #6b7280)' }}>{l}</div>
             <strong>{v}</strong>
           </div>
@@ -237,7 +239,7 @@ function GBHeatmapWidget() {
         </label>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {[['M*', esStats.mStar], ['Best Val Loss', esStats.bestLoss?.toFixed(4)], ['Stop M', esStats.mStop], ['Stop Loss', esStats.stopLoss?.toFixed(4)]].map(([l, v]) => (
-            <div key={l} style={{ background: 'var(--bg-secondary, #f3f4f6)', borderRadius: 8, padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}>
+            <div key={l} style={{ background: 'var(--bg-secondary)', borderRadius: 8, padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}>
               <div style={{ color: 'var(--text-muted, #6b7280)' }}>{l}</div>
               <strong>{v}</strong>
             </div>
