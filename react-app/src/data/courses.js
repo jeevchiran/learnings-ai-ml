@@ -183,6 +183,24 @@ export const courses = [
       { id: 'rnn-quiz', title: 'Track Quiz — Recurrent Neural Networks',   file: 'rnn-quiz.html', description: '13 questions — BPTT gradient product, LSTM gate numericals, vanishing gradients, patterns, and NLP apps.', readTime: 20 },
     ],
   },
+  {
+    id: 'naive-bayes',
+    title: 'Naive Bayes',
+    description: '8 interactive modules from probabilistic classification intuition to the Multinomial/Bernoulli/Gaussian variants, log-space stability, and model comparison.',
+    color: '#4338ca',
+    trackPath: 'naive-bayes',
+    modules: [
+      { id: 'nb-m1', title: 'Intuition Behind Probabilistic Classification', file: 'nb-m1.html', description: 'Posterior vs. prior, the Bayes decision rule, and generative vs. discriminative classifiers.', readTime: 12 },
+      { id: 'nb-m2', title: "Deriving Bayes' Theorem from Conditional Probability", file: 'nb-m2.html', description: 'Full derivation from the definition of conditional probability, plus the medical-test paradox worked example.', readTime: 15 },
+      { id: 'nb-m3', title: 'The Naive Bayes Classifier', file: 'nb-m3.html', description: 'Dropping the evidence term, the conditional independence assumption, and a fully hand-computed Play Tennis example.', readTime: 18 },
+      { id: 'nb-m4', title: 'Python Demonstration', file: 'nb-m4.html', description: 'From-scratch Laplace-smoothed classifier checked against scikit-learn, plus a GaussianNB run on Iris.', readTime: 18 },
+      { id: 'nb-m5', title: 'Multinomial, Bernoulli & Gaussian Naive Bayes', file: 'nb-m5.html', description: 'The three likelihood families, when each applies, worked spam-filter code, and how to choose between them.', readTime: 20 },
+      { id: 'nb-m6', title: 'Numerical Stability and Log-Space Computation', file: 'nb-m6.html', description: 'Why raw probability products underflow to zero, the log-space fix, and the logsumexp normalization trick.', readTime: 16 },
+      { id: 'nb-m7', title: 'Advantages and Disadvantages of Naive Bayes', file: 'nb-m7.html', description: 'Genuine strengths, the zero-frequency problem, calibration issues, and class-imbalance behavior.', readTime: 15 },
+      { id: 'nb-m8', title: 'Comparison with Other Classification Models', file: 'nb-m8.html', description: 'Naive Bayes vs. logistic regression, decision trees, k-NN, and SVM across speed, data efficiency, and expressiveness.', readTime: 16 },
+      { id: 'nb-quiz', title: 'Track Quiz — Naive Bayes', file: 'nb-quiz.html', description: '13 questions — Bayes theorem numericals, independence assumption, variant selection, log-space stability, and model comparison.', readTime: 20 },
+    ],
+  },
 ];
 
 /* ── Derived lookups (built once at module load) ── */

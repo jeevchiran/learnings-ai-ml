@@ -1,0 +1,142 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+## Same Skeleton, Different Likelihood
+
+Every variant of Naive Bayes uses the identical decision rule from Module 3:
+
+$$\hat{y} = \arg\max_{y} \; P(y) \prod_{i=1}^{n} P(x_i \mid y)$$
+
+The only thing that changes between variants is the assumed *shape* of $P(x_i \mid y)$ — the distribution used to model a single feature within a single class. That shape should match how the feature was actually generated: a word count, a yes/no flag, or a continuous measurement each call for a different family.
+
+| Variant | Feature type | Likelihood family | Typical use case |
+|---|---|---|---|
+| Multinomial NB | Non-negative counts | Multinomial distribution | Text classification via word counts |
+| Bernoulli NB | Binary (0/1) | Bernoulli distribution | Text classification via word presence/absence |
+| Gaussian NB | Continuous | Normal (Gaussian) distribution | Sensor readings, measurements, any real-valued feature |
+
+## Multinomial Naive Bayes
+
+Used when features are **counts** — most classically, how many times each vocabulary word appears in a document. For a document with word counts $x_1, \ldots, x_n$ (feature $i$ = count of vocabulary word $i$), the likelihood of the whole document under class $y$ is modeled as a multinomial draw:
+
+$$P(\mathbf{x}\mid y) \propto \prod_{i=1}^{n} \theta_{y,i}^{\,x_i}$$
+
+where $\theta_{y,i} = P(\text{word } i \mid y)$ is the probability of word $i$ occurring, estimated from training data with **Laplace (add-$\alpha$) smoothing**:
+
+$$\theta_{y,i} = \frac{N_{y,i} + \alpha}{N_y + \alpha n}$$
+
+$N_{y,i}$ is the total count of word $i$ across all class-$y$ training documents, $N_y$ is the total word count across all class-$y$ documents, and $n$ is the vocabulary size. This is the exact same smoothing formula used in Module 4, generalized from two-category features to a full vocabulary.
+
+```python
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.naive_bayes import MultinomialNB
+
+docs = [
+    "buy cheap pills now", "limited offer buy now",
+    "meeting scheduled for tomorrow", "project deadline tomorrow",
+    "cheap meds buy now", "lunch meeting tomorrow project",
+]
+labels = ["spam", "spam", "ham", "ham", "spam", "ham"]
+
+vec = CountVectorizer()
+X = vec.fit_transform(docs)          # word-count matrix, shape (6 docs, 14 vocab words)
+
+mnb = MultinomialNB(alpha=1.0)
+mnb.fit(X, labels)
+
+test = vec.transform(["cheap buy now"])
+print(mnb.predict(test))             # ['spam']
+print(mnb.predict_proba(test).round(4))  # [[0.0229 0.9771]]  -> P(ham), P(spam)
+```
+
+`predict_proba` returns 97.71% spam — "cheap", "buy", and "now" all appear disproportionately in the spam training documents, and the multinomial likelihood multiplies that evidence together across all three words.
+
+## Bernoulli Naive Bayes
+
+Used when features are **binary presence/absence flags** rather than counts — did the word appear at all, ignoring how many times. Each feature $x_i \in \{0,1\}$ is modeled with a Bernoulli likelihood:
+
+$$P(x_i \mid y) = p_{y,i}^{\,x_i} \,(1-p_{y,i})^{\,1-x_i}$$
+
+where $p_{y,i} = P(x_i = 1 \mid y)$. Critically, Bernoulli NB also explicitly penalizes the *absence* of a word — a vocabulary word that never appears in a document still contributes a $(1-p_{y,i})$ factor to the product. Multinomial NB, by contrast, only ever multiplies in evidence for words that actually occur; absent words contribute nothing.
+
+```python
+from sklearn.naive_bayes import BernoulliNB
+
+bnb = BernoulliNB(alpha=1.0)          # binarizes counts to 0/1 by default (threshold=0.0)
+bnb.fit(X, labels)
+print(bnb.predict(test))              # ['spam']
+print(bnb.predict_proba(test).round(4))  # [[0.0013 0.9987]]  -> P(ham), P(spam)
+```
+
+Bernoulli NB's probability here (99.87%) is even more extreme than Multinomial's (97.71%) — because it also credits the *absence* of ham-associated words like "meeting" and "tomorrow" as evidence against ham, on top of the presence of spam words. This makes Bernoulli NB well suited to short documents where a word's mere presence matters more than its frequency, but it can overweight the many words that are simply absent from short texts.
+
+<ConceptBox title="Multinomial vs. Bernoulli — the concrete difference">
+Given the sentence "buy buy buy now": Multinomial NB sees the repeated "buy" as three separate pieces of evidence (count = 3), strengthening the spam score with every repetition. Bernoulli NB sees only "buy is present" and "now is present" — a single occurrence and a hundred occurrences of "buy" look identical to it. Choose Multinomial when frequency carries information (spam blasts often repeat urgent words); choose Bernoulli when only occurrence matters (e.g. rare, single-use fraud keywords).
+</ConceptBox>
+
+## Gaussian Naive Bayes
+
+Used when features are **continuous real numbers** — measurements, sensor readings, pixel intensities. Each feature is modeled as normally distributed within each class, with its own per-class mean $\mu_{y,i}$ and variance $\sigma_{y,i}^2$ estimated from training data:
+
+$$P(x_i \mid y) = \frac{1}{\sqrt{2\pi\sigma_{y,i}^2}} \exp\left(-\frac{(x_i - \mu_{y,i})^2}{2\sigma_{y,i}^2}\right)$$
+
+$\mu_{y,i}$ and $\sigma_{y,i}^2$ are just the sample mean and sample variance of feature $i$, computed *only* over the training rows belonging to class $y$ — one small Gaussian fit per (class, feature) pair.
+
+```python
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+
+X, y = load_iris(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+gnb = GaussianNB()
+gnb.fit(X_train, y_train)
+print(gnb.theta_.round(2))   # per-class, per-feature means  (shape 3 classes x 4 features)
+print(gnb.var_.round(2))     # per-class, per-feature variances
+```
+
+`gnb.theta_[k, i]` is exactly $\mu_{y=k, i}$ and `gnb.var_[k, i]` is exactly $\sigma_{y=k,i}^2$ from the formula above — there is no hidden machinery, just twelve means and twelve variances (3 classes × 4 features) computed by counting and averaging within each class.
+
+## Choosing the Right Naïve Bayes Model
+
+The three variants are not interchangeable — picking the wrong one silently degrades accuracy because the likelihood shape no longer matches how the data was actually generated. Match the model to the feature type first, and only then consider the questions below:
+
+<ConceptBox title="Decision checklist">
+- **Are the features continuous measurements** (length, temperature, pixel intensity)? → **Gaussian NB.** If a feature is clearly not bell-shaped (e.g. heavily skewed), consider transforming it (log, Box-Cox) before fitting, or bucket it into categories and use Multinomial/Categorical NB instead.
+- **Are the features counts** (word frequencies, event occurrences)? → **Multinomial NB.** This is the standard choice for bag-of-words text classification and any feature that represents "how many times."
+- **Are the features binary flags** (word present/absent, feature triggered/not)? → **Bernoulli NB.** Prefer this over Multinomial when documents are short and repetition carries little extra signal, or when absence of a feature is itself informative.
+- **Mixed feature types in one dataset** (some counts, some continuous)? scikit-learn does not fit one mixed model — fit separate Naive Bayes models per feature-type group and combine their log-probabilities (Module 6 shows exactly how to work in log-space), or fall back to a single Gaussian NB after discretizing the count features.
+- **When in doubt, try both Multinomial and Bernoulli on text data and compare with cross-validation** — the "right" choice is empirical as often as it is theoretical, and the two rarely disagree by more than a couple of points of accuracy on typical bag-of-words tasks.
+</ConceptBox>
+
+The underlying principle is the same one from Module 3: Naive Bayes is only as good as the match between its assumed generative story and the true data-generating process. The independence assumption is *always* an approximation; picking the right likelihood family at least ensures the per-feature approximation is as accurate as it can be.
+
+<Bridge>
+**From clean formulas to messy floating point.** Every formula above involves multiplying many probabilities together — one per feature. With ten features that's fine; with ten thousand (a realistic vocabulary size), the product of ten thousand numbers each less than 1 can underflow to exactly zero in floating-point arithmetic, silently breaking the classifier. Module 6 shows why this happens and the log-space trick every production implementation uses to avoid it.
+</Bridge>
+
+## Practice
+
+#### Problem 1: Matching Variant to Data
+
+For each scenario, name the appropriate Naive Bayes variant: (a) classifying emails using how many times each word appears, (b) classifying short SMS messages using only whether each keyword is present, (c) classifying flowers using petal length and width in centimeters.
+
+**Solution:** (a) Multinomial NB — word *counts* per document map directly onto the multinomial likelihood. (b) Bernoulli NB — binary presence/absence per keyword is exactly the Bernoulli feature model, and short messages make repetition counts less informative anyway. (c) Gaussian NB — petal length/width are continuous real-valued measurements, matching the normal-distribution likelihood.
+
+#### Problem 2: Zero Count in Multinomial NB
+
+In the spam/ham example, the word "pills" appears only in spam documents and never in any ham document. Without smoothing ($\alpha=0$), what would `θ_{ham, "pills"}` be, and why is that a problem?
+
+**Solution:** Without smoothing, $\theta_{\text{ham},\text{"pills"}} = N_{\text{ham},\text{"pills"}} / N_{\text{ham}} = 0/N_{\text{ham}} = 0$ exactly. Any future ham document that happens to contain the word "pills" (a plausible pharmacy-related but legitimate email) would then get a likelihood factor of exactly zero for the ham class — the entire product $P(y=\text{ham})\prod_i P(x_i\mid \text{ham})$ collapses to zero regardless of every other word in the document, making it impossible for the model to ever classify that document as ham. This exact failure mode is why $\alpha=1$ (Laplace smoothing) is the scikit-learn default rather than $\alpha=0$.
+
+<MultiSelectQuiz
+  question="Which of the following statements about the three Naive Bayes variants are correct? (Select all that apply.)"
+  options={[
+    'Multinomial NB models feature values as counts and uses word frequency as evidence',
+    'Bernoulli NB explicitly penalizes the absence of a feature, not just its presence',
+    'Gaussian NB estimates a separate mean and variance for every (class, feature) pair',
+    'All three variants require the exact same code with no parameter differences in scikit-learn',
+    'Choosing the wrong variant for a given feature type can silently reduce classification accuracy'
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

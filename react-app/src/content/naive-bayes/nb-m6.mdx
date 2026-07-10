@@ -1,0 +1,123 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+## Where the Numbers Break
+
+The Naive Bayes score for a class is a product of many probabilities, each strictly less than 1:
+
+$$\text{score}(y) = P(y) \prod_{i=1}^{n} P(x_i \mid y)$$
+
+Each factor shrinks the running product. With a handful of features this is harmless. With hundreds or thousands of features — a realistic vocabulary size in text classification — the product shrinks *exponentially* fast, because multiplying $n$ numbers each around $0.1$–$0.3$ gives a result on the order of $0.2^n$.
+
+```python
+import numpy as np
+
+rng = np.random.default_rng(0)
+likelihoods = rng.uniform(0.05, 0.3, size=2000)   # 2000 features, typical NB per-feature likelihoods
+
+raw_product = np.prod(likelihoods)
+print(raw_product)
+```
+
+Output:
+
+```
+0.0
+```
+
+Not "a very small number" — exactly `0.0`. IEEE 754 double-precision floats can represent numbers down to about $10^{-308}$ before underflowing to zero; with 2000 features this product would need roughly $10^{-1500}$ of headroom, far beyond what any float can hold. Once the score underflows to zero, **every class's score becomes zero**, the arg-max comparison degenerates into comparing `0.0 == 0.0`, and the classifier can no longer tell which class was more likely — real information has been destroyed by the representation, not by the model.
+
+<ConceptBox title="This isn't a corner case">
+Any Naive Bayes model with a vocabulary in the thousands — completely ordinary for text classification — will underflow the raw product on a normal-length document. Every production implementation, including scikit-learn's, works in log-space internally for exactly this reason. It is not an optional optimization; without it, Naive Bayes on real text data simply does not work.
+</ConceptBox>
+
+## The Log-Space Trick
+
+The fix follows from one identity: the logarithm turns products into sums.
+
+$$\log\left(P(y)\prod_{i=1}^n P(x_i\mid y)\right) = \log P(y) + \sum_{i=1}^n \log P(x_i \mid y)$$
+
+<DerivationSteps>
+<DerivationStep number={1} title="Take the log of the score">
+$$\log\,\text{score}(y) = \log\!\left(P(y)\prod_i P(x_i\mid y)\right)$$
+</DerivationStep>
+<DerivationStep number={2} title="Apply log(ab) = log(a) + log(b) repeatedly">
+$$\log\,\text{score}(y) = \log P(y) + \sum_{i=1}^{n}\log P(x_i\mid y)$$
+A product of $n{+}1$ small numbers becomes a **sum** of $n{+}1$ moderately-sized negative numbers — no repeated shrinking, no underflow.
+</DerivationStep>
+<DerivationStep number={3} title="Log is monotonically increasing, so arg-max is preserved">
+Because $\log$ is strictly increasing, $\text{score}(y_1) > \text{score}(y_2) \iff \log\,\text{score}(y_1) > \log\,\text{score}(y_2)$. Comparing log-scores gives *exactly* the same winning class as comparing raw scores — nothing about the classification decision changes, only the numerical path used to reach it.
+$$\hat{y} = \arg\max_y \; \text{score}(y) = \arg\max_y \; \log\,\text{score}(y)$$
+</DerivationStep>
+</DerivationSteps>
+
+```python
+log_score = np.log(0.6) + np.sum(np.log(rng.uniform(0.05, 0.3, size=2000)))
+print(log_score)
+```
+
+Output:
+
+```
+-3705.74...
+```
+
+A large negative number, but a perfectly ordinary, finite float — no underflow, and the exact same information the raw product would have carried if floats had infinite precision.
+
+## Recovering Normalized Probabilities: `logsumexp`
+
+Classification only needs the arg-max, so log-scores alone are enough to predict a label. But reporting a calibrated posterior probability still requires normalizing across classes — dividing by $\sum_k \text{score}(y_k)$, i.e. undoing the log. Naively exponentiating first and summing after reintroduces the exact underflow problem log-space was meant to avoid. The standard fix is the **log-sum-exp trick**: factor out the largest log-score before exponentiating, so every exponentiated term stays in a safe numerical range.
+
+$$\log\sum_k e^{a_k} = a_{\max} + \log\sum_k e^{a_k - a_{\max}}$$
+
+```python
+from scipy.special import logsumexp
+
+log_score_a = -359.36   # log P(y=A) * product of log-likelihoods, from Module 3-style computation
+log_score_b = -363.16
+
+log_norm = logsumexp([log_score_a, log_score_b])
+posterior_a = np.exp(log_score_a - log_norm)
+posterior_b = np.exp(log_score_b - log_norm)
+print(posterior_a, posterior_b, posterior_a + posterior_b)
+```
+
+Output:
+
+```
+0.9781 0.0219 1.0
+```
+
+Every term inside `logsumexp` is shifted by $a_{\max}$ before exponentiating, so the largest exponent is always $e^0 = 1$ and nothing ever overflows or underflows — this is precisely how scikit-learn's `predict_proba` converts internal log-probabilities back into the 0–1 probabilities you see in `clf.predict_proba(X)`.
+
+<ConceptBox title="What changes in the code, concretely">
+Every `P(x_i \mid y)` becomes `log P(x_i \mid y)`, every `*` between likelihood terms becomes `+`, every prior multiplication becomes an addition of `log(prior)`, and the final class comparison uses `logsumexp` only if normalized probabilities are needed — `predict` itself never needs to exponentiate anything, since arg-max is scale- and monotone-transform-invariant.
+</ConceptBox>
+
+<Bridge>
+**From "it works" to "when does it work well."** Log-space computation is a pure numerical-implementation detail — it changes nothing about what the model believes, only how reliably it can express that belief in floating point. With the algorithm now complete and numerically sound end-to-end, Module 7 steps back to evaluate Naive Bayes honestly: where its speed and simplicity are genuine strengths, and where the independence assumption and other design choices cause it to underperform.
+</Bridge>
+
+## Practice
+
+#### Problem 1: Manual Underflow Threshold
+
+If each feature likelihood is roughly $0.2$, approximately how many features are needed before the raw product underflows below double-precision float's smallest positive value, $\approx 10^{-308}$?
+
+**Solution:** Solve $0.2^n < 10^{-308}$. Taking $\log_{10}$: $n \log_{10}(0.2) < -308 \Rightarrow n \times (-0.699) < -308 \Rightarrow n > 308/0.699 \approx 440$. Around 440 features with typical likelihood $0.2$ is already enough to underflow completely — well within the size of an ordinary text vocabulary (often 10,000+ words), confirming that log-space isn't an edge-case fix but a baseline requirement.
+
+#### Problem 2: Why Not Just Rescale?
+
+A student suggests fixing underflow by multiplying every likelihood by 10 before taking the product, then dividing the final result by $10^n$. Does this work?
+
+**Solution:** No — multiplying every term by 10 first shifts the underflow problem to an *overflow* problem instead: the intermediate product before the final division would grow as roughly $(10\times 0.2)^n = 2^n$, which overflows to `inf` for even moderately large $n$, and `inf / 10**n` is not recoverable once `inf` has already lost precision (or becomes `nan` if $10^n$ itself overflows first). Rescaling by a constant factor doesn't fix an exponential blow-up — only working in log-space, where multiplication becomes addition, avoids exponential growth or decay in the numbers being manipulated at all.
+
+<QuizCard
+  question="Why does converting Naive Bayes scores to log-space avoid numerical underflow while still producing the same predicted class?"
+  options={[
+    'Because logarithms round small numbers up to zero automatically, which is the desired behavior',
+    'Because log(ab) = log(a) + log(b) turns a shrinking product into a sum of moderate negative numbers, and log is monotonic so arg-max is unchanged',
+    'Because scikit-learn secretly uses higher-precision floats when logs are involved',
+    'Because taking the log relaxes the conditional independence assumption'
+  ]}
+  correct={1}
+/>

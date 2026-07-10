@@ -1,0 +1,150 @@
+import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+
+## From Formula to Code
+
+Module 3 derived the decision rule $\hat{y} = \arg\max_y P(y)\prod_i P(x_i\mid y)$ and worked it out by hand on the Play Tennis table. This module implements exactly that computation in Python — first from scratch with plain dictionaries, then with scikit-learn — on the *same* dataset, so the two outputs can be checked against each other line by line.
+
+## From-Scratch Implementation
+
+```python
+from collections import Counter
+
+data = [
+    ("Sunny", "False", "No"), ("Sunny", "True", "No"),
+    ("Overcast", "False", "Yes"), ("Rain", "False", "Yes"),
+    ("Rain", "False", "Yes"), ("Rain", "True", "No"),
+    ("Overcast", "True", "Yes"), ("Sunny", "False", "Yes"),
+    ("Sunny", "True", "Yes"), ("Rain", "False", "Yes"),
+]
+classes = ["Yes", "No"]
+outlook_vals = ["Sunny", "Overcast", "Rain"]
+windy_vals = ["True", "False"]
+alpha = 1  # Laplace smoothing strength, see Module 7
+
+def fit(data):
+    n = len(data)
+    priors, outlook_lik, windy_lik = {}, {}, {}
+    for c in classes:
+        rows = [d for d in data if d[2] == c]
+        n_c = len(rows)
+        priors[c] = n_c / n
+        # add-one (Laplace) smoothing: +alpha to every count, +alpha*|values| to denominator
+        outlook_lik[c] = {
+            v: (sum(1 for d in rows if d[0] == v) + alpha) / (n_c + alpha * len(outlook_vals))
+            for v in outlook_vals
+        }
+        windy_lik[c] = {
+            v: (sum(1 for d in rows if d[1] == v) + alpha) / (n_c + alpha * len(windy_vals))
+            for v in windy_vals
+        }
+    return priors, outlook_lik, windy_lik
+
+def predict_proba(outlook, windy, priors, outlook_lik, windy_lik):
+    scores = {c: priors[c] * outlook_lik[c][outlook] * windy_lik[c][windy] for c in classes}
+    total = sum(scores.values())
+    return {c: s / total for c, s in scores.items()}
+
+priors, outlook_lik, windy_lik = fit(data)
+print("priors:", priors)
+print(predict_proba("Sunny", "True", priors, outlook_lik, windy_lik))
+```
+
+Output:
+
+```
+priors: {'Yes': 0.7, 'No': 0.3}
+{'Yes': 0.4375, 'No': 0.5625}
+```
+
+Compare to Module 3's unsmoothed hand calculation, which gave `{'Yes': 0.30, 'No': 0.70}`. The prediction (**No**) is unchanged, but Laplace smoothing (`alpha=1`) pulls both probabilities toward 0.5 — it softens overconfidence by treating every category as if it had been seen at least once. Module 7 explains exactly why that matters.
+
+<ConceptBox title="Reading the smoothing formula">
+`(count + alpha) / (n_c + alpha * num_values)` adds a small pretend count to every category before dividing. With `alpha=1` this is add-one smoothing: even a category with zero observed occurrences in a class gets a nonzero, small probability instead of exactly zero. Set `alpha=0` in the code above to reproduce the raw, unsmoothed frequencies from Module 3 exactly.
+</ConceptBox>
+
+## The Same Model with scikit-learn
+
+For categorical features like Outlook and Windy, scikit-learn's `CategoricalNB` implements the identical algorithm — encode the categories as integers, fit, and compare:
+
+```python
+import numpy as np
+from sklearn.naive_bayes import CategoricalNB
+from sklearn.preprocessing import OrdinalEncoder
+
+X_raw = [[o, w] for o, w, _ in data]
+y = [c for _, _, c in data]
+
+enc = OrdinalEncoder()
+X = enc.fit_transform(X_raw)
+
+clf = CategoricalNB(alpha=1.0)
+clf.fit(X, y)
+
+query = enc.transform([["Sunny", "True"]])
+print("predicted class:", clf.predict(query)[0])
+print("class probabilities:", dict(zip(clf.classes_, clf.predict_proba(query)[0].round(4))))
+```
+
+This reproduces the from-scratch result: predicted class `No`, with probabilities matching the hand-rolled `{'Yes': 0.4375, 'No': 0.5625}` up to floating-point precision. The value of the from-scratch version isn't performance — it's proof that `CategoricalNB` is not a black box; it is the same three-line counting formula, vectorized and hardened for production.
+
+## A Realistic Dataset: Gaussian Naive Bayes on Iris
+
+The Play Tennis example uses categorical features so the arithmetic stays hand-checkable. Real numeric features (petal length, sensor readings, pixel intensities) need a continuous likelihood instead of a count-based one — covered fully in Module 5. As a preview, here is the same `fit → predict` pattern applied to the classic Iris dataset with `GaussianNB`:
+
+```python
+import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import accuracy_score
+
+X, y = load_iris(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+clf = GaussianNB()
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+
+print("test accuracy:", round(accuracy_score(y_test, y_pred), 4))
+print("class priors:", np.round(clf.class_prior_, 3))
+print("first test sample posterior:", np.round(clf.predict_proba(X_test[:1]), 4))
+```
+
+Output:
+
+```
+test accuracy: 0.9778
+class priors: [0.295 0.352 0.352]
+first test sample posterior: [[0.     0.9955 0.0045]]
+```
+
+Two things worth noticing. First, `class_prior_` is not exactly `[1/3, 1/3, 1/3]` — it's the *empirical* fraction of each class in the 70% training split, matching Module 3's "count the training labels" definition of the prior exactly. Second, the posterior for the first test point is essentially a one-hot vector (99.55% class 1) — Gaussian Naive Bayes tends to produce very confident, sharply-peaked posteriors, a point revisited in Module 6.
+
+<Bridge>
+**From one likelihood shape to three.** Both demos above picked their likelihood family by feature type: counts for categorical Outlook/Windy, a Gaussian for continuous Iris measurements. That choice is not arbitrary — it is the entire content of the next module, which formalizes Multinomial, Bernoulli, and Gaussian Naive Bayes as three specific answers to "what does $P(x_i\mid y)$ look like?"
+</Bridge>
+
+## Practice
+
+#### Problem 1: Effect of Smoothing on Confidence
+
+Using the from-scratch code above, what happens to `predict_proba("Sunny", "True", ...)` as `alpha` grows very large (e.g. `alpha=1000`)?
+
+**Solution:** As `alpha → ∞`, every category's estimated probability is dominated by the smoothing term rather than the observed counts — each `outlook_lik[c][v]` approaches `1/len(outlook_vals)` and each `windy_lik[c][v]` approaches `1/len(windy_vals)`, regardless of the data. The likelihoods stop discriminating between classes almost entirely, and the predicted probabilities collapse toward the class priors alone (`{'Yes': 0.7, 'No': 0.3}`). Large `alpha` trades data-driven signal for a uniform prior over feature values — useful against overfitting on tiny datasets, harmful if pushed too far.
+
+#### Problem 2: Verifying Independence in Code
+
+Modify the from-scratch `predict_proba` to print the two individual likelihood factors (`outlook_lik[c][outlook]` and `windy_lik[c][windy]`) alongside the final product for each class, for the query `("Rain", "False")`. What does this reveal about how the independence assumption is applied mechanically?
+
+**Solution:** For class `Yes`: `outlook_lik['Yes']['Rain'] ≈ (3+1)/(7+3) = 0.4`, `windy_lik['Yes']['False'] ≈ (5+1)/(7+2) = 0.667`, product with prior `0.7 × 0.4 × 0.667 ≈ 0.187`. For class `No`: `outlook_lik['No']['Rain'] ≈ (1+1)/(3+3) = 0.333`, `windy_lik['No']['False'] ≈ (1+1)/(3+2) = 0.4`, product with prior `0.3 × 0.333 × 0.4 ≈ 0.04`. The code never computes a joint table over (Outlook, Windy) pairs — it only ever multiplies two independently-looked-up scalars. That single multiplication *is* the conditional independence assumption, mechanically: there is no code path where the model could represent "Rain and calm co-occur more than their marginals would predict," even if that were true in reality.
+
+<QuizCard
+  question="In the from-scratch implementation, what specifically changes when alpha (the smoothing strength) is increased from 0 to 1?"
+  options={[
+    'The predicted class always flips to the majority class',
+    'Every per-feature likelihood is pulled toward a uniform distribution over that feature\'s possible values, softening confidence',
+    'The prior P(y) is recalculated using only smoothed counts',
+    'The independence assumption is relaxed, allowing feature correlations to be modeled'
+  ]}
+  correct={1}
+/>

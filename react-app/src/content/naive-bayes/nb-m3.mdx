@@ -1,0 +1,116 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+
+## From Bayes' Theorem to a Classifier
+
+Substitute a class label $y$ for $A$ and a feature vector $\mathbf{x} = (x_1, x_2, \ldots, x_n)$ for $B$ in Bayes' theorem:
+
+$$P(y \mid \mathbf{x}) = \frac{P(\mathbf{x} \mid y)\, P(y)}{P(\mathbf{x})}$$
+
+The Bayes decision rule from Module 1 picks the class maximizing the posterior:
+
+$$\hat{y} = \arg\max_{y} \; P(y \mid \mathbf{x}) = \arg\max_{y} \; \frac{P(\mathbf{x}\mid y)\,P(y)}{P(\mathbf{x})}$$
+
+<ConceptBox title="Dropping the denominator">
+$P(\mathbf{x})$ — the evidence term — does not depend on $y$. It is the same number regardless of which class you're scoring, so it cannot change which class has the largest posterior. It only rescales all the candidate scores by the same constant. This means the $\arg\max$ is unaffected by dropping it entirely:
+$$\hat{y} = \arg\max_{y} \; P(\mathbf{x}\mid y)\, P(y)$$
+This is the single most important computational shortcut in Bayesian classification: you never need to compute $P(\mathbf{x})$ to classify, only to report calibrated probabilities.
+</ConceptBox>
+
+## The Problem: $P(\mathbf{x} \mid y)$ Is Intractable
+
+$P(\mathbf{x}\mid y)$ is a joint distribution over all $n$ features at once. If each feature has just 2 possible values, the joint distribution has $2^n$ entries to estimate — for $n=20$ binary features, over a million parameters *per class*, from a training set that might have only a few thousand rows. Most of those feature combinations will never appear in the training data at all, making direct estimation impossible.
+
+## The Naive Assumption: Conditional Independence
+
+Naive Bayes breaks the joint distribution apart with one assumption: **all features are conditionally independent given the class**.
+
+$$P(\mathbf{x} \mid y) = P(x_1, x_2, \ldots, x_n \mid y) = \prod_{i=1}^{n} P(x_i \mid y)$$
+
+This is *not* the same as saying the features are independent unconditionally — "free" and "money" are correlated across all emails, but the assumption only claims that once you already know an email is spam, learning that it contains "free" tells you nothing extra about whether it also contains "money". That is usually false in the real world, hence "naive". What it buys in exchange is enormous: instead of one $2^n$-sized table per class, you estimate $n$ separate, small, one-dimensional distributions $P(x_i \mid y)$ — a problem that scales linearly in the number of features instead of exponentially.
+
+<ConceptBox title="Why 'naive' independence still works well for classification">
+Domingos & Pazzani (1997) showed that Naive Bayes can be the Bayes-optimal *classifier* even when its independence assumption is badly violated, because classification only needs the *ranking* of $P(y\mid\mathbf{x})$ across classes to be correct — not the exact probability values. Correlated features often push every class's score in the same direction, distorting the magnitudes but leaving the ranking, and therefore the predicted label, intact.
+</ConceptBox>
+
+## The Naive Bayes Decision Rule
+
+Combining the dropped-denominator shortcut with the independence assumption gives the full classifier:
+
+$$\hat{y} = \arg\max_{y} \; P(y) \prod_{i=1}^{n} P(x_i \mid y)$$
+
+Three ingredients, all estimated from training data by counting:
+
+1. **Prior** $P(y)$ — the fraction of training examples belonging to class $y$.
+2. **Per-feature likelihoods** $P(x_i \mid y)$ — for each feature and each class, a small distribution over that feature's values. What form this distribution takes (categorical counts, Bernoulli, Gaussian) is the subject of Module 5.
+3. **Arg-max over classes** — compute the product for every candidate class and keep the largest.
+
+## Worked Example: Predicting "Play Tennis"
+
+Training data — 10 days, two categorical features (Outlook, Windy) and a label (Play):
+
+| Outlook | Windy | Play |
+|---|---|---|
+| Sunny | False | No |
+| Sunny | True | No |
+| Overcast | False | Yes |
+| Rain | False | Yes |
+| Rain | False | Yes |
+| Rain | True | No |
+| Overcast | True | Yes |
+| Sunny | False | Yes |
+| Sunny | True | Yes |
+| Rain | False | Yes |
+
+Query: Outlook = Sunny, Windy = True. Should you expect Play = Yes or No?
+
+<DerivationSteps>
+<DerivationStep number={1} title="Compute priors from class counts">
+7 of 10 days are Yes, 3 of 10 are No:
+$$P(\text{Yes}) = 0.7, \qquad P(\text{No}) = 0.3$$
+</DerivationStep>
+<DerivationStep number={2} title="Compute per-feature likelihoods within each class">
+Within the 7 Yes days: Sunny appears 2 times, True (windy) appears 2 times.
+$$P(\text{Sunny}\mid\text{Yes}) = \tfrac{2}{7} \approx 0.286, \qquad P(\text{True}\mid\text{Yes}) = \tfrac{2}{7} \approx 0.286$$
+Within the 3 No days: Sunny appears 2 times, True appears 2 times.
+$$P(\text{Sunny}\mid\text{No}) = \tfrac{2}{3} \approx 0.667, \qquad P(\text{True}\mid\text{No}) = \tfrac{2}{3} \approx 0.667$$
+</DerivationStep>
+<DerivationStep number={3} title="Multiply prior by likelihoods for each class (independence assumption)">
+$$\text{score}(\text{Yes}) = 0.7 \times 0.286 \times 0.286 \approx 0.0571$$
+$$\text{score}(\text{No}) = 0.3 \times 0.667 \times 0.667 \approx 0.1333$$
+</DerivationStep>
+<DerivationStep number={4} title="Normalize (optional) and pick the arg-max">
+$$P(\text{Yes}\mid\mathbf{x}) = \frac{0.0571}{0.0571+0.1333} \approx 0.30, \qquad P(\text{No}\mid\mathbf{x}) = \frac{0.1333}{0.0571+0.1333} \approx 0.70$$
+Since $\text{score}(\text{No}) > \text{score}(\text{Yes})$, the classifier predicts **No** — even though "Yes" is the majority class overall (70% prior). The evidence (Sunny and Windy are both disproportionately common on No-days) was strong enough to overturn the prior.
+</DerivationStep>
+</DerivationSteps>
+
+Notice that normalization in step 4 was not required to get the prediction — only to report a calibrated-looking probability. This is the same denominator-dropping shortcut from earlier, applied concretely.
+
+<Bridge>
+**From categorical counts to real code.** The Sunny/Windy example used simple fraction-counting because both features were categorical with few values. Real features come in different flavors — word counts, presence/absence flags, continuous measurements — and each flavor needs a different assumed shape for $P(x_i \mid y)$. Module 4 first implements exactly this counting-based classifier in Python and checks it against scikit-learn, before Module 5 generalizes to the three standard likelihood families.
+</Bridge>
+
+## Practice
+
+#### Problem 1: New Query
+
+Using the same Play Tennis table, classify Outlook = Overcast, Windy = False.
+
+**Solution:** $P(\text{Overcast}\mid\text{Yes}) = 2/7 \approx 0.286$, $P(\text{False}\mid\text{Yes}) = 5/7 \approx 0.714$. $P(\text{Overcast}\mid\text{No}) = 0/3 = 0$, $P(\text{False}\mid\text{No}) = 1/3 \approx 0.333$. Scores: $\text{Yes} = 0.7 \times 0.286 \times 0.714 \approx 0.143$; $\text{No} = 0.3 \times 0 \times 0.333 = 0$. Predicted class: **Yes**, with overwhelming confidence — because Overcast never appeared on a No-day in training, its zero count drives the entire No score to exactly zero. (This zero-count brittleness is a real weakness, addressed directly in Module 7.)
+
+#### Problem 2: Effect of the Independence Assumption
+
+Suppose Outlook and Windy were in reality perfectly correlated (every Sunny day is also Windy, every non-Sunny day is calm) but the classifier still multiplies $P(\text{Sunny}\mid y)$ and $P(\text{Windy}\mid y)$ as if independent. What happens to the computed score compared to the true joint probability?
+
+**Solution:** If Sunny and Windy always co-occur, the true joint probability $P(\text{Sunny},\text{Windy}\mid y)$ equals $P(\text{Sunny}\mid y)$ alone (windiness adds no new information). But Naive Bayes computes $P(\text{Sunny}\mid y)\times P(\text{Windy}\mid y)$, effectively squaring a probability that should have appeared once — this systematically shrinks the score for every class that has non-trivial Sunny/Windy probability. Because the shrinkage direction is often similar across classes, the arg-max frequently survives, but the posterior probabilities themselves become overconfident and poorly calibrated — a direct consequence of violating the "naive" assumption.
+
+<QuizCard
+  question="What does the conditional independence assumption in Naive Bayes actually claim?"
+  options={[
+    'That the features are independent of each other regardless of class',
+    'That, once the class label is known, the features carry no additional information about each other',
+    'That the class label is independent of every feature',
+    'That the prior probabilities of all classes are equal'
+  ]}
+  correct={1}
+/>

@@ -1,0 +1,66 @@
+import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+
+## Why Probabilistic Classification?
+
+Consider a spam filter deciding whether an incoming email is spam. A decision tree asks a sequence of yes/no questions and lands on a leaf. A logistic regression draws a single boundary in feature space and checks which side the email falls on. Both give you a label — spam or not spam — but neither naturally tells you *how sure* the model is, and neither is built around the question a human actually asks: "given everything I know about this email, how likely is it to be spam?"
+
+A probabilistic classifier answers that question directly. Instead of learning a boundary, it learns a distribution: for every class $y$, it estimates $P(y \mid \mathbf{x})$ — the probability of each class given the observed features $\mathbf{x}$. Classification becomes a simple final step: pick whichever class has the highest probability.
+
+$$\hat{y} = \arg\max_{y} \; P(y \mid \mathbf{x})$$
+
+This one-line rule is called the **Bayes decision rule**, and it is provably optimal: if you knew $P(y \mid \mathbf{x})$ exactly, no other rule could achieve a lower classification error, on average, than picking the most probable class. Every probabilistic classifier is an attempt to estimate $P(y \mid \mathbf{x})$ as well as possible from finite training data.
+
+<ConceptBox title="Posterior, and why it's called that">
+$P(y \mid \mathbf{x})$ is called the **posterior probability** — the probability of the class *after* (post-) observing the features. Before you see any features, your best guess about the class is just the base rate at which each class occurs, called the **prior**. Observing $\mathbf{x}$ updates that belief. The entire machinery in this track exists to compute this update correctly and cheaply.
+</ConceptBox>
+
+## A Weather-Forecaster Analogy
+
+Think of a forecaster estimating the chance of rain tomorrow. Two pieces of information combine:
+
+1. **Base rate** — in this city, it rains on 20% of days regardless of anything else. This is the prior: $P(\text{rain}) = 0.2$.
+2. **Today's evidence** — the sky is overcast, humidity is high, pressure is dropping. Each of these is more common on days that precede rain than on days that don't.
+
+The forecaster doesn't throw away the base rate just because today looks stormy — 20% of days are rainy even without stormy signs, and stormy signs sometimes come to nothing. Instead, the base rate gets *updated* by the evidence, producing a posterior probability that combines both pieces of information correctly. That combination step — turning "prior + evidence" into "posterior" — is exactly what Bayes' theorem formalizes, and what the next module derives from first principles.
+
+## Generative vs. Discriminative Thinking
+
+There are two fundamentally different ways to model $P(y \mid \mathbf{x})$:
+
+| Approach | What it models | Example models |
+|---|---|---|
+| **Discriminative** | $P(y \mid \mathbf{x})$ directly, by learning a boundary or scoring function | Logistic regression, SVM, decision trees |
+| **Generative** | $P(\mathbf{x} \mid y)$ and $P(y)$ separately, then combines them via Bayes' theorem to get $P(y \mid \mathbf{x})$ | Naive Bayes, Gaussian Discriminant Analysis, HMMs |
+
+A generative model asks a different question than a discriminative one. Instead of "where is the boundary between classes?", it asks "if I were to *generate* a new example of class $y$, what would its features look like?" It builds a small simulator for each class — a distribution over feature values — and classification falls out as a side effect of comparing how well each class's simulator explains the observed $\mathbf{x}$.
+
+This generative view has a concrete payoff: because the model explicitly represents $P(\mathbf{x} \mid y)$, it can also generate synthetic samples, handle missing features gracefully by marginalizing over them, and update incrementally as new data arrives — none of which a purely discriminative boundary supports.
+
+<Bridge>
+**From intuition to formalism.** Naive Bayes is the simplest, most transparent generative classifier there is. Its "simulator" for each class is just a product of independent per-feature distributions — a strong simplifying assumption, but one that turns Bayes' theorem into an algorithm you can compute in closed form, with no gradient descent and no iterative optimization. Before building that algorithm, the next module derives Bayes' theorem itself from the definition of conditional probability, so every symbol in the classifier has a precise meaning.
+</Bridge>
+
+## Practice
+
+#### Problem 1: Prior vs. Posterior
+
+A hospital knows that 1 in 500 patients who visit the ER have a rare condition (the prior). A patient arrives with a specific set of symptoms strongly associated with the condition. Which of the following is true?
+
+**Solution:** The prior, $P(\text{condition}) = 1/500 = 0.002$, reflects the base rate *before* any symptoms are considered. Once the symptoms (the evidence $\mathbf{x}$) are observed, the doctor should reason about the posterior $P(\text{condition} \mid \text{symptoms})$, which can be far higher than the prior if the symptoms are strongly associated with the condition — but it is never computed by discarding the prior. A generative model keeps both pieces (base rate and symptom likelihood) and combines them explicitly, which is precisely why rare-disease reasoning is a classic Bayes' theorem example.
+
+#### Problem 2: Generative vs. Discriminative
+
+For each model, classify it as generative or discriminative: (a) logistic regression, (b) Gaussian Naive Bayes, (c) a decision tree, (d) linear discriminant analysis.
+
+**Solution:** (a) Discriminative — models $P(y\mid\mathbf{x})$ directly via a sigmoid over a linear score, with no model of how $\mathbf{x}$ is generated. (b) Generative — models $P(\mathbf{x}\mid y)$ as a per-class Gaussian and combines with the prior. (c) Discriminative — learns axis-aligned splits that directly partition $\mathbf{x}$-space by class, no distribution over $\mathbf{x}$ is estimated. (d) Generative — like Gaussian Naive Bayes, it models each class as a Gaussian over $\mathbf{x}$ (with a shared covariance), then applies Bayes' theorem.
+
+<QuizCard
+  question="A generative classifier like Naive Bayes primarily models which quantity before applying Bayes' theorem?"
+  options={[
+    'The posterior P(y | x) directly',
+    'A decision boundary that separates the classes',
+    'The class-conditional distribution P(x | y) and the prior P(y)',
+    'The gradient of a loss function with respect to model weights'
+  ]}
+  correct={2}
+/>

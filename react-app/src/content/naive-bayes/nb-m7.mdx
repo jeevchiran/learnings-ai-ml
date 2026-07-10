@@ -1,0 +1,69 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+## Advantages
+
+<ConceptBox title="Where Naive Bayes genuinely wins">
+- **Training is a single pass over the data.** Fitting means counting — class frequencies for the prior, per-feature statistics for each likelihood. There is no iterative optimization, no gradient descent, no convergence check. Training cost is $O(N \times n)$ for $N$ training rows and $n$ features, and it parallelizes trivially since every count is independent of every other count.
+- **Prediction is fast and embarrassingly parallel.** Scoring a new example means one multiply (or log-space add) per feature per class — no matrix inversion, no tree traversal, no distance computation against training points.
+- **It needs very little training data to produce a sane estimate.** Because each $P(x_i\mid y)$ is a small, low-dimensional distribution (not a joint distribution across all features), it can be estimated reliably from far fewer examples than a model that must learn feature interactions. This makes Naive Bayes a strong baseline exactly when data is scarce.
+- **It handles high-dimensional, sparse data well.** Text classification with a 50,000-word vocabulary is routine for Multinomial NB — most other classifiers struggle with that many features without explicit dimensionality reduction first.
+- **It's naturally incremental.** New training examples update the counts (or running mean/variance for Gaussian NB) without retraining from scratch — `partial_fit` in scikit-learn exists specifically because Naive Bayes's parameters decompose into simple, updatable sufficient statistics.
+- **It's interpretable.** Every prediction can be explained as "these specific words/features pushed the score toward this class, by this much" — the log-space score decomposition from Module 6 is literally a per-feature attribution.
+</ConceptBox>
+
+## Disadvantages
+
+<ConceptBox title="Where the independence assumption and simplicity cost you">
+- **The independence assumption is almost always false, and probability estimates suffer for it.** Module 3's Practice Problem 2 showed that correlated features get "double-counted" — the resulting posterior probabilities are frequently overconfident (very close to 0 or 1) even when the true uncertainty is much higher. The predicted *label* often survives this distortion, but the predicted *confidence* usually should not be trusted at face value.
+- **The zero-frequency problem.** If a feature value never appears with a given class in training, its unsmoothed likelihood is exactly 0, and — because likelihoods are multiplied together — that single zero silently forces the entire class score to zero regardless of how strongly every other feature supports it (seen directly in Module 3's Overcast example and Module 5's Practice Problem 2). Laplace/add-$\alpha$ smoothing fixes this but must always be enabled deliberately; it is not automatic in a from-scratch implementation.
+- **Poor probability calibration.** Because of the two issues above, `predict_proba` outputs from Naive Bayes should be treated as a *ranking signal*, not a trustworthy probability — a model outputting "99.99% spam" may really only be correct about 90% of the time it says that. If well-calibrated probabilities matter (e.g. for a downstream cost-sensitive decision), consider recalibrating with Platt scaling or isotonic regression on top of Naive Bayes's raw scores.
+- **Gaussian NB assumes normality per feature per class**, which real continuous features often violate (skewed, multimodal, bounded). A feature that is bimodal within a class will be poorly approximated by a single Gaussian's mean and variance, hurting that feature's contribution to the score.
+- **No modeling of feature interactions, ever.** If the true decision boundary genuinely depends on how two features combine (e.g. "high income AND low expenses" matters, but neither alone does), no amount of data will let plain Naive Bayes learn that interaction — it's excluded by the model's structure, not by insufficient training.
+- **Continuous features need a distributional assumption, or explicit binning.** Unlike a decision tree, which handles raw numeric thresholds automatically, Naive Bayes requires you to choose Gaussian (or another parametric family) or discretize the feature first — an extra modeling decision that other classifiers don't force on you.
+</ConceptBox>
+
+## The Zero-Frequency Problem, Concretely
+
+This deserves special emphasis because it is the single most common way a from-scratch Naive Bayes implementation silently fails in production. Consider a spam classifier where the word "cryptocurrency" never appeared in any training email labeled "ham":
+
+$$P(\text{"cryptocurrency"} \mid \text{ham}) = \frac{0}{N_{\text{ham}}} = 0$$
+
+Any future legitimate email that happens to mention cryptocurrency — a finance newsletter, a tax question — gets $P(\text{ham})\prod_i P(x_i\mid\text{ham})$ multiplied by this exact zero, collapsing the entire ham score to zero no matter how many other words in that email are unambiguously ham-like. The fix, from Modules 4 and 5, is add-$\alpha$ (Laplace) smoothing:
+
+$$P(x_i \mid y) = \frac{N_{y,i} + \alpha}{N_y + \alpha \cdot |\text{values}|}$$
+
+which guarantees every likelihood is strictly positive, at the cost of slightly biasing every estimate toward uniform. $\alpha=1$ is the conventional default; smaller $\alpha$ trusts the data more, larger $\alpha$ smooths more aggressively (Module 4's Practice Problem 1 traces this trade-off to its extreme).
+
+## Class Imbalance
+
+Naive Bayes handles class imbalance more gracefully than many discriminative models, precisely because the prior $P(y)$ is an explicit, separate term rather than something implicitly baked into a learned decision boundary. If one class is rare, its low prior correctly pulls predictions toward the majority class *unless* the feature evidence is strong enough to overcome it — exactly the medical-test behavior derived in Module 2. This is a feature, not a bug, when the training class balance reflects real-world prevalence; it becomes a liability if the training set's class balance was artificially altered (e.g. oversampled) without adjusting the prior to match deployment conditions.
+
+<Bridge>
+**From honest trade-offs to relative positioning.** Every strength and weakness above matters most in comparison to the alternatives — "fast to train" is only meaningful next to something slower, "no feature interactions" is only a real cost if the model you'd otherwise use could capture them. The final module places Naive Bayes side by side with logistic regression, decision trees, k-NN, and SVMs across exactly these dimensions.
+</Bridge>
+
+## Practice
+
+#### Problem 1: Diagnosing Overconfidence
+
+A Gaussian NB text-length-and-punctuation-count spam filter reports `predict_proba` values that are almost always either `>0.999` or `<0.001`, rarely anything in between, even on emails a human would call ambiguous. What is the most likely underlying cause, and is the predicted *label* necessarily wrong too?
+
+**Solution:** The most likely cause is the independence assumption combining many correlated features (message length, punctuation count, and word-based features are all correlated with each other and with "spamminess") — each additional correlated feature multiplies in evidence that partially restates what earlier features already said, driving the score toward the extremes far faster than genuine independent evidence would. The predicted *label* is not necessarily wrong: Module 3 established that Naive Bayes can still rank classes correctly even when the independence assumption badly distorts the magnitude of the scores. The overconfidence is a calibration problem, not automatically an accuracy problem — but it should not be trusted as a real probability without recalibration.
+
+#### Problem 2: Choosing Smoothing for a New Vocabulary Word
+
+A production spam filter is retrained monthly. In a given month, a brand-new slang word appears only in spam emails (10 occurrences, 0 in ham). Without smoothing, what happens the following month if that word appears once in a legitimate email — and how does Laplace smoothing change the outcome?
+
+**Solution:** Without smoothing, $P(\text{word}\mid\text{ham}) = 0$ exactly, so any email containing that word — however legitimate otherwise — is scored with $P(y=\text{ham}) \times \cdots \times 0 = 0$, guaranteeing a spam classification purely because of one absent training co-occurrence, regardless of every other word in the email. With Laplace smoothing ($\alpha=1$), $P(\text{word}\mid\text{ham}) = (0+1)/(N_{\text{ham}}+ \alpha \cdot |\text{vocab}|)$ — small, but strictly positive — so the single new word can no longer single-handedly override all other evidence in the email; the ham class can still win if enough other features support it.
+
+<MultiSelectQuiz
+  question="Which of the following are genuine disadvantages of Naive Bayes? (Select all that apply.)"
+  options={[
+    'It cannot learn interactions between features, by construction',
+    'Its predicted probabilities are often poorly calibrated even when its predicted labels are accurate',
+    'It requires iterative gradient-based optimization that can fail to converge',
+    'Without smoothing, a single unseen feature value can zero out an entire class score',
+    'Gaussian NB assumes each feature is normally distributed within each class, which is often only an approximation'
+  ]}
+  correct={[0, 1, 3, 4]}
+/>
