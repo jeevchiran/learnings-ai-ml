@@ -1,0 +1,158 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import LeakagePipelineWidget from '../../components/widgets/model-eval/LeakagePipelineWidget.jsx'
+
+## The trap, stated precisely
+
+Filter, wrapper, and embedded methods (Modules 6-7) all pick a subset of features by looking at data and (for wrapper/embedded) fitting a model on it. That "looking at data" step is exactly where this module's problem lives — if it looks at *too much* data, everything you measure afterward becomes dishonest.
+
+Here is the core leak, stated as sharply as possible: if you select features — using **any** of filter, wrapper, or embedded methods, it doesn't matter which — on the **full** dataset, including rows that will later become your cross-validation validation folds or your held-out test set, you have let information about those "held-out" rows influence which features got chosen. When you then compute a CV or test score on a model built from those selected features, that score is no longer honest. You are not evaluating a model against genuinely unseen data — you are evaluating a pipeline that already got a preview of the answers on that data, because the features it's using were cherry-picked with the benefit of having seen it.
+
+This is the same category of mistake as scaling your data (fitting a `StandardScaler`) on the full dataset before splitting — except feature selection leaks are often larger and harder to notice, because "which features to use" feels like a data-preparation decision made once, up front, rather than something that belongs inside the model-fitting loop.
+
+## A concrete illustration: finding signal in pure noise
+
+Suppose you generate 1,000 completely random features — pure noise, drawn independently, with **no true relationship whatsoever** to a random binary target. By construction, the honest expected accuracy of any model built from these features is 50%, chance level, no better.
+
+Now run this (leaky) procedure:
+
+1. Compute the correlation between each of the 1,000 noise features and the target, using **all** the data.
+2. Keep the top 20 features with the strongest absolute correlation.
+3. Run 5-fold CV using only those 20 "best" features, scoring a simple classifier.
+
+The reported CV accuracy comes back well above 50% — often 65-75% or higher, despite the features being pure noise with zero true signal.
+
+**Why this happens.** With 1,000 independent random features and a random target, pure chance guarantees that *some* of those 1,000 features will show a moderately strong correlation with the target just by luck — this is the same phenomenon as multiple-comparisons/multiple-testing inflation: test enough random things against a random outcome and a handful will look related purely by coincidence. Step 2 explicitly searches for and keeps exactly those lucky-looking features. Critically, the correlations in step 1 were computed using **all** the data, including the rows that later become CV validation folds in step 3. Each of those 20 features was selected *because* it happened to correlate with the target across the whole dataset — which necessarily includes correlating with the target within whatever rows later end up in the validation folds. So of course they look predictive when scored on those same folds: the validation folds' target values were part of what got those features chosen as "the best" ones in the first place. The CV score isn't measuring generalization to new data — it's measuring how well the model can recognize patterns it was implicitly shown during selection.
+
+```python
+import numpy as np
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+from sklearn.linear_model import LogisticRegression
+
+rng = np.random.default_rng(42)
+X_noise = rng.normal(size=(500, 1000))       # 1000 pure-noise features
+y = rng.integers(0, 2, size=500)              # random binary target
+
+# --- LEAKY: select on the full dataset, then CV ---
+correlations = np.array([abs(np.corrcoef(X_noise[:, j], y)[0, 1]) for j in range(1000)])
+top_20 = np.argsort(correlations)[-20:]
+X_selected = X_noise[:, top_20]
+
+scores = cross_val_score(LogisticRegression(), X_selected, y, cv=StratifiedKFold(5))
+print(scores.mean())   # inflated — often well above 0.50 despite pure noise
+```
+
+## The fix: put selection inside the pipeline
+
+The fix is to make feature selection part of the model-fitting procedure itself, so it only ever sees whatever data is currently designated as "training" — never the fold or split currently held out for validation. `sklearn.pipeline.Pipeline` does exactly this: it bundles the scaler, the selector, and the final model into one object with a single `fit`/`predict` interface. When you pass the whole pipeline to `cross_val_score` (or `GridSearchCV`), cross-validation refits the **entire pipeline** — selector included — from scratch on each training fold.
+
+```python
+from sklearn.pipeline import Pipeline
+from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+
+# --- CORRECT: selection lives inside the pipeline ---
+pipe = Pipeline([
+    ('scale', StandardScaler()),
+    ('select', SelectKBest(score_func=f_classif, k=20)),
+    ('clf', LogisticRegression()),
+])
+
+scores = cross_val_score(pipe, X_noise, y, cv=StratifiedKFold(5))
+print(scores.mean())   # honest — back down near 0.50, as it should be for pure noise
+```
+
+What this buys you, precisely: on each of the 5 folds, `cross_val_score` calls `pipe.fit()` using only that fold's *training* rows. Inside that call, `SelectKBest` computes its scores and picks its top-20 features using only those training rows — the validation fold's rows haven't been touched yet. Only after the whole pipeline (scaler, selector, and classifier together) has been fit on the training rows alone does `cross_val_score` transform and score the held-out validation rows. The validation fold stays genuinely unseen, by every step of the pipeline, until the moment it's scored. Selecting `k=20` on 1,000 pure-noise features this way gives you a CV score correctly hovering around chance level, because the "best 20" chosen on each training fold have no reason to also look good on that fold's held-out validation rows.
+
+## Nested CV: when you're also tuning hyperparameters
+
+There's a subtler, milder version of the same leak. Suppose you're not just fitting a fixed `k=20` selector — you're using `GridSearchCV` to search over `k` (how many features to keep) or a model's regularization strength, using the *same* CV loop you'll later report as your final score. That's a leak too, just a smaller one: you picked those hyperparameters **because** they scored well on those exact folds, so reporting that same score as your final, honest estimate of generalization is optimistic. You're not reusing the target values directly (as in the pure-noise example), but you are reusing the same validation folds to both choose a configuration and grade it — configurations that happened to fit the noise in those particular folds well will be favored, and that favoritism won't repeat on truly new data.
+
+**Nested CV** fixes this with two loops:
+
+- An **inner** CV loop, used only to select hyperparameters (or the feature count `k`) — this is where `GridSearchCV` does its tuning.
+- An **outer** CV loop, whose folds are never used for any decision — only to score whatever configuration the inner loop landed on, honestly, on data the inner loop never got to optimize against.
+
+```python
+from sklearn.model_selection import GridSearchCV, cross_val_score, StratifiedKFold
+
+pipe = Pipeline([
+    ('scale', StandardScaler()),
+    ('select', SelectKBest(score_func=f_classif)),
+    ('clf', LogisticRegression()),
+])
+
+param_grid = {'select__k': [5, 10, 20, 50], 'clf__C': [0.01, 0.1, 1, 10]}
+
+inner_cv = StratifiedKFold(n_splits=3)
+outer_cv = StratifiedKFold(n_splits=5)
+
+# Inner loop: GridSearchCV picks k and C using only the training folds it's given
+grid_search = GridSearchCV(pipe, param_grid, cv=inner_cv, scoring='accuracy')
+
+# Outer loop: scores the *entire tuning procedure*, never touching the same
+# folds that were used to pick k and C
+nested_scores = cross_val_score(grid_search, X_noise, y, cv=outer_cv)
+print(nested_scores.mean())   # honest estimate, accounting for tuning-selection leak too
+```
+
+Each outer fold trains a brand-new `GridSearchCV` from scratch — the inner 3-fold search happens entirely within that outer fold's training rows, picks its own best `k`/`C` for that outer fold, and only then gets scored against the outer fold's held-out rows. This is expensive: with 5 outer folds and 3 inner folds searching a 4x4 grid, that's $5 \times 3 \times 16 = 240$ total model fits, versus the 16 fits a plain (non-nested) grid search would need. It's the price of a truly unbiased estimate — nested CV is the gold standard when you need a number you can trust completely, and plain CV-after-tuning is a reasonable, cheaper approximation when you mainly need to compare configurations rather than report a final, publishable accuracy.
+
+## Interactive: leaky vs correct pipeline
+
+The widget below runs both versions of the pure-noise scenario above side by side. Toggle between the leaky pipeline (select-then-CV) and the correct pipeline (selection inside CV) and watch how the reported CV score changes — the leaky version reports a score well above chance on data that is, by construction, unpredictable.
+
+<LeakagePipelineWidget />
+
+<ConceptBox title="Common confusion: 'I never touched the test set, so I'm safe'">
+A common (and dangerous) belief is that leakage is specifically about the **test set** — as long as that set stays locked away untouched until the final evaluation, everything else is fine. It isn't. The exact same leak happens between a CV **training** fold and its paired **validation** fold if feature selection happens before the CV split, even when the true holdout test set is never touched at all. The pure-noise example above never mentioned a test set — the inflation happened entirely within 5-fold CV, because the leak is between "the data used to make a choice" and "the data used to score that choice." Those two roles can be violated by a boundary between train and validation folds just as easily as by a boundary between train+validation and test. Leakage is about *any* such boundary being crossed, not specifically about the word "test set."
+</ConceptBox>
+
+## Practice
+
+#### Problem 1: Spot the leak
+
+```python
+from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+
+selector = SelectKBest(f_classif, k=15)
+X_selected = selector.fit(X, y).transform(X)   # fit on ALL of X, y
+
+model = LogisticRegression()
+scores = cross_val_score(model, X_selected, y, cv=5)
+print(scores.mean())
+```
+
+Where is the leak, and how would you fix this code?
+
+**Solution:** The leak is on the `selector.fit(X, y)` line — `SelectKBest` is fit on the entire dataset `X, y` before `cross_val_score` ever splits it into folds. That means the 15 kept features were chosen with the benefit of having seen every row, including whichever rows end up as validation folds inside `cross_val_score`. The reported score is therefore optimistic exactly like the pure-noise example. The fix is to never call `.fit()` (or `.fit_transform()`) on the selector outside of the CV loop at all — wrap the selector and the model together in a `Pipeline([('select', SelectKBest(f_classif, k=15)), ('clf', LogisticRegression())])` and pass *that pipeline* (not the pre-selected `X_selected`) to `cross_val_score(pipe, X, y, cv=5)`. Then selection is refit on only the training portion of each fold, and each validation fold stays unseen until scoring.
+
+<QuizCard
+  question="In the pure-noise example (1,000 random features, random binary target), why does selecting the top 20 correlated features on the full dataset before running 5-fold CV produce accuracy well above 50%?"
+  options={[
+    "Because SelectKBest and correlation-based ranking are inherently biased estimators that always overstate accuracy",
+    "Because with 1,000 independent random features, some will correlate with the target by pure chance, and those exact features were chosen using data that includes the later validation folds, so they appear predictive when scored on those same folds",
+    "Because 5-fold CV is too small a number of folds to get an honest estimate on noisy data",
+    "Because logistic regression cannot produce a 50% accuracy score on random data — it will always find some structure"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about leakage-safe feature selection are correct? (Select all that apply.)"
+  options={[
+    "Wrapping a selector and a model in a single Pipeline and passing that pipeline to cross_val_score refits the selector separately on each training fold",
+    "Leakage between CV training and validation folds can occur even if the true holdout test set is never touched",
+    "Tuning a hyperparameter like SelectKBest's k with GridSearchCV using the same CV folds you report as your final score is itself a (milder) form of leakage",
+    "Nested CV eliminates the extra compute cost of tuning hyperparameters honestly",
+    "Nested CV uses an inner CV loop for hyperparameter/feature-count selection and an outer CV loop, never used for any tuning decision, to report the final score"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>
+
+<Bridge>
+You've now covered the full arc of this track: from the bias-variance tradeoff and why training error lies, through validation sets and cross-validation, hyperparameter search, the curse of dimensionality, and all three feature-selection families — filter, wrapper, embedded — finishing with the leakage-safe pipeline discipline that keeps every one of those techniques honest. The track quiz puts it all together: 13 questions spanning CV mechanics, search strategy tradeoffs, filter/wrapper/embedded selection, and leakage detection.
+</Bridge>

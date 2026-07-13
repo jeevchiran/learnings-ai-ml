@@ -1,0 +1,134 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+## Two Models, Zero Training Error, One Winner
+
+Suppose you fit two different models to the same training set of 200 houses, predicting price from square footage. Model A is a straight line. Model B is a wiggly degree-15 polynomial that snakes through every single training point, missing none of them by more than a dollar. If you only look at training error, Model B wins by a landslide — its error is essentially zero, while Model A's line misses most houses by several thousand dollars.
+
+Ship Model B to production and it falls apart. On a new batch of houses it has never seen, its predictions swing wildly — a house one square foot larger than a training example can get a wildly different, sometimes negative, predicted price, because the polynomial curves violently between the points it memorized. Model A, the "worse" model by training error, predicts the new houses far more sensibly.
+
+Training error told you nothing useful here. It measured how well each model *memorized* the data it was shown, not how well it *understood* the relationship between square footage and price. This module works out precisely why that happens, and gives you the vocabulary — bias, variance, complexity, overfitting, underfitting — to reason about it. That vocabulary is the foundation for everything else in this track: every technique for choosing between models is, underneath, a technique for estimating something training error cannot measure.
+
+## Bias and Variance, Precisely
+
+Imagine retraining the same model on many different training sets, all drawn from the same underlying data distribution — a new 200 houses each time. For a fixed test point $x$, each retraining produces a (possibly different) prediction $\hat{f}(x)$. Two properties of this collection of predictions matter:
+
+- **Bias** is how far the *average* prediction, across all those retrainings, sits from the true value. A model with high bias is systematically wrong in the same direction no matter how the training data happens to fall — it is too simple to capture the real pattern.
+- **Variance** is how much the prediction *wiggles* from one retraining to the next. A model with high variance produces very different predictions depending on which particular training set it happened to see — it is sensitive to noise and quirks specific to that sample.
+
+These combine into a clean decomposition of the expected squared error on a new test point $x$ with true value $y = f(x) + \varepsilon$ (where $\varepsilon$ is irreducible noise with variance $\sigma^2$):
+
+$$\mathbb{E}\big[(y - \hat{f}(x))^2\big] = \underbrace{\big(\mathbb{E}[\hat{f}(x)] - f(x)\big)^2}_{\text{Bias}^2} + \underbrace{\mathbb{E}\big[(\hat{f}(x) - \mathbb{E}[\hat{f}(x)])^2\big]}_{\text{Variance}} + \underbrace{\sigma^2}_{\text{Irreducible noise}}$$
+
+In words: your expected test error is the sum of three pieces you cannot trade against each other for free — how systematically wrong the model is on average (bias², squared because errors in opposite directions shouldn't cancel), how much the model's predictions swing depending on the training sample (variance), and noise inherent to the data itself that no model, however good, can remove (irreducible noise). The first two terms are the ones you control by choosing a model; the third is a floor no model can get below.
+
+| Model type | Bias | Variance | Behavior |
+|---|---|---|---|
+| Very simple (e.g. constant predictor, linear fit to curved data) | High | Low | Consistently misses the true pattern the same way every time — stable, but stably wrong |
+| Very complex (e.g. degree-15 polynomial, unpruned deep tree) | Low | High | Fits any given training set closely, but the fitted curve changes drastically with a different training sample |
+| Well-matched to the true pattern | Low-ish | Low-ish | Close to the true function on average, and doesn't swing much between training sets — this is the target |
+
+Notice the tradeoff embedded in the table: pushing complexity down to kill variance drives bias up, and pushing complexity up to kill bias drives variance up. There is no free lunch — moving along this axis always costs you somewhere, and the goal of model selection is finding the point that minimizes their *sum*, not driving either one individually to zero.
+
+## Underfitting and Overfitting
+
+**Underfitting** is what high bias looks like in practice: the model is too simple to capture the real structure in the data. Symptom: both training error and test error are high, and they're close to each other — the model performs badly everywhere because it fundamentally cannot represent the true relationship, not because it's memorizing noise.
+
+**Overfitting** is what high variance looks like in practice: the model has enough flexibility to fit noise as if it were signal. Symptom: training error is very low, but test error is much higher — a large *gap* between the two is the telltale sign, because the model has learned quirks of the specific training sample that don't generalize.
+
+A concrete worked example makes this precise. Suppose the true relationship between $x$ and $y$ is a mild curve, $y = 0.5x^2 - x + 3$, and you have 20 noisy training points sampled around it. Fit polynomials of increasing degree:
+
+| Degree | Training error | Test error | Diagnosis |
+|---|---|---|---|
+| 1 (straight line) | High (~4.8) | High (~5.1) | Underfitting — a line cannot bend to follow a quadratic curve, so it's wrong almost everywhere, on both training and test data alike |
+| 3 | Low (~0.6) | Low (~0.7) | Good fit — enough flexibility to capture the curve, not enough to chase individual noisy points |
+| 15 | Near zero (~0.02) | High (~9.4) | Overfitting — with only 20 points and 15 degrees of freedom, the polynomial threads through every training point's noise, producing wild oscillations between them that are wrong on new data |
+
+The degree-15 fit's training error looks like the best number on the page — but that number is measuring how well the curve memorized 20 specific noisy points, not how well it captured $y = 0.5x^2 - x + 3$. The huge train/test gap is the diagnostic signature of overfitting, exactly as the variance term in the decomposition above predicts.
+
+## Model Complexity: The Knob That Controls the Tradeoff
+
+Every model family has some "complexity knob" that trades bias for variance. Turning it one way makes the model more flexible (lower bias, higher variance); turning it the other way makes the model more rigid (higher bias, lower variance). Recognizing this knob in each model family is the practical skill this whole discussion builds toward:
+
+- **Polynomial regression** — the degree of the polynomial. Degree 1 is rigid (a line); degree 15 is extremely flexible.
+- **Regularized linear models (Ridge, Lasso)** — the regularization strength $\lambda$ (or `alpha` in scikit-learn). Large $\lambda$ shrinks coefficients toward zero, simplifying the model (higher bias, lower variance); small $\lambda$ lets coefficients fit the training data freely (lower bias, higher variance).
+- **Decision trees** — maximum depth (or minimum samples per leaf). A depth-2 tree can only ask two questions and makes coarse, high-bias predictions; an unbounded tree can carve out a leaf for nearly every training point, memorizing noise.
+- **k-Nearest Neighbors** — the value of $k$. $k=1$ predicts using only the single closest training point (extremely flexible, low bias, very high variance — one noisy neighbor changes the answer); large $k$ averages over many neighbors, smoothing out noise but blurring genuine local structure (higher bias).
+
+```python
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.linear_model import Ridge
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import make_pipeline
+
+# Same underlying "complexity knob" idea, four different model families
+shallow_tree = DecisionTreeRegressor(max_depth=2)       # high bias, low variance
+deep_tree     = DecisionTreeRegressor(max_depth=None)    # low bias, high variance
+
+knn_smooth  = KNeighborsRegressor(n_neighbors=25)         # high bias, low variance
+knn_jagged  = KNeighborsRegressor(n_neighbors=1)           # low bias, high variance
+
+ridge_strong = Ridge(alpha=100.0)                          # high bias, low variance
+ridge_weak   = Ridge(alpha=0.001)                           # low bias, high variance
+
+poly_flat  = make_pipeline(PolynomialFeatures(degree=1), Ridge(alpha=0.0))   # underfits a curve
+poly_wild  = make_pipeline(PolynomialFeatures(degree=15), Ridge(alpha=0.0))  # overfits a small dataset
+```
+
+## Why Training Error Alone Cannot Select a Model
+
+Here is the fundamental problem, stated as sharply as possible: training error is a *biased, optimistic* estimate of how well a model will perform on new data, and the bias gets worse as the model gets more flexible. Take this to its logical extreme — a "lookup table" model that simply memorizes every training input and its corresponding output, and outputs an arbitrary guess for anything it hasn't seen before, achieves exactly zero training error. It is also completely useless: it has learned nothing about the underlying relationship and cannot generalize to a single new example.
+
+If you used training error as your criterion for "which model is best," the lookup table would win every single comparison, followed closely by every other model in order of decreasing rigidity. This isn't a corner case — it's the general pattern. More flexible models can always fit the training set at least as well as less flexible ones, so training error decreases (or at worst stays flat) monotonically as complexity increases, regardless of whether the added flexibility is capturing real signal or just memorizing noise. Training error literally cannot distinguish those two cases, because both look identical from the vantage point of the data the model was allowed to see.
+
+What you actually need is a way to measure a model's performance on data it did *not* get to see during training — data that stands in for the new, unseen examples the model will face in production. That is precisely the role of **held-out data**, and building the machinery to use it correctly — what to hold out, how much, and how to avoid quietly cheating by peeking at it too many times — is the subject of the next module.
+
+<ConceptBox title="Two different levers, don't confuse them">
+A very common mix-up: "more training data reduces variance" and "a more complex model reduces bias" sound similar but are two *different* levers that fix two *different* problems.
+
+- **More training data** shrinks variance, because each retraining sees a fuller, more representative sample and swings around less between runs — but it does nothing for bias. A straight line fit to a curved relationship stays just as wrong with 10 million points as it does with 100; more data makes that wrong answer more *precisely and consistently* wrong, not less wrong.
+- **A more complex model** shrinks bias, because it can represent the true pattern more closely — but it does so at the cost of higher variance, and that cost isn't paid down by anything except appropriate regularization or, again, more data to constrain the extra flexibility.
+
+If a model is underfitting (high bias), throwing more training data at it will not help — you need a more expressive model, or better features. If a model is overfitting (high variance), collecting more training data usually does help, alongside reducing complexity directly.
+</ConceptBox>
+
+<Bridge>
+**From "compare models" to "compare them fairly."** Everything above points at the same conclusion: judging a model by its training error is measuring the wrong thing, because training error can be driven to zero by memorization alone. To make an honest comparison, you need a way to estimate how a model will perform on data it never saw during fitting. The next module introduces the most basic tool for that — carving out a validation set — along with the sharp rule that governs how it may (and may not) be used, and why a single validation split can itself be a surprisingly noisy estimate.
+</Bridge>
+
+## Practice
+
+#### Problem 1: Diagnosing from the Error Gap
+
+A model has a training accuracy of 96% and a test accuracy of 95%. A second model has a training accuracy of 99.8% and a test accuracy of 81%. Diagnose each.
+
+**Solution:** The first model has a small train/test gap (1 point) and both numbers are reasonably high — this looks like a well-fit model, not obviously underfitting or overfitting. The second model has a huge train/test gap (18.8 points) with near-perfect training accuracy — the textbook signature of overfitting: the model has enough flexibility to nearly memorize the training set, but that memorization does not transfer to new data. Complexity should be reduced (fewer features, stronger regularization, a shallower tree, larger $k$, etc.) or more training data collected.
+
+#### Problem 2: Picking the Complexity Knob
+
+For a k-NN classifier with $k=1$ that is badly overfitting a noisy dataset, what single change to $k$ would you make, and why does it help according to the bias-variance decomposition?
+
+**Solution:** Increase $k$. With $k=1$, each prediction depends entirely on the single nearest training point, so the model has very low bias (it can represent arbitrarily local structure) but very high variance (a different training sample, or a single noisy neighbor, flips the prediction). Increasing $k$ averages the vote over more neighbors, which smooths out the effect of any one noisy point — reducing variance — at the cost of blurring genuine fine-grained structure, which raises bias slightly. Since the model was overfitting (variance-dominated error), this trade is a net win until $k$ gets large enough that bias starts to dominate instead.
+
+<QuizCard
+  question="A model achieves 0.1% training error and 22% test error. This gap is best explained by which term in the bias-variance decomposition?"
+  options={[
+    'High irreducible noise, which no model can reduce',
+    'High bias, because the model is too simple to fit the data',
+    'High variance, because the model has fit noise specific to the training set',
+    'The decomposition does not apply to classification error'
+  ]}
+  correct={2}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following statements about bias, variance, and model complexity are correct? (Select all that apply.)"
+  options={[
+    'Increasing model complexity generally decreases bias and increases variance',
+    'A model that achieves zero training error is guaranteed to generalize well',
+    'Collecting more training data primarily reduces variance, not bias',
+    'The expected test error decomposes into bias squared, plus variance, plus irreducible noise',
+    'Training error decreases or stays flat as model complexity increases, even when the added flexibility only captures noise'
+  ]}
+  correct={[0, 2, 3, 4]}
+/>

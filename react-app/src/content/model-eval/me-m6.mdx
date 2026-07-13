@@ -1,0 +1,180 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+## Scoring Features One at a Time
+
+Module 5 introduced the three-way taxonomy of feature selection. Filter methods are the first family and the one this module works through in full: each feature is scored by its relationship to the target — some statistic computed directly from the data — with no model ever trained in the process. The top-scoring features (by a fixed count, a fixed fraction, or a score threshold) are kept and everything else is dropped. Because nothing gets fitted, filter methods are fast enough to run on thousands of features as a first pass, exactly as Problem 2 of Module 5 argued. What follows are the five filter techniques you'll reach for most often, roughly in order of how much they assume about the feature and target types.
+
+## Variance Threshold
+
+The simplest filter of all doesn't even look at the target. A feature that is nearly constant across every row — say, 998 out of 1,000 rows share the same value — carries almost no discriminative information: whatever the model is trying to predict, a feature that barely varies can't be doing much work to separate one outcome from another. `VarianceThreshold` drops any feature whose variance falls below a cutoff.
+
+```python
+from sklearn.feature_selection import VarianceThreshold
+import numpy as np
+
+X = np.array([
+    [0, 2, 0.1],
+    [0, 1, 0.2],
+    [1, 4, 0.1],
+    [0, 3, 0.3],
+    [0, 2, 0.1],
+])   # column 0 is almost always 0 -- near-zero variance
+
+selector = VarianceThreshold(threshold=0.05)
+X_reduced = selector.fit_transform(X)
+print(selector.get_support())    # [False  True  True] -- column 0 dropped
+print(X_reduced.shape)           # (5, 2)
+```
+
+The caveat is built into the method's name: it looks at variance only, never the target, so it cannot tell "constant and useless" apart from "constant except for a rare, highly informative signal." A binary flag that is 0 for 999 rows and 1 for exactly one fraud case has almost zero variance by this measure, yet that one row might be exactly the case the model needs to catch. Variance threshold is a cheap way to drop obviously dead columns (a constant, a mostly-empty sparse indicator), not a substitute for checking relevance to the target.
+
+## Correlation-Based Filtering
+
+For a numeric feature and a numeric or binary target, Pearson correlation measures the strength of a *linear* relationship between the two:
+
+$$r = \frac{\sum (x_i - \bar x)(y_i - \bar y)}{\sqrt{\sum(x_i-\bar x)^2}\sqrt{\sum(y_i - \bar y)^2}}$$
+
+In words: $r$ compares how $x$ and $y$ move together (the numerator, their covariance) against how much each moves on its own (the denominator, the product of their individual spreads) — the result is always between $-1$ and $1$, with values near either extreme indicating a strong linear relationship and values near 0 indicating little to no linear relationship. Features with $|r|$ close to 0 relative to the target are candidates for removal.
+
+Correlation is just as useful pointed at *feature pairs* instead of feature-target pairs — two features correlated near $\pm 1$ with each other are carrying largely redundant information, and dropping one of them costs little while directly addressing the multicollinearity concern from Module 5.
+
+```python
+import pandas as pd
+
+df = pd.DataFrame({
+    "sqft":      [850, 1200, 1500, 1800, 2200, 2600],
+    "bedrooms":  [2, 2, 3, 3, 4, 4],
+    "n_windows": [8, 11, 14, 17, 21, 25],   # nearly redundant with sqft
+    "price":     [180, 240, 300, 355, 430, 500],
+})
+
+# feature-target correlation
+print(df.corr()["price"].drop("price").sort_values(ascending=False))
+# sqft         ~0.999
+# n_windows    ~0.996
+# bedrooms     ~0.986
+
+# feature-feature correlation -- catches redundancy
+print(df[["sqft", "bedrooms", "n_windows"]].corr())
+# sqft and n_windows correlate at ~0.998 -- one of the two is nearly disposable
+```
+
+The sharp limitation: Pearson correlation only detects *linear* relationships. A feature with a strong U-shaped or otherwise non-monotonic relationship to the target can have a correlation near 0 despite being highly informative — correlation-based filtering will discard it, silently, with no warning that it did so.
+
+## Chi-Square Test
+
+For a categorical feature and a categorical target, the chi-square test asks whether the feature and target are statistically independent — if they were independent, the observed counts in each (feature category, target category) cell should look close to what you'd expect from the two variables' marginal frequencies alone. A large chi-square statistic means the observed counts deviate a lot from that independence assumption, i.e. the feature carries information about the target.
+
+`chi2` in scikit-learn requires non-negative feature values, since it's built around count data — raw counts, one-hot encoded categories, or binned/discretized numeric features all work; a feature with negative values (like a standardized numeric column) does not and needs to be re-scaled or binned first.
+
+```python
+from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.preprocessing import OneHotEncoder
+import numpy as np
+
+# categorical features, one-hot encoded (non-negative, as chi2 requires)
+X_cat = np.array([
+    ["red", "small"], ["blue", "large"], ["red", "large"],
+    ["green", "small"], ["blue", "small"], ["red", "large"],
+])
+y = np.array([1, 0, 1, 0, 0, 1])
+
+X_enc = OneHotEncoder(sparse_output=False).fit_transform(X_cat)
+selector = SelectKBest(chi2, k=2)
+X_selected = selector.fit_transform(X_enc, y)
+print(selector.scores_.round(3))    # chi-square statistic per one-hot column
+print(selector.get_support())       # boolean mask of the top-2 columns kept
+```
+
+## ANOVA F-Test
+
+For a numeric feature and a categorical target, the ANOVA F-test asks whether the feature's mean differs significantly across the target's classes — if a feature's average value is roughly the same regardless of class, it's unlikely to help distinguish those classes; if the means are far apart relative to the within-class spread, the feature is doing discriminative work. `f_classif` computes exactly this F-statistic per feature.
+
+```python
+from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.datasets import load_iris
+
+X, y = load_iris(return_X_y=True)   # 4 numeric features, 3-class target
+
+selector = SelectKBest(f_classif, k=2)
+X_selected = selector.fit_transform(X, y)
+print(selector.scores_.round(2))    # F-statistic per feature
+print(selector.get_support())       # top-2 features by F-statistic
+```
+
+Like Pearson correlation, the F-test is fundamentally about comparing means and variances — it captures whether classes are separated *on average* along that feature, not more general shape differences in the feature's distribution across classes.
+
+## Mutual Information
+
+Mutual information takes a different approach entirely: instead of testing for a specific kind of relationship (linear, or difference-of-means), it asks a model-free question straight from information theory — *how much does knowing this feature reduce your uncertainty about the target?* If knowing the feature's value narrows down the target's possible value a lot, mutual information is high; if the feature tells you nothing about the target, mutual information is close to zero. Crucially, this captures *any* form of dependency, not just linear or monotonic ones — a feature with a U-shaped, periodic, or otherwise non-monotonic relationship to the target, which correlation would score near 0, can still register a high mutual information score.
+
+```python
+from sklearn.feature_selection import mutual_info_classif, SelectKBest
+
+X, y = load_iris(return_X_y=True)
+
+mi_scores = mutual_info_classif(X, y, random_state=42)
+print(mi_scores.round(3))    # estimated mutual information per feature, bits of uncertainty reduced
+
+selector = SelectKBest(mutual_info_classif, k=2)   # mutual_info_classif is a valid score_func directly
+X_selected = selector.fit_transform(X, y)
+```
+
+The generality is also its weakness. Mutual information is estimated from finite samples (scikit-learn uses a k-nearest-neighbor-based estimator), and that estimate gets noisier as sample size shrinks or feature count grows — small datasets can produce mutual information scores that look meaningful but are mostly estimation noise. Unlike the chi-square and F-tests, there's no simple, standard p-value attached to a mutual information score, so there's no off-the-shelf significance threshold to say "this score is definitely not zero" — you're comparing relative scores across features, not testing a hypothesis.
+
+## Comparing the Five Methods
+
+| Method | Feature type | Target type | Captures nonlinearity? | Fast? |
+|---|---|---|---|---|
+| Variance Threshold | Any | Ignored (no target used) | N/A | Extremely fast |
+| Pearson correlation | Numeric | Numeric / binary | No — linear only | Fast |
+| Chi-square | Categorical / non-negative counts | Categorical | Yes (within its independence test) | Fast |
+| ANOVA F-test | Numeric | Categorical | No — mean differences only | Fast |
+| Mutual information | Numeric or categorical | Numeric or categorical | Yes — any dependency | Slower, noisier on small data |
+
+<ConceptBox title="Common confusion: filters can miss features that only matter together">
+Every method above scores one feature at a time, in isolation from every other feature. That's exactly what makes filters fast — and exactly what makes them blind to *interactions*. Consider a classic XOR-like setup: feature $x_1$ and feature $x_2$ are each individually uncorrelated with the target, and each has a near-zero mutual information score on its own, but the target is exactly $x_1 \oplus x_2$ — perfectly determined by the *combination* of the two. Every filter method above will rank both features low and may drop them both, even though the pair together is perfectly informative.
+
+This isn't a flaw specific to one method — it's structural to the entire filter family, because "score each feature independently" and "detect an interaction between two features" are contradictory requirements. Closing this gap requires actually evaluating feature *subsets* together, which means bringing a real model into the loop — exactly what wrapper methods do, covered next.
+</ConceptBox>
+
+<Bridge>
+**From scoring features alone to scoring them together.** Filter methods are fast and a sensible first pass, but the interaction blind spot above is a real cost: a feature pair that's jointly powerful but individually weak will never survive a filter. Module 7 introduces wrapper and embedded methods — techniques that fold a real model's cross-validated performance directly into the selection process, at higher computational cost, specifically to catch the interactions filter methods are structurally unable to see.
+</Bridge>
+
+## Practice
+
+#### Problem 1: Picking the Right Filter
+
+For each scenario, name the filter method that fits best: (a) a dataset of gene-expression measurements (continuous) predicting one of four disease subtypes, (b) a dataset of one-hot encoded survey answers predicting a yes/no purchase decision, (c) a set of sensor readings suspected to have a U-shaped relationship with a failure/no-failure target.
+
+**Solution:** (a) ANOVA F-test — numeric features, categorical (4-class) target, testing whether each gene's mean expression level differs across the four subtypes. (b) Chi-square — both the one-hot encoded features and the binary target are categorical, and the encoded features are non-negative as chi2 requires. (c) Mutual information — a U-shaped relationship is non-monotonic, so Pearson correlation and the F-test (both mean/linear-based) would likely score these features near zero despite real dependency; mutual information is the one method in this module built to catch a relationship of that shape.
+
+#### Problem 2: Why the Interaction Gap Matters
+
+A dataset has two binary features, `feature_a` and `feature_b`, and a binary target that equals 1 exactly when `feature_a != feature_b` (an XOR relationship) and 0 otherwise. What would Pearson correlation and mutual information (computed on each feature alone) report, and what does that reveal about filter methods in general?
+
+**Solution:** Computed on each feature individually against the target, both `feature_a` and `feature_b` are uncorrelated with the target — for a fixed value of `feature_a`, the target is 1 exactly half the time as `feature_b` varies, so there's no linear (or even single-feature nonlinear) relationship for either correlation or single-feature mutual information to detect; both scores come out near zero for both features. A filter method using either score would rank both features as unimportant and could drop both. Yet the *pair* is perfectly predictive: knowing both features determines the target exactly. This is the concrete illustration of the ConceptBox above — filter methods evaluate features one at a time and are structurally incapable of noticing that two individually-uninformative features are jointly informative, which is precisely the gap wrapper methods are designed to close by evaluating subsets with an actual model.
+
+<QuizCard
+  question="A numeric feature has a strong U-shaped (non-monotonic) relationship with a numeric target. Which filter method is most likely to correctly flag it as informative?"
+  options={[
+    'Pearson correlation, because it measures any relationship between two variables',
+    'Variance Threshold, because it directly measures how informative a feature is',
+    'Mutual information, because it captures dependencies that are not linear or monotonic',
+    'ANOVA F-test, because it compares means directly'
+  ]}
+  correct={2}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following statements about filter-based feature selection are correct? (Select all that apply.)"
+  options={[
+    'Variance Threshold uses the target variable to decide which features to drop',
+    'Chi-square requires non-negative feature values, such as counts or one-hot encoded categories',
+    'Pearson correlation and the ANOVA F-test can both miss non-linear or non-monotonic relationships',
+    'Mutual information can detect arbitrary dependencies but has no simple standard significance threshold like a p-value',
+    'Filter methods score each feature independently, so they can systematically miss features that are only useful in combination with another feature'
+  ]}
+  correct={[1, 2, 3, 4]}
+/>

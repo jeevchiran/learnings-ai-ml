@@ -201,6 +201,24 @@ export const courses = [
       { id: 'nb-quiz', title: 'Track Quiz — Naive Bayes', file: 'nb-quiz.html', description: '13 questions — Bayes theorem numericals, independence assumption, variant selection, log-space stability, and model comparison.', readTime: 20 },
     ],
   },
+  {
+    id: 'model-eval',
+    title: 'Model Selection & Feature Engineering',
+    description: '8 interactive modules covering validation strategy, cross-validation, hyperparameter search, and filter/wrapper/embedded feature selection — with leakage-safe pipelines throughout.',
+    color: '#c026d3',
+    trackPath: 'model-eval',
+    modules: [
+      { id: 'me-m1', title: 'Model Selection Fundamentals', file: 'me-m1.html', description: 'Bias-variance tradeoff, underfitting vs overfitting, model complexity, and why a single train/test split lies to you.', readTime: 15 },
+      { id: 'me-m2', title: 'Validation Sets', file: 'me-m2.html', description: 'Train/validation/test split, the holdout method, why tuning on the test set is a leak, and when a single holdout isn\'t enough.', readTime: 12 },
+      { id: 'me-m3', title: 'Cross-Validation Techniques', file: 'me-m3.html', description: 'K-fold, stratified K-fold, leave-one-out, and group/time-series CV — interactive split visualizer.', readTime: 20 },
+      { id: 'me-m4', title: 'Hyperparameter Search Techniques', file: 'me-m4.html', description: 'Grid search, random search, Bayesian optimization, and successive halving/Hyperband — interactive search comparator.', readTime: 20 },
+      { id: 'me-m5', title: 'Dimensionality & Feature Selection Overview', file: 'me-m5.html', description: 'The curse of dimensionality, why fewer features can generalize better, and the filter/wrapper/embedded taxonomy.', readTime: 15 },
+      { id: 'me-m6', title: 'Filter-Based Methods', file: 'me-m6.html', description: 'Variance threshold, correlation filtering, chi-square, ANOVA F-test, and mutual information — model-agnostic ranking.', readTime: 18 },
+      { id: 'me-m7', title: 'Wrapper & Embedded Methods', file: 'me-m7.html', description: 'RFE, forward/backward sequential selection, L1/Lasso sparsity, and tree-based importance — interactive selection explorer.', readTime: 20 },
+      { id: 'me-m8', title: 'Leakage-Safe & Unbiased Feature Selection', file: 'me-m8.html', description: 'Why selecting features before CV inflates scores, pipelines, nested CV, and an interactive leaky-vs-correct pipeline widget.', readTime: 18 },
+      { id: 'me-quiz', title: 'Track Quiz — Model Selection & Feature Engineering', file: 'me-quiz.html', description: '13 questions — CV mechanics, search strategy tradeoffs, filter/wrapper/embedded selection, and leakage detection.', readTime: 20 },
+    ],
+  },
 ];
 
 /* ── Derived lookups (built once at module load) ── */
