@@ -3,120 +3,72 @@ import PairedDifferenceWidget from '../../components/widgets/hypothesis-testing/
 import PairedVsIndependentWidget from '../../components/widgets/hypothesis-testing/PairedVsIndependentWidget.jsx'
 
 <Bridge>
-**Real-world hook — blood pressure treatment.** A cardiologist wants to evaluate whether a 12-week lifestyle intervention (diet and exercise) reduces systolic blood pressure. She measures each of 15 patients before the program and again after completion. The key phrase is "each patient" — the same person is measured twice. These two measurements are not independent of each other: a patient who starts with high blood pressure is likely to have higher-than-average blood pressure at both time points. If we treated this as two independent groups (as in Module 4), we would be ignoring this built-in structure — and throwing away statistical power in the process. The **paired t-test** exploits the connection between the two measurements to give us a more sensitive and more appropriate test.
+**Blood pressure treatment.** A cardiologist tests whether a 12-week lifestyle program lowers systolic BP, measuring each of 15 patients before and after. The key phrase is "each patient" — measured twice, so the two readings aren't independent: a patient high at the start tends to be high at the end. Treating this as two independent groups (Module 4) throws away that structure — and statistical power. The **paired t-test** exploits the link between the two measurements.
 </Bridge>
 
-## 1. Paired vs. Independent — Why It Matters
+## Paired vs. Independent
 
-In Module 4, the two groups consisted of entirely different people: Group A vs Group B. Each measurement belonged to one group only; there was no correspondence between an observation in Group A and any observation in Group B. In a paired design, the same subject (or a carefully matched pair) appears in **both** conditions.
+Module 4's two groups were different people with no correspondence. In a paired design the same subject (or a matched pair) appears in **both** conditions:
 
-Paired designs arise in three main forms:
+- **Before/After** — same subject measured before and after a treatment.
+- **Matched pairs** — two subjects matched on key traits; one treated, one control.
+- **Crossover** — each subject gets both treatments in randomized sequence.
 
-- **Before/After:** The same subject is measured before and after a treatment, intervention, or period of time.
-- **Matched pairs:** Two distinct subjects are matched on key characteristics (age, weight, baseline health) so that within each pair, one receives the treatment and the other serves as the control.
-- **Crossover:** Each subject receives both treatments in sequence (with a washout period in between), and the order is randomized.
+**Why pairing is powerful.** Patient A might naturally sit at 155 mmHg, patient B at 135 — variability with nothing to do with the treatment. Analyzed as independent groups, this person-to-person noise inflates the SE and hides the effect. Instead compute the difference $d_i = x_{\text{before},i} - x_{\text{after},i}$: since both readings are the same person, A's natural tendency cancels in the subtraction. What remains is within-person change — exactly the target. The paired t-test is therefore just a **one-sample t-test on the differences** $d_1,\ldots,d_n$.
 
-### Why pairing is powerful
-
-Consider the cardiologist's study. Patient A might naturally have a systolic BP of 155 mmHg and patient B might naturally have 135 mmHg. This between-subject variability has nothing to do with whether the intervention works. Yet if we analyzed the pre- and post-intervention readings as two independent groups, this person-to-person noise would inflate the standard error and make it harder to detect the intervention's true effect.
-
-The remedy: compute the difference $d_i = x_{\text{before},i} - x_{\text{after},i}$ for each subject. Because both measurements come from the same person, patient A's natural tendency toward higher BP cancels out in the subtraction. The variability that remains in the $d_i$ values reflects only within-person change — exactly what we want to measure.
-
-This reduction to differences means the paired t-test is, at its core, nothing more than a **one-sample t-test applied to the set of differences** $d_1, d_2, \ldots, d_n$.
-
-## 2. Derivation of the Test Statistic
+## The Test Statistic
 
 <DerivationSteps>
-<DerivationStep number={1} title="Compute the difference for each pair.">
-For subject $i$, the difference is $d_i = x_{1i} - x_{2i}$ (before minus after, or treatment minus control). The sign convention determines which direction of difference will be positive — choose it to match the research hypothesis.
+<DerivationStep number={1} title="Difference per pair">
+$d_i = x_{1i} - x_{2i}$ (before − after). Pick the sign convention to match the hypothesis.
 </DerivationStep>
-
-<DerivationStep number={2} title="State the hypotheses.">
-The null hypothesis asserts no average change: $H_0: \mu_d = 0$. The alternative may be two-tailed ($H_1: \mu_d \neq 0$), right-tailed ($H_1: \mu_d > 0$), or left-tailed ($H_1: \mu_d < 0$), chosen to reflect the direction of the effect the researcher expects.
+<DerivationStep number={2} title="Hypotheses">
+$H_0: \mu_d = 0$ (no average change); $H_1$ two-tailed ($\neq$), right ($>$), or left ($<$).
 </DerivationStep>
-
-<DerivationStep number={3} title="Compute the sample mean of differences.">
-$$\bar{d} = \frac{1}{n} \sum_{i=1}^{n} d_i$$
-
-This is the point estimate of $\mu_d$, the true population mean difference. It is the quantity we will compare to zero.
+<DerivationStep number={3} title="Mean and SD of differences">
+$$\bar{d} = \frac{1}{n}\sum d_i, \qquad s_d = \sqrt{\frac{\sum(d_i - \bar{d})^2}{n-1}}$$
+$\bar{d}$ estimates $\mu_d$; $s_d$ measures how consistent the effect is across subjects.
 </DerivationStep>
-
-<DerivationStep number={4} title="Compute the sample standard deviation of differences.">
-$$s_d = \sqrt{\frac{\sum_{i=1}^{n}(d_i - \bar{d})^2}{n - 1}}$$
-
-This measures how variable the individual differences are. A small $s_d$ means the treatment had a very consistent effect across subjects; a large $s_d$ means the effect was heterogeneous.
+<DerivationStep number={4} title="Statistic and null distribution">
+$$t = \frac{\bar{d}}{s_d/\sqrt{n}} \sim t(n-1) \quad \text{under } H_0$$
+The one-sample t-statistic applied to the differences. $n-1$ df because one parameter ($\bar{d}$) is estimated before $s_d$.
 </DerivationStep>
-
-<DerivationStep number={5} title="Compute the standard error of d̄.">
-$$\text{SE}(\bar{d}) = \frac{s_d}{\sqrt{n}}$$
-
-The standard error quantifies the precision of $\bar{d}$ as an estimate of $\mu_d$. It shrinks as $n$ increases (more pairs = more precise estimate) and as $s_d$ decreases (more consistent differences = more precise estimate).
-</DerivationStep>
-
-<DerivationStep number={6} title="Form the paired t-statistic.">
-$$t = \frac{\bar{d} - 0}{s_d / \sqrt{n}} = \frac{\bar{d}}{s_d / \sqrt{n}}$$
-
-This is exactly the one-sample t-statistic from Module 3, applied to the differences. It measures how many standard errors $\bar{d}$ lies from zero.
-</DerivationStep>
-
-<DerivationStep number={7} title="Identify the null distribution.">
-Under $H_0$, the statistic $t$ follows a Student's t-distribution with $n - 1$ degrees of freedom. There are $n - 1$ degrees of freedom because we have $n$ differences and we estimate one parameter ($\bar{d}$) from them before computing $s_d$.
-
-$$t \sim t(n-1) \quad \text{under } H_0$$
-</DerivationStep>
-
-<DerivationStep number={8} title="Make a decision.">
-Compare the observed $t$ to the critical value $t^*(\alpha/2,\, n-1)$ for a two-tailed test (or $t^*(\alpha,\, n-1)$ for a one-tailed test), or compute the p-value from the t-distribution and compare to $\alpha$. Reject $H_0$ if $|t| > t^*$ (two-tailed) or if p-value < $\alpha$.
+<DerivationStep number={5} title="Decide">
+Reject if $|t| > t^*(\alpha/2, n-1)$ (two-tailed) or $t > t^*(\alpha, n-1)$ (one-tailed), equivalently p-value $< \alpha$.
 </DerivationStep>
 </DerivationSteps>
 
-## 3. Assumptions of the Paired t-Test
-
-<ConceptBox title="Assumption 1 — Random sample of pairs">
-The pairs must be randomly sampled from the population of interest, or the assignment to paired conditions must be random (as in a randomized crossover trial). Non-random sampling risks selection bias.
+<ConceptBox title="Assumptions">
+1. **Random pairs** — randomly sampled, or randomized assignment (crossover).
+2. **Normality of differences** — the $d_i$ approximately normal. Matters for $n < 30$ (check a histogram/QQ-plot); for $n \geq 30$ the CLT makes $\bar{d}$ approximately normal regardless.
+3. **Independence between pairs** — within-pair dependence is intentional; different pairs must not influence each other.
+4. **No extreme outliers in $d_i$** — they distort $\bar{d}$ and $s_d$; if present, consider the Wilcoxon signed-rank test.
 </ConceptBox>
 
-<ConceptBox title="Assumption 2 — Normality of differences">
-The differences $d_i$ must be approximately normally distributed. For small samples ($n < 30$), this is a consequential assumption — check it with a histogram or QQ-plot of the differences. For $n \geq 30$, the Central Limit Theorem ensures that $\bar{d}$ is approximately normal regardless of the shape of the difference distribution, making the test robust.
-</ConceptBox>
+## Paired vs. Independent — When
 
-<ConceptBox title="Assumption 3 — Independence between pairs">
-Different pairs must be independent of each other. The within-pair dependence is intentional — that's the point of the design. But pair 1 and pair 2 must not influence each other (violated if pairs are family members or treated simultaneously in a way that allows contamination across pairs).
-</ConceptBox>
+| Feature | Paired | Independent |
+|---|---|---|
+| Structure | Same subject twice / matched pairs | Two unrelated groups |
+| n per group | Equal (n pairs) | Can differ |
+| df | $n-1$ | Welch, near $n_1+n_2-2$ |
+| Between-subject noise | Removed by differencing | Present in SE, cuts power |
+| Use when | Before/after, matched, crossover | Separate, unrelated groups |
 
-<ConceptBox title="Assumption 4 — No extreme outliers in differences">
-Outliers in the $d_i$ values can heavily distort both $\bar{d}$ and $s_d$, invalidating the t-statistic. Inspect the differences with a boxplot before proceeding. If outliers are present, consider a non-parametric alternative such as the Wilcoxon signed-rank test.
-</ConceptBox>
-
-## 4. When to Use Paired vs. Independent Tests
-
-| Feature | Paired t-Test | Independent t-Test |
-|---------|---------------|-------------------|
-| Sample structure | Same subject measured twice, or matched pairs | Two unrelated groups with no correspondence |
-| n per group | Must be equal (n pairs) | Can differ between groups |
-| Degrees of freedom | $n - 1$ (one per pair) | Welch approximation, typically near $n_1 + n_2 - 2$ |
-| Between-subject noise | Eliminated by differencing within pairs | Present in SE, reduces power |
-| Typical power | Higher when data is truly paired | Lower when pairing is available but ignored |
-| When to use | Before/after, matched pair studies, crossover trials | Completely separate, unrelated groups |
-
-<ConceptBox title="Key principle: the design determines the test">
-If the data were collected in a paired fashion (same subject twice, or matched pairs), use the paired t-test. Using an independent-samples test on paired data ignores structure in the data that reduces variability and increases power. You do not get to "choose" the independent test because it is simpler — the data structure mandates the paired analysis.
+<ConceptBox title="The design determines the test">
+If data were collected paired, use the paired test. Using an independent test on paired data discards structure that reduces variability and raises power — you don't get to pick the simpler test; the data structure mandates the paired analysis.
 </ConceptBox>
 
 <PairedDifferenceWidget />
 
 <PairedVsIndependentWidget />
 
-## 5. Worked Example: The Blood Pressure Study
+## Worked Example: Blood Pressure
 
-**Research context and hypotheses.** Eight patients completed a 12-week lifestyle intervention. Systolic blood pressure was recorded for each patient before and after the program. Differences are defined as $d_i = x_{\text{before},i} - x_{\text{after},i}$, so a positive difference means blood pressure decreased (improvement). The cardiologist specifies a one-sided (right-tailed) alternative:
+Eight patients, systolic BP before/after, $d_i = $ before − after (positive = improvement). Right-tailed: $H_0: \mu_d = 0$ vs $H_1: \mu_d > 0$, $\alpha = 0.05$.
 
-$$H_0: \mu_d = 0 \qquad H_1: \mu_d > 0 \quad (\text{intervention reduces BP})$$
-
-**Data:**
-
-| Patient | Before (mmHg) | After (mmHg) | $d_i$ (Before − After) |
-|---------|---------------|--------------|------------------------|
+| Patient | Before | After | $d_i$ |
+|---|---|---|---|
 | 1 | 152 | 144 | 8 |
 | 2 | 143 | 137 | 6 |
 | 3 | 160 | 149 | 11 |
@@ -126,56 +78,22 @@ $$H_0: \mu_d = 0 \qquad H_1: \mu_d > 0 \quad (\text{intervention reduces BP})$$
 | 7 | 142 | 136 | 6 |
 | 8 | 138 | 130 | 8 |
 
-**Step-by-step calculation (α = 0.05):**
+**Mean:** $\bar{d} = 66/8 = 8.25$ mmHg. **SD:** squared deviations from 8.25 sum to 21.5, so $s_d = \sqrt{21.5/7} \approx 1.753$. **SE:** $1.753/\sqrt{8} \approx 0.620$.
 
-**Step 1 — n = 8 pairs.**
+**Statistic:** $t = 8.25/0.620 \approx 13.31$, df $= 7$.
 
-**Step 2 — Mean of differences:**
+**Decision:** right-tailed $t^*(0.05, 7) = 1.895$; $13.31 \gg 1.895$ → **reject $H_0$** (p ≈ 0.0000012).
 
-$$\bar{d} = \frac{8 + 6 + 11 + 9 + 8 + 10 + 6 + 8}{8} = \frac{66}{8} = 8.25 \text{ mmHg}$$
+**Conclusion:** Extremely strong evidence the program lowers systolic BP. Mean reduction 8.25 mmHg, 95% CI $8.25 \pm 2.365 \times 0.620 = [6.78, 9.72]$ mmHg.
 
-**Step 3 — Standard deviation of differences.** Deviations from $\bar{d} = 8.25$ are: −0.25, −2.25, 2.75, 0.75, −0.25, 1.75, −2.25, −0.25. Sum of squared deviations = 21.5.
+## Practice
 
-$$s_d = \sqrt{\frac{21.5}{7}} = \sqrt{3.071} \approx 1.753 \text{ mmHg}$$
+<ConceptBox title="Workshop scores">
+6 students, pre: 62, 71, 58, 75, 68, 64; post: 74, 82, 70, 84, 76, 78. $d_i = $ post − pre. $H_0: \mu_d = 0$ vs $H_1: \mu_d > 0$, $\alpha = 0.05$.
 
-**Step 4 — Standard error:**
+Differences: 12, 11, 12, 9, 8, 14. $\bar{d} = 66/6 = 11$. Squared deviations sum to 24, $s_d = \sqrt{24/5} \approx 2.191$. SE $= 2.191/\sqrt{6} \approx 0.895$.
 
-$$\text{SE}(\bar{d}) = \frac{1.753}{\sqrt{8}} = \frac{1.753}{2.828} \approx 0.620 \text{ mmHg}$$
-
-**Step 5 — Paired t-statistic:**
-
-$$t = \frac{8.25}{0.620} \approx 13.31$$
-
-**Step 6 — Degrees of freedom:** $df = n - 1 = 7$.
-
-**Step 7 — Decision.** Right-tailed critical value at α = 0.05, df = 7: $t^* = 1.895$. Observed $t = 13.31 \gg 1.895$. **Reject H₀.** p-value ≈ 0.0000012.
-
-**Conclusion.** At the 5% significance level, there is extremely strong statistical evidence that the 12-week lifestyle intervention reduces systolic blood pressure. Estimated mean reduction: 8.25 mmHg. 95% CI:
-
-$$8.25 \pm 2.365 \times 0.620 = [6.78,\; 9.72] \text{ mmHg}$$
-
-## 6. Practice Problem
-
-<ConceptBox title="Statistics Workshop Scores">
-A statistics tutor works with 6 students before and after a 4-week intensive workshop. Pre-workshop scores: 62, 71, 58, 75, 68, 64. Post-workshop scores: 74, 82, 70, 84, 76, 78.
-
-Define $d_i = \text{post} - \text{pre}$ so a positive difference means improvement.
-
-**Hypotheses:** $H_0: \mu_d = 0$ vs $H_1: \mu_d > 0$ (right-tailed, α = 0.05)
-
-**Differences:** 12, 11, 12, 9, 8, 14. n = 6.
-
-**d̄** = (12+11+12+9+8+14)/6 = 66/6 = **11**
-
-**s_d:** Deviations: 1, 0, 1, −2, −3, 3. Squared: 1, 0, 1, 4, 9, 9. SS = 24. $s_d = \sqrt{24/5} = \sqrt{4.8} \approx 2.191$
-
-**SE** = 2.191/√6 ≈ 0.895
-
-**t** = 11/0.895 ≈ 12.29, df = 5
-
-**Critical value** t*(0.05, 5) = 2.015. Since 12.29 >> 2.015: **Reject H₀**.
-
-**Conclusion:** Strong evidence the workshop improves test scores. Mean improvement ≈ 11 points.
+$t = 11/0.895 \approx 12.29$, df $= 5$. Critical $t^*(0.05,5) = 2.015$; $12.29 \gg 2.015$ → **reject $H_0$**. Strong evidence the workshop improves scores, mean gain ≈ 11 points.
 </ConceptBox>
 
 <QuizCard

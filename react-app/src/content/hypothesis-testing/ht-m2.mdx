@@ -4,136 +4,88 @@ import PValueWidget from '../../components/widgets/hypothesis-testing/PValueWidg
 import CriticalValueWidget from '../../components/widgets/hypothesis-testing/CriticalValueWidget.jsx'
 
 <Bridge>
-**Why does this matter?** When a jury deliberates, exactly two mistakes are possible. The jury might convict an innocent person — a grave injustice that punishes someone for a crime they did not commit. Or the jury might acquit a guilty person — allowing a criminal to go free. Notice that these errors pull in opposite directions: a jury that is very reluctant to convict (stringent standard) will rarely convict the innocent, but will more often let the guilty walk. A jury that convicts readily will catch more criminals, but will also wrongly convict more innocent people. Statistics has exactly the same structure. Every time we run a hypothesis test we risk one of two analogous mistakes. Understanding those mistakes, quantifying them, and deliberately choosing how to balance them is not a technicality — it is the most consequential decision in any statistical analysis.
+**Why it matters.** A jury can make exactly two mistakes: convict the innocent, or acquit the guilty. They pull opposite ways — a jury reluctant to convict rarely jails the innocent but lets more guilty walk. Every hypothesis test faces the same two errors. Understanding, quantifying, and balancing them is the most consequential decision in any analysis.
 </Bridge>
 
-## Section 1: Two Types of Errors
+## Two Types of Error
 
-A hypothesis test always ends with a binary decision: either we reject the null hypothesis $H_0$, or we fail to reject it. Reality is also binary: either $H_0$ is actually true, or it is actually false. Crossing these two dimensions gives four possible outcomes, two of which are correct decisions and two of which are errors.
+A test ends in reject / fail-to-reject; reality is $H_0$ true / false. Crossing them gives four outcomes:
 
-| | $H_0$ is TRUE | $H_0$ is FALSE |
+| | $H_0$ TRUE | $H_0$ FALSE |
 |---|---|---|
-| **Reject $H_0$** | Type I Error (false positive) | Correct Decision (power) |
-| **Fail to Reject $H_0$** | Correct Decision | Type II Error (false negative) |
+| **Reject $H_0$** | Type I error (false positive) | Correct (power) |
+| **Fail to reject** | Correct | Type II error (false negative) |
 
-### Type I Error (α): The False Positive
+**Type I error ($\alpha$)** — reject a true $H_0$; a false alarm produced by sampling noise. Its probability is the significance level:
 
-A Type I error occurs when we reject $H_0$ even though it is actually true. We see a result that looks surprising enough to cross our threshold, but that surprising result was produced by nothing more than the random variability inherent in sampling. The probability of committing a Type I error is denoted $\alpha$ and is called the *significance level* of the test.
+$$P(\text{Type I}) = P(\text{Reject } H_0 \mid H_0 \text{ true}) = \alpha$$
 
-- In a drug trial: concluding the drug works when it actually has no real effect on the population.
-- In the court analogy: convicting an innocent person.
-- In manufacturing QC: shutting down a production line that is functioning within specification.
+Drug trial: concluding the drug works when it doesn't. Court: convicting the innocent. QC: halting a good line. We control $\alpha$ directly, before data.
 
-$$P(\text{Type I Error}) = P(\text{Reject } H_0 \mid H_0 \text{ is true}) = \alpha$$
+**Type II error ($\beta$)** — fail to reject a false $H_0$; a real effect goes undetected (small effect, small sample, or high variance):
 
-The key word in that formula is the conditional: "given that $H_0$ is true." This is the probability that our test gives a false alarm when there is nothing real to detect. We control this probability directly by our choice of $\alpha$ before we collect any data.
+$$P(\text{Type II}) = P(\text{Fail to reject } H_0 \mid H_0 \text{ false}) = \beta$$
 
-### Type II Error (β): The False Negative
+Drug trial: missing a drug that helps. Court: acquitting the guilty.
 
-A Type II error occurs when we fail to reject $H_0$ even though it is actually false — meaning something real is happening in the world, but our test did not detect it. This can happen when the effect is genuinely small, when the sample size is too small to provide sufficient resolution, or when the variability in our data is too large relative to the signal.
+**Power** = $1 - \beta$ = probability of correctly rejecting a false $H_0$. Researchers maximize it; low power is a smoke detector that only trips on big fires.
 
-- In a drug trial: concluding the drug has no effect when it actually does help patients.
-- In the court analogy: acquitting a guilty person.
-- In manufacturing QC: letting a defective production run continue undetected.
+<ConceptBox title="What determines power?">
+- **Sample size $n$** — larger $n$ narrows the sampling distribution; the most direct design lever.
+- **Effect size $\delta$** — bigger true differences are easier to detect (a property of the world).
+- **Significance level $\alpha$** — larger $\alpha$ widens the rejection region, raising power *and* false positives — the core trade-off.
+- **Population variance $\sigma^2$** — less variability tightens the distribution.
 
-$$P(\text{Type II Error}) = P(\text{Fail to Reject } H_0 \mid H_0 \text{ is false}) = \beta$$
-
-### Statistical Power
-
-Statistical power is the complement of $\beta$: the probability that the test correctly rejects a false null hypothesis. Power is what researchers strive to maximize. A test with low power is like a smoke detector that only triggers on large fires — it misses the small blazes that still destroy property.
-
-$$\text{Power} = 1 - \beta = P(\text{Reject } H_0 \mid H_0 \text{ is false})$$
-
-<ConceptBox title="What determines statistical power?">
-Power is not a fixed property of a test — it depends on several factors that you can, to varying degrees, control as a researcher:
-
-- **Sample size n.** Larger samples produce narrower sampling distributions, making it easier to distinguish a real effect from noise. Doubling n typically increases power substantially. This is the most direct lever a researcher controls at the design stage.
-- **Effect size $\delta$.** A larger true difference between the hypothesized and actual parameter value is inherently easier to detect. Effect size is a property of the world, not of the study design, but researchers can choose to study contexts where effects are expected to be large.
-- **Significance level $\alpha$.** A larger $\alpha$ makes the rejection region wider, so the test is more likely to reject any given null hypothesis — increasing power but simultaneously increasing the rate of false positives. This is the core trade-off.
-- **Population variance $\sigma^2$.** Lower variability in the underlying population means the sampling distribution is tighter, and smaller effects become distinguishable from noise.
-
-A target of 80% power (i.e., $\beta = 0.20$) is a conventional minimum in many fields. Well-designed studies in medicine often target 90% or higher. Power analysis, conducted before data collection, determines the sample size needed to achieve a desired power for an anticipated effect size.
+80% power ($\beta = 0.20$) is a conventional minimum; medicine often targets 90%+. Power analysis before data fixes the $n$ needed.
 </ConceptBox>
 
-## Section 2: The Significance Level Alpha
+## The Significance Level α
 
-The significance level $\alpha$ is the maximum probability of a Type I error that we are willing to tolerate. It is set by the researcher *before* seeing the data — this is a critical requirement, not a stylistic preference. Setting $\alpha$ after seeing the data, or adjusting it once you have seen preliminary results, undermines the mathematical guarantee that the false positive rate is controlled at level $\alpha$.
+$\alpha$ is the max Type I error rate you'll tolerate, set *before* data — setting or adjusting it after seeing results breaks the guarantee that the false-positive rate is controlled.
 
-The three most common choices are:
+| $\alpha$ | When |
+|---|---|
+| **0.05** | Default in social/behavioral science; 1-in-20 false positive |
+| **0.01** | High-cost false positives — drug approval, regulation; needs larger $n$ |
+| **0.10** | Exploratory/pilot work, or when missing a real effect is costly |
 
-#### $\alpha = 0.05$ (5%)
+Field-specific standards go far tighter: particle physics uses "5-sigma" ($\alpha \approx 2.87\times10^{-7}$); genomics uses $\sim5\times10^{-8}$ after Bonferroni. Choosing $\alpha$ is a policy decision — "beyond reasonable doubt" is a very small $\alpha$; missing a treatable disease shifts the balance the other way.
 
-The default in most social and behavioral sciences. Accepts a 1-in-20 chance of a false positive. Established as a rough convention by Ronald Fisher in the 1920s and widely adopted since, though its automatic use has been increasingly criticized.
-
-#### $\alpha = 0.01$ (1%)
-
-Used when the cost of a false positive is high: drug approval, clinical trials, regulatory decisions. Accepts only a 1-in-100 chance of wrongly rejecting $H_0$. Requires larger sample sizes to maintain adequate power.
-
-#### $\alpha = 0.10$ (10%)
-
-Acceptable in exploratory research, pilot studies, and contexts where missing a real effect is particularly costly. The relaxed threshold acknowledges that early-stage investigation tolerates higher false positive rates in exchange for fewer missed discoveries.
-
-#### Field-specific standards
-
-Particle physics uses $\alpha = 2.87 \times 10^{-7}$ (the famous "5-sigma" criterion). Genomics uses per-test thresholds as low as $5 \times 10^{-8}$ after Bonferroni correction across millions of genetic variants. The appropriate $\alpha$ is domain-specific.
-
-Choosing $\alpha$ is a policy decision that reflects how seriously the decision-maker treats the two categories of error. If convicting the innocent is the worst possible outcome (as in criminal law), $\alpha$ should be very small — the standard "beyond reasonable doubt" is roughly equivalent to an extremely small $\alpha$. If failing to detect a real effect is more costly (for instance, missing a treatable disease), the balance shifts the other way.
-
-<ConceptBox title="The alpha-beta trade-off (for fixed n)">
-$\alpha$ and $\beta$ are inversely related when the sample size is held fixed. Making $\alpha$ smaller (tighter rejection region) necessarily makes $\beta$ larger (lower power), because moving the critical boundary to reduce false positives simultaneously reduces the test's sensitivity to real effects. The **only way to reduce both $\alpha$ and $\beta$ simultaneously** is to increase the sample size $n$, which shrinks the standard error and pulls both null and alternative distributions apart relative to any fixed threshold. This is why sample size determination is inseparable from the choice of $\alpha$ and target power.
+<ConceptBox title="The α–β trade-off (fixed n)">
+For fixed $n$, $\alpha$ and $\beta$ move inversely: shrinking $\alpha$ (tighter rejection region) raises $\beta$ (lower power). The **only way to cut both at once** is a larger $n$, which shrinks the standard error and pulls the null and alternative distributions apart. That's why sample-size choice is inseparable from $\alpha$ and target power.
 </ConceptBox>
 
-## Section 3: The p-value
+## The p-value
 
-The p-value is perhaps the most widely reported and most widely misunderstood number in all of applied statistics. Getting the definition right — precisely right, not approximately right — is essential.
+The most misreported number in statistics — get it *precisely* right. The p-value is the probability of a test statistic at least as extreme as observed, *assuming $H_0$ is true*. Two-tailed:
 
-### The correct definition
+$$p\text{-value} = P\!\left(|T| \geq |t_{\text{obs}}| \mid H_0 \text{ true}\right)$$
 
-The p-value is the probability of observing a test statistic as extreme as, or more extreme than, the one actually computed from the data, *under the assumption that $H_0$ is true*. For a two-tailed test:
+It measures compatibility with $H_0$: small p = the result would be very unlikely under $H_0$ = strong evidence against it; large p = entirely plausible under $H_0$ = no evidence against it.
 
-$$p\text{-value} = P\!\left(|T| \geq |t_{\text{obs}}| \mid H_0 \text{ true}\right) \quad \text{(two-tailed)}$$
+**Decision rule:** $p \leq \alpha$ → reject (statistically significant); $p > \alpha$ → fail to reject.
 
-The p-value measures how compatible the observed data is with the null hypothesis. A small p-value means the observed result would be very unlikely if $H_0$ were true — providing strong evidence against $H_0$. A large p-value means the observed result is entirely plausible under $H_0$ — providing no evidence against it.
-
-### The decision rule
-
-Once the p-value is computed, the decision follows mechanically:
-
-- If $p\text{-value} \leq \alpha$ → Reject $H_0$. The result is *statistically significant* at level $\alpha$.
-- If $p\text{-value} > \alpha$ → Fail to reject $H_0$. The result is *not statistically significant* at level $\alpha$.
-
-<ConceptBox title="Three common misconceptions about the p-value">
-Each of the following is a popular but incorrect interpretation. Understanding why each is wrong is as important as knowing the correct definition.
-
-1. **Misconception: "The p-value is the probability that $H_0$ is true."** *Why it is wrong:* $H_0$ is either true or false — it is not a random variable. The p-value is computed *assuming* $H_0$ is true; it cannot simultaneously be a probability that it is true. Making this statement requires a Bayesian framework (prior probability on $H_0$), which classical hypothesis testing does not use.
-
-2. **Misconception: "The p-value is the probability that the result is due to chance."** *Why it is wrong:* This conflates the sampling distribution (which is a model of what chance produces under $H_0$) with a verdict about what produced the observed data. The p-value describes how often chance alone would produce a result this extreme; it does not say anything about the probability that this particular result was caused by chance.
-
-3. **Misconception: "A p-value of 0.03 means there is a 3% chance of making an error if we reject $H_0$."** *Why it is wrong:* The false discovery rate (the probability that a rejected null is actually true) depends on the prior probability that $H_0$ is true across all the tests being conducted — a quantity the p-value alone does not encode. A p-value of 0.03 tells us nothing about what fraction of statistically significant findings in a given field are spurious.
+<ConceptBox title="Three misconceptions about the p-value">
+1. **"p = probability $H_0$ is true."** No — $H_0$ isn't a random variable, and p is computed *assuming* $H_0$ true. That statement needs a Bayesian prior, which classical testing doesn't use.
+2. **"p = probability the result is due to chance."** No — p is how often *chance under $H_0$* would give a result this extreme, not a verdict on what caused this particular result.
+3. **"p = 0.03 means a 3% chance of error if we reject."** No — the chance a rejected null is actually true (false discovery rate) also depends on how often $H_0$ is true across all tests, which p doesn't encode.
 </ConceptBox>
 
-The p-value is a continuous measure of the strength of evidence against $H_0$. Crossing the threshold $\alpha$ is a binary decision rule applied on top of that continuous measure — the threshold is chosen by convention and context, not discovered from the data.
+The p-value is a continuous strength-of-evidence measure; the $\alpha$ threshold is a binary rule laid on top, chosen by convention, not read from the data.
 
-## Section 4: The Critical Value Method
+## The Critical Value Method
 
-The critical value method is an alternative computational approach to the same decision. Instead of computing how far into the tail the observed statistic falls (p-value), we ask: what is the boundary value of the test statistic that separates the rejection region from the non-rejection region? This boundary is called the *critical value*, written $z^*$ for a Z-test or $t^*$ for a t-test.
+Same decision, computed the other way: find the boundary statistic separating rejection from non-rejection — the critical value $z^*$ (or $t^*$).
 
-For a two-tailed Z-test at significance level $\alpha$:
+$$\text{Two-tailed: reject if } |Z| > z^* = z_{\alpha/2} = \Phi^{-1}\!\left(1 - \tfrac{\alpha}{2}\right)$$
+$$\text{Right-tailed: reject if } Z > z^* = z_\alpha = \Phi^{-1}(1 - \alpha)$$
 
-$$\text{Reject } H_0 \text{ if } |Z| > z^* \quad \text{where} \quad z^* = z_{\alpha/2} = \Phi^{-1}\!\left(1 - \tfrac{\alpha}{2}\right)$$
+Worth memorizing: two-tailed $z^* = 1.96$ at $\alpha=0.05$, $2.576$ at $\alpha=0.01$; one-tailed $z^* = 1.645$ at $\alpha=0.05$.
 
-For a one-tailed Z-test (right-tailed, i.e., $H_1: \mu > \mu_0$):
-
-$$\text{Reject } H_0 \text{ if } Z > z^* \quad \text{where} \quad z^* = z_\alpha = \Phi^{-1}(1 - \alpha)$$
-
-Common critical values to remember: for a two-tailed test, $z^* = 1.96$ when $\alpha = 0.05$, and $z^* = 2.576$ when $\alpha = 0.01$. For a one-tailed test at $\alpha = 0.05$, $z^* = 1.645$.
-
-<ConceptBox title="Key insight: The p-value method and the critical value method always agree">
-These two approaches are not separate tests — they are two different ways of reading the same underlying geometry. When the test statistic exceeds the critical value in magnitude, the p-value is necessarily less than $\alpha$, and vice versa. Formally:
-
+<ConceptBox title="The two methods always agree">
+They're two readings of the same geometry:
 $$|Z_{\text{obs}}| \geq z^* \iff p\text{-value} \leq \alpha$$
-
-This equivalence is not a coincidence. The critical value $z^*$ is defined as the value for which the tail probability equals $\alpha$. If the observed statistic equals the critical value, the p-value equals $\alpha$ exactly. If the observed statistic is larger, the p-value is smaller. The two methods must reach the same decision every time. Use whichever is more convenient for the problem at hand, but never expect them to disagree.
+$z^*$ is *defined* as the value whose tail probability equals $\alpha$. Statistic equals $z^*$ → p equals $\alpha$; larger statistic → smaller p. They reach the same decision every time — use whichever is convenient.
 </ConceptBox>
 
 <ErrorRegionWidget />
@@ -142,68 +94,48 @@ This equivalence is not a coincidence. The critical value $z^*$ is defined as th
 
 <CriticalValueWidget />
 
-## Worked Example: Manufacturing Quality Control
+## Worked Example: Manufacturing QC
 
-A machine fills bags with flour to a target weight of 500g. The population standard deviation is known to be $\sigma = 8$g. A quality control engineer collects a sample of $n = 36$ bags and computes a sample mean of $\bar{x} = 497$g. Is there sufficient evidence that the machine is not filling to the target weight?
+A machine fills bags to 500g, known $\sigma = 8$g. Sample $n = 36$, $\bar{x} = 497$g. Evidence the machine is off-target?
 
 <DerivationSteps>
-<DerivationStep number={1} title="State the hypotheses.">
+<DerivationStep number={1} title="Hypotheses">
 $$H_0: \mu = 500 \quad \text{vs} \quad H_1: \mu \neq 500$$
-
-A two-tailed test is appropriate because any deviation from 500g — underfilling or overfilling — is a production problem. The engineer has no prior reason to suspect only one direction of fault.
+Two-tailed — under- or over-filling is a problem, no prior direction.
 </DerivationStep>
-<DerivationStep number={2} title="Set the significance level.">
-$$\alpha = 0.05$$
-
-A 5% significance level is standard for industrial QC in this context. The cost of shutting down a correctly functioning line (Type I error) and the cost of missing a malfunctioning line (Type II error) are judged to be roughly balanced by this choice.
+<DerivationStep number={2} title="Significance level">
+$\alpha = 0.05$ — Type I (halting a good line) and Type II (missing a bad one) costs judged balanced.
 </DerivationStep>
-<DerivationStep number={3} title="Compute the test statistic.">
-$$Z = \frac{\bar{x} - \mu_0}{\sigma / \sqrt{n}} = \frac{497 - 500}{8 / \sqrt{36}} = \frac{-3}{8/6} = \frac{-3}{1.333} = -2.25$$
-
-The observed sample mean is 2.25 standard errors below the hypothesized mean. Under $H_0$, this statistic follows a standard normal distribution.
+<DerivationStep number={3} title="Test statistic">
+$$Z = \frac{497 - 500}{8 / \sqrt{36}} = \frac{-3}{1.333} = -2.25$$
+The mean sits 2.25 standard errors below 500.
 </DerivationStep>
-<DerivationStep number={4} title="Compute the p-value (p-value method).">
-$$p\text{-value} = 2 \times P(Z < -2.25) = 2 \times 0.0122 = 0.0244$$
-
-Because this is two-tailed, we double the one-tail probability. The p-value of 0.0244 is the probability of observing a sample mean at least 3g away from 500g if the machine were correctly calibrated.
+<DerivationStep number={4} title="p-value method">
+$$p = 2 \times P(Z < -2.25) = 2 \times 0.0122 = 0.0244$$
+Doubled because two-tailed — the chance of landing ≥3g from 500 if calibrated.
 </DerivationStep>
-<DerivationStep number={5} title="Apply the critical value method (alternative check).">
-$$z^* = z_{0.025} = 1.96 \quad \Longrightarrow \quad |Z_{\text{obs}}| = 2.25 > 1.96 = z^*$$
-
-The critical values for a two-tailed test at $\alpha = 0.05$ are $\pm 1.96$. Since the observed statistic of $-2.25$ falls below $-1.96$, it is inside the rejection region. Both methods confirm the same decision.
+<DerivationStep number={5} title="Critical value method">
+$$z^* = 1.96, \quad |Z_{\text{obs}}| = 2.25 > 1.96$$
+In the rejection region — same decision.
 </DerivationStep>
-<DerivationStep number={6} title="Make the decision and state the conclusion.">
-Since $p\text{-value} = 0.0244 < 0.05 = \alpha$, we **Reject $H_0$**. At the 5% significance level, there is sufficient statistical evidence that the machine's mean fill weight is not 500g. The engineer should investigate and recalibrate the machine. Note that both the p-value method and the critical value method reached identical conclusions — as they always must.
+<DerivationStep number={6} title="Decide">
+$p = 0.0244 < 0.05$ → **reject $H_0$**. At the 5% level, the mean fill weight is not 500g; recalibrate. Both methods agree, as they must.
 </DerivationStep>
 </DerivationSteps>
 
-## Practice Problem
+## Practice
 
-**Setup:** A researcher tests whether a new study app improves test scores. Historical average: $\mu_0 = 75$, population standard deviation $\sigma = 10$. A sample of $n = 25$ students using the app achieves $\bar{x} = 79$. Test at $\alpha = 0.05$ using both the p-value method and the critical value method. The researcher believes the app can only improve scores, not decrease them.
+New study app, historical $\mu_0 = 75$, $\sigma = 10$, $n = 25$, $\bar{x} = 79$. Test at $\alpha = 0.05$ both ways; the app can only *improve* scores.
 
-**Step 1 — State the hypotheses.** Because the researcher believes the app can only improve scores, this is a right-tailed (one-tailed) test:
+**Hypotheses (right-tailed):** $H_0: \mu = 75$ vs $H_1: \mu > 75$.
 
-$$H_0: \mu = 75 \quad \text{vs} \quad H_1: \mu > 75$$
+**Statistic:** $Z = \dfrac{79 - 75}{10/\sqrt{25}} = \dfrac{4}{2} = 2.00$.
 
-**Step 2 — Set the significance level.** $\alpha = 0.05$.
+**p-value:** $P(Z > 2.00) = 1 - 0.9772 = 0.0228 < 0.05$ → **reject**.
 
-**Step 3 — Compute the test statistic.**
+**Critical value:** $z^* = z_{0.05} = 1.645$; $2.00 > 1.645$ → **reject**.
 
-$$Z = \frac{\bar{x} - \mu_0}{\sigma / \sqrt{n}} = \frac{79 - 75}{10 / \sqrt{25}} = \frac{4}{10/5} = \frac{4}{2} = 2.00$$
-
-**Step 4 — p-value method.**
-
-$$p\text{-value} = P(Z > 2.00) = 1 - \Phi(2.00) = 1 - 0.9772 = 0.0228$$
-
-Since $0.0228 < 0.05 = \alpha$ → **Reject $H_0$**
-
-**Step 5 — Critical value method.**
-
-$$z^* = z_{0.05} = 1.645 \quad \text{(one-tailed right)}$$
-
-Since $Z_{\text{obs}} = 2.00 > 1.645 = z^*$ → **Reject $H_0$**
-
-**Conclusion:** Both methods agree. At the 5% significance level, there is sufficient statistical evidence that the study app improves test scores above the historical average of 75. The result is statistically significant. (Note: statistical significance does not automatically imply practical significance — a 4-point gain should also be evaluated for its real-world educational meaning.)
+**Conclusion:** Both agree — at 5%, sufficient evidence the app raises scores above 75. (Statistical significance ≠ practical significance — weigh the 4-point gain on its real-world merit.)
 
 <QuizCard
   question="A Type II error (β) occurs when:"

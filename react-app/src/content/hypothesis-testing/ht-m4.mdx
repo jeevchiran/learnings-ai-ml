@@ -2,116 +2,76 @@ import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '.
 import TwoDistributionWidget from '../../components/widgets/hypothesis-testing/TwoDistributionWidget.jsx'
 
 <Bridge>
-**Why does this matter?** A marketing team at an e-commerce company wants to know which of two email subject lines drives more clicks. They randomly send version A to 200 subscribers and version B to another 200. Version A achieves a 12% click rate; version B achieves 15%. The difference is 3 percentage points. But could this difference have arisen by chance alone, even if both subject lines are equally effective?
-
-To answer rigorously, the team runs a two-sample hypothesis test — the same statistical framework used in clinical trials, quality control, and academic research whenever we compare two groups.
+**Which email wins?** A team sends subject line A to 200 subscribers (12% click) and B to another 200 (15% click). The 3-point gap — real, or chance even if both lines are equally good? To answer rigorously they run a **two-sample test**, the same framework used in clinical trials and QC whenever two groups are compared.
 </Bridge>
 
-## 1. The Two-Sample Framework
+## The Two-Sample Framework
 
-In Module 3 we compared a single sample mean x̄ to a fixed reference value μ₀. Two-sample tests shift this question fundamentally: rather than anchoring to a fixed external value, we now compare the means of **two independent populations** directly against each other. The parameter of interest is the **difference in means**: μ₁ − μ₂.
+Module 3 compared one mean $\bar{x}$ to a fixed $\mu_0$. Two-sample tests compare the means of **two independent populations** directly — the parameter of interest is the difference $\mu_1 - \mu_2$:
 
-The general two-sample hypothesis structure is:
+$$H_0 : \mu_1 - \mu_2 = \delta_0 \;\; (\text{usually } 0) \qquad H_1 : \mu_1 - \mu_2 \neq \delta_0 \;\;(\text{or } >, <)$$
 
-$$H_0 : \mu_1 - \mu_2 = \delta_0 \quad \text{(usually } \delta_0 = 0\text{, testing for no difference)}$$
+Same principle as before — estimator minus null, over standard error:
 
-$$H_1 : \mu_1 - \mu_2 \neq \delta_0 \quad \text{(or } > \delta_0 \text{ or } < \delta_0\text{)}$$
+$$\text{Test statistic} = \frac{(\bar{X}_1 - \bar{X}_2) - \delta_0}{\text{SE}(\bar{X}_1 - \bar{X}_2)}$$
 
-The test statistic follows the general principle from earlier modules: estimator minus hypothesized value, divided by the standard error of the estimator:
-
-$$\text{Test statistic} = \dfrac{(\bar{X}_1 - \bar{X}_2) - \delta_0}{\text{SE}(\bar{X}_1 - \bar{X}_2)}$$
-
-<ConceptBox title="Independence Assumption">
-Two-sample tests require the two groups to be **independent**. The observations in group 1 must have nothing to do with observations in group 2: knowing the value of any observation in group 1 must give you no information about any observation in group 2. In practice, this is guaranteed by random assignment.
-
-If this assumption is violated — for example, because the same subjects appear in both groups (before-and-after measurements, matched pairs) — the two-sample t-test is invalid. The appropriate method in that case is the **paired t-test**, covered in Module 5.
+<ConceptBox title="Independence assumption">
+The two groups must be **independent** — knowing any value in group 1 tells you nothing about group 2 (guaranteed by random assignment). If the same subjects appear in both (before/after, matched pairs), the two-sample test is invalid — use the **paired t-test** (Module 5).
 </ConceptBox>
 
-## 2. Two-Population Z-Test (Known Population Standard Deviations)
+## Two-Population Z-Test (Known σ)
 
-If both population standard deviations σ₁ and σ₂ are known, the analysis is exact. By the properties of independent normal random variables, the sampling distribution of the difference in sample means is:
+With both $\sigma_1, \sigma_2$ known, the analysis is exact. By the variance-addition rule for independent normals:
 
-$$\bar{X}_1 - \bar{X}_2 \sim N\!\left(\mu_1 - \mu_2,\; \dfrac{\sigma_1^2}{n_1} + \dfrac{\sigma_2^2}{n_2}\right)$$
+$$\bar{X}_1 - \bar{X}_2 \sim N\!\left(\mu_1 - \mu_2,\; \frac{\sigma_1^2}{n_1} + \frac{\sigma_2^2}{n_2}\right), \qquad Z = \frac{(\bar{X}_1 - \bar{X}_2) - \delta_0}{\sqrt{\frac{\sigma_1^2}{n_1} + \frac{\sigma_2^2}{n_2}}}$$
 
-This follows from the variance addition rule: $\text{Var}(\bar{X}_1 - \bar{X}_2) = \sigma_1^2/n_1 + \sigma_2^2/n_2$. Standardizing under H₀ yields the two-sample Z statistic:
+Under $H_0$, $Z \sim N(0,1)$. Population SDs are almost never known, so this is mainly a stepping stone to the t-test.
 
-$$Z = \dfrac{(\bar{X}_1 - \bar{X}_2) - \delta_0}{\sqrt{\dfrac{\sigma_1^2}{n_1} + \dfrac{\sigma_2^2}{n_2}}}$$
+## Two-Sample Independent t-Test (Unknown σ)
 
-Under H₀, $Z \sim N(0,1)$. In practice, population standard deviations are almost never known precisely. The two-sample Z-test is primarily a pedagogical stepping stone to the t-test developed in the next section.
+Substitute sample SDs $s_1, s_2$. The added uncertainty means the statistic follows approximately a Student's t:
 
-## 3. Two-Sample Independent t-Test (Unknown Standard Deviations)
+$$t = \frac{(\bar{X}_1 - \bar{X}_2) - \delta_0}{\sqrt{\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}}}$$
 
-In the realistic case where σ₁ and σ₂ are unknown, we substitute the sample standard deviations s₁ and s₂. This introduces additional uncertainty and the resulting test statistic no longer follows an exact standard normal distribution — it follows approximately a Student's t distribution.
+The **Welch-Satterthwaite** effective degrees of freedom:
 
-### Standard Error
+$$\nu \approx \frac{\left(\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}\right)^2}{\frac{(s_1^2/n_1)^2}{n_1 - 1} + \frac{(s_2^2/n_2)^2}{n_2 - 1}}$$
 
-$$\text{SE}(\bar{X}_1 - \bar{X}_2) = \sqrt{\dfrac{s_1^2}{n_1} + \dfrac{s_2^2}{n_2}}$$
+Round $\nu$ down before looking up critical values; it lies between $\min(n_1,n_2)-1$ and $n_1+n_2-2$.
 
-### Welch's t Statistic
-
-$$t = \dfrac{(\bar{X}_1 - \bar{X}_2) - \delta_0}{\sqrt{\dfrac{s_1^2}{n_1} + \dfrac{s_2^2}{n_2}}}$$
-
-### Welch-Satterthwaite Degrees of Freedom
-
-The t statistic above does not follow an exact Student's t distribution for any integer degrees of freedom. The effective degrees of freedom ν is given by:
-
-$$\nu \approx \dfrac{\left(\dfrac{s_1^2}{n_1} + \dfrac{s_2^2}{n_2}\right)^2}{\dfrac{\left(s_1^2/n_1\right)^2}{n_1 - 1} + \dfrac{\left(s_2^2/n_2\right)^2}{n_2 - 1}}$$
-
-In practice, ν is rounded down to the nearest integer before looking up critical values. Note that ν always lies between $\min(n_1,n_2)-1$ and $n_1+n_2-2$.
-
-<ConceptBox title="Welch vs. Pooled: Which Should You Use?">
-An older approach — the pooled two-sample t-test — assumes equal population variances and estimates their common value by pooling the two sample variances. This is invalid whenever the variances are unequal, which is common in practice. Welch's t-test does not require equal variances. Statistical simulation studies have demonstrated that Welch's test maintains correct Type I error rates even when variances differ substantially. **Modern statistical practice recommends Welch's t-test as the default for two independent samples.**
-
-As n₁, n₂ → ∞, the t distribution approaches the standard normal, and the two-sample t-test converges in behavior to the two-sample Z-test.
+<ConceptBox title="Welch vs. pooled">
+The older **pooled** t-test assumes equal population variances — invalid when they differ, which is common. **Welch's** test doesn't assume equal variances and keeps correct Type I error rates even when they differ substantially. Modern practice: **Welch is the default.** As $n_1, n_2 \to \infty$, t approaches the standard normal and the t-test converges to the Z-test.
 </ConceptBox>
 
-## 4. A/B Testing as a Two-Sample Hypothesis Test
+## A/B Testing
 
-A/B testing — ubiquitous in technology, marketing, and product development — is simply a two-sample hypothesis test applied to a randomized experiment. Group A (the control) represents the current version; group B (the treatment) represents a proposed change.
-
-When the outcome variable is binary — a user either clicks or does not — the appropriate statistic is the **two-proportion Z-test**. Let $\hat{p}_A = x_A / n_A$ and $\hat{p}_B = x_B / n_B$ be the observed click rates in groups A and B. The hypotheses are:
+A/B testing is a two-sample test on a randomized experiment: group A (control, current version) vs group B (treatment). For a **binary** outcome (click / no click), use the **two-proportion Z-test**. With $\hat{p}_A = x_A/n_A$, $\hat{p}_B = x_B/n_B$:
 
 $$H_0 : p_A = p_B \quad \text{vs} \quad H_1 : p_A \neq p_B$$
 
-Under H₀, both groups share a common unknown proportion p. We estimate this pooled proportion by combining all successes across both groups:
+Under $H_0$ both share a common proportion, estimated by pooling:
 
-$$\hat{p} = \dfrac{n_A \hat{p}_A + n_B \hat{p}_B}{n_A + n_B}$$
+$$\hat{p} = \frac{n_A \hat{p}_A + n_B \hat{p}_B}{n_A + n_B}, \qquad Z = \frac{\hat{p}_A - \hat{p}_B}{\sqrt{\hat{p}(1-\hat{p})\left(\frac{1}{n_A} + \frac{1}{n_B}\right)}}$$
 
-Using this pooled estimate in the standard error, the test statistic is:
+Under $H_0$, $Z \sim N(0,1)$ when the normal approximation holds ($n\hat{p}$ and $n(1-\hat{p}) \geq 5$ for both groups).
 
-$$Z = \dfrac{\hat{p}_A - \hat{p}_B}{\sqrt{\hat{p}(1-\hat{p})\left(\dfrac{1}{n_A} + \dfrac{1}{n_B}\right)}}$$
-
-Under H₀ with sufficiently large samples (normal approximation adequate when $n_A\hat{p}, n_A(1-\hat{p}), n_B\hat{p}, n_B(1-\hat{p}) \geq 5$), $Z \sim N(0,1)$.
-
-<ConceptBox title="Statistical Significance vs. Practical Significance in A/B Tests">
-A foundational principle that practitioners frequently violate: **statistical significance is not the same as practical significance.** With a sufficiently large sample, virtually any difference, no matter how negligible in magnitude, will produce a p-value below any threshold.
-
-Always supplement the p-value with an effect size measure (Cohen's d for means, or the raw difference in proportions for binary outcomes) and report the **confidence interval for the difference**. The confidence interval makes the uncertainty visible in a way that the binary reject/fail-to-reject decision obscures.
+<ConceptBox title="Statistical vs. practical significance">
+Practitioners frequently violate this: with a large enough sample, *any* difference, however negligible, produces a tiny p-value. Always report an **effect size** (Cohen's d, or the raw difference in proportions) and the **confidence interval for the difference** — the CI makes the uncertainty visible where a bare reject/fail decision hides it.
 </ConceptBox>
 
-## 5. Effect Size: Cohen's d
+## Effect Size: Cohen's d
 
-Statistical significance tells you whether a difference is unlikely to be zero. It does not tell you whether the difference is large enough to matter. Effect size fills this gap by quantifying the magnitude of the difference in standardized units.
+Significance says a difference is unlikely to be zero; it doesn't say the difference is large enough to matter. Cohen's d standardizes the magnitude:
 
-For two-sample comparisons of means, **Cohen's d** is defined as the difference in means divided by a pooled within-group standard deviation:
+$$d = \frac{|\bar{X}_1 - \bar{X}_2|}{s_p}, \qquad s_p = \sqrt{\frac{(n_1-1)s_1^2 + (n_2-1)s_2^2}{n_1+n_2-2}}$$
 
-$$d = \dfrac{|\bar{X}_1 - \bar{X}_2|}{s_p} \quad \text{where } s_p = \sqrt{\dfrac{(n_1-1)s_1^2 + (n_2-1)s_2^2}{n_1+n_2-2}}$$
+| d | Meaning | Example |
+|---|---|---|
+| ≈ 0.2 | Small — distributions overlap heavily | height gap between 15- and 16-year-olds |
+| ≈ 0.5 | Medium — visible to a careful observer | a structured reading intervention |
+| ≈ 0.8 | Large — obvious in raw data | grip strength: athletes vs sedentary |
 
-<DerivationSteps>
-<DerivationStep number="S" title="Small effect: d ≈ 0.2">
-The two distributions overlap substantially. The difference is real but modest — visible in aggregate data but not readily apparent in individual cases. Example: the height difference between 15- and 16-year-old males in a large population study.
-</DerivationStep>
-
-<DerivationStep number="M" title="Medium effect: d ≈ 0.5">
-Moderate separation between groups, visible to a careful observer. This is the rough magnitude of typical treatment effects in social science research. Example: the effect of a structured reading intervention on test scores.
-</DerivationStep>
-
-<DerivationStep number="L" title="Large effect: d ≈ 0.8">
-Clear, substantial separation between groups. The effect is obvious even to an untrained eye examining the raw data. Example: the difference in grip strength between trained athletes and sedentary adults.
-</DerivationStep>
-</DerivationSteps>
-
-Cohen himself emphasized that these benchmarks are rough guidelines, not universal standards. What constitutes a practically important effect depends entirely on the domain and the consequences of the decision.
+Cohen stressed these are rough guidelines — what counts as practically important depends on the domain and the decision's stakes.
 
 <TwoDistributionWidget />
 
