@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import ShuffleWidget from '../../components/widgets/etl-pyspark/ShuffleWidget.jsx'
 
 <Bridge>
 In Module 8, we explored our clean dataset — examining distributions, statistics, and cross-tabulations. Now we reshape it: joining tables, aggregating values, pivoting, and ranking.
@@ -119,6 +120,8 @@ with_lag.select("name", "major", "gpa", "prev_gpa", "gpa_diff").show()
 # Alice: prev_gpa = null (first in partition)
 # David: prev_gpa = 3.8, gpa_diff = -0.6`}
 </CodeBlock>
+
+<ShuffleWidget />
 
 ## Union
 

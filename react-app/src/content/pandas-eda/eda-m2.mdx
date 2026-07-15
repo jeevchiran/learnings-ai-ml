@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import MissingValueWidget from '../../components/widgets/pandas-eda/MissingValueWidget.jsx'
 
 # Missing Values
 
@@ -64,6 +65,8 @@ print(df.isna().sum().sum())
 <Bridge>
 Reading these numbers from printed output is fine for a one-time check. The widget below lets you pick any of the three affected columns and try each fix strategy live, watching the row count and table change.
 </Bridge>
+
+<MissingValueWidget />
 
 ## Practice
 

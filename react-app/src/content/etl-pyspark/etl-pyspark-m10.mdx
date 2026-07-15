@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import CachingWidget from '../../components/widgets/etl-pyspark/CachingWidget.jsx'
 
 <Bridge>
 In Module 9, we built complex transformations — joins, aggregations, pivots, and window functions. These pipelines can be expensive. This final module covers how to make them fast using caching and broadcast variables.
@@ -54,6 +55,8 @@ When done with a cached DataFrame, call `unpersist()` to free memory. Important 
 {`joined_df.unpersist()
 # DataFrame still exists — subsequent actions recompute from lineage`}
 </CodeBlock>
+
+<CachingWidget />
 
 ## Broadcast Variables
 

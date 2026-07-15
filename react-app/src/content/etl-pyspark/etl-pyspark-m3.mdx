@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import LazyEvaluationWidget from '../../components/widgets/etl-pyspark/LazyEvaluationWidget.jsx'
 
 In Module 2, we saw how Spark keeps data in memory and uses lazy evaluation with DAGs. Now we'll look at the data structure that makes this possible: the RDD.
 
@@ -157,6 +158,8 @@ print(f"\nStudents per major:")
 for major, count in major_counts.items():
     print(f"  {major}: {count}")
 ```
+
+<LazyEvaluationWidget />
 
 ## Practice Problems
 
