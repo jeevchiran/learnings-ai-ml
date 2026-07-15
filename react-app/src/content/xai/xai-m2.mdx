@@ -1,0 +1,76 @@
+import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import GlobalLocalWidget from '../../components/widgets/xai/GlobalLocalWidget.jsx'
+
+## Two Questions, Two Kinds of Answer
+
+Every explanation answers one of two questions:
+
+- **Global:** "How does this model behave *in general*?" — which features matter across all predictions, the overall logic.
+- **Local:** "Why did the model output *this* for *this one input*?" — the reasons behind a single decision.
+
+They are genuinely different. A model can rely on *income* globally yet, for one specific applicant, be driven entirely by their *debt ratio*. Toggle between the two views of the same loan model:
+
+<GlobalLocalWidget />
+
+<ConceptBox title="Don't average away the individual">
+A global explanation is roughly the *average* of local ones — and averages lie about individuals. "Income matters most overall" can be false for the applicant standing in front of you, whose decision hinged on something else entirely. When a person is owed a reason (a loan denial, a flagged scan), you need a **local** explanation.
+</ConceptBox>
+
+## The Second Axis: What the Method Needs to See
+
+Crossing with global/local is *how much access* a method requires:
+
+| | **Model-agnostic** | **Model-specific** |
+|---|---|---|
+| **What it needs** | Only the ability to call `predict()` | The model's internals (gradients, tree structure) |
+| **Works on** | Anything — SVM, forest, net, API | One family only |
+| **Examples** | LIME, Kernel SHAP | Tree SHAP (trees), DeepLIFT (nets) |
+
+Model-agnostic methods treat the model as a sealed box you can only *query*. That's maximally general but often slower and approximate. Model-specific methods exploit internal structure — faster and exact, but tied to one architecture.
+
+<ConceptBox title="Placing the methods in this track">
+- **LIME** → local, model-agnostic.
+- **Kernel SHAP** → local (aggregable to global), model-agnostic.
+- **Tree SHAP** → local + global, tree-specific.
+- **DeepLIFT** → local, neural-net-specific.
+
+Two axes — *scope* (global/local) and *access* (agnostic/specific) — locate every technique you'll meet.
+</ConceptBox>
+
+<Bridge>
+LIME is the cleanest entry point: local scope, needs nothing but `predict()`. Its idea is almost embarrassingly simple — *near one point, even a wildly nonlinear model looks like a straight line, so fit a straight line there.* The next module builds it from that intuition.
+</Bridge>
+
+## Practice
+
+#### Problem 1: Which scope?
+A regulator demands that each denied loan applicant receive the specific reasons for *their* denial. Global or local explanation?
+
+**Solution:** **Local.** The requirement is per-decision — the reasons for *this* applicant's outcome, which can differ from the model's average behaviour. A global feature-importance ranking doesn't satisfy "why was *I* denied."
+
+#### Problem 2: Agnostic or specific?
+You have a trained model exposed only through a cloud API — you can send inputs and read predictions, nothing else. Which family of methods can you use?
+
+**Solution:** **Model-agnostic** only (e.g. LIME, Kernel SHAP). Model-specific methods need internals — tree structure, gradients — which the API doesn't expose. If you can only call `predict()`, you're restricted to methods that only call `predict()`.
+
+<QuizCard
+  question="A model uses 'income' as its most important feature overall, but a particular applicant was denied mainly because of their debt ratio. Which explanation type captures this?"
+  options={[
+    'Global — it describes the whole model',
+    'Local — it explains this single prediction',
+    'Neither; global and local always agree',
+    'Model-specific access is required to answer this'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="What defines a model-agnostic explanation method?"
+  options={[
+    'It only works on linear models',
+    'It requires access to the model gradients',
+    'It needs only the ability to query predictions, treating the model as a black box',
+    'It produces only global explanations'
+  ]}
+  correct={2}
+/>

@@ -1,22 +1,23 @@
 import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import SplitWidget from '../../components/widgets/model-eval/SplitWidget.jsx'
 
 ## Splitting the Data Three Ways
 
-Module 1 established that training error is fundamentally unfit for judging a model, because a sufficiently flexible model can drive it to zero without learning anything generalizable. The fix is to evaluate a model on data it never touched while fitting. In practice, that means splitting your dataset into up to three disjoint pieces, each with a distinct job:
+Training error can't judge a model, so evaluate on data it never touched while fitting. Split the dataset into up to three disjoint pieces, each with a distinct job:
 
-| Split | Used for | Touched how often |
+| Split | Used for | Touched |
 |---|---|---|
-| **Training set** | Fitting model parameters (weights, tree splits, coefficients) | Repeatedly, during every training run |
-| **Validation set** | Comparing models and tuning hyperparameters (polynomial degree, `alpha`, `max_depth`, $k$) | Repeatedly, once per candidate model or hyperparameter setting |
-| **Test set** | Producing one final, honest estimate of how the chosen model will perform on new data | **Exactly once**, at the very end |
+| **Training** | Fitting parameters (weights, splits, coefficients) | Every training run |
+| **Validation** | Comparing models, tuning hyperparameters (degree, `alpha`, `max_depth`, $k$) | Once per candidate |
+| **Test** | One final, honest estimate of generalization | **Exactly once**, at the end |
 
-The training set teaches the model. The validation set is how you *choose* between models or settings — it stands in for "new data" while you're still making decisions. The test set exists for one purpose only: to answer, once, "how good is the model I ended up with?"
+<SplitWidget />
 
-That last row carries a rule that is easy to state and easy to violate: **the test set is used exactly once, after every modeling decision has already been locked in.** It is never used to pick a model, tune a hyperparameter, decide when to stop training, or choose between feature sets. The moment a decision is made based on the test set's score, that score stops being an honest estimate of generalization — you have, in effect, started fitting to the test set, just one comparison at a time instead of one gradient step at a time. Section 5 below works through exactly why this happens and how it sneaks in.
+The test-set rule is easy to state and easy to violate: **use it exactly once, after every modeling decision is locked in.** Never to pick a model, tune a knob, decide when to stop, or choose features. The moment a decision is made from the test score, it stops being an honest estimate — you've begun fitting to it, one comparison at a time.
 
 ## The Holdout Method
 
-The simplest way to get a validation set is the **holdout method**: randomly split off some fraction of the data — commonly 20-30% — and set it aside as validation, training on the rest.
+Simplest validation: randomly split off 20–30% as validation, train on the rest.
 
 ```python
 from sklearn.model_selection import train_test_split
@@ -24,88 +25,61 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.datasets import load_breast_cancer
 
 X, y = load_breast_cancer(return_X_y=True)
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.25, random_state=0)
 
-X_train, X_val, y_train, y_val = train_test_split(
-    X, y, test_size=0.25, random_state=0
-)
-
-model = DecisionTreeClassifier(max_depth=4, random_state=0)
-model.fit(X_train, y_train)
+model = DecisionTreeClassifier(max_depth=4, random_state=0).fit(X_train, y_train)
 print(model.score(X_val, y_val))   # validation accuracy
 ```
 
-This is simple, fast, and often good enough for large datasets. But it has a real weakness: **the validation score is itself a noisy estimate**, because it depends on exactly which rows happened to land in the validation set. On a small or moderately sized dataset, an "unlucky" split can put an unrepresentative cluster of hard (or easy) examples into validation, shifting the reported score without the model itself having changed at all.
-
-This isn't hypothetical — the same model, trained on the same data, with only the random seed of the split changed, can report visibly different validation accuracy:
+Fast and often enough for large data — but the validation score is itself a **noisy estimate**, depending on which rows landed in validation. Change only the split seed and the same model reports different accuracy:
 
 ```python
 for seed in [0, 1, 2, 3, 4]:
-    X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.25, random_state=seed
-    )
-    model = DecisionTreeClassifier(max_depth=4, random_state=0)
-    model.fit(X_train, y_train)
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.25, random_state=seed)
+    model = DecisionTreeClassifier(max_depth=4, random_state=0).fit(X_train, y_train)
     print(f"seed={seed}: val accuracy = {model.score(X_val, y_val):.3f}")
 
-# seed=0: val accuracy = 0.930
-# seed=1: val accuracy = 0.902
-# seed=2: val accuracy = 0.951
-# seed=3: val accuracy = 0.916
-# seed=4: val accuracy = 0.937
+# seed=0: 0.930   seed=1: 0.902   seed=2: 0.951   seed=3: 0.916   seed=4: 0.937
 ```
 
-Same model, same training procedure, same data pool — a 5-point swing (0.902 to 0.951) purely from which specific rows ended up in validation. If you were comparing two candidate models and their "true" performance differed by only 1-2 points, a single lucky or unlucky split could easily report the worse model as the winner. This is the core limitation the holdout method never escapes on its own: one split gives you one sample of validation performance, and one sample has variance.
+Same model, same data — a 5-point swing (0.902–0.951) purely from the split. If two candidates truly differ by 1–2 points, one unlucky split can crown the worse one. One split gives one sample of validation performance, and one sample has variance.
 
-## Stratification: Keeping Class Balance Honest
+## Stratification
 
-A plain random split can accidentally distort class balance, especially on imbalanced data. If a dataset is 95% negative / 5% positive and you draw a random 25% validation split, ordinary random sampling can easily land you with a validation set that's 3% positive or 7% positive purely by chance — enough to meaningfully change reported precision/recall even though nothing about the model changed.
-
-**Stratified splitting** fixes this by constraining the split so that each class appears in train and validation in roughly the same proportion as in the full dataset. In scikit-learn, this is a single argument:
+A plain random split can distort class balance. On 95% negative / 5% positive data, a random 25% validation set might come out 3% or 7% positive by chance — enough to move precision/recall with no model change. **Stratified splitting** preserves each class's proportion in train and validation:
 
 ```python
-from sklearn.model_selection import train_test_split
-
-X_train, X_val, y_train, y_val = train_test_split(
-    X, y, test_size=0.25, random_state=0, stratify=y
-)
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.25, random_state=0, stratify=y)
 ```
 
-Passing `stratify=y` tells `train_test_split` to preserve the class proportions of `y` in both the resulting train and validation sets. This costs nothing and removes one entire source of split-to-split noise, so it's good practice to reach for by default on any classification problem — and close to mandatory once any class is a small minority of the data.
+`stratify=y` costs nothing and removes one source of split noise — default for classification, near-mandatory when a class is a small minority.
 
-## When One Holdout Split Isn't Enough
+## When One Holdout Isn't Enough
 
-The holdout method breaks down in two related situations:
+1. **Small datasets** — carving 25% for validation strips scarce training signal, and the validation estimate on a small slice is especially high-variance.
+2. **Split-sensitive decisions** — comparisons on a single split can flip with the split's luck; you can't tell a real 1-point gain from noise.
 
-1. **Small datasets.** If you only have a few hundred examples, carving out 25% for validation removes real training signal from an already-scarce dataset — the model trained on the smaller remainder may underperform what it could have achieved with all the data, and the validation estimate itself, computed on a small slice, is especially high-variance (the seed experiment above gets worse, not better, as the dataset shrinks).
-2. **Decisions that are sensitive to exactly which rows land in validation.** Model comparisons or hyperparameter choices made on a single split can flip depending on the split's luck, as shown above — you can't tell whether a 1-point improvement is real or just noise from the particular 25% of rows you happened to hold out.
+Same root cause: one split = one sample of "how does this do on unseen data," not enough to separate real differences from split noise. The fix: evaluate across *several* train/validation partitions and combine — cross-validation, next module.
 
-Both problems have the same root cause: a single holdout split gives you exactly one sample of "how does this model do on unseen data," and one sample is not enough to separate real differences between models from random split-to-split noise. The natural fix is to not rely on just one split — to evaluate the model across *several* different train/validation partitions of the same data and combine the results into a more stable estimate. That is exactly what cross-validation does, and it's the subject of the next module.
-
-<ConceptBox title="Using the test set to pick a hyperparameter is training on it">
-A subtle but extremely common mistake: train a model, evaluate several hyperparameter settings by checking each one's score *on the test set*, and report whichever setting scored best on the test set as your final result.
-
-This feels different from training on the test set — no gradient ever touched it, no `fit()` call ever saw it — but it has the same effect. The moment you use the test set's score to make a decision (which setting to keep), you've optimized a choice against that specific set of examples. If you try enough settings, one of them will score well on the test set purely by chance, the same way trying enough random seeds in the experiment above eventually turns up a suspiciously good split. The reported "test accuracy" is no longer an honest estimate of generalization — it's contaminated by the same kind of overfitting from Module 1, just applied to hyperparameter choices instead of model parameters.
-
-The fix is procedural, not statistical: use the validation set (or cross-validation) for every comparison and every tuning decision, and touch the test set exactly once, after the model and its hyperparameters are already fully decided.
+<ConceptBox title="Tuning on the test set is training on it">
+A common mistake: try several hyperparameters, score each *on the test set*, keep the best. No gradient touched it — but using its score to make a choice optimizes against those specific examples. Try enough settings and one scores well by chance, exactly like trying enough seeds turns up a lucky split. The reported "test accuracy" is now contaminated — Module 1's overfitting, applied to hyperparameter choices. The fix is procedural: every comparison goes through validation (or CV); the test set is touched once, after everything is decided.
 </ConceptBox>
 
 <Bridge>
-**From one split to many.** The holdout method's central weakness is that a single validation split is a single noisy sample of model performance — lucky or unlucky splits can distort model comparisons, and small datasets make this worse by forcing you to sacrifice training data for a validation slice that's noisy anyway. The next module introduces cross-validation techniques, which address both problems by evaluating a model across multiple different splits of the same data and combining the results into a single, far more stable estimate of generalization performance.
+The holdout's weakness is that one validation split is one noisy sample — lucky splits distort comparisons, and small datasets make it worse. The next module introduces cross-validation, which evaluates across multiple splits and combines them into a far more stable estimate.
 </Bridge>
 
 ## Practice
 
-#### Problem 1: Diagnosing a Suspicious Split
+#### Problem 1: A Suspicious Split
+Model A scores 87.2%, Model B 87.9% on one split. Changing only `random_state`, A now scores 88.4%, B 86.6% — the ranking flips. What does this mean, and what next?
 
-You compare two models on the same validation split: Model A scores 87.2% and Model B scores 87.9%. A colleague changes only the `random_state` used in `train_test_split` and reruns the exact same comparison — now Model A scores 88.4% and Model B scores 86.6%, flipping the ranking. What does this tell you, and what should you do next?
-
-**Solution:** The flip tells you that the ~0.7-1.8 point differences observed are within the noise introduced by which rows happen to land in validation — a single holdout split does not have the resolution to reliably tell these two models apart. Picking a "winner" from either single split would be trusting noise as if it were signal. The right move is to not rely on one split at all: evaluate both models across multiple different splits (cross-validation, covered next) and compare their average performance, which averages out this split-to-split variance and gives a much more trustworthy comparison.
+**Solution:** The ~1-point differences are within the noise from which rows land in validation — a single split can't resolve these two models. Picking a winner from either split trusts noise as signal. Evaluate both across multiple splits (cross-validation) and compare averages, which averages out split-to-split variance.
 
 #### Problem 2: Stratify or Not?
+Splitting a fraud dataset with 2% positives, `test_size=0.2`. Use `stratify=y`? What goes wrong without it?
 
-You're splitting a fraud-detection dataset where only 2% of transactions are fraudulent, using `train_test_split` with `test_size=0.2`. Would you use `stratify=y`? What could go wrong if you don't?
-
-**Solution:** Yes, use `stratify=y`. With only 2% positive examples, a plain random split can easily produce a validation set with, say, 0.5% or 4% fraud purely by chance, since so few positive examples exist to distribute. That skew directly distorts precision, recall, and any fraud-specific metric computed on validation, making model comparisons unreliable for reasons that have nothing to do with actual model quality. `stratify=y` forces both the train and validation sets to preserve the original ~2% fraud rate, removing this specific source of noise at no cost.
+**Solution:** Yes. With 2% positives, a random split can yield 0.5% or 4% fraud by chance, distorting precision/recall for reasons unrelated to model quality. `stratify=y` forces both splits to preserve the ~2% rate, removing that noise at no cost.
 
 <QuizCard
   question="What is the cardinal rule governing use of the test set?"
@@ -119,7 +93,7 @@ You're splitting a fraud-detection dataset where only 2% of transactions are fra
 />
 
 <MultiSelectQuiz
-  question="Which of the following statements about validation sets and the holdout method are correct? (Select all that apply.)"
+  question="Which statements about validation sets and the holdout method are correct? (Select all that apply.)"
   options={[
     'A single holdout validation score can vary noticeably depending on the random seed used for the split, especially on smaller datasets',
     'Selecting a hyperparameter based on test-set performance corrupts the test set as an honest measure of generalization',

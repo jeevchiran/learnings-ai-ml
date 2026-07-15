@@ -1,0 +1,82 @@
+import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import XAICompareWidget from '../../components/widgets/xai/XAICompareWidget.jsx'
+
+## No Single Winner
+
+Every method trades off along the same dimensions: **speed**, **fidelity** (how truly it reflects the model), **consistency** (theoretical guarantees), and **generality** (range of models it fits). Pick a method and read its profile:
+
+<XAICompareWidget />
+
+## Side by Side
+
+| Method | Scope | Model access | Guarantees | Speed | Best for |
+|---|---|---|---|---|---|
+| **LIME** | Local | Agnostic | None (heuristic) | Medium | Quick, any-model sanity check; text/tabular |
+| **Kernel SHAP** | Local (→global) | Agnostic | Shapley axioms (approx.) | **Slow** | Any model when you need principled values |
+| **Tree SHAP** | Local + global | Trees only | Shapley axioms (**exact**) | **Fast** | XGBoost / LightGBM / RF — the default |
+| **DeepLIFT / Deep SHAP** | Local | Neural nets | Additive vs. reference | Fast | Deep nets, images |
+| **Integrated Gradients** | Local | Differentiable | Strong axioms | Medium | Differentiable nets when axioms matter |
+
+<ConceptBox title="A decision shortcut">
+- **Tree model?** → Tree SHAP. Exact, fast, done.
+- **Neural net / images?** → Deep SHAP (DeepLIFT) or Integrated Gradients.
+- **Black box behind an API, or an odd custom model?** → Kernel SHAP (principled) or LIME (fast).
+- **Need a quick "does this look sane?"** → LIME first, confirm with SHAP.
+</ConceptBox>
+
+## LIME vs. SHAP — the Core Contrast
+
+The two you'll actually choose between:
+
+| | **LIME** | **SHAP** |
+|---|---|---|
+| Foundation | Local linear fit (heuristic) | Game theory (Shapley values) |
+| Determinism | Random → can vary between runs | Deterministic (given background) |
+| Additivity | Approximate | **Exact** (sums to the prediction) |
+| Consistency | Not guaranteed | **Guaranteed** |
+| Speed | Fast per instance | Slower (fast for Tree SHAP) |
+| Global view | Not native | Aggregate local values → global |
+
+**Rule of thumb:** SHAP when you need trustworthy, defensible attributions (audits, compliance, feature ranking). LIME when you want a fast, intuitive gut-check — especially on text — and don't need theoretical guarantees.
+
+<ConceptBox title="Explanations are not ground truth">
+Every method here explains the **model**, not the world — and every method makes assumptions (feature independence, a chosen baseline, a locality radius) that can mislead when violated. Treat an explanation as evidence, not proof: cross-check with a second method, sanity-test against domain knowledge, and stay sceptical when features are strongly correlated. A confident-looking heatmap can still be explaining a spurious pattern the model latched onto.
+</ConceptBox>
+
+<Bridge>
+That completes the toolkit: the accuracy–interpretability trade-off, global vs. local scope, LIME's local surrogates, SHAP's game-theoretic fairness with its Kernel/Tree/Deep variants, and DeepLIFT's reference-based attributions. The track quiz pulls it together.
+</Bridge>
+
+## Practice
+
+#### Problem 1: Pick the method
+You must give regulators a *defensible, reproducible* per-decision reason for each rejection from a LightGBM credit model, across millions of rows. Which method, and why?
+
+**Solution:** **Tree SHAP.** It's exact (defensible), deterministic (reproducible — same input gives the same explanation), fast enough for millions of rows on a tree model, and its consistency guarantee holds up to audit. LIME's randomness would undermine reproducibility, and Kernel SHAP would be far too slow at that scale.
+
+#### Problem 2: LIME vs. SHAP trade-off
+Name one thing LIME does *better* than SHAP, and one thing SHAP does better than LIME.
+
+**Solution:** LIME is typically **faster per instance** on arbitrary models and gives a quick, intuitive local read (especially for text). SHAP provides **exact additivity and theoretical guarantees** (efficiency, consistency) plus deterministic, aggregable-to-global values — so it's more trustworthy for audits and feature ranking.
+
+<QuizCard
+  question="For a trustworthy, reproducible per-decision explanation of an XGBoost model at scale, the best choice is:"
+  options={[
+    'LIME, because it is model-agnostic',
+    'Tree SHAP, because it is exact, deterministic, fast on trees, and consistent',
+    'Kernel SHAP, because it works on any model',
+    'Plain gradients, because they are fastest'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="Which statement about LIME vs. SHAP is correct?"
+  options={[
+    'LIME guarantees its contributions sum exactly to the prediction; SHAP does not',
+    'SHAP is grounded in game theory with exact additivity, while LIME is a faster heuristic local fit',
+    'Both are deterministic and always produce identical explanations',
+    'SHAP only works on neural networks and LIME only on trees'
+  ]}
+  correct={1}
+/>

@@ -1,0 +1,118 @@
+import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+
+## Running LIME on Tabular Data
+
+The `lime` library packages the perturb → weight → fit loop. On a tabular classifier you pass the training data (so it knows each feature's distribution for perturbing), then explain one row:
+
+```python
+# pip install lime scikit-learn
+import lime.lime_tabular
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+
+data = load_breast_cancer()
+X_tr, X_te, y_tr, y_te = train_test_split(
+    data.data, data.target, test_size=0.2, random_state=0)
+
+model = RandomForestClassifier(n_estimators=300, random_state=0).fit(X_tr, y_tr)
+
+explainer = lime.lime_tabular.LimeTabularExplainer(
+    X_tr,                              # used to learn feature stats for perturbing
+    feature_names=data.feature_names,
+    class_names=data.target_names,
+    discretize_continuous=True,        # bins continuous features → readable rules
+)
+
+exp = explainer.explain_instance(
+    X_te[0],                           # the ONE row we want explained
+    model.predict_proba,               # black box: only predict_proba is used
+    num_features=6,                    # keep the explanation short (the Ω term)
+)
+for feature, weight in exp.as_list():
+    print(f"{weight:+.3f}  {feature}")
+```
+
+Output reads as signed contributions for *this* patient:
+
+```text
++0.182  worst perimeter <= 84.11
++0.147  worst concave points <= 0.06
+-0.091  mean texture > 21.80
+...
+```
+
+<ConceptBox title="Reading the weights">
+Each line is a coefficient of the local linear surrogate. **Positive** pushes toward the predicted class, **negative** away. The condition (`worst perimeter <= 84.11`) comes from `discretize_continuous` — LIME explains in terms of *"this feature is in this range"*, which is far more readable than a raw slope on a standardised value.
+</ConceptBox>
+
+## Text: Perturb by Deleting Words
+
+For text, the interpretable features are the words themselves; perturbation = randomly removing words and seeing how the prediction shifts.
+
+```python
+from lime.lime_text import LimeTextExplainer
+
+explainer = LimeTextExplainer(class_names=["neg", "pos"])
+exp = explainer.explain_instance(
+    "the acting was brilliant but the plot dragged badly",
+    classifier_pipeline.predict_proba,   # e.g. TfidfVectorizer + LogisticRegression
+    num_features=6,
+)
+exp.as_list()
+# [('brilliant', +0.34), ('dragged', -0.21), ('badly', -0.18), ('plot', -0.05), ...]
+```
+
+The model leaned on *brilliant* (positive) and *dragged*/*badly* (negative) — exactly the words a human would point to. This is how you catch a sentiment model that keys on a punctuation quirk instead of meaning.
+
+## The Catch: Instability
+
+LIME's perturbations are **random**, so two runs on the same instance can give different weights — sometimes different *signs*. Causes and fixes:
+
+| Cause | Fix |
+|---|---|
+| Too few perturbation samples | Raise `num_samples` (e.g. 5000+) |
+| Sensitive kernel width | Tune `kernel_width`; wider = smoother but less local |
+| Inherent randomness | Fix the seed; average explanations over several runs |
+
+<ConceptBox title="When you see LIME wobble">
+Re-run an explanation a few times before trusting it. If the top features and their signs are stable across runs, believe it. If they flip, the explanation isn't reliable for that instance — increase samples or reach for SHAP, whose values are deterministic and axiomatically grounded.
+</ConceptBox>
+
+<Bridge>
+LIME's honesty problem — *is this the "right" explanation, or just one of many?* — has a principled answer. SHAP starts from game theory and asks: what is the *uniquely fair* way to divide a prediction among its features? The next module derives it.
+</Bridge>
+
+## Practice
+
+#### Problem 1: Why pass training data to the explainer?
+`LimeTabularExplainer` requires `X_tr` even though it explains a single test row. Why?
+
+**Solution:** LIME perturbs by sampling plausible feature values. To do that realistically it needs each feature's distribution (mean, std, or bin edges) — learned from the training data. Without it, LIME couldn't generate sensible perturbations or discretise continuous features into readable ranges.
+
+#### Problem 2: Diagnosing a flipped sign
+You explain the same row twice and a feature's weight flips from +0.12 to −0.09. What's happening and what do you do?
+
+**Solution:** LIME's random perturbation sampling makes it non-deterministic; with too few samples the local fit is noisy and unstable. Increase `num_samples`, fix the random seed for reproducibility, and consider averaging several runs. Persistent flipping means the explanation isn't trustworthy for that instance.
+
+<QuizCard
+  question="On text data, how does LIME generate perturbations of an input sentence?"
+  options={[
+    'It adds random Gaussian noise to word embeddings',
+    'It randomly removes words and observes how the prediction changes',
+    'It translates the sentence into another language',
+    'It requires the model gradients with respect to each token'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="What is LIME's main practical weakness?"
+  options={[
+    'It cannot be applied to neural networks',
+    'It requires access to model internals',
+    'Its random perturbations make explanations unstable across runs',
+    'It only produces global explanations'
+  ]}
+  correct={2}
+/>

@@ -1,0 +1,97 @@
+import { ConceptBox, Bridge, QuizCard, DerivationSteps, DerivationStep } from '../../components/learning/index.js'
+
+## Why Not Just Use Gradients?
+
+For a neural net, the obvious explanation is the gradient: how much does the output change if I nudge this input? But gradients **saturate**. Picture a ReLU or sigmoid neuron already deep in its flat region — the gradient is ~0, so a plain-gradient method says the feature *doesn't matter*, even though it's the very feature holding the neuron on. Gradients measure *sensitivity to a tiny nudge*, not *how much a feature contributed to getting here*.
+
+**DeepLIFT** (*Deep Learning Important FeaTures*) fixes this by explaining differences against a **reference**, not infinitesimal nudges.
+
+## Contributions Against a Reference
+
+DeepLIFT picks a **reference input** $x^0$ — a neutral baseline like an all-zero image, a blurred image, or the average input. It runs the reference through the net once to get reference activations, then explains the difference:
+
+$$\sum_i C_{\Delta x_i \, \Delta t} = \Delta t = f(x) - f(x^0)$$
+
+Read: *the total output difference from the reference, $\Delta t$, is split among the input features as contribution scores $C$ that sum to it exactly.* Like SHAP's additivity — the explanation fully accounts for the change, with **no saturation problem**, because it uses a finite difference across the whole range, not a local slope.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Reference forward pass">
+Run baseline $x^0$ through the network; record every neuron's reference activation. Do the same for the real input $x$.
+</DerivationStep>
+<DerivationStep number={2} title="Differences, not values">
+For every neuron compute $\Delta = \text{activation}(x) - \text{activation}(x^0)$. DeepLIFT reasons entirely in these deltas.
+</DerivationStep>
+<DerivationStep number={3} title="Define a multiplier">
+For each connection, a multiplier $m_{\Delta x \Delta t} = \frac{C_{\Delta x \Delta t}}{\Delta x}$ — "contribution per unit of input difference." It's a finite-difference cousin of a partial derivative.
+</DerivationStep>
+<DerivationStep number={4} title="Backpropagate contributions">
+Multipliers obey a **chain rule** ($m_{\Delta x \Delta t} = \sum_j m_{\Delta x \Delta y_j} m_{\Delta y_j \Delta t}$), so DeepLIFT propagates them from output back to inputs in **one backward pass** — as cheap as ordinary backprop.
+</DerivationStep>
+</DerivationSteps>
+
+## The Rules for Splitting Credit
+
+At nonlinear neurons DeepLIFT assigns contributions with explicit rules:
+
+- **Rescale rule** — split the output difference in proportion to the input difference: $m = \Delta t / \Delta x$. Simple, used for most nonlinearities.
+- **RevealCancel rule** — treats positive and negative contributions separately, so effects that cancel (as in a max-pool or a gate) don't spuriously zero out. Handles cases the rescale rule gets wrong.
+
+<ConceptBox title="Reference choice = the whole meaning">
+DeepLIFT answers *"why $x$ rather than $x^0$?"* — so the baseline defines the question. An all-black image asks "why this class vs. nothing?"; a blurred version asks "why this class vs. the general scene?". There's no universal baseline: pick one that makes "absent" meaningful for your data, and report it alongside the explanation.
+</ConceptBox>
+
+## In Practice
+
+DeepLIFT is the engine inside SHAP's `DeepExplainer`, so most people run it through SHAP:
+
+```python
+import shap
+background = X_train[:100]                  # reference distribution (not a single point)
+explainer = shap.DeepExplainer(model, background)   # DeepLIFT-based, torch/TF
+shap_values = explainer.shap_values(X_test[:5])     # one fast backward pass per input
+shap.image_plot(shap_values, X_test[:5])
+```
+
+Using a *distribution* of references (the background set) and averaging turns DeepLIFT's contributions into approximate Shapley values — this is exactly **Deep SHAP**.
+
+<ConceptBox title="DeepLIFT vs. plain gradients vs. Integrated Gradients">
+**Plain gradients** — local slope, saturates. **DeepLIFT** — one finite difference against a reference, one pass, no saturation. **Integrated Gradients** — averages gradients along the whole path from baseline to input (many passes); stronger axioms, more compute. DeepLIFT is the fast, single-pass middle ground.
+</ConceptBox>
+
+<Bridge>
+You now have three families — LIME, SHAP (Kernel/Tree/Deep), and DeepLIFT. The final module puts them side by side: which to reach for, given your model, data, and constraints.
+</Bridge>
+
+## Practice
+
+#### Problem 1: The saturation failure
+A sigmoid neuron is saturated at 0.99; its input feature is what holds it there. What does a plain-gradient explanation say about that feature, and how does DeepLIFT differ?
+
+**Solution:** The plain gradient is ≈0 in the saturated region, so it reports the feature as **unimportant** — wrong. DeepLIFT compares the neuron's activation to its *reference* activation; the finite difference $\Delta$ is large, so the feature receives a **large contribution**. Using a difference-from-reference instead of a local slope is exactly what defeats saturation.
+
+#### Problem 2: Why the reference matters
+Two engineers run DeepLIFT on the same image model and get different attributions. Neither made an error. What likely differs?
+
+**Solution:** Their **reference/baseline** inputs. DeepLIFT explains $f(x) - f(x^0)$, so the attributions are defined *relative to* $x^0$. A black baseline and a blurred-image baseline pose different questions ("vs. nothing" vs. "vs. the general scene") and legitimately yield different contributions. The reference must be reported for an explanation to be interpretable.
+
+<QuizCard
+  question="How does DeepLIFT avoid the saturation problem that breaks plain-gradient explanations?"
+  options={[
+    'It uses a larger learning rate during training',
+    'It explains the difference in activation relative to a reference input, not the local gradient',
+    'It ignores all nonlinear activation functions',
+    'It only works on linear models'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="In DeepLIFT, the reference (baseline) input determines:"
+  options={[
+    'The learning rate of the explanation',
+    "The meaning of the explanation — attributions are contributions relative to that baseline",
+    'Whether the model is a tree or a neural network',
+    'The number of features in the model'
+  ]}
+  correct={1}
+/>

@@ -1,15 +1,13 @@
 import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
 import HPOSearchWidget from '../../components/widgets/model-eval/HPOSearchWidget.jsx'
 
-## The problem: many settings, expensive scoring
+## The Problem: Many Settings, Expensive Scoring
 
-Cross-validation (Module 3) gives you an honest score for *one* hyperparameter setting — train a random forest with `max_depth=8, n_estimators=200`, run 5-fold CV, get a trustworthy number back. But models have many hyperparameters, and you rarely know the best values up front. This module is about searching that space efficiently instead of guessing.
+Cross-validation scores *one* hyperparameter setting honestly — but that's $K$ model fits, not a cheap lookup. With several hyperparameters each having several values, the number of settings explodes combinatorially. This module is about spending a limited evaluation budget well.
 
-Every hyperparameter setting requires a full CV run to score honestly — that's not a cheap lookup, it's $K$ model fits. If you have several hyperparameters, each with several candidate values, the number of settings to try can explode combinatorially. The rest of this module is about strategies for spending a limited evaluation budget well.
+## Grid Search: Exhaustive but Expensive
 
-## Grid Search: exhaustive but expensive
-
-**Grid search** specifies a fixed set of candidate values for each hyperparameter and tries every combination in the Cartesian product.
+**Grid search** tries every combination in the Cartesian product of specified values.
 
 ```python
 from sklearn.model_selection import GridSearchCV
@@ -20,144 +18,99 @@ param_grid = {
     'max_depth': [4, 6, 8, 10, 12],
     'min_samples_leaf': [1, 2, 5, 10, 20],
 }
-
-grid = GridSearchCV(
-    RandomForestClassifier(random_state=42),
-    param_grid=param_grid,
-    cv=5,
-    scoring='f1',
-    n_jobs=-1,
-)
+grid = GridSearchCV(RandomForestClassifier(random_state=42), param_grid, cv=5, scoring='f1', n_jobs=-1)
 grid.fit(X_train, y_train)
 print(grid.best_params_, grid.best_score_)
 ```
 
-The cost grows **multiplicatively** with each hyperparameter you add. Here, 5 values × 5 values × 5 values = 125 distinct settings, and each setting needs a full 5-fold CV to score — so the real cost is $125 \times 5 = 625$ model fits, just for this one grid. Add a fourth hyperparameter with 5 values and it jumps to 3,125 settings (15,625 fits). This is grid search's curse of dimensionality: it scales as (values per hyperparameter)^(number of hyperparameters).
+Cost grows **multiplicatively**: 5×5×5 = 125 settings × 5-fold CV = 625 fits. A fourth hyperparameter (5 values) jumps to 3,125 settings (15,625 fits). Grid search scales as (values)^(hyperparameters) — its own curse of dimensionality.
 
-## Random Search: sampling instead of enumerating
+## Random Search: Sample Instead of Enumerate
 
-**Random search** samples a fixed number of hyperparameter settings from specified distributions, rather than trying every combination on a fixed grid.
+**Random search** samples a fixed number of settings from distributions.
 
 ```python
 from sklearn.model_selection import RandomizedSearchCV
-from scipy.stats import randint, uniform
+from scipy.stats import randint
 
-param_dist = {
-    'n_estimators': randint(100, 500),
-    'max_depth': randint(3, 15),
-    'min_samples_leaf': randint(1, 20),
-}
+param_dist = {'n_estimators': randint(100, 500), 'max_depth': randint(3, 15), 'min_samples_leaf': randint(1, 20)}
 
 random_search = RandomizedSearchCV(
-    RandomForestClassifier(random_state=42),
-    param_distributions=param_dist,
-    n_iter=60,          # fixed budget, independent of grid size
-    cv=5,
-    scoring='f1',
-    random_state=42,
-    n_jobs=-1,
-)
+    RandomForestClassifier(random_state=42), param_dist,
+    n_iter=60,          # budget, decoupled from #hyperparameters
+    cv=5, scoring='f1', random_state=42, n_jobs=-1)
 random_search.fit(X_train, y_train)
 ```
 
-You control the budget directly with `n_iter`, decoupled from how many hyperparameters you're tuning.
+### Why Random Often Beats Grid
 
-### Why random search often beats grid search
+The **Bergstra & Bengio** result: in most models only a few hyperparameters matter much; the rest are near-flat. Grid search spends its budget *evenly across every axis* — if `min_samples_leaf` barely matters, it still tries all 5 values combined with everything else, re-testing near-equivalent points. Random search never repeats a value along any axis, so its samples project to a denser, more varied set along *each* hyperparameter — including the ones that matter. More effective exploration of the important dimensions, for free.
 
-This is the classic **Bergstra & Bengio** result, and the intuition is worth internalizing rather than just citing. In most real models, only a handful of hyperparameters actually matter much for performance — the rest have a small or flat effect across their reasonable range.
+## Bayesian Optimization: Learn From Past Trials
 
-Grid search spends its budget **evenly across every axis**, whether or not that axis matters. If `min_samples_leaf` barely affects your score, grid search still tries all 5 of its values, combined with all combinations of the other hyperparameters — most of that effort is redundant, because along the unimportant axis you're re-testing points that are all roughly equivalent.
+Grid and random treat every evaluation independently. **Bayesian optimization** uses what it learned:
 
-Random search never repeats a value along any single axis (with continuous distributions, essentially every sampled value is unique). So even with the same budget, random search's samples project down to a denser, more varied set of values along *each individual* hyperparameter — including whichever ones actually matter. You get more effective exploration of the important dimensions, for free, simply because you didn't waste structure enforcing a grid on the unimportant ones.
+1. Fit a probabilistic **surrogate** (often a Gaussian Process) over the space from the (setting, score) pairs so far — it predicts expected score *and* uncertainty for any untried setting.
+2. An **acquisition function** picks the next setting, balancing **exploitation** (near the current best) against **exploration** (high-uncertainty regions).
+3. Evaluate with real CV, update the surrogate, repeat.
 
-## Bayesian Optimization: learning from past evaluations
-
-Grid and random search treat each evaluation independently — neither one uses what it learned from earlier trials to decide where to look next. **Bayesian optimization** does.
-
-The core idea:
-
-1. Fit a probabilistic **surrogate model** (commonly a Gaussian Process, but the idea generalizes) over the hyperparameter space, using the (setting, CV score) pairs evaluated so far. This surrogate predicts, for any untried setting, an expected score *and* an uncertainty estimate.
-2. Use an **acquisition function** to pick the next setting to actually evaluate — balancing **exploitation** (try settings near the best score found so far) against **exploration** (try settings the surrogate is still very uncertain about, since they might hide something better).
-3. Evaluate that setting with real CV, update the surrogate with the new data point, and repeat.
-
-Because each choice of what to try next is informed by everything learned so far, Bayesian optimization typically reaches a good setting in far fewer evaluations than grid or random search — valuable when each evaluation is expensive (e.g. CV-ing a large neural network can take hours).
+Because each choice is informed by all previous ones, it reaches a good setting in far fewer evaluations — valuable when each CV run is expensive (a large neural net can take hours).
 
 ```python
-# using scikit-optimize's drop-in replacement for GridSearchCV
 from skopt import BayesSearchCV
 from skopt.space import Integer
 
 bayes_search = BayesSearchCV(
     RandomForestClassifier(random_state=42),
-    search_spaces={
-        'n_estimators': Integer(100, 500),
-        'max_depth': Integer(3, 15),
-        'min_samples_leaf': Integer(1, 20),
-    },
-    n_iter=40,
-    cv=5,
-    scoring='f1',
-    random_state=42,
-)
+    {'n_estimators': Integer(100, 500), 'max_depth': Integer(3, 15), 'min_samples_leaf': Integer(1, 20)},
+    n_iter=40, cv=5, scoring='f1', random_state=42)
 bayes_search.fit(X_train, y_train)
 ```
 
-`optuna` is another widely used library for this (and also implements several of the pruning strategies below); the specific tool matters less than the idea: **use past results to guide future trials instead of choosing them blind.**
+`optuna` is another common choice; the tool matters less than the idea — **use past results to guide future trials.**
 
-## Interactive: grid vs random vs Bayesian search
-
-Toggle strategies and budget below and watch how quickly each converges near the true optimum region — grid search covers its fixed points exhaustively, random search scatters more variedly per axis, and Bayesian search should visibly start clustering trials around the best region as its budget increases.
+Toggle strategy and budget below — grid covers fixed points, random scatters per axis, Bayesian clusters around the best region as budget grows:
 
 <HPOSearchWidget />
 
 ## Successive Halving / Hyperband
 
-Everything above treats each evaluation as all-or-nothing: train fully, then score with CV. But for many models, training cost scales with a controllable **resource** — number of boosting rounds, epochs, or fraction of the training data used. **Successive halving** exploits this:
+The above treat each evaluation as all-or-nothing. But training cost often scales with a controllable **resource** — boosting rounds, epochs, or data fraction. **Successive halving** exploits this:
 
-1. Start with many candidate configurations, each given a small budget (e.g. a few epochs, or a small data subsample).
-2. Score them all, keep only the top fraction (e.g. the best half or third).
-3. Give the survivors a bigger budget and repeat.
-4. Continue until one (or a few) configurations remain, now evaluated with the full budget.
+1. Start with many configs, each on a small budget.
+2. Score, keep the top fraction (e.g. best third).
+3. Give survivors a bigger budget, repeat.
+4. Continue until a few remain, evaluated at full budget.
 
-Bad configurations are eliminated early and cheaply, so most of the compute budget ends up spent on the configurations that are actually promising — rather than giving every candidate a full, expensive training run up front. **Hyperband** extends this idea by running several successive-halving brackets with different starting budgets, hedging against picking too aggressive or too conservative an elimination schedule.
+Bad configs die early and cheaply, so most compute goes to promising ones. **Hyperband** runs several halving brackets with different starting budgets, hedging the elimination schedule.
 
 ```python
 from sklearn.experimental import enable_halving_search_cv  # noqa
 from sklearn.model_selection import HalvingRandomSearchCV
 
 halving_search = HalvingRandomSearchCV(
-    RandomForestClassifier(random_state=42),
-    param_distributions=param_dist,
-    resource='n_samples',   # grow the training subset each round
+    RandomForestClassifier(random_state=42), param_dist,
+    resource='n_samples',   # grow training subset each round
     factor=3,                # keep ~1/3 of candidates each round
-    cv=5,
-    scoring='f1',
-    random_state=42,
-)
+    cv=5, scoring='f1', random_state=42)
 halving_search.fit(X_train, y_train)
 ```
 
-`HalvingGridSearchCV` is the exhaustive-grid counterpart when you want successive halving over a fixed grid rather than random sampling.
-
 <ConceptBox title="More evaluations isn't automatically better">
-It's tempting to think "if 60 random search trials are good, 600 must be strictly better." That's true only up to your compute budget — more evaluations costs more compute, and past a point the marginal improvement per extra trial shrinks fast (diminishing returns as you approach the best achievable score for that model class).
-
-In practice you're not optimizing score in isolation — you're optimizing **score per unit of compute spent searching**. That reframing is exactly why random search, Bayesian optimization, and Hyperband exist instead of everyone just running ever-bigger grids: they aim to reach a comparable or better score using a smaller budget, by spending evaluations more intelligently (denser coverage of important axes, learning from past trials, or eliminating bad configurations early) rather than simply spending more.
+"60 trials good, 600 better" holds only up to your budget — marginal improvement per trial shrinks fast near the best achievable score. You're really optimizing **score per unit of compute**. That's why random search, Bayesian optimization, and Hyperband exist instead of ever-bigger grids: reach a comparable score with a smaller budget by spending evaluations smartly, not by spending more.
 </ConceptBox>
 
 ## Practice
 
-#### Problem 1: Estimating search cost
+#### Problem 1: Estimating Search Cost
+4 hyperparameters, 6 values each, 5-fold CV. Grid-search fits? Random search with `n_iter=100`?
 
-You're tuning 4 hyperparameters, 6 candidate values each, with 5-fold CV. How many total model fits does an exhaustive grid search require? If you instead ran random search with `n_iter=100`, how many total model fits would that require?
+**Solution:** Grid: $6^4 = 1{,}296$ settings × 5 = **6,480 fits**. Random: $100 \times 5 =$ **500 fits** — ~13× cheaper, and (per Bergstra & Bengio) often comparably good if only 1–2 hyperparameters matter.
 
-**Solution:** Grid search: $6^4 = 1{,}296$ distinct settings, each scored with 5-fold CV, so $1{,}296 \times 5 = 6{,}480$ total model fits. Random search with `n_iter=100`: $100 \times 5 = 500$ total model fits — roughly 13x cheaper, while (per Bergstra & Bengio) still often finding a comparably good setting if only 1-2 of the 4 hyperparameters actually matter much.
+#### Problem 2: Choosing a Strategy
+Gradient-boosted trees, each train+CV-fold ≈ 20 min, tight deadline. Which strategy, and why not grid?
 
-#### Problem 2: Choosing a strategy
-
-You're tuning a gradient boosted tree model where each individual training run (for one hyperparameter setting, one CV fold) takes about 20 minutes, and you have a small, fixed number of hours before a deadline. Which search strategy fits best, and why would you avoid plain grid search here?
-
-**Solution:** With expensive individual evaluations and a hard time budget, you want a strategy that gets the most out of a small number of trials — Bayesian optimization (or Hyperband/successive halving, since boosted trees' training cost scales naturally with number of trees/rounds) fits well, because each evaluates informs where to look next or eliminates weak configurations early, rather than treating every trial as an independent shot in the dark. Plain grid search would be a poor fit: its cost is fixed by the grid size regardless of how informative early results are, so you can't adapt it to a tight deadline — you'd either have to shrink the grid so much that you lose meaningful coverage, or risk running out of time mid-search.
+**Solution:** With expensive evaluations and a hard budget, get the most from few trials — Bayesian optimization (or Hyperband/successive halving, since boosted trees' cost scales with the number of trees) fits well: each trial informs the next or kills weak configs early. Plain grid's cost is fixed by grid size regardless of early results; you can't adapt it to the deadline without gutting coverage or running out of time mid-search.
 
 <QuizCard
   question="Why does random search often find better hyperparameters than grid search for the same evaluation budget, when only a few hyperparameters actually matter?"
@@ -183,5 +136,5 @@ You're tuning a gradient boosted tree model where each individual training run (
 />
 
 <Bridge>
-Search strategies help you find the best settings for a *given* set of features. But sometimes the more impactful lever isn't the hyperparameters at all — it's the features themselves. Module 5 turns to dimensionality and feature selection: why more features can hurt generalization, and the filter/wrapper/embedded taxonomy for deciding what to keep.
+Search finds the best settings for a *given* feature set. But sometimes the bigger lever is the features themselves. Module 5 turns to dimensionality and feature selection: why more features can hurt, and the filter/wrapper/embedded taxonomy.
 </Bridge>

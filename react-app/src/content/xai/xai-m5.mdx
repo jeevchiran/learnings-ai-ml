@@ -1,0 +1,83 @@
+import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import ShapleyWidget from '../../components/widgets/xai/ShapleyWidget.jsx'
+
+## The Fair-Credit Question
+
+A prediction is a payout. The features are a team that produced it together. **How much credit does each feature deserve?** This is exactly the question Lloyd Shapley solved in 1953 for cooperative game theory — and **SHAP** (*SHapley Additive exPlanations*) applies that solution to model predictions.
+
+The idea: a feature's contribution isn't fixed — it depends on *which other features are already present*. So measure a feature's **marginal contribution** — how much the prediction changes when it joins — and average that over **every possible order** in which features could join.
+
+<ShapleyWidget />
+
+## The Shapley Value
+
+For feature $i$, its Shapley value $\phi_i$ is the average marginal contribution over all subsets $S$ of the other features:
+
+$$\phi_i = \sum_{S \subseteq F \setminus \{i\}} \frac{|S|!\,(|F| - |S| - 1)!}{|F|!} \Big[ v(S \cup \{i\}) - v(S) \Big]$$
+
+Unpack it:
+
+- $v(S)$ — the model's prediction using only the features in $S$ (the rest marginalised out).
+- $v(S \cup \{i\}) - v(S)$ — feature $i$'s **marginal contribution** when added to coalition $S$.
+- the fraction — the **weight**: the fraction of orderings in which $i$ joins right after exactly the set $S$. Summed, the weights average over all $|F|!$ orderings.
+
+<ConceptBox title="Why averaging over orderings is non-negotiable">
+Features interact. *Location* alone might add \$40k; *location* added *after* *size* might add only \$25k because they overlap. Crediting a feature by a single ordering would be arbitrary. Averaging over *all* orderings is the unique way to be fair to interacting features — that fairness is a theorem, not a heuristic.
+</ConceptBox>
+
+## The Axioms — Why SHAP Is Special
+
+The Shapley value is the **only** attribution satisfying four properties simultaneously:
+
+| Axiom | Meaning |
+|---|---|
+| **Efficiency** | The $\phi_i$ sum exactly to prediction − base value. Nothing lost, nothing invented. |
+| **Symmetry** | Two features that contribute identically get equal credit. |
+| **Dummy** | A feature that never changes the output gets $\phi_i = 0$. |
+| **Additivity** | Explanations of an ensemble = sum of explanations of its members. |
+
+No other attribution method satisfies all four. That uniqueness is SHAP's headline advantage over LIME — where LIME gives *a* local fit, SHAP gives *the* provably fair one.
+
+## Types of SHAP
+
+The formula sums over $2^{|F|}$ subsets — infeasible past ~20 features. So SHAP is a *family* of estimators, each exploiting structure for speed:
+
+| Explainer | For | Idea |
+|---|---|---|
+| **Kernel SHAP** | any model (agnostic) | Approximate Shapley via weighted linear regression on coalitions |
+| **Tree SHAP** | tree ensembles | Exact Shapley in polynomial time using tree paths |
+| **Deep SHAP** | neural nets | DeepLIFT-style backprop of contributions |
+| **Gradient / Linear SHAP** | differentiable / linear models | Closed-form or gradient-based shortcuts |
+
+<Bridge>
+The next module opens the two workhorses: **Kernel SHAP** (works on anything, but slow) and **Tree SHAP** (trees only, but exact and fast) — the pair you'll reach for most in practice.
+</Bridge>
+
+## Practice
+
+#### Problem 1: The efficiency check
+A model's base value is 300 and its prediction for an instance is 500. The SHAP values are $\phi_{\text{size}}=110$, $\phi_{\text{loc}}=70$. What must $\phi_{\text{age}}$ be, and which axiom forces it?
+
+**Solution:** By **efficiency**, the SHAP values sum to prediction − base = 500 − 300 = 200. So $\phi_{\text{age}} = 200 - 110 - 70 = 20$. Efficiency is what guarantees the contributions fully and exactly account for the gap between base and prediction.
+
+#### Problem 2: A dummy feature
+A feature is added to the model but the prediction never changes for any coalition it joins. What is its Shapley value?
+
+**Solution:** **Zero**, by the **dummy axiom**. Every marginal contribution $v(S\cup\{i\}) - v(S)$ is 0, so their weighted average is 0. A feature that does no work gets no credit — as it should.
+
+<QuizCard
+  question="A feature's SHAP value is defined as its:"
+  options={[
+    'Correlation with the target variable',
+    'Coefficient in a global linear model',
+    'Average marginal contribution to the prediction over all orderings of the features',
+    'Gradient of the loss with respect to that feature'
+  ]}
+  correct={2}
+/>
+
+<QuizCard
+  question="Which SHAP axiom guarantees that the feature contributions sum exactly to (prediction − base value)?"
+  options={['Symmetry', 'Efficiency', 'Dummy', 'Additivity']}
+  correct={1}
+/>

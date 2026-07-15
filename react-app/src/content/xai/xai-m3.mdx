@@ -1,0 +1,87 @@
+import { ConceptBox, Bridge, QuizCard, DerivationSteps, DerivationStep } from '../../components/learning/index.js'
+import LIMEWidget from '../../components/widgets/xai/LIMEWidget.jsx'
+
+## LIME in One Sentence
+
+**LIME** — *Local Interpretable Model-agnostic Explanations* — every word is a design decision:
+
+- **Local** — explain *one* prediction, not the whole model.
+- **Interpretable** — the explanation is a simple model a human can read (a linear model).
+- **Model-agnostic** — it never looks inside; it only calls `predict()`.
+- **Explanations** — the output is *why this input got this output*.
+
+The core insight: a decision boundary can be hopelessly nonlinear globally, but **zoom in far enough around one point and it looks straight.** So don't try to explain the whole model — fit a simple linear model in a tiny neighbourhood of the instance you care about.
+
+<LIMEWidget />
+
+## How It Works
+
+To explain the prediction for an instance $x$:
+
+<DerivationSteps>
+<DerivationStep number={1} title="Perturb">
+Generate many samples *around* $x$ by randomly tweaking its features — small nudges for tabular data, turning superpixels on/off for images, dropping words for text.
+</DerivationStep>
+<DerivationStep number={2} title="Query the black box">
+Ask the original model to predict on every perturbed sample. You now have (perturbed input, model output) pairs — a picture of how the model behaves *near* $x$.
+</DerivationStep>
+<DerivationStep number={3} title="Weight by proximity">
+Weight each sample by how close it is to $x$ using a kernel $\pi_x(z) = \exp(-D(x,z)^2 / \sigma^2)$. Near samples matter most; far ones barely count. This is what makes the explanation *local*.
+</DerivationStep>
+<DerivationStep number={4} title="Fit a simple model">
+Fit an interpretable model $g$ (usually sparse linear regression) to the weighted samples. Its coefficients *are* the explanation: how much each feature pushed this prediction.
+</DerivationStep>
+</DerivationSteps>
+
+## The Formulation
+
+LIME picks the explanation $g$ that solves:
+
+$$\xi(x) = \arg\min_{g \in G} \; \underbrace{\mathcal{L}(f, g, \pi_x)}_{\text{be faithful locally}} + \underbrace{\Omega(g)}_{\text{stay simple}}$$
+
+In plain English: **find the simplest model $g$ that mimics the black box $f$ in the neighbourhood of $x$.** Two forces trade off:
+
+- $\mathcal{L}(f, g, \pi_x)$ — *local unfaithfulness*: how badly $g$ disagrees with $f$ on the proximity-weighted samples. Usually weighted squared error, $\sum_z \pi_x(z)\,(f(z) - g(z))^2$.
+- $\Omega(g)$ — *complexity* of the explanation: e.g. the number of nonzero coefficients. This is the **reducing-complexity** term — it forces $g$ to use only a handful of features so a human can actually read it.
+
+<ConceptBox title="Interpretable features ≠ raw features">
+$g$ isn't fit on raw pixels or embeddings — it's fit on a human-readable representation $x' \in \{0,1\}^{d'}$: *is this superpixel present?*, *does this word appear?*, *is this tabular feature near its original value?* The coefficients then read as "this word / this region / this feature mattered this much," which is the whole point.
+</ConceptBox>
+
+<Bridge>
+That's the whole algorithm: perturb, weight, fit a sparse line. The next module runs it on real tabular and text data with the `lime` library, reads the feature weights, and confronts LIME's one real weakness — instability.
+</Bridge>
+
+## Practice
+
+#### Problem 1: Why the weighting?
+If you fit an ordinary (unweighted) linear model to the perturbed samples, what goes wrong?
+
+**Solution:** Without the proximity kernel, far-away samples count as much as near ones, so $g$ tries to approximate the black box over a *wide* region — where it's genuinely nonlinear. The fit becomes a bad global compromise instead of a faithful local one. The kernel $\pi_x$ is exactly what enforces "explain the behaviour *here*."
+
+#### Problem 2: The complexity term
+What is the role of $\Omega(g)$, and what happens if you drop it?
+
+**Solution:** $\Omega(g)$ penalises complexity — typically the number of features $g$ uses — keeping the explanation short enough for a human to read. Drop it and $g$ may use all features with tiny weights: a technically better local fit that no one can interpret, defeating the purpose.
+
+<QuizCard
+  question="What is the central assumption that makes LIME work?"
+  options={[
+    'The black-box model is globally linear',
+    'Even a nonlinear model is approximately linear in a small neighbourhood of any single point',
+    'The model must be a neural network',
+    'Features are statistically independent'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="In LIME's objective, what does the complexity term Ω(g) accomplish?"
+  options={[
+    'It makes the local surrogate fit the data more tightly',
+    'It keeps the explanation sparse and readable by penalising the number of features used',
+    'It measures how close perturbed samples are to the instance',
+    'It speeds up querying the black-box model'
+  ]}
+  correct={1}
+/>

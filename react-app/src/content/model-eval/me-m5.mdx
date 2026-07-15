@@ -1,81 +1,76 @@
 import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import CurseWidget from '../../components/widgets/model-eval/CurseWidget.jsx'
 
 ## More Columns Isn't Free
 
-Modules 1-4 assumed the feature set was fixed and asked how to evaluate and tune a model on top of it — validation splits, cross-validation, hyperparameter search. This module turns to a question that comes *before* any of that: which features should even be in the dataset in the first place?
+Modules 1–4 took the feature set as fixed. This module asks the question that comes *before*: which features should be in the dataset at all?
 
-The instinct is that more features can only help — worst case, the model ignores the useless ones. That instinct is wrong often enough to be dangerous. Extra columns cost you in ways that don't show up until the model is already trained and quietly underperforming: the data itself gets sparser in high dimensions, irrelevant features add variance a model has to pay for, redundant features destabilize some model families outright, and every added column taxes training time, inference time, and your own ability to explain what the model is doing. This module builds the vocabulary — the curse of dimensionality, feature selection versus dimensionality reduction, and the filter/wrapper/embedded taxonomy — that structures the rest of the track.
+The instinct — more features can only help, the model ignores the useless ones — is wrong often enough to be dangerous. Extra columns cost you in ways that surface only after training: the data gets sparser, noise features add variance, redundant features destabilize some models, and every column taxes training time, inference time, and interpretability. This module builds the vocabulary — the curse of dimensionality, selection vs. reduction, and the filter/wrapper/embedded taxonomy.
 
 ## The Curse of Dimensionality
 
-Fix your sample count and start adding features. Two related problems appear, and neither is optional — they follow from geometry, not from a specific dataset or model.
+Fix your sample count and add features. Two problems appear, both from geometry, not from any specific dataset.
 
-**Problem 1: covering space gets exponentially harder.** Suppose you want to cover a feature space densely enough that every point has a nearby example — spacing of 0.1 along each axis. In one dimension, covering the unit interval $[0,1]$ at that spacing takes 10 points. In ten dimensions, covering the unit hypercube $[0,1]^{10}$ at the same spacing takes $10^{10}$ points — ten billion. Nothing about the data changed; only the dimension count did. The number of points needed to maintain a fixed density grows as $k^d$ for $d$ dimensions and $k$ points per axis — exponential in $d$. Your actual sample count is fixed (a few thousand rows, say), so as $d$ grows past a handful of features, that fixed sample count covers a vanishing fraction of the space. The data doesn't get "a little sparser" — it gets catastrophically sparser, very fast.
+**Covering space gets exponentially harder.** To cover a space at spacing 0.1 per axis: 10 points in 1D, but $10^{10}$ in 10D. Points needed for fixed density grow as $k^d$ — exponential in $d$. Your sample count is fixed, so past a handful of features it covers a vanishing fraction of the space. Data doesn't get "a little sparser" — it gets catastrophically sparser.
 
-**Problem 2: distances stop discriminating.** A lot of machine learning — k-NN, clustering, kernel methods, similarity search — leans on the idea that "nearby" points are more alike than "far" points. That idea quietly relies on distances actually varying meaningfully across the dataset. In high dimensions they stop doing that. For $n$ points drawn from most common distributions in $d$ dimensions, as $d \to \infty$:
+**Distances stop discriminating.** k-NN, clustering, and kernel methods assume "nearby" points are more alike. In high dimensions, for $n$ points as $d \to \infty$:
 
 $$\frac{\text{dist}_{\max} - \text{dist}_{\min}}{\text{dist}_{\min}} \to 0$$
 
-In words: the gap between the closest and farthest neighbor, relative to the closest distance, shrinks toward zero — every point ends up looking roughly equidistant from every other point. Why this happens: a distance like Euclidean distance is (informally) a sum of many roughly independent per-coordinate contributions, one per dimension. By a law-of-large-numbers effect, that sum concentrates around its expected value as the number of terms grows — the *relative* spread around the average shrinks even as the *absolute* distances grow. Concretely, if every pairwise distance in your dataset is within a few percent of every other pairwise distance, "nearest neighbor" stops being a meaningful concept: the single closest point and the single farthest point are separated by almost nothing, so ranking by distance is close to ranking randomly. Any method whose reasoning depends on "closer implies more similar" — k-NN classification, distance-based clustering, cosine-similarity search — degrades exactly because of this.
+The gap between closest and farthest neighbour, relative to the closest, shrinks toward zero — every point looks equidistant from every other. A Euclidean distance sums many per-coordinate contributions, and that sum concentrates around its mean as terms grow, so the *relative* spread vanishes. Once every pairwise distance is within a few percent of every other, "nearest neighbour" stops meaning anything.
 
-<ConceptBox title="The two problems in one sentence">
-As feature count grows, you need exponentially more data to keep the space densely sampled (Problem 1), and even before you run out of data, the distances that "nearness" depends on stop varying enough to be useful (Problem 2). Both are consequences of geometry in high dimensions, not fixable by a smarter algorithm — the only real fixes are collecting far more data or reducing the number of dimensions.
+<CurseWidget />
+
+<ConceptBox title="The curse in one sentence">
+As features grow, you need exponentially more data to keep the space sampled, and even before you run out, the distances "nearness" depends on stop varying usefully. Both are geometry, not fixable by a smarter algorithm — only more data or fewer dimensions helps.
 </ConceptBox>
 
 ## Why More Features Isn't Always Better
 
-Even setting geometry aside, adding features has three concrete costs that don't automatically get canceled out by whatever signal the new features carry.
+Three concrete costs, even setting geometry aside:
 
-**Noise features add variance without adding signal.** Recall the bias-variance decomposition from Module 1: a model's effective capacity — how many different functions it can represent — grows with the number of features it has to work with. An irrelevant feature gives the model one more degree of freedom to fit chance patterns in the training sample (a spurious correlation that happens to exist in *this* draw of data but not in the underlying distribution). That extra capacity shows up exactly where you'd expect: higher variance, a larger train/test gap, the overfitting signature from Module 1 — even though the feature itself, taken alone, was never actively harmful.
+- **Noise features add variance without signal.** An irrelevant feature is one more degree of freedom to fit chance patterns in *this* training draw — higher variance, larger train/test gap, the overfitting signature from Module 1.
+- **Redundant features destabilize some models.** Two highly correlated features make a linear/logistic model unable to cleanly attribute the outcome — coefficients flip and inflate (multicollinearity). Trees are more robust, but redundancy still costs the next item.
+- **More features → slower, less interpretable.** Train/inference time scales with feature count; a 20-feature coefficient table is readable, a 2,000-feature one isn't. When you must explain *why* (to a regulator, clinician, stakeholder), a curated feature set often beats a marginal accuracy gain.
 
-**Redundant, correlated features destabilize some models.** If two features are highly correlated, a linear or logistic regression can't cleanly attribute the outcome to one versus the other — small changes in the training sample can flip which of the two gets the larger coefficient, and both coefficients' variances inflate (multicollinearity). Tree-based and other non-parametric models are more robust to this specific failure mode, but redundant features still cost you the next two items no matter what model you use.
+## Selection vs. Reduction
 
-**More features means slower, less interpretable models.** Training time and inference time for most model families scale with feature count — sometimes linearly, sometimes worse. A logistic regression with 20 features has a coefficient table a human can read in one sitting; the same model with 2,000 features does not. If part of the job is explaining *why* the model predicts what it predicts (to a regulator, a clinician, a business stakeholder), a smaller, curated feature set is often worth more than a marginal accuracy gain from keeping everything.
+Two distinct ways to shrink dimensionality, easily conflated:
 
-## Two Different Strategies, Often Confused
+- **Dimensionality reduction** builds *new* features combining the originals (PCA projects onto max-variance directions). A principal component is a weighted mix of every column — no longer "age" or "income".
+- **Feature selection** keeps a *subset* of the original features, each still interpretable in its original units.
 
-There are two distinct ways to reduce a dataset's dimensionality, and it's easy to conflate them because both make the model "smaller":
-
-- **Dimensionality reduction** builds new features that are combinations of the original ones — Principal Component Analysis (PCA) is the classic example, projecting the data onto a smaller set of directions that capture the most variance. The new features are not interpretable in the original units: a principal component is some weighted mix of every original column, not "age" or "income" anymore.
-- **Feature selection** picks a *subset* of the original features and discards the rest, keeping everything that survives in its original, interpretable form.
-
-PCA and other projection-based techniques are powerful and worth knowing, but they're out of scope here — this track is entirely about **feature selection**: choosing which original columns to keep, not how to combine them into new ones. That choice matters in practice whenever interpretability is part of the requirement, since a selected feature is still literally the thing you started with.
+This track is entirely about **feature selection** — which original columns to keep. PCA and projection are out of scope.
 
 ## The Three-Way Taxonomy
 
-Feature selection methods fall into three families, distinguished by how they decide a feature is worth keeping. The rest of this track works through them in order of increasing cost and increasing awareness of the downstream model.
-
-| Approach | How it scores features | Model-aware? | Typical cost | Risk |
+| Approach | How it scores | Model-aware? | Cost | Risk |
 |---|---|---|---|---|
-| **Filter** | Statistical relationship between each feature and the target, computed independently of any model (correlation, chi-square, mutual information) | No | Very low — closed-form statistics, no model fitting | Ignores feature *interactions*; a jointly useful pair can each score low alone |
-| **Wrapper** | Actual performance of a real model, evaluated via cross-validation, on candidate feature subsets | Yes | High — many full model fits, one per candidate subset | Can overfit the selection itself to the specific model and CV split used |
-| **Embedded** | Selection happens as a byproduct of training a single model (L1 regularization driving coefficients to exactly zero, tree split importance) | Yes, but tied to one model family | Medium — one training run, selection comes "for free" | Selection reflects that model family's assumptions, may not transfer to a different model |
+| **Filter** | Statistic between each feature and target (correlation, chi², MI), no model | No | Very low | Ignores interactions — a jointly useful pair scores low alone |
+| **Wrapper** | Real model's CV performance on candidate subsets | Yes | High (many fits) | Can overfit selection to the model/CV split |
+| **Embedded** | Selection as a byproduct of training (L1 zeros, tree importance) | Yes, one family | Medium | Tied to that model's assumptions |
 
-Filter methods are the fastest and the natural starting point precisely because they're cheap enough to run on every feature before anything else happens — Module 6 covers them in depth. Module 7 covers wrapper and embedded methods, which trade that speed for the ability to account for how features actually interact inside a specific model.
+Filter methods are cheapest and the natural first pass (Module 6). Wrapper and embedded trade speed for interaction-awareness (Module 7).
 
-<ConceptBox title="Common confusion: 'feature selection always improves accuracy'">
-It doesn't, and treating it as a guarantee leads to worse models. The honest goals of feature selection are **generalization** (less variance from noise features, per the bias-variance argument above), **speed** (fewer columns to train and score on), and **interpretability** (a smaller, explainable feature set) — not a promised accuracy bump. A well-regularized model given *all* the features (via L1 or a properly tuned tree) can beat an aggressively hand-pruned feature set, because regularization down-weights noise features without the risk of discarding a feature that was quietly useful in combination with others.
-
-Removing a feature only helps when it is actually removing *noise* — a feature that isn't informative to begin with, or whose contribution is fully redundant with something else that's staying. Remove a feature that's carrying real, non-redundant signal and you've simply thrown away information the model could have used; no amount of clever selection machinery turns that into an improvement.
+<ConceptBox title="'Feature selection always improves accuracy' — false">
+Its honest goals are **generalization** (less noise variance), **speed**, and **interpretability** — not a guaranteed accuracy bump. A well-regularized model given *all* features (L1 or a tuned tree) can beat aggressive hand-pruning, because regularization down-weights noise without risking the loss of a quietly-useful feature. Removing a feature helps only when it removes *noise*; remove real non-redundant signal and you've just thrown away information.
 </ConceptBox>
 
 <Bridge>
-**From "why select features" to "how to score them."** The taxonomy above put filter methods first for a reason: they're the cheapest lever to pull, and a fast first pass. Module 6 works through the concrete filter techniques — variance thresholds, correlation, chi-square, ANOVA F-tests, and mutual information — what each one assumes about your features and target, and where each one quietly breaks down.
+Filter methods come first because they're the cheapest lever. Module 6 works through the concrete techniques — variance thresholds, correlation, chi-square, ANOVA F-tests, mutual information — what each assumes and where each breaks.
 </Bridge>
 
 ## Practice
 
 #### Problem 1: Diagnosing the Curse
+500 rows, 300 features, k-NN on all of them, no preprocessing. Why is this likely poor regardless of $k$?
 
-A dataset has 500 rows and 300 numeric features. A colleague proposes fitting a k-NN classifier directly on all 300 features with no preprocessing. Explain, using the two problems described above, why this is likely to perform poorly, independent of which value of $k$ is chosen.
-
-**Solution:** With 500 rows spread across 300 dimensions, the data is nowhere close to densely covering the feature space — by the exponential-covering argument, even a coarse grid at that dimensionality would require vastly more than 500 points to sample densely, so most of the space near any given test point is empty of training examples. Compounding this, in 300 dimensions the ratio of nearest to farthest neighbor distance is likely to be close to 1 for most points — the distances k-NN relies on to decide "who's nearby" barely vary across the dataset, so the neighbors it picks are not meaningfully more similar to the query point than the neighbors it didn't pick. Both problems point the same direction: k-NN's core assumption (nearby points are alike) becomes unreliable long before any specific choice of $k$ could fix it. Reducing the feature count first — via selection or reduction — addresses the actual cause.
+**Solution:** 500 points can't densely cover 300 dimensions — most of the space near any test point is empty. And in 300D the nearest/farthest distance ratio is near 1 for most points, so the neighbours k-NN picks aren't meaningfully more similar than the ones it doesn't. Both break k-NN's core assumption before any $k$ can fix it. Reduce features first.
 
 #### Problem 2: Filter vs. Wrapper vs. Embedded
+10,000 features, 2,000 rows, budget for only a few model fits. Which category, and why not the alternative?
 
-You're given a dataset with 10,000 features and 2,000 rows, and a tight compute budget that rules out training more than a handful of models. Which category of feature selection method fits this constraint best, and why would the alternative (evaluating many candidate feature subsets with a real model) be a poor fit here?
-
-**Solution:** Filter methods fit best: they score each feature independently via a closed-form statistic, so scoring all 10,000 features costs roughly the same as scoring one, with no model fitting involved. Wrapper methods evaluate feature *subsets* by actually training and cross-validating a model on each candidate subset — with 10,000 features, the number of interesting subsets to consider is enormous, and each evaluation requires a full CV loop, which is exactly what the tight compute budget rules out. A filter pass to cut 10,000 features down to a manageable few hundred, potentially followed by a lighter wrapper or embedded pass on the survivors, is the practical compromise.
+**Solution:** Filter — each feature scored by a closed-form statistic, so scoring 10,000 costs about the same as scoring one, no fitting. Wrapper methods train and CV a model per candidate subset; with 10,000 features that's an enormous number of full CV loops, exactly what the budget rules out. Filter down to a few hundred, then optionally a lighter wrapper/embedded pass on the survivors.
 
 <QuizCard
   question="In 200 dimensions, the ratio (nearest distance) / (farthest distance) for a typical point tends to approach 1. What does this imply for distance-based methods like k-NN?"
@@ -89,7 +84,7 @@ You're given a dataset with 10,000 features and 2,000 rows, and a tight compute 
 />
 
 <MultiSelectQuiz
-  question="Which of the following statements about dimensionality and feature selection are correct? (Select all that apply.)"
+  question="Which statements about dimensionality and feature selection are correct? (Select all that apply.)"
   options={[
     'Covering a fixed-density grid in a d-dimensional space requires a number of points that grows exponentially with d',
     'Adding an irrelevant feature can increase a model\'s variance even if that feature is never actively harmful on its own',

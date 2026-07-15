@@ -1,0 +1,149 @@
+import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+## Track Quiz — Explainable AI
+
+<ConceptBox title="End-of-track checkpoint">
+Thirteen questions spanning the whole track — the accuracy–interpretability trade-off, global vs. local scope, LIME's local surrogates and formulation, SHAP's Shapley foundation with its Kernel/Tree/Deep variants and additivity, image explanations, and DeepLIFT. A few need a quick calculation; work the numbers.
+</ConceptBox>
+
+## Questions
+
+<QuizCard
+  question="What core problem does Explainable AI address?"
+  options={[
+    'Reducing the number of parameters in a model',
+    'Making the decisions of accurate but opaque models understandable to humans',
+    'Guaranteeing higher accuracy than a linear model',
+    'Speeding up training on GPUs'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="A regulator requires that each individual denied applicant receives the specific reasons for their own decision. This calls for what kind of explanation?"
+  options={[
+    'Global — describing the whole model at once',
+    'Local — explaining each single prediction',
+    'Model-specific access to gradients',
+    'A retraining of the model on new data'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="What defines a model-agnostic explanation method such as LIME or Kernel SHAP?"
+  options={[
+    'It requires the model gradients',
+    'It only works on decision trees',
+    'It needs only the ability to query predictions, treating the model as a black box',
+    'It produces only global explanations'
+  ]}
+  correct={2}
+/>
+
+<QuizCard
+  question="What is the central assumption that makes LIME work?"
+  options={[
+    'The model is globally linear',
+    'Features are statistically independent',
+    'Even a nonlinear model is approximately linear in a small neighbourhood of any single point',
+    'The model must be differentiable'
+  ]}
+  correct={2}
+/>
+
+<QuizCard
+  question="In LIME's objective ξ(x) = argmin L(f, g, πₓ) + Ω(g), what does the Ω(g) term do?"
+  options={[
+    'Makes the surrogate fit the perturbed data more tightly',
+    'Keeps the explanation sparse and readable by penalising the number of features used',
+    'Weights samples by their distance to the instance',
+    'Measures the accuracy of the black-box model'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="What is LIME's main practical weakness?"
+  options={[
+    'It cannot explain neural networks',
+    'Its random perturbations can make explanations unstable across runs',
+    'It requires access to the tree structure',
+    'It only works on images'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="A feature's SHAP value is defined as its:"
+  options={[
+    'Correlation with the target',
+    'Average marginal contribution to the prediction over all orderings of the features',
+    'Coefficient in a global linear model',
+    'Gradient with respect to the loss'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="A model has base value 300 and predicts 500 for an instance. SHAP values are φ_size = 130 and φ_loc = 55. By the efficiency (additivity) property, what is φ_age?"
+  options={['15', '55', '115', '200']}
+  correct={2}
+/>
+
+<QuizCard
+  question="Why is Tree SHAP preferred over Kernel SHAP for an XGBoost model?"
+  options={[
+    'It works on any model type',
+    'It computes exact Shapley values in polynomial time by exploiting tree structure',
+    'It does not need the model to be trained',
+    'It only produces global explanations'
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of the following are true about SHAP? (Select all that apply.)"
+  options={[
+    'The feature contributions plus the base value reconstruct the exact prediction (additivity)',
+    'It is grounded in the game-theoretic Shapley value',
+    'Its consistency property means a feature\'s value cannot decrease if the model relies on it more in every coalition',
+    'It can only ever produce local explanations, never a global ranking',
+    'Kernel SHAP requires a background dataset to represent "absent" features'
+  ]}
+  correct={[0, 1, 2, 4]}
+/>
+
+<QuizCard
+  question="When SHAP is applied to images, a 'feature' is typically:"
+  options={[
+    'A single weight of the network',
+    'A group of pixels (a region), with absent regions replaced by a baseline',
+    'The output class label',
+    'The learning rate'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="How does DeepLIFT avoid the saturation problem that breaks plain-gradient explanations?"
+  options={[
+    'It uses a larger learning rate',
+    'It explains the difference in activation relative to a reference input, rather than the local gradient',
+    'It removes all nonlinear activations from the network',
+    'It only explains linear models'
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements correctly contrast LIME and SHAP? (Select all that apply.)"
+  options={[
+    'SHAP guarantees the contributions sum exactly to the prediction; LIME only approximates it',
+    'LIME is typically faster per instance and gives a quick intuitive local read',
+    'SHAP is deterministic (given a background), while LIME can vary between runs',
+    'LIME is grounded in game theory and SHAP is a heuristic',
+    'SHAP\'s consistency guarantee makes it more trustworthy for feature ranking and audits'
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

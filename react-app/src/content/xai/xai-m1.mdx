@@ -1,0 +1,73 @@
+import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import AccuracyInterpretabilityWidget from '../../components/widgets/xai/AccuracyInterpretabilityWidget.jsx'
+
+## The Black-Box Problem
+
+A model can be extremely accurate and still be useless. A bank's neural network denies a loan; the applicant asks *why*; the bank shrugs. A hospital model flags a scan as malignant; the radiologist needs to know *what in the image* triggered it before acting. Accuracy alone answers "what" — it never answers "why."
+
+**Explainable AI (XAI)** is the set of methods that make a model's decisions understandable to a human — turning "the model said 0.92" into "the model said 0.92 *because* income was high and the loan amount was small."
+
+<ConceptBox title="Two words people mix up">
+**Interpretability** — how well a human can grasp the model's mechanism on its own (a 3-line decision tree is interpretable). **Explainability** — techniques applied *after the fact* to shine a light into a model that isn't interpretable by itself (SHAP on a deep net). XAI mostly lives in the second bucket.
+</ConceptBox>
+
+## Complexity vs. Interpretability
+
+The uncomfortable pattern: the models that win on hard problems are the hardest to read. A linear model hands you its reasoning in a row of coefficients. A 100-million-parameter network hands you nothing legible. Explore the trade-off:
+
+<AccuracyInterpretabilityWidget />
+
+Historically you picked a point on that diagonal: give up accuracy for a model you can read, or accept a black box you can't. XAI refuses the choice — **keep the accurate model, add explanation as a separate layer on top.**
+
+## Why It's Actually Useful
+
+Explanations are not a nicety. They earn their keep in concrete ways:
+
+| Need | What an explanation buys you |
+|---|---|
+| **Trust** | A doctor acts on a prediction only after seeing it points at the right region of the scan. |
+| **Debugging** | You discover the model keys on a hospital's watermark, not the tumour — a leak you'd never catch from accuracy. |
+| **Fairness / compliance** | GDPR and lending law require a *reason* for automated decisions, not just a score. |
+| **Discovery** | The explanation surfaces a feature interaction nobody knew mattered. |
+
+<ConceptBox title="The Clever Hans trap">
+A famous vision model classified horses correctly — by reading a copyright tag present only on horse photos. Test accuracy was excellent; the model had learned nothing about horses. Only an explanation exposed it. High accuracy on a held-out set does **not** prove the model is right for the right reasons.
+</ConceptBox>
+
+<Bridge>
+Before diving into specific methods, one distinction organises the whole field: does an explanation describe the model's behaviour **everywhere at once**, or its reasoning on **one specific prediction**? That's global vs. local interpretability — the subject of the next module, and the axis every method in this track sits on.
+</Bridge>
+
+## Practice
+
+#### Problem 1: Accuracy isn't enough
+A fraud model scores 99.4% accuracy on held-out data. Give one reason you might still refuse to deploy it.
+
+**Solution:** Accuracy can hide *why* it's right. It might exploit a leak (e.g. a timestamp that only exists for labelled fraud), fail on a subgroup, or be legally undeployable without a stated reason per decision. An explanation reveals whether the 99.4% comes from genuine signal or an artefact.
+
+#### Problem 2: Interpretability vs. explainability
+Classify each: (a) reading a logistic regression's weights, (b) running SHAP on a random forest.
+
+**Solution:** (a) **Interpretability** — the model is transparent by construction; you read its own mechanism. (b) **Explainability** — the forest is opaque, so you apply an external post-hoc technique to explain it.
+
+<QuizCard
+  question="What core problem does Explainable AI address?"
+  options={[
+    'Making models train faster on large datasets',
+    'Making the decisions of accurate but opaque models understandable to humans',
+    'Improving the raw accuracy of black-box models',
+    'Reducing the number of parameters in a neural network'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="A model reaches 99% test accuracy by keying on a watermark present only in one class. This shows that:"
+  options={[
+    'High test accuracy guarantees the model reasons correctly',
+    'Explanations are unnecessary when accuracy is high',
+    'High accuracy can coexist with completely spurious reasoning, which only an explanation reveals',
+    'The model is interpretable by construction'
+  ]}
+  correct={2}
+/>

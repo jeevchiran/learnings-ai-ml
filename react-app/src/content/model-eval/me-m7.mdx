@@ -1,174 +1,134 @@
 import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
 import FeatureSelectionWidget from '../../components/widgets/model-eval/FeatureSelectionWidget.jsx'
 
-## Wrapper methods: let a model vote on subsets
+## Wrapper Methods: Let a Model Vote on Subsets
 
-Filter methods (Module 6) rank features using statistics computed independently of any model — variance, correlation, chi-square, ANOVA F-test, mutual information. That ConceptBox at the end of Module 6 flagged the gap: filters score each feature **on its own**, so they miss interactions where two mediocre features become powerful only in combination (like `latitude` and `longitude`, each nearly useless alone, jointly pinpointing a location). Wrapper and embedded methods close that gap by involving a real model in the selection process — the model can see interactions, because it's actually being fit on combinations of features, not scoring them one at a time.
+Filter methods (Module 6) score each feature *on its own*, so they miss interactions — two mediocre features that become powerful only together (like `latitude` and `longitude`, useless alone, jointly a location). Wrapper and embedded methods close the gap by involving a real model, which sees interactions because it's fit on feature *combinations*.
 
-A **wrapper method** treats feature selection as a search problem: try different subsets of features, fit the actual model on each subset, and use the model's own cross-validated performance to decide which subset is best. This is more expensive than a filter (you're fitting a model over and over) but it directly optimizes the thing you care about — how well *this* model performs with *these* features — rather than a proxy statistic.
+A **wrapper** treats selection as search: try subsets, fit the real model on each, use its cross-validated performance to choose. More expensive than a filter (many model fits), but it optimizes the thing you care about — how *this* model does with *these* features — not a proxy statistic.
 
 ### Recursive Feature Elimination (RFE)
 
-RFE works backward from the full feature set:
+Works backward from the full set:
 
-1. Fit the model on all remaining features.
-2. Rank features by the model's own notion of importance — coefficient magnitude for linear models, `feature_importances_` for trees.
-3. Drop the single weakest feature (or a small chunk of the weakest features).
-4. Refit on the reduced set and repeat until you reach the target number of features.
+1. Fit on all remaining features.
+2. Rank by the model's importance (coefficient magnitude, or `feature_importances_`).
+3. Drop the weakest.
+4. Refit and repeat to the target count.
 
 ```python
 from sklearn.feature_selection import RFE
 from sklearn.linear_model import LogisticRegression
 
-model = LogisticRegression(max_iter=1000)
-rfe = RFE(estimator=model, n_features_to_select=10)
+rfe = RFE(estimator=LogisticRegression(max_iter=1000), n_features_to_select=10)
 rfe.fit(X_train, y_train)
-
 print(rfe.support_)          # boolean mask of selected features
 print(rfe.ranking_)          # 1 = selected, higher = eliminated earlier
-X_train_selected = rfe.transform(X_train)
 ```
 
-The catch: plain `RFE` needs you to specify `n_features_to_select` up front, and picking that number by guesswork defeats the purpose. `RFECV` removes the guesswork by wrapping the whole elimination process in cross-validation (Module 3) — at each elimination step it scores the current subset with CV, and afterward picks the subset size that scored best:
+Plain `RFE` needs `n_features_to_select` up front — guessing defeats the purpose. `RFECV` wraps elimination in cross-validation and picks the best subset size for you:
 
 ```python
 from sklearn.feature_selection import RFECV
 from sklearn.model_selection import StratifiedKFold
 
-rfecv = RFECV(
-    estimator=LogisticRegression(max_iter=1000),
-    step=1,
-    cv=StratifiedKFold(5),
-    scoring='accuracy',
-)
+rfecv = RFECV(estimator=LogisticRegression(max_iter=1000), step=1, cv=StratifiedKFold(5), scoring='accuracy')
 rfecv.fit(X_train, y_train)
-print(rfecv.n_features_)     # the CV-chosen count, no guesswork
+print(rfecv.n_features_)     # CV-chosen count, no guesswork
 ```
 
-**Cost.** Plain RFE with `step=1` refits the model once per feature dropped — roughly $O(\text{n\_features})$ full model fits to go from all features down to the target count. `RFECV` multiplies that by the number of CV folds. For a model that's slow to fit (a large random forest, a deep SVM) on a wide dataset, this adds up fast — RFE trades compute for the ability to see interactions a filter can't.
+**Cost:** plain RFE with `step=1` is ~$O(\text{n\_features})$ fits; `RFECV` multiplies by folds. For a slow model on a wide dataset, this adds up — RFE trades compute for seeing interactions a filter can't.
 
 ### Sequential Feature Selection
 
-Sequential selection is a simpler greedy search over subsets, and it comes in two directions:
+A simpler greedy search, two directions:
 
-- **Forward selection** starts with zero features and, at each round, adds whichever single feature most improves CV score — repeating until the target count is reached.
-- **Backward selection** starts with *all* features and, at each round, removes whichever single feature costs the CV score the least — repeating down to the target count.
+- **Forward** — start empty, add the feature that most improves CV score each round.
+- **Backward** — start with all, remove the feature that costs CV score the least.
 
 ```python
 from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.linear_model import LogisticRegression
 
 model = LogisticRegression(max_iter=1000)
-
-sfs_forward = SequentialFeatureSelector(
-    model, n_features_to_select=10, direction='forward', cv=5,
-)
-sfs_forward.fit(X_train, y_train)
-
-sfs_backward = SequentialFeatureSelector(
-    model, n_features_to_select=10, direction='backward', cv=5,
-)
-sfs_backward.fit(X_train, y_train)
-
-print(sfs_forward.get_support())
-print(sfs_backward.get_support())
+sfs_forward  = SequentialFeatureSelector(model, n_features_to_select=10, direction='forward', cv=5).fit(X_train, y_train)
+sfs_backward = SequentialFeatureSelector(model, n_features_to_select=10, direction='backward', cv=5).fit(X_train, y_train)
 ```
 
-Both directions are **greedy**: they commit to the locally-best move at each round and never reconsider it, so neither is guaranteed to find the globally best subset of a given size. Worse, forward and backward selection can land on genuinely *different* subsets from the exact same data — and the reason is structural, not random:
+Both are **greedy** — commit to the locally-best move and never reconsider, so neither guarantees the global best. They can even land on *different* subsets from the same data, for structural reasons:
 
-- Forward selection only ever evaluates a feature *in the context of whatever's already been added*. A feature that's useless alone but powerful paired with a feature not yet in the growing set will look unremarkable early on and may never get added — forward selection can't "see ahead" to the combination that would have made it shine.
-- Backward selection starts biased in the opposite direction: it begins with every feature present, so its very first elimination decisions are made in the context of all the interactions that exist when everything is included. A feature that only seems redundant *because* some other feature is still in the mix might get dropped early, before backward selection ever gets to test life without that other feature too.
+- **Forward** evaluates each feature in the context of what's already added. A feature useless alone but powerful paired with one not yet in the set looks unremarkable early and may never get added.
+- **Backward** starts with everything present, so its first eliminations happen amid all interactions. A feature that seems redundant *because* another is still present might get dropped before backward ever tests life without that other one.
 
-Neither bias is "wrong" — they're just different greedy paths through the same search space, which is exactly why running both and comparing is often more informative than trusting either alone.
+Neither bias is wrong — running both and comparing is often more informative than trusting either.
 
-## Embedded methods: selection built into training
+## Embedded Methods: Selection Built Into Training
 
-**Embedded methods** don't run a separate search loop at all — feature selection happens as a side effect of how the model itself is fit.
+No separate search loop — selection is a side effect of how the model fits.
 
-### L1 (Lasso) regularization: driving coefficients to exactly zero
+### L1 (Lasso): Coefficients to Exactly Zero
 
-Recall the ordinary regularized regression objective. Ridge (L2) adds a penalty on squared coefficient size:
-
-$$\lambda \sum_i \beta_i^2$$
-
-This shrinks every coefficient toward zero smoothly, but essentially never lands exactly on zero — Ridge keeps all features, just with dampened influence.
-
-Lasso (L1) instead adds a penalty on absolute coefficient size:
+Ridge (L2) penalizes squared coefficients, $\lambda \sum_i \beta_i^2$ — shrinks smoothly toward zero but essentially never *to* zero, keeping all features. Lasso (L1) penalizes absolute size:
 
 $$\lambda \sum_i |\beta_i|$$
 
-This says: penalize the total magnitude of the coefficients, summed as absolute values rather than squares. That difference in exponent has a real geometric consequence — the L1 penalty's constraint region is a diamond with sharp corners sitting *on* the coordinate axes (where one or more coefficients are exactly zero), while the L2 penalty's constraint region is a smooth circle with no corners anywhere. When you find where the loss function's contours first touch the constraint region, they're disproportionately likely to touch at one of those diamond's corners — which is exactly the point where some coefficients are exactly zero. Ridge's smooth circle has no such corners to land on, so its solutions shrink coefficients without ever fully eliminating them.
+That difference has a geometric consequence: L1's constraint region is a diamond with corners *on* the axes (where coefficients are exactly zero); the loss contours first touch it disproportionately at those corners. L2's smooth circle has no corners to land on, so it shrinks without eliminating.
 
 ```python
 from sklearn.linear_model import Lasso, LogisticRegression
 import numpy as np
 
-lasso = Lasso(alpha=0.05)
-lasso.fit(X_train, y_train)
+lasso = Lasso(alpha=0.05).fit(X_train, y_train)
+print(f"{np.sum(lasso.coef_ == 0)} of {X_train.shape[1]} features zeroed out by L1")
 
-zeroed_out = np.where(lasso.coef_ == 0)[0]
-print(f"{len(zeroed_out)} of {X_train.shape[1]} features zeroed out by L1")
-
-# For classification, use an L1-penalized logistic regression
-log_reg_l1 = LogisticRegression(penalty='l1', solver='liblinear', C=1.0)
-log_reg_l1.fit(X_train, y_train)
+log_reg_l1 = LogisticRegression(penalty='l1', solver='liblinear', C=1.0).fit(X_train, y_train)
 selected = np.where(log_reg_l1.coef_[0] != 0)[0]
 ```
 
-Larger `alpha` (stronger penalty) zeroes out more coefficients; the strength is itself a hyperparameter worth tuning with CV, same as any other.
+Larger `alpha` zeroes more coefficients; tune it with CV like any hyperparameter.
 
-### Tree-based feature importance
+### Tree-Based Importance
 
-Tree ensembles compute an importance score for each feature as a natural byproduct of training: `feature_importances_` measures, roughly, the total reduction in impurity (Gini or entropy) that splits on that feature achieved, summed across every tree and every split, then normalized to sum to 1.
+Tree ensembles give `feature_importances_` for free: roughly the total impurity reduction (Gini/entropy) from splits on that feature, summed across trees and normalized to sum to 1.
 
 ```python
 from sklearn.ensemble import RandomForestClassifier
 import pandas as pd
 
-rf = RandomForestClassifier(n_estimators=300, random_state=42)
-rf.fit(X_train, y_train)
-
+rf = RandomForestClassifier(n_estimators=300, random_state=42).fit(X_train, y_train)
 importances = pd.Series(rf.feature_importances_, index=X_train.columns)
 importances.sort_values(ascending=False).head(10)
 ```
 
-**Caveat.** This impurity-based importance is biased toward high-cardinality and continuous features — they offer more possible split thresholds to try, which mechanically gives them more opportunities to look useful even when they aren't more predictive than a low-cardinality categorical feature. A more reliable (if more expensive) alternative is **permutation importance** (`sklearn.inspection.permutation_importance`), which measures how much CV score actually drops when a feature's values are shuffled — it directly measures predictive contribution instead of a training-time proxy.
+**Caveat:** impurity importance is biased toward high-cardinality/continuous features — more possible split thresholds means more chances to look useful. **Permutation importance** (`sklearn.inspection.permutation_importance`) is more reliable: it measures how much CV score drops when a feature's values are shuffled — actual predictive contribution, not a training-time proxy.
 
-## Comparing the three families
+## Comparing the Three Families
 
-| Method | Model-aware? | Captures interactions? | Relative cost | Typical use case |
+| Method | Model-aware? | Interactions? | Cost | Use case |
 |---|---|---|---|---|
-| Filter (Module 6) | No | No — scores features independently | Very low — one pass over the data | Fast first pass on very wide data, or as a pre-filter before a wrapper |
-| Wrapper (RFE, sequential) | Yes | Yes — subsets are scored by fitting the real model | High — many refits per run | Moderate feature counts where model performance is the ultimate criterion |
-| Embedded (Lasso, tree importance) | Yes | Partially — reflects whatever the model architecture can represent | Low-moderate — selection is a byproduct of one fit | Default choice for linear models (L1) or tree ensembles already in the pipeline |
+| Filter (M6) | No | No | Very low (one pass) | Fast first pass on wide data; pre-filter before a wrapper |
+| Wrapper (RFE, sequential) | Yes | Yes | High (many refits) | Moderate feature counts where model performance is the criterion |
+| Embedded (Lasso, trees) | Yes | Partially | Low-moderate (one fit) | Default for linear (L1) or tree ensembles already in the pipeline |
 
-## Interactive: filter vs wrapper vs embedded, side by side
-
-The three families don't always agree on which features matter. Below, the same 10 synthetic features (some genuinely predictive, some noise, some only useful in combination) are scored under each approach — switch modes and watch which features survive, and pay attention to the ones that only show up as "important" under wrapper or embedded methods but never under the filter.
+Switch modes below — the same 10 features (some predictive, some noise, some useful only in combination) scored under each approach. Watch which survive only under wrapper/embedded but never the filter:
 
 <FeatureSelectionWidget />
 
-<ConceptBox title="Common confusion: are embedded methods strictly better than filters?">
-It's tempting to conclude that because embedded and wrapper methods "see" interactions and filters don't, they're simply the better choice every time. They're not — they're **model-specific**, and that's a real limitation, not just a footnote.
-
-Lasso's zeroed-out coefficients reflect what a *linear* model considers irrelevant. A feature with a genuinely useful nonlinear or threshold-based relationship to the target — say, a feature that only matters above some cutoff value — can look weak to a linear model and get zeroed out by L1, while that exact same feature could be the single best split at the root of a decision tree. Tree-based importance has the mirror-image problem: it reflects what *that* tree ensemble found useful, which may not transfer to a linear model you deploy instead.
-
-The "right" feature selection method depends on what final model you actually plan to deploy. Selecting features with Lasso and then deploying a random forest (or vice versa) throws away exactly the information you were trying to use — the selection step should be aware of, or ideally identical to, the model doing the final prediction.
+<ConceptBox title="Are embedded methods strictly better than filters?">
+No — they're **model-specific**, a real limitation. Lasso's zeroed coefficients reflect what a *linear* model finds irrelevant; a feature with a nonlinear or threshold relationship can be zeroed by L1 yet be the best split at a tree's root. Tree importance has the mirror problem. The right method depends on the final model you deploy — selecting with Lasso then deploying a random forest throws away exactly the information you wanted. The selection step should be aware of, ideally identical to, the model doing the final prediction.
 </ConceptBox>
 
 ## Practice
 
-#### Problem 1: Choosing between RFE and Lasso
+#### Problem 1: RFE or Lasso?
+Logistic regression, 40 features, 5,000 rows, fast to fit. `RFECV` or `LogisticRegression(penalty='l1')` first?
 
-You're selecting features for a logistic regression model with 40 candidate features and a training set of 5,000 rows. Fitting the logistic regression is fast (well under a second). Would you reach for `RFECV` or `LogisticRegression(penalty='l1')` first, and why?
+**Solution:** Both are affordable. `RFECV` is a good default when refitting is cheap — it directly optimizes CV score over feature count with no `alpha` to tune (just ≤40 refits per fold). L1 is one fit but needs its `C` tuned to land on a sensible number of survivors, usually a small CV search over `C`. Prefer L1 if you already need to tune regularization for overfitting — selection rides along for free.
 
-**Solution:** Given the model is cheap to fit and the feature count is modest, `RFECV` is affordable here (40 or fewer refits per fold, times a handful of folds — a small number of fast fits) and it directly optimizes CV score for the number of features to keep, with no `alpha` to tune. `LogisticRegression(penalty='l1')` is even cheaper (one fit) but requires tuning the regularization strength `C` to land on a sensible number of surviving features, which itself usually means a small grid or CV search over `C`. Either is reasonable at this scale; RFECV is a good default when refitting is cheap and you want the fold count chosen for you, while L1 is preferable if you already need to tune the model's regularization for other reasons anyway (e.g. avoiding overfitting) and selection can ride along for free.
+#### Problem 2: Forward/Backward Disagreement
+Forward picks `{A,B,C}`, backward picks `{A,D,E}`, same model/CV, both targeting 3. Is one wrong?
 
-#### Problem 2: Explaining a forward/backward disagreement
-
-On the same dataset, forward sequential selection picks features `{A, B, C}` and backward sequential selection picks `{A, D, E}`, both targeting 3 features, both using the same model and CV scoring. Is one of them wrong?
-
-**Solution:** Not necessarily. Both are greedy searches that only explore a small slice of all possible 3-feature subsets, and each is structurally biased in a different direction — forward selection may never test `D` and `E` together because neither looked good enough on its own to get added early, while backward selection saw `D` and `E` in the context of all other features present and only eliminated the ones (like `B` and `C`) that looked most redundant *given everything else still in play*. Without exhaustively scoring every 3-feature subset (feasible only for small feature counts), you can't say either result is "wrong" — the disagreement itself is useful information that the two subsets should both be evaluated with a final CV comparison before picking one.
+**Solution:** Not necessarily. Both are greedy, exploring only a slice of all 3-feature subsets, each biased differently — forward may never test `D,E` together (neither looked good enough alone to add early); backward saw `D,E` amid all features and only dropped the ones most redundant given everything else. Without exhaustively scoring every subset you can't call either wrong — the disagreement is useful; evaluate both with a final CV comparison.
 
 <QuizCard
   question="Roughly how many model fits does plain RFE (step=1, no CV) require to go from p features down to a target count k?"
@@ -194,5 +154,5 @@ On the same dataset, forward sequential selection picks features `{A, B, C}` and
 />
 
 <Bridge>
-Wrapper and embedded methods both fit models to *choose* features — and that raises a sharp question the rest of this module quietly stepped around: when, exactly, is that fitting allowed to see your data? If feature selection (filter, wrapper, or embedded — it doesn't matter which) is run on the full dataset before you split off validation folds or a test set, the "honest" score you compute afterward is lying to you. Module 8 shows precisely how that leak happens, how badly it can inflate your reported accuracy, and the pipeline discipline that makes feature selection leakage-safe.
+Wrapper and embedded methods fit models to *choose* features — raising a sharp question: when is that fitting allowed to see your data? Run selection on the full dataset before splitting, and the "honest" score afterward is lying. Module 8 shows how that leak happens, how badly it inflates accuracy, and the pipeline discipline that keeps selection leakage-safe.
 </Bridge>

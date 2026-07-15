@@ -1,0 +1,97 @@
+import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+
+## The Computational Wall
+
+Exact Shapley values sum over $2^{|F|}$ feature subsets. With 30 features that's a billion evaluations *per prediction* — impossible. **Kernel SHAP** and **Tree SHAP** are the two escapes: one approximates for *any* model, the other computes *exactly* for trees.
+
+## Kernel SHAP — Agnostic, Approximate
+
+Kernel SHAP is LIME with a very specific choice of weights that makes the linear fit's coefficients equal to Shapley values. That's the beautiful bridge: **LIME's machinery + the right kernel = Shapley values.**
+
+The recipe:
+
+1. Sample coalitions $z' \in \{0,1\}^{|F|}$ — subsets of "present" features.
+2. For each, build an input where present features keep their value and absent ones are replaced by samples from a **background dataset** (marginalising them out).
+3. Query the model on each.
+4. Fit a **weighted linear model**, using the SHAP kernel weight:
+
+$$\pi(z') = \frac{|F| - 1}{\binom{|F|}{|z'|}\,|z'|\,(|F| - |z'|)}$$
+
+The fitted coefficients *are* the Shapley values. Unlike LIME's proximity kernel (nearby matters), this kernel up-weights coalitions that are **very small or very large** — the ones that pin down individual contributions most cleanly.
+
+```python
+import shap
+# f = any model's predict function; X_bg = small background sample (e.g. 100 rows)
+explainer = shap.KernelExplainer(model.predict_proba, X_bg)
+shap_values = explainer.shap_values(X_test[:20], nsamples=1000)  # coalitions sampled
+shap.summary_plot(shap_values, X_test[:20])
+```
+
+<ConceptBox title="The background dataset matters">
+"Absent" doesn't mean zero — it means *unknown*, so SHAP replaces the feature with typical values from a **background set** and averages. Choose it deliberately: the whole training set, a representative sample, or a single reference row. Change the background and you change what "absent" means — and thus the SHAP values. It's the analogue of DeepLIFT's baseline.
+</ConceptBox>
+
+## Tree SHAP — Exact and Fast, Trees Only
+
+For decision trees, random forests, and gradient boosting (XGBoost, LightGBM, CatBoost), Tree SHAP computes **exact** Shapley values in **polynomial** time — no sampling, no approximation.
+
+The trick: a tree already encodes, in its structure, which feature subsets lead to which leaves. Tree SHAP walks the tree once and tracks, for every node, the fraction of feature subsets that flow down each branch — collapsing the exponential sum into roughly $O(\text{trees} \times \text{leaves} \times \text{depth}^2)$.
+
+```python
+import shap
+from xgboost import XGBClassifier
+
+model = XGBClassifier().fit(X_tr, y_tr)
+explainer = shap.TreeExplainer(model)     # detects the tree structure
+shap_values = explainer.shap_values(X_te) # EXACT values, no nsamples needed
+shap.summary_plot(shap_values, X_te)
+```
+
+| | **Kernel SHAP** | **Tree SHAP** |
+|---|---|---|
+| Works on | any model | tree ensembles only |
+| Result | approximate (sampled) | **exact** |
+| Speed | slow (many queries) | fast (one structured pass) |
+| Needs | background dataset | the tree structure |
+
+<ConceptBox title="Rule of thumb">
+Tree model? **Always use Tree SHAP** — exact and orders of magnitude faster. Anything else (SVM, deep net behind an API, custom pipeline)? Kernel SHAP is the general fallback — just cap `nsamples` and background size to keep it tractable.
+</ConceptBox>
+
+<Bridge>
+Both produce the same object — a vector of Shapley values per prediction — with the same guarantees. The next module turns those numbers into the visual language of SHAP: force plots, summary plots, and dependence plots.
+</Bridge>
+
+## Practice
+
+#### Problem 1: Kernel vs. LIME
+Kernel SHAP reuses LIME's "perturb and fit a linear model" structure. What single change turns LIME into Kernel SHAP?
+
+**Solution:** The **kernel weights**. LIME weights samples by *proximity* to the instance (a locality kernel), giving *a* local fit. Kernel SHAP replaces that with the specific SHAP kernel $\pi(z')$ that up-weights very small and very large coalitions — the unique weighting under which the fitted linear coefficients equal the Shapley values.
+
+#### Problem 2: Choosing the explainer
+You've trained a LightGBM model with 50 features and need SHAP values for 100,000 rows. Kernel or Tree SHAP, and why?
+
+**Solution:** **Tree SHAP.** LightGBM is a tree ensemble, so Tree SHAP gives *exact* values in polynomial time — feasible for 100k rows. Kernel SHAP would need thousands of model queries *per row* to approximate, making 100k rows prohibitively slow, and it would only be approximate.
+
+<QuizCard
+  question="Why is Tree SHAP preferred over Kernel SHAP for XGBoost models?"
+  options={[
+    'It works on any model type, unlike Kernel SHAP',
+    'It computes exact Shapley values in polynomial time by exploiting tree structure',
+    'It does not require the model to be trained',
+    'It produces global explanations while Kernel SHAP produces only local ones'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="In Kernel SHAP, what is the role of the background dataset?"
+  options={[
+    'It is used to retrain the model before explaining',
+    'It supplies replacement values for "absent" features so their effect can be marginalised out',
+    'It defines the proximity kernel weighting samples by distance',
+    'It is only needed for image data'
+  ]}
+  correct={1}
+/>

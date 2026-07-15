@@ -1,0 +1,87 @@
+import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import ShapForceWidget from '../../components/widgets/xai/ShapForceWidget.jsx'
+
+## The Property That Makes SHAP Click: Additivity
+
+Every SHAP explanation obeys one equation:
+
+$$f(x) = \phi_0 + \sum_{i=1}^{|F|} \phi_i$$
+
+The prediction equals the **base value** $\phi_0$ (the average prediction $E[f(x)]$) plus the sum of every feature's SHAP value. This is **local accuracy** — the explanation reconstructs the *exact* prediction, not an approximation. Drag the sliders and watch the pieces always sum to the output:
+
+<ShapForceWidget />
+
+Because of additivity, a SHAP explanation is a story: *"You started at the average. Feature A pushed you up \$120k, feature B down \$40k, and here you landed."* LIME can't promise this — its surrogate only *approximates* the prediction.
+
+## The Four Guarantees
+
+SHAP inherits the Shapley axioms as concrete properties:
+
+| Property | What it promises |
+|---|---|
+| **Local accuracy** | Contributions sum to the exact prediction (efficiency). |
+| **Missingness** | A feature absent from the input gets $\phi_i = 0$ (dummy). |
+| **Consistency** | If you change the model so a feature contributes *more* in every coalition, its SHAP value **cannot decrease**. |
+
+<ConceptBox title="Consistency — the one that trips up other methods">
+Gain-based feature importance in XGBoost can *fall* for a feature even after you make the model rely on it more — a genuine bug that misranks features. SHAP's consistency guarantees this never happens. It's why SHAP is trusted for feature *ranking*, not just per-prediction stories.
+</ConceptBox>
+
+## The Three Plots You'll Actually Use
+
+**Force plot** — one prediction. Base value in the middle, red arrows pushing up, blue pushing down, landing on $f(x)$. (That's the widget above.) Best for explaining a *single* decision to a stakeholder.
+
+**Summary / beeswarm plot** — *global from local*. Stack the SHAP values of many predictions: one row per feature (ranked by mean $|\phi|$), each dot a data point, coloured by feature value. It shows both *how important* a feature is and *which direction* high/low values push. This is how local SHAP values aggregate into a global picture.
+
+```python
+shap.summary_plot(shap_values, X_test)      # beeswarm: global importance + direction
+shap.plots.bar(shap_values)                 # mean |SHAP| per feature: pure ranking
+```
+
+**Dependence plot** — one feature across all instances: its value vs. its SHAP value, revealing nonlinearity and interactions.
+
+```python
+shap.dependence_plot("age", shap_values, X_test)   # how age's effect varies, + interaction colour
+```
+
+<ConceptBox title="Global importance, done right">
+Average the *absolute* SHAP values of a feature over the dataset: $\text{Imp}_i = \frac{1}{n}\sum_{x}|\phi_i(x)|$. This global ranking is **consistent** (unlike gain or permutation importance in some cases) and *decomposes* — every global number traces back to per-prediction contributions you can inspect.
+</ConceptBox>
+
+<Bridge>
+Additivity and these plots are model-independent — but the raw material differs by data type. The next module runs SHAP end-to-end on a numerical tabular model and on an image classifier, where "a feature" becomes "a pixel region."
+</Bridge>
+
+## Practice
+
+#### Problem 1: Reconstruct the prediction
+A house model has base value $\phi_0 = 300$ and SHAP values $\phi_{\text{size}}=+140$, $\phi_{\text{loc}}=+70$, $\phi_{\text{age}}=-10$. What does the model predict, and which property guarantees it?
+
+**Solution:** By **local accuracy / additivity**, $f(x) = 300 + 140 + 70 - 10 = 500$. The SHAP values plus the base value reconstruct the exact prediction — that's the defining additive property.
+
+#### Problem 2: Consistency in action
+You retrain a model so that feature X now increases the prediction in *every* coalition it joins, more than before. Can X's SHAP value go down?
+
+**Solution:** **No** — the **consistency** property forbids it. If a feature's marginal contribution rises (or stays equal) in every coalition, its SHAP value cannot decrease. This is precisely the guarantee that gain-based importance lacks.
+
+<QuizCard
+  question="The SHAP additivity property states that a prediction equals:"
+  options={[
+    'The largest single SHAP value',
+    'The base value plus the sum of all feature SHAP values, exactly',
+    'The product of the feature SHAP values',
+    'The average of the local surrogate predictions'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="How is a global feature-importance ranking obtained from SHAP?"
+  options={[
+    'By reading the coefficients of a separate global linear model',
+    'By averaging the absolute SHAP values of each feature across many predictions',
+    'By counting how often each feature appears in the training data',
+    'SHAP cannot produce global importance, only local'
+  ]}
+  correct={1}
+/>

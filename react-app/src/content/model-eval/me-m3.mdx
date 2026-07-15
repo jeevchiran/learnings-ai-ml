@@ -1,25 +1,23 @@
 import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
 import CVSplitWidget from '../../components/widgets/model-eval/CVSplitWidget.jsx'
 
-## Why average over several splits
+## Why Average Over Several Splits
 
-The holdout method (Module 2) splits your data once into train/validation/test — and as you saw, that single validation score has high variance: get a lucky split and your model looks great, get an unlucky one and it looks mediocre, even though nothing about the model changed. Cross-validation fixes this by not relying on a single split at all.
+The holdout method (Module 2) splits once, and that single validation score has high variance — a lucky split flatters the model, an unlucky one doesn't, with no change to the model itself. Cross-validation stops relying on a single split.
 
-The fix is conceptually simple: instead of validating on one held-out chunk, validate on several different chunks and average the scores. Each chunk gives a noisy estimate of true generalization performance; averaging several noisy estimates gives a much more stable one. This is the same logic as polling more people to shrink the margin of error — more (independent-ish) samples, less noise in the estimate.
+The idea: validate on several different chunks and average. Each chunk is a noisy estimate of true generalization; averaging several gives a far more stable one — the same logic as polling more people to shrink the margin of error.
 
-## K-Fold CV: the mechanics
+## K-Fold CV: Mechanics
 
-**K-Fold cross-validation** splits the full training data into $K$ equally-sized folds. Then, for each fold $k = 1, \ldots, K$:
+**K-Fold** splits the training data into $K$ equal folds. For each fold $k$:
 
-1. Hold out fold $k$ as the validation set.
-2. Train the model on the remaining $K-1$ folds.
-3. Score the trained model on fold $k$.
+1. Hold out fold $k$ as validation.
+2. Train on the other $K-1$ folds.
+3. Score on fold $k$.
 
-After all $K$ rounds, every data point has been used for validation exactly once and for training $K-1$ times. The final CV estimate is the mean of the $K$ scores:
+Every point is validated once and trained on $K-1$ times. The estimate is the mean:
 
 $$\widehat{\text{CV}} = \frac{1}{K}\sum_{k=1}^K \text{score}_k$$
-
-This says: average the K validation scores, one per fold, to get a single summary number for "how good is this model configuration."
 
 ```python
 from sklearn.model_selection import KFold, cross_val_score
@@ -29,28 +27,26 @@ kf = KFold(n_splits=5, shuffle=True, random_state=42)
 model = RandomForestClassifier(n_estimators=200, random_state=42)
 
 scores = cross_val_score(model, X_train, y_train, cv=kf, scoring='accuracy')
-print(scores)          # array of 5 fold scores
+print(scores)                        # 5 fold scores
 print(scores.mean(), scores.std())   # CV estimate ± spread
 ```
 
-Reporting both the mean *and* the standard deviation across folds matters — two models with the same mean CV score but very different fold-to-fold spread are not equally trustworthy.
+Report the **standard deviation** too — two models with equal mean but different fold-to-fold spread aren't equally trustworthy.
 
-### Choosing K: a bias-variance tradeoff on the estimate itself
+### Choosing K
 
-$K$ is itself a hyperparameter of the evaluation procedure, and it has its own bias-variance tradeoff:
+$K$ has its own bias-variance tradeoff on the *estimate*:
 
-| K | Training fold size | Bias of CV estimate | Variance of CV estimate | Compute cost |
+| K | Training folds | Bias | Variance | Cost |
 |---|---|---|---|---|
-| Small (e.g. 3) | Smaller (fewer examples to train on each round) | Higher — each model is trained on less data, so it under-performs the "real" full-data model | Lower — folds are large and stable, so score-to-score is less jumpy | Cheap ($K=3$ fits) |
-| Large (e.g. 10 or $N$) | Larger, closer to full dataset | Lower — training sets nearly match full-data training | Higher — small validation folds mean each score is noisier | Expensive ($K$ fits, or $N$ fits) |
+| Small (3) | Smaller | Higher (each model trains on less data) | Lower (large, stable folds) | Cheap |
+| Large (10 or $N$) | Near-full | Lower | Higher (small, noisy folds) | Expensive |
 
-$K=5$ or $K=10$ is the standard default because it sits in a sweet spot: training folds are large enough that the bias from "training on less data" is small, while validation folds are still large enough that individual fold scores aren't too noisy — all at a reasonable compute cost ($K$ model fits total).
+$K=5$ or $K=10$ is the standard sweet spot: training folds large enough that bias is small, validation folds large enough that scores aren't too noisy, at reasonable cost.
 
-## Stratified K-Fold: fixing class imbalance
+## Stratified K-Fold
 
-Plain `KFold` splits indices without looking at the labels. On an imbalanced dataset (say 95% negative, 5% positive), a random fold can easily end up with a wildly different positive rate than the overall dataset — or in the worst case, a fold with *zero* positive examples, making that fold's score meaningless.
-
-**Stratified K-Fold** fixes this by constructing folds so each one preserves (approximately) the overall class proportions.
+Plain `KFold` ignores labels. On imbalanced data (95/5), a random fold can have a wildly different positive rate — or zero positives, making its score meaningless. **Stratified K-Fold** builds folds that preserve class proportions.
 
 ```python
 from sklearn.model_selection import StratifiedKFold, cross_val_score
@@ -59,11 +55,11 @@ skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 scores = cross_val_score(model, X_train, y_train, cv=skf, scoring='f1')
 ```
 
-For classification tasks, `StratifiedKFold` should be your default over plain `KFold` — there's essentially no downside, and it removes a real source of noise.
+For classification, make `StratifiedKFold` the default — no downside, removes a real source of noise.
 
 ## Leave-One-Out (LOO)
 
-**Leave-One-Out** is the extreme case: $K = N$. Each fold holds out exactly one example; the model trains on the other $N-1$ and is scored on that single point. This means fitting $N$ separate models.
+The extreme $K = N$: each fold holds out one example, trains on $N-1$, scores on that point — $N$ model fits. Used almost only on **very small datasets** where you can't spare a large validation fold.
 
 ```python
 from sklearn.model_selection import LeaveOneOut, cross_val_score
@@ -72,19 +68,15 @@ loo = LeaveOneOut()
 scores = cross_val_score(model, X_train, y_train, cv=loo, scoring='accuracy')
 ```
 
-LOO is used almost exclusively on **very small datasets** (dozens to low hundreds of rows), where you can't afford to hold out a large validation fold and every training example matters.
-
-<ConceptBox title="LOO's subtle bias-variance quirk">
-LOO looks maximally thorough — $K=N$ means the least biased possible estimate, since each model trains on almost the entire dataset. That part is true: LOO is nearly unbiased.
-
-But the *variance* of the LOO estimate is not automatically low, and can actually be **higher** than $K=10$ CV. Why? The $N$ training sets in LOO overlap almost completely — each one differs from the others by only a single swapped example. That means the $N$ resulting models are highly correlated with each other, and so are their errors. Averaging $N$ *highly correlated* estimates doesn't reduce variance nearly as much as averaging $K$ *more independent* ones does — you're not really getting $N$ independent looks at performance, you're getting $N$ near-duplicates. This is why $K=10$ is often preferred over LOO even when LOO is computationally feasible: fewer, more different, less-correlated folds can give an estimate with equal or lower total error.
+<ConceptBox title="LOO's variance quirk">
+LOO looks maximally thorough — $K=N$, nearly unbiased since each model trains on almost all the data. True. But its *variance* can be **higher** than $K=10$: the $N$ training sets differ by only one swapped example, so the $N$ models — and their errors — are highly correlated. Averaging $N$ near-duplicates reduces variance far less than averaging $K$ more independent folds. Hence $K=10$ is often preferred even when LOO is affordable.
 </ConceptBox>
 
-## Group and time-series CV: when shuffling leaks information
+## Group and Time-Series CV
 
-Plain (or stratified) K-Fold assumes each row is an independent sample. Two common situations break that assumption:
+Plain K-Fold assumes independent rows. Two situations break that:
 
-**Grouped data.** If your dataset has multiple rows per patient, per user, or per device, a random split can put some of a patient's rows in the training fold and others in the validation fold. The model can then partly "recognize" that patient from training and get an inflated validation score that has nothing to do with generalizing to *new* patients. `GroupKFold` keeps all rows belonging to the same group entirely in one fold or the other:
+**Grouped data.** Multiple rows per patient/user/device — a random split puts some of a patient's rows in train and others in validation, so the model "recognizes" that patient and inflates its score. `GroupKFold` keeps each group wholly in one fold.
 
 ```python
 from sklearn.model_selection import GroupKFold, cross_val_score
@@ -93,9 +85,7 @@ gkf = GroupKFold(n_splits=5)
 scores = cross_val_score(model, X_train, y_train, cv=gkf, groups=patient_ids)
 ```
 
-**Time-ordered data.** If rows are ordered in time (stock prices, sensor logs, user sessions over months), a random K-Fold split will happily put future rows in the training set and past rows in the validation set. The model then gets to "see the future" during training — a leak that produces an optimistic score you'll never achieve in production, where you only ever have the past to predict the future.
-
-`TimeSeriesSplit` avoids this with an **expanding window**: fold 1 trains on an early chunk and validates on the chunk right after it; fold 2 trains on everything up to that point (original chunk *plus* the previous validation chunk) and validates on the next chunk after that; and so on. Training data only ever grows forward in time, and validation data is always strictly *after* the training data it's paired with.
+**Time-ordered data.** A random split puts future rows in training and past rows in validation — the model "sees the future," an optimistic score you'll never hit in production. `TimeSeriesSplit` uses an **expanding window**: training only ever grows forward, validation is always strictly after it.
 
 ```python
 from sklearn.model_selection import TimeSeriesSplit, cross_val_score
@@ -111,31 +101,25 @@ Fold 3: train [1........2..3]    val [4]
 Fold 4: train [1........2..3.4]  val [5]
 ```
 
-## Interactive: comparing split strategies
-
-Switch between K-Fold, Stratified K-Fold, LOO, and Time-Series/Group CV below and watch how the validation block moves — notice how the shuffled strategies scatter the validation block across the whole dataset, while the time-series strategy always keeps it at the leading edge of the training data.
+Switch strategies below and watch the validation block move — shuffled strategies scatter it across the data; time-series keeps it at the leading edge:
 
 <CVSplitWidget />
 
-<ConceptBox title="Common confusion: does K-Fold CV give you K models?">
-It's tempting to think K-Fold CV trains K models and you keep all of them, maybe averaging their predictions at deployment time (that's actually a different technique — ensembling). That's **not** what CV is for.
-
-K-Fold CV gives you $K$ performance **estimates** of one *model-training procedure* — e.g. "a random forest with `max_depth=8` trained on this kind of data." Those K scores exist purely to answer the question "how good is this configuration, honestly?" Once you've picked the best configuration using CV, the model you actually deploy is typically **retrained once from scratch on the full training dataset**, using the hyperparameters that CV validated. The K fold-models built during CV are discarded — they were tools for measurement, not the final product.
+<ConceptBox title="Does K-Fold CV give you K models?">
+No. K-Fold gives $K$ performance **estimates** of one *training procedure* (e.g. "a random forest with `max_depth=8`"). Those scores answer "how good is this configuration, honestly?" Once you pick the best config, you **retrain once on the full training set** with those hyperparameters. The K fold-models are discarded — measurement tools, not the product. (Keeping and averaging them is a different technique, ensembling.)
 </ConceptBox>
 
 ## Practice
 
-#### Problem 1: Picking a CV strategy
+#### Problem 1: Picking a CV Strategy
+50,000 rows, ~10 rows per patient, predicting a 2% complication. Which strategy?
 
-You have 50,000 rows of hospital vitals data, with roughly 10 rows per patient (multiple readings per patient over their stay), and the task is to predict a rare complication that occurs in about 2% of patients. Which CV strategy should you use, and why?
+**Solution:** Two constraints. The rare label needs stratification (plain `KFold` risks folds with zero positives); the 10-rows-per-patient structure needs grouping (a random split leaks patient identity across train/validation). Combine them: `StratifiedGroupKFold`, grouping by `patient_id` while balancing the complication rate. Stratified alone leaks patients; grouped alone risks too few positive patients per fold.
 
-**Solution:** You need to combine two constraints at once. The label is rare (2%), so plain `KFold` risks folds with very few or zero positive examples — you want stratification. But rows aren't independent: 10 rows share a patient, so a random or stratified split could leak a patient's data across train and validation. The correct approach is a grouped, stratified split — e.g. `StratifiedGroupKFold` — splitting by `patient_id` as the group while still balancing the complication rate across folds. Plain `StratifiedKFold` alone would leak patient identity; plain `GroupKFold` alone risks folds with too few positive patients.
+#### Problem 2: Interpreting Fold Scores
+10-fold scores `[0.91, 0.60, 0.89, 0.92, 0.88, 0.90, 0.87, 0.91, 0.89, 0.90]`, mean 0.867. What to check before trusting it?
 
-#### Problem 2: Interpreting fold scores
-
-A 10-fold CV run gives scores `[0.91, 0.60, 0.89, 0.92, 0.88, 0.90, 0.87, 0.91, 0.89, 0.90]`. Mean is 0.867. What should you investigate before trusting this number?
-
-**Solution:** One fold (0.60) is a dramatic outlier compared to the other nine, which cluster tightly around 0.87–0.92. A single mean hides this. Before trusting 0.867 as "the" CV score, check the standard deviation (it will be inflated by this one fold) and inspect what's different about that fold — a data quality issue, a rare-but-important subgroup concentrated there, or (if the split wasn't stratified/grouped) a leak-related fluke. Report the spread alongside the mean, not just the mean.
+**Solution:** One fold (0.60) is a dramatic outlier; the mean hides it. Check the standard deviation (inflated by this fold) and inspect that fold — a data-quality issue, a rare subgroup concentrated there, or a leak if the split wasn't stratified/grouped. Report the spread alongside the mean.
 
 <QuizCard
   question="Why is K=10 (or K=5) a more common default than Leave-One-Out, even when LOO is computationally affordable?"
@@ -161,5 +145,5 @@ A 10-fold CV run gives scores `[0.91, 0.60, 0.89, 0.92, 0.88, 0.90, 0.87, 0.91, 
 />
 
 <Bridge>
-Cross-validation gives you an honest, low-variance score for **one** hyperparameter setting — say, `max_depth=8, n_estimators=200`. But real models have many hyperparameters, and the number of plausible combinations explodes fast. Module 4 covers how to search that space efficiently: grid search, random search, Bayesian optimization, and successive halving.
+Cross-validation gives an honest score for **one** hyperparameter setting. Real models have many hyperparameters, and the combinations explode. Module 4 covers searching that space efficiently: grid, random, Bayesian, and successive halving.
 </Bridge>

@@ -2,65 +2,62 @@ import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/
 
 ## Naive Bayes in Context
 
-Every classifier in this course makes a different trade-off between assumptions, training cost, and expressive power. Naive Bayes sits at one extreme: strong assumptions, minimal training cost, no capacity for feature interactions. This module places it against the other tracks' models along the axes that actually decide which one to reach for.
+Every classifier trades off assumptions, training cost, and expressive power. Naive Bayes sits at one extreme: strong assumptions, minimal training cost, no feature interactions. Here it is against the alternatives along the axes that decide which to reach for.
 
-## Head-to-Head Comparison
+## Head-to-Head
 
 | Property | Naive Bayes | Logistic Regression | Decision Tree | k-NN | SVM |
 |---|---|---|---|---|---|
-| Model family | Generative | Discriminative | Discriminative | Discriminative (instance-based) | Discriminative |
-| Training method | Closed-form counting | Gradient-based optimization (MLE) | Greedy recursive splitting | None (lazy learner) | Convex quadratic optimization |
-| Training speed | Very fast, $O(Nn)$ | Moderate, iterative | Moderate, $O(Nn\log N)$ | None at train time | Slow on large $N$ |
-| Prediction speed | Very fast | Very fast | Fast, $O(\text{depth})$ | Slow, $O(N)$ per query | Fast (few support vectors) |
-| Feature interactions | None (assumed independent) | Only if explicitly engineered | Learned automatically via splits | Implicit, via distance metric | Implicit, via kernel trick |
-| Decision boundary shape | Determined by likelihood family (linear for shared-variance Gaussian NB) | Linear (or polynomial with feature engineering) | Axis-aligned rectangles | Arbitrary, follows local data density | Linear or kernel-defined curved boundary |
-| Data efficiency (small $N$) | Excellent | Good | Poor (prone to overfitting) | Poor (needs dense coverage) | Good with proper regularization |
-| High-dimensional sparse data | Excellent (its signature use case) | Good with regularization | Poor (splits get noisy) | Poor (curse of dimensionality) | Good (kernel handles it) |
-| Interpretability | High (per-feature log-odds contribution) | High (weights = log-odds) | Very high (readable rules) | Low | Low (except linear kernel) |
-| Output probabilities | Often poorly calibrated | Well calibrated by construction | Needs leaf-frequency estimates | Not naturally probabilistic | Needs extra calibration (Platt scaling) |
+| Family | Generative | Discriminative | Discriminative | Instance-based | Discriminative |
+| Training | Counting | Gradient (MLE) | Greedy splitting | None (lazy) | Convex QP |
+| Train speed | Very fast $O(Nn)$ | Moderate | Moderate | None | Slow on large $N$ |
+| Predict speed | Very fast | Very fast | Fast | Slow $O(N)$/query | Fast |
+| Feature interactions | None | Only if engineered | Learned | Implicit (distance) | Implicit (kernel) |
+| Data efficiency (small $N$) | Excellent | Good | Poor | Poor | Good w/ regularization |
+| High-dim sparse | Excellent | Good | Poor | Poor | Good |
+| Interpretability | High | High | Very high | Low | Low |
+| Probabilities | Poorly calibrated | Well calibrated | Leaf frequencies | Not natural | Needs calibration |
 
-## Naive Bayes vs. Logistic Regression
+## vs. Logistic Regression
 
-This is the most instructive comparison, because the two models are mathematically linked. For Gaussian Naive Bayes with a shared covariance matrix across classes, the posterior $P(y\mid\mathbf{x})$ can be shown to take exactly the sigmoid-of-linear form that logistic regression assumes directly — Naive Bayes and logistic regression are, in that special case, two different ways of fitting the *same* functional form.
+The most instructive pair — mathematically linked. For Gaussian NB with shared covariance, the posterior takes exactly the sigmoid-of-linear form logistic regression assumes: same functional form, fit two different ways.
 
-The difference is what each optimizes. Logistic regression is **discriminative**: it directly maximizes the likelihood of the observed labels given the features, tuning its decision boundary to minimize classification error. Naive Bayes is **generative**: it maximizes the likelihood of the observed features given the labels (fitting $P(\mathbf{x}\mid y)$), and the decision boundary falls out as a side effect. Ng & Jordan (2001) showed the practical consequence: Naive Bayes converges to its (higher) asymptotic error faster, with fewer training examples, while logistic regression eventually overtakes it with enough data because it isn't hobbled by the independence assumption. This is precisely why Naive Bayes is the standard baseline on small datasets and text classification with huge vocabularies, while logistic regression tends to win once there is enough data to estimate feature interactions reliably (whether through raw model capacity or hand-engineered interaction terms).
+The difference is what each optimizes. Logistic regression is **discriminative** — it maximizes label likelihood given features, tuning the boundary to minimize error. Naive Bayes is **generative** — it fits $P(\mathbf{x}\mid y)$, and the boundary falls out. Ng & Jordan (2001): NB reaches its (higher) asymptotic error faster, with fewer examples; logistic regression overtakes it with enough data because it isn't hobbled by independence. Hence NB is the standard small-data / large-vocabulary baseline; logistic regression wins once there's enough data to estimate interactions.
 
 <ConceptBox title="Rule of thumb">
-Small training set, huge sparse feature space (text), need a fast baseline → **Naive Bayes**. Larger training set, want calibrated probabilities and the option to add interaction/polynomial features deliberately → **logistic regression**. Suspect strong feature correlations are distorting predictions → try logistic regression and see if it improves accuracy; if it doesn't, the independence assumption probably wasn't the bottleneck.
+Small data, huge sparse features (text), fast baseline → **Naive Bayes**. Larger data, calibrated probabilities, want to add interaction terms → **logistic regression**. Suspect correlations distort predictions → try logistic regression; if it doesn't help, independence wasn't the bottleneck.
 </ConceptBox>
 
-## Naive Bayes vs. Decision Trees
+## vs. Decision Trees
 
-A decision tree learns feature interactions automatically — every split can depend on a feature value that was already conditioned on by an earlier split — while Naive Bayes structurally cannot represent interactions at all. This makes decision trees strictly more expressive on data with real interaction effects, but that expressiveness comes at a cost: trees are high-variance and prone to overfitting small datasets (the same weakness discussed at length in the Decision Trees track), whereas Naive Bayes's strong independence assumption acts as an implicit regularizer, making it far more stable when training data is scarce relative to the number of features.
+A tree learns interactions automatically (each split can depend on earlier ones); NB structurally cannot. Trees are strictly more expressive on data with real interactions — but high-variance and overfitting-prone on small data, whereas NB's independence assumption acts as an implicit regularizer, staying stable when data is scarce relative to features.
 
-## Naive Bayes vs. k-NN
+## vs. k-NN
 
-k-NN makes almost no assumptions about the data distribution — it classifies a new point by looking at its nearest training neighbors, with no training phase at all. This flexibility is expensive: every prediction requires scanning (or indexing) the full training set, and performance degrades badly in high dimensions as distances between points become less meaningful (the curse of dimensionality). Naive Bayes pays the opposite cost: it commits to a specific likelihood family upfront, but that commitment lets it summarize an entire training set into a handful of counts or (mean, variance) pairs, making prediction instantaneous regardless of training set size.
+k-NN assumes almost nothing and has no training phase — but every prediction scans (or indexes) the whole training set, and it degrades badly in high dimensions. NB pays the opposite cost: it commits to a likelihood family upfront, but that lets it summarize the training set into a handful of counts or (mean, variance) pairs, making prediction instant regardless of $N$.
 
-## Naive Bayes vs. SVM
+## vs. SVM
 
-An SVM finds the maximum-margin separating boundary, optionally in a high-dimensional space induced by a kernel — a very different mechanism from Naive Bayes's per-feature probability multiplication. SVMs typically achieve higher accuracy than Naive Bayes when there is enough training data and the interaction structure between features matters, but training cost scales poorly with the number of training examples (classically $O(N^2)$ to $O(N^3)$ for the quadratic program), and raw SVM output is a distance-to-boundary score rather than a probability, requiring extra calibration if probabilities are needed. Naive Bayes gives up the accuracy ceiling in exchange for training and prediction that scale linearly and probabilities (however imperfectly calibrated) for free.
+An SVM finds the maximum-margin boundary, optionally kernelized — usually higher accuracy than NB when data is ample and interactions matter, but training scales poorly ($O(N^2)$–$O(N^3)$), and raw output is a distance, not a probability. NB gives up the accuracy ceiling for linear-scaling train/predict and free (if imperfect) probabilities.
 
 <Bridge>
-**The takeaway for this track.** Naive Bayes is rarely the most accurate model available — it is the fastest reasonable model available, and often the best choice specifically when training data is limited, features are numerous and sparse, or a fast, interpretable, incrementally-updatable baseline is more valuable than squeezing out the last few points of accuracy. Knowing exactly why it wins in those regimes, and exactly why it loses elsewhere, is what "understanding" a classifier means in practice — not just knowing its formula.
+Naive Bayes is rarely the *most accurate* model — it is the fastest reasonable one, and often the best choice specifically when data is limited, features are numerous and sparse, or a fast, interpretable, incrementally-updatable baseline beats squeezing out the last accuracy points. Knowing exactly why it wins there, and loses elsewhere, is what understanding a classifier means.
 </Bridge>
 
 ## Practice
 
-#### Problem 1: Picking a Model Under a Data Constraint
+#### Problem 1: Model Under a Data Constraint
+200 labeled documents, 30,000-word vocabulary, 5 categories. Naive Bayes or linear-kernel SVM as first choice?
 
-A team has 200 labeled documents and a 30,000-word vocabulary to classify support tickets into 5 categories. They are choosing between Naive Bayes and an SVM with a linear kernel. Which is the safer first choice, and why?
-
-**Solution:** Naive Bayes is the safer first choice. With only 200 examples and 30,000 features, the ratio of parameters to data is extreme for any model that must estimate feature interactions — an SVM (or logistic regression without heavy regularization) risks severe overfitting on a feature space this sparse relative to the sample size. Naive Bayes's independence assumption means it only ever estimates $n$ small, low-dimensional per-feature distributions per class rather than a full interaction structure, so it degrades much more gracefully as $N$ shrinks relative to $n$ — exactly the data-efficiency argument from the comparison table above. It's a reasonable first baseline to beat, not necessarily the final model.
+**Solution:** Naive Bayes. With 200 examples and 30,000 features, any model estimating interactions risks severe overfitting on so sparse a space. NB only estimates $n$ small per-feature distributions per class, degrading gracefully as $N$ shrinks relative to $n$ — the data-efficiency argument. A baseline to beat, not necessarily the final model.
 
 #### Problem 2: When Naive Bayes Loses
+Fraud = "high amount AND low account age" (neither feature alone predictive). With ample data, which model class is guaranteed to beat NB, and why?
 
-A fraud-detection dataset has two features — transaction amount and account age — where fraud is defined precisely as "high amount AND low account age" (neither feature alone is predictive). With enough labeled data available, which model class is guaranteed to outperform Naive Bayes here, and why?
-
-**Solution:** Any model capable of representing feature interactions — a decision tree, an SVM with a suitable kernel, or logistic regression with an explicit interaction term (amount × age) — will substantially outperform Naive Bayes here, because the true decision rule is fundamentally a conjunction of two features, which the independence assumption forbids Naive Bayes from ever representing, regardless of how much training data it receives. This is the clearest case from Module 7's "no feature interactions, ever" limitation: more data does not fix a structural blind spot in the model family.
+**Solution:** Any model that represents interactions — decision tree, kernel SVM, or logistic regression with an amount×age term. The true rule is a conjunction of two features, which independence forbids NB from representing regardless of data volume. A structural blind spot, not a data shortage.
 
 <MultiSelectQuiz
-  question="Which of the following statements accurately compare Naive Bayes to other classifiers? (Select all that apply.)"
+  question="Which statements accurately compare Naive Bayes to other classifiers? (Select all that apply.)"
   options={[
     'Naive Bayes is generative (models P(x|y) and P(y)); logistic regression is discriminative (models P(y|x) directly)',
     'Decision trees can learn feature interactions automatically; Naive Bayes structurally cannot',

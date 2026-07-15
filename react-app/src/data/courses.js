@@ -219,6 +219,26 @@ export const courses = [
       { id: 'me-quiz', title: 'Track Quiz — Model Selection & Feature Engineering', file: 'me-quiz.html', description: '13 questions — CV mechanics, search strategy tradeoffs, filter/wrapper/embedded selection, and leakage detection.', readTime: 20 },
     ],
   },
+  {
+    id: 'xai',
+    title: 'Explainable AI',
+    description: '10 interactive modules from the accuracy–interpretability trade-off to LIME, SHAP (Kernel/Tree/Deep), and DeepLIFT — with movable local surrogates, a Shapley calculator, and force plots throughout.',
+    color: '#ca8a04',
+    trackPath: 'xai',
+    modules: [
+      { id: 'xai-m1',  title: 'What Is Explainable AI?',              file: 'xai-m1.html',  description: 'The black-box problem, interpretability vs explainability, the accuracy trade-off, and why explanations are useful.', readTime: 14 },
+      { id: 'xai-m2',  title: 'Global vs Local Interpretability',      file: 'xai-m2.html',  description: 'Whole-model vs single-prediction explanations, and the model-agnostic vs model-specific access axis.', readTime: 14 },
+      { id: 'xai-m3',  title: 'LIME — Intuition & Formulation',        file: 'xai-m3.html',  description: 'The LIME nomenclature, local linear surrogates, the perturb–weight–fit algorithm, and the objective function.', readTime: 18 },
+      { id: 'xai-m4',  title: 'LIME in Practice',                      file: 'xai-m4.html',  description: 'Running lime on tabular and text data, reading feature weights, and diagnosing instability.', readTime: 18 },
+      { id: 'xai-m5',  title: 'SHAP — Shapley Values & Introduction',  file: 'xai-m5.html',  description: 'Fair credit via game theory, the Shapley formula, the four axioms, and the SHAP explainer family.', readTime: 20 },
+      { id: 'xai-m6',  title: 'Kernel SHAP & Tree SHAP',               file: 'xai-m6.html',  description: 'Kernel SHAP as reweighted LIME, exact Tree SHAP for ensembles, and the background dataset.', readTime: 18 },
+      { id: 'xai-m7',  title: 'Features of SHAP',                      file: 'xai-m7.html',  description: 'Additivity, consistency, missingness, and the force / beeswarm / dependence plots — local aggregated to global.', readTime: 18 },
+      { id: 'xai-m8',  title: 'SHAP in Practice — Numerical & Image',  file: 'xai-m8.html',  description: 'End-to-end Tree SHAP on tabular data and pixel-region attributions on an image classifier.', readTime: 18 },
+      { id: 'xai-m9',  title: 'DeepLIFT Method',                       file: 'xai-m9.html',  description: 'Reference-based contributions, multipliers and the chain rule, rescale/RevealCancel rules, and beating gradient saturation.', readTime: 20 },
+      { id: 'xai-m10', title: 'Comparison of XAI Libraries',           file: 'xai-m10.html', description: 'LIME vs SHAP vs DeepLIFT vs Integrated Gradients across speed, fidelity, consistency, and generality — with a decision guide.', readTime: 16 },
+      { id: 'xai-quiz', title: 'Track Quiz — Explainable AI',          file: 'xai-quiz.html', description: '13 questions — interpretability scope, LIME formulation, Shapley numericals, SHAP additivity, image attribution, and DeepLIFT.', readTime: 20 },
+    ],
+  },
 ];
 
 /* ── Derived lookups (built once at module load) ── */
