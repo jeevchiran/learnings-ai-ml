@@ -6,235 +6,105 @@ import ResidualDiagnosticsWidget from '../../components/widgets/regression/Resid
 # Module 1: Linear Regression
 
 <Bridge>
-**Why Linear Regression?** -- Suppose you are a real estate analyst. A client asks: "How much is my 2,200 sq ft house worth?" You have data on hundreds of past sales. You need a systematic, principled method to model the relationship between house features and price -- not guessing, not averaging, but a model that quantifies exactly how each feature contributes to the outcome. That method is linear regression.
+**Why?** A client asks "how much is my 2,200 sq ft house worth?" You have hundreds of past sales. You need a principled way to model how each feature drives price — not guessing or averaging. That's linear regression.
 </Bridge>
 
-## What is Linear Regression?
+## What Is Linear Regression?
 
-Linear regression models the relationship between a continuous response variable $y$ and one or more predictor variables $x_1, x_2, \ldots, x_p$ as a linear function:
+It models a continuous response $y$ as a linear function of predictors $x_1,\ldots,x_p$:
 
-$$y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \cdots + \beta_p x_p + \varepsilon$$
+$$y = \beta_0 + \beta_1 x_1 + \cdots + \beta_p x_p + \varepsilon$$
 
-where $\beta_0$ is the intercept, $\beta_j$ are the coefficients (weights) for each predictor, and $\varepsilon$ is the irreducible error term.
+$\beta_0$ = intercept, $\beta_j$ = coefficients, $\varepsilon$ = irreducible error. Geometrically: a line (one predictor), a plane (two), a hyperplane in general — find the one best fitting the data.
 
-<ConceptBox title="Geometric Interpretation">
-With one predictor, the model is a line in 2D space. With two predictors, it is a plane in 3D. In general, it is a hyperplane in $(p+1)$-dimensional space. The goal is to find the hyperplane that best fits the observed data.
-</ConceptBox>
+**"Best fit"** = minimizing the sum of squared residuals (OLS):
 
-### The Objective: Ordinary Least Squares
+$$\text{SSR} = \sum_{i=1}^{n} (y_i - \hat{y}_i)^2 = \sum_{i=1}^{n}\Big(y_i - \beta_0 - \sum_j \beta_j x_{ij}\Big)^2$$
 
-We define "best fit" by minimizing the sum of squared residuals (SSR). The residual for observation $i$ is the difference between the actual and predicted value:
-
-$$\text{SSR} = \sum_{i=1}^{n} (y_i - \hat{y}_i)^2 = \sum_{i=1}^{n} \left( y_i - \beta_0 - \sum_{j=1}^{p} \beta_j x_{ij} \right)^2$$
-
-The OLS estimator finds the values of $\beta$ that minimize this expression. In Module 2, we derive the closed-form solution.
-
-## Interactive: Fitting a Regression Line
+Module 2 derives the closed-form solution.
 
 <RegressionLineWidget />
 
-## Assumptions of Linear Regression
+## Assumptions
 
-The OLS estimator has desirable statistical properties (unbiasedness, efficiency) only when certain assumptions hold. Violating them does not make regression useless, but it changes what you can trust about the results.
+OLS has its good properties (unbiasedness, efficiency) only when these hold:
 
-#### 1. Linearity
-
-The true relationship between predictors and response is linear. If the real relationship is curved, a straight line will systematically misfit the data.
-
-#### 2. Independence
-
-The errors $\varepsilon_i$ are independent of each other. Violations occur in time-series data where consecutive errors are correlated (autocorrelation).
-
-#### 3. Homoscedasticity
-
-The variance of errors is constant across all levels of the predictors: $\text{Var}(\varepsilon_i) = \sigma^2$ for all $i$. When variance changes (heteroscedasticity), standard errors become unreliable.
-
-#### 4. Normality of Errors
-
-The errors are normally distributed: $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$. This is needed for inference (confidence intervals, hypothesis tests), not for the point estimates themselves.
-
-#### 5. No Perfect Multicollinearity
-
-No predictor is a perfect linear combination of others. If it is, $X^TX$ is singular and the OLS solution does not exist. Near-multicollinearity inflates coefficient variance.
-
-#### 6. Exogeneity
-
-The errors have zero conditional mean: $E[\varepsilon | X] = 0$. This means the predictors contain no information about the error. Violated when omitting relevant variables or when predictors are measured with error.
-
-## Interactive: Diagnosing Assumption Violations
+1. **Linearity** — the true relationship is linear; a curved one gets systematically misfit.
+2. **Independence** — errors are uncorrelated (violated by autocorrelation in time series).
+3. **Homoscedasticity** — constant error variance $\text{Var}(\varepsilon_i) = \sigma^2$; otherwise standard errors are unreliable.
+4. **Normality of errors** — $\varepsilon_i \sim \mathcal{N}(0,\sigma^2)$; needed for inference, not point estimates.
+5. **No perfect multicollinearity** — else $X^TX$ is singular and OLS has no solution; near-collinearity inflates coefficient variance.
+6. **Exogeneity** — $E[\varepsilon \mid X] = 0$; violated by omitting relevant variables or measurement error.
 
 <AssumptionWidget />
 
 ## Interpreting Coefficients
 
-Each coefficient $\beta_j$ represents the expected change in $y$ for a one-unit increase in $x_j$, *holding all other predictors constant* (ceteris paribus). This partial derivative interpretation is:
+Each $\beta_j$ is the expected change in $y$ per one-unit increase in $x_j$, *holding others constant*:
 
-$$\beta_j = \frac{\partial \, E[y \mid \mathbf{x}]}{\partial x_j}$$
+$$\beta_j = \frac{\partial\, E[y \mid \mathbf{x}]}{\partial x_j}$$
 
-### Standardized vs. Unstandardized
+**Unstandardized** coefficients are in original units (150 for SqFt = \$150 per sq ft). **Standardized** ones (variables scaled to mean 0, SD 1) let you compare importance across scales: $\beta_j^{\text{std}} = \beta_j \cdot s_{x_j}/s_y$.
 
-**Unstandardized coefficients** are in the original units of the predictors and response. A coefficient of 150 for "square footage" means each additional sq ft adds $150 to the predicted price.
+**House-price example:** $\text{Price} = -50{,}000 + 150\,\text{SqFt} + 20{,}000\,\text{Bedrooms} - 5{,}000\,\text{DistanceKm}$.
 
-**Standardized coefficients** (beta weights) are obtained by standardizing all variables to mean 0, SD 1 before fitting. They allow comparison of relative importance across predictors with different scales.
-
-$$\beta_j^{\text{std}} = \beta_j \cdot \frac{s_{x_j}}{s_y}$$
-
-### House Price Example
-
-Model: $\text{Price} = -50{,}000 + 150 \cdot \text{SqFt} + 20{,}000 \cdot \text{Bedrooms} - 5{,}000 \cdot \text{DistanceKm}$
-
-| Coefficient | Value | Interpretation |
+| Coefficient | Value | Meaning (all else equal) |
 |---|---|---|
-| $\beta_0$ | -$50,000 | Baseline (when all predictors are zero -- often not meaningful) |
-| $\beta_1$ (SqFt) | +$150 | Each additional sq ft adds $150, holding bedrooms and distance constant |
-| $\beta_2$ (Bedrooms) | +$20,000 | Each additional bedroom adds $20K, holding size and distance constant |
-| $\beta_3$ (Distance) | -$5,000 | Each additional km from city center reduces price by $5K |
+| $\beta_1$ SqFt | +\$150 | per additional sq ft |
+| $\beta_2$ Bedrooms | +\$20,000 | per additional bedroom |
+| $\beta_3$ Distance | −\$5,000 | per km from center |
 
-## Evaluating Model Performance
+## Evaluating Performance
 
-### R-squared (Coefficient of Determination)
+**R²** — proportion of variance explained:
 
-$$R^2 = 1 - \frac{\text{SS}_{\text{res}}}{\text{SS}_{\text{tot}}} = 1 - \frac{\sum (y_i - \hat{y}_i)^2}{\sum (y_i - \bar{y})^2}$$
+$$R^2 = 1 - \frac{\sum (y_i - \hat{y}_i)^2}{\sum (y_i - \bar{y})^2}$$
 
-$R^2$ represents the proportion of variance in $y$ explained by the model. A value of 0.85 means the model accounts for 85% of the variability in the response.
-
-### Adjusted R-squared
+**Adjusted R²** penalizes complexity (plain R² only rises as predictors are added):
 
 $$R^2_{\text{adj}} = 1 - \frac{(1 - R^2)(n - 1)}{n - p - 1}$$
 
-Adding predictors always increases $R^2$, even if they are irrelevant. Adjusted $R^2$ penalizes model complexity, decreasing when a new variable does not sufficiently improve fit.
+**MSE / RMSE** — RMSE is in the units of $y$: $\text{RMSE} = \sqrt{\frac{1}{n}\sum(y_i - \hat{y}_i)^2}$. RMSE \$15,000 = predictions off by ~\$15K.
 
-### MSE and RMSE
+## Residual Diagnostics
 
-$$\text{MSE} = \frac{1}{n}\sum_{i=1}^n (y_i - \hat{y}_i)^2 \qquad \text{RMSE} = \sqrt{\text{MSE}}$$
+Residuals $e_i = y_i - \hat{y}_i$ are the primary tool for checking assumptions. Four plots:
 
-RMSE is in the same units as $y$, making it directly interpretable. An RMSE of $15,000 in a house price model means predictions are off by $15K on average.
+- **Residuals vs Fitted** — should be a random cloud at zero; curve = nonlinearity, funnel = heteroscedasticity.
+- **Normal Q-Q** — points on the diagonal if errors are normal; tail deviations = heavy tails/skew.
+- **Scale-Location** — $\sqrt{|e_i^*|}$ vs fitted; flat = constant variance, upward = heteroscedasticity.
+- **Residuals vs Leverage** — high leverage *and* large residual (outside Cook's contours) = influential point.
 
-### Residual Analysis
+$$e_i^* = \frac{e_i}{\hat{\sigma}\sqrt{1 - h_{ii}}}, \qquad D_i = \frac{e_i^{*2}}{p+1}\cdot\frac{h_{ii}}{1 - h_{ii}}$$
 
-Beyond summary metrics, always examine the residuals visually:
+$h_{ii}$ = leverage (hat-matrix diagonal). Cook's distance $> 1$ flags points to investigate.
 
-- Residuals vs. Fitted: should show no pattern (cloud of points)
-- Q-Q plot: residuals should fall on the diagonal if normally distributed
-- Scale-Location: checks homoscedasticity
-
-## Real-World Application: Predicting House Prices
-
-<ConceptBox title="Problem Setup">
-Using the Ames Housing dataset (2,930 homes in Ames, Iowa), we model sale price as a function of living area, number of bedrooms, overall quality rating, and distance to downtown.
-
-The model yields $R^2 = 0.81$, meaning 81% of price variation is explained. The RMSE is $28,400 -- the model's typical prediction error.
+<ConceptBox title="Two quick case studies">
+**Ames Housing** (2,930 homes): price on living area, bedrooms, quality, distance gives $R^2 = 0.81$, RMSE \$28,400. The Overall-Quality coefficient (\$22K) says moving quality 5→6 adds ~\$22K — actionable for renovation ROI. **Fuel efficiency**: MPG vs weight is concave, so a linear fit leaves a parabolic residual pattern — a signal to add a polynomial term.
 </ConceptBox>
-
-### What the Coefficients Tell Us
-
-The coefficient for "Overall Quality" (1-10 scale) is $22,000. This means: moving from quality 5 to quality 6 is associated with a $22K price increase, all else being equal. This is actionable -- a homeowner considering renovations can estimate the return on quality improvements.
-
-### Fuel Efficiency: When Assumptions Fail
-
-Fitting a linear model to predict MPG from vehicle weight reveals a problem: the relationship is not linear but concave. Heavier cars have diminishing MPG losses. The residual plot shows a clear parabolic pattern -- a signal that we need either a polynomial term or a different model entirely.
-
-## Residual Analysis for Linear Regression
-
-Residuals are the difference between observed and predicted values: $e_i = y_i - \hat{y}_i$. They are the primary diagnostic tool for evaluating whether the model assumptions hold and whether the fit is adequate.
-
-### The Four Diagnostic Plots
-
-#### Residuals vs Fitted
-
-Plots $e_i$ against $\hat{y}_i$. A good model shows a random cloud centered at zero. Patterns indicate nonlinearity (curved) or heteroscedasticity (fan/funnel shape).
-
-#### Normal Q-Q Plot
-
-Compares residual quantiles to theoretical normal quantiles. Points should fall on the diagonal. Deviations at the tails indicate heavy-tailed or skewed errors.
-
-#### Scale-Location
-
-Plots $\sqrt{|e_i^*|}$ (standardized) vs fitted values. Should be flat. An upward trend means variance grows with the predicted value (heteroscedasticity).
-
-#### Residuals vs Leverage
-
-Identifies influential observations. Points with high leverage AND large residuals (outside Cook's distance contours) disproportionately affect the fit.
-
-### Key Residual Metrics
-
-$$\text{Standardized: } e_i^* = \frac{e_i}{\hat{\sigma}\sqrt{1 - h_{ii}}} \qquad \text{Cook's Distance: } D_i = \frac{e_i^{*2}}{p+1} \cdot \frac{h_{ii}}{1 - h_{ii}}$$
-
-where $h_{ii}$ is the leverage (diagonal of the hat matrix) and $p$ is the number of predictors. Cook's distance > 1 flags observations that warrant investigation.
 
 <ResidualDiagnosticsWidget />
 
-### Practice Problems
+## Practice
 
-**Problem 1 (Basic): Identifying violations from residual plots**
+**Problem 1 — Funnel residuals.** Rent-vs-sqft residuals fan out for high rents.
 
-A regression model predicting apartment rent from square footage yields the following residual pattern: residuals are small for low-rent predictions but spread widely for high-rent predictions, forming a clear funnel shape.
+**Solution:** **Homoscedasticity** violated (variance grows with fitted value). Standard errors/CIs are invalid — too narrow at high values. Fixes: weighted least squares (weights ∝ 1/variance), a variance-stabilizing transform (log rent), or heteroscedasticity-consistent (HC1/HC3) standard errors.
 
-**Questions:**
+**Problem 2 — Cook's distance.** 200 obs; $D_i$ = 0.003, 0.45, 1.8 (the last is a CEO, salary \$2.5M vs \$85K mean).
 
-1. Which assumption is violated?
-2. What is the consequence for confidence intervals?
-3. Name two approaches to address this issue.
+**Solution:** Threshold $4/n = 0.02$ (or stricter $D_i > 1$). $D_i = 0.45$ warrants inspection; the CEO ($1.8$) is highly influential. **Don't remove** if the CEO is a legitimate population member; **remove/model separately** if predicting *typical* salaries, or use robust regression (Huber). Quantify without removing via **DFBETAS** — the standardized coefficient change when point $i$ is deleted.
 
-**Solution:**
+**Problem 3 — Misspecification.** Residuals-vs-fitted looks fine, but residuals-vs-age is U-shaped; Q-Q normal; $R^2 = 0.74$.
 
-1. **Homoscedasticity** is violated -- the error variance increases with the fitted value (heteroscedasticity).
-2. Standard errors and confidence intervals computed under homoscedasticity are **invalid**. They will be too narrow for high-value predictions and too wide for low-value predictions.
-3. (a) Use **weighted least squares** (WLS) with weights inversely proportional to the estimated variance. (b) Apply a **variance-stabilizing transformation** to the response (e.g., log-transform rent). (c) Use **heteroscedasticity-consistent standard errors** (HC1/HC3) that don't assume constant variance.
+**Solution:** (1) The fitted plot averages over age's nonlinearity because size/distance dominate $\hat y$; the per-predictor plot isolates it — always plot residuals against each predictor. (2) Add a quadratic: $\text{Price} = \beta_0 + \beta_1\text{SqFt} + \beta_2\text{Age} + \beta_3\text{Age}^2 + \beta_4\text{Distance} + \varepsilon$. (3) Partial F-test ($\text{RSS}_r=1300$, $\text{RSS}_f=900$, $n=500$, $q=1$): $F = \frac{(1300-900)/1}{900/495} = \frac{400}{1.818} = 220 \gg F_{1,495}^{0.05} \approx 3.86$ → highly significant.
 
----
+## Limitations
 
-**Problem 2 (Intermediate): Cook's distance and influential observations**
-
-You fit a salary prediction model with 200 observations. Three observations have Cook's distance values of 0.003, 0.45, and 1.8. The observation with $D_i = 1.8$ is the CEO (salary $2.5M; mean salary is $85K).
-
-**Questions:**
-
-1. Which observations are potentially influential? What threshold do you use?
-2. Should you remove the CEO observation? Under what circumstances would removal be justified vs. not?
-3. How would you quantify the CEO's effect on model coefficients without removing the point?
-
-**Solution:**
-
-1. The common threshold is $D_i > 4/n = 4/200 = 0.02$ or the stricter $D_i > 1$. The observation with $D_i = 0.45$ exceeds 4/n and deserves inspection. The CEO ($D_i = 1.8$) is highly influential by any criterion.
-2. **Do NOT remove** if the CEO is a legitimate member of the population you are modeling (e.g., "all employees"). The model should accommodate extreme values if they are real. **Remove or model separately** if the goal is predicting typical salaries and the CEO represents a fundamentally different data-generating process. Alternatively, use a **robust regression** method (e.g., Huber loss) that downweights outliers automatically.
-3. Compute **DFBETAS**: $\text{DFBETAS}_{j,i} = \frac{\hat{\beta}_j - \hat{\beta}_{j(-i)}}{s_{(-i)}\sqrt{(\mathbf{X}^T\mathbf{X})^{-1}_{jj}}}$. This gives the standardized change in each coefficient when observation $i$ is deleted.
-
----
-
-**Problem 3 (Advanced): Model misspecification diagnosis**
-
-You model house prices with features: square footage, age, and distance to transit. The residuals-vs-fitted plot shows no pattern, but the residuals-vs-$x_{\text{age}}$ plot shows a clear U-shape (negative residuals for mid-age homes, positive at extremes). The Q-Q plot is normal. $R^2 = 0.74$.
-
-**Questions:**
-
-1. Why does the residuals-vs-fitted plot look fine while residuals-vs-age does not?
-2. Propose a specific model modification and write the new equation.
-3. After adding the modification, $R^2$ increases to 0.82. Perform a partial F-test: with $n = 500$, the restricted model has $\text{RSS}_r = 1300$ and the full model has $\text{RSS}_f = 900$. Is the new term significant at $\alpha = 0.05$?
-
-**Solution:**
-
-1. The residuals-vs-fitted plot averages over the nonlinear effect of age because other features (size, distance) dominate the fitted value. The partial residual plot against age isolates the relationship and reveals the U-shaped misspecification. This is why you should always examine residuals against each predictor individually, not just against $\hat{y}$.
-2. Add a quadratic term: $\text{Price} = \beta_0 + \beta_1\text{SqFt} + \beta_2\text{Age} + \beta_3\text{Age}^2 + \beta_4\text{Distance} + \varepsilon$. The U-shape suggests price drops initially with age (depreciation) then rises for very old homes (character/historic value).
-3. Partial F-test: $F = \frac{(\text{RSS}_r - \text{RSS}_f)/q}{\text{RSS}_f/(n - p_f - 1)} = \frac{(1300 - 900)/1}{900/(500 - 4 - 1)} = \frac{400}{1.818} = 220.0$. With $F_{1, 495}$, the critical value at $\alpha=0.05$ is ~3.86. Since 220 >> 3.86, the quadratic term is highly significant.
-
-## Challenges and Limitations
-
-#### Sensitivity to Outliers
-
-A single extreme point can dramatically shift the fitted line because OLS minimizes squared errors, giving disproportionate weight to large deviations.
-
-#### Linearity Assumption
-
-If the true relationship is nonlinear, a linear model will underfit systematically. Polynomial features or nonlinear models may be needed.
-
-#### Multicollinearity
-
-When predictors are highly correlated, individual coefficients become unstable (large variance) even though predictions remain accurate. Makes interpretation unreliable.
-
-#### Cannot Model Classification
-
-Linear regression predicts continuous values in $(-\infty, +\infty)$. For binary outcomes, it produces "probabilities" outside [0,1]. This motivates logistic regression (Module 3).
+- **Outlier-sensitive** — OLS squares errors, so one extreme point shifts the line.
+- **Linearity** — a nonlinear truth underfits; needs polynomial features or another model.
+- **Multicollinearity** — correlated predictors make coefficients unstable (predictions can stay fine).
+- **Can't classify** — predicts $(-\infty, \infty)$, giving "probabilities" outside [0,1] for binary outcomes → logistic regression (Module 3).
 
 <QuizCard
   question="What does the Adjusted R-squared penalize compared to regular R-squared?"
