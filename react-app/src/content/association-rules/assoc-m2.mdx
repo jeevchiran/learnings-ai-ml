@@ -1,0 +1,87 @@
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import AprioriStepWidget from '../../components/widgets/association-rules/AprioriStepWidget.jsx'
+
+## The Combinatorial Wall
+
+To find rules we first need **frequent itemsets** — every itemset whose support clears a threshold `min_support`. The naive approach: enumerate all possible itemsets, count each. With $d$ distinct items there are $2^d - 1$ non-empty itemsets. A modest store with $d = 100$ products has $2^{100} \approx 10^{30}$ candidates. Counting them all is hopeless — we need to *avoid generating most of them*.
+
+Apriori (Agrawal & Srikant, 1994) does exactly that, using one structural fact about support.
+
+## The Anti-Monotone (Downward-Closure) Property
+
+<ConceptBox title="The one property that makes it work">
+If an itemset is frequent, then **every subset of it is also frequent**. Equivalently, in its contrapositive form used for pruning:
+
+$$\text{if } X \text{ is infrequent, then every superset of } X \text{ is also infrequent.}$$
+</ConceptBox>
+
+Why it holds: adding an item to an itemset can only *shrink or hold* the set of transactions containing it — never grow it. So support is **monotonically non-increasing** as an itemset grows:
+
+$$X \subseteq Y \;\Rightarrow\; \text{support}(X) \geq \text{support}(Y)$$
+
+The payoff: the moment $\{Cola\}$ falls below threshold, we can discard $\{Cola, Milk\}$, $\{Cola, Bread, Beer\}$, and every other superset **without counting them**. One failed check prunes an exponential subtree.
+
+## The Algorithm
+
+Apriori works **level by level** — all 1-itemsets, then 2-itemsets, then 3-itemsets — carrying frequent sets forward and using them to propose the next level.
+
+<DerivationSteps>
+<DerivationStep number={1} title="L₁ — frequent 1-itemsets">
+Scan the database once, count every single item, keep those with support ≥ min_support. Call this $L_1$.
+</DerivationStep>
+<DerivationStep number={2} title="Candidate generation (join)">
+Build candidate $(k{+}1)$-itemsets $C_{k+1}$ by joining pairs in $L_k$ that share their first $k{-}1$ items. Joining $\{A,B\}$ and $\{A,C\}$ (shared prefix $\{A\}$) gives candidate $\{A,B,C\}$.
+</DerivationStep>
+<DerivationStep number={3} title="Candidate pruning (the Apriori trick)">
+Before counting, drop any candidate that has a $k$-subset **not** in $L_k$. By downward closure that candidate cannot possibly be frequent — so we never scan the database for it.
+</DerivationStep>
+<DerivationStep number={4} title="Count and filter">
+Scan the database, count the surviving candidates, keep those ≥ min_support → $L_{k+1}$.
+</DerivationStep>
+<DerivationStep number={5} title="Repeat until empty">
+Increment $k$ and go back to step 2. Stop when a level produces no frequent itemsets. The union of all $L_k$ is the frequent-itemset collection.
+</DerivationStep>
+</DerivationSteps>
+
+## Walkthrough on the Grocery Database
+
+With `min_support = 0.3` (≥ 3 of the 10 baskets):
+
+**$L_1$:** counts are Milk 8, Bread 7, Beer 7, Diaper 7 — all frequent. Cola (2) and Eggs (1) fall below 3 and are **dropped now** — with them go every itemset containing Cola or Eggs, uncounted.
+
+**$L_2$:** join the four survivors → 6 candidate pairs, all turn out frequent: `{Beer,Bread}=4, {Beer,Diaper}=5, {Beer,Milk}=5, {Bread,Diaper}=5, {Bread,Milk}=5, {Diaper,Milk}=6`.
+
+**$L_3$:** joining pairs gives candidates like `{Beer,Bread,Diaper}`, `{Beer,Diaper,Milk}`, `{Bread,Diaper,Milk}` (each surviving the subset-prune). Counting: `{Beer,Bread,Diaper}=3, {Beer,Diaper,Milk}=4, {Bread,Diaper,Milk}=4` — all frequent.
+
+**$L_4$:** the one join candidate `{Beer,Bread,Diaper,Milk}` has support 2 < 3 → infrequent. No frequent 4-itemsets, so the algorithm stops.
+
+<ConceptBox title="Prune vs. count — where the saving is">
+The subset-prune in step 3 is why Apriori beats brute force: a candidate whose subset already failed is thrown out *for free*, before the expensive database scan. Raise `min_support` and whole upper levels never get generated at all.
+</ConceptBox>
+
+<AprioriStepWidget />
+
+## Practice
+
+**Problem 1 — Anti-monotone reasoning.** $\{Cola\}$ has support 0.2, below a 0.3 threshold. Without counting, what can you say about $\{Cola, Milk\}$ and $\{Cola, Milk, Diaper\}$?
+
+**Solution:** Both are infrequent. Any superset of an infrequent set is infrequent (support only decreases as itemsets grow), so neither can reach 0.3 — Apriori never counts them.
+
+**Problem 2 — Candidate generation.** From $L_2 = \{\{A,B\}, \{A,C\}, \{B,C\}\}$, which 3-itemset candidate is generated, and does it survive pruning?
+
+**Solution:** Join $\{A,B\}$ and $\{A,C\}$ (shared prefix $\{A\}$) → candidate $\{A,B,C\}$. Prune check: its 2-subsets are $\{A,B\}, \{A,C\}, \{B,C\}$ — all in $L_2$, so it **survives** and gets counted.
+
+**Problem 3 — Why level-by-level?** Why must Apriori finish level $k$ before starting level $k{+}1$?
+
+**Solution:** Candidate generation and pruning at level $k{+}1$ both require the *complete* frequent set $L_k$ — you cannot know a candidate's subsets are frequent until every $k$-itemset has been evaluated.
+
+<QuizCard
+  question="Apriori's pruning step discards a candidate itemset before scanning the database when…"
+  options={[
+    'its support is exactly equal to min_support',
+    'at least one of its immediate subsets is not in the frequent set of the previous level',
+    'it contains more than three items',
+    'it shares no items with any frequent itemset'
+  ]}
+  correct={1}
+/>

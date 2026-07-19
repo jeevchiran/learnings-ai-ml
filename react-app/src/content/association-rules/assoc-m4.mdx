@@ -1,0 +1,102 @@
+import { ConceptBox, CodeBlock, QuizCard } from '../../components/learning/index.js'
+
+## Apriori in Real Code
+
+You will almost never hand-roll Apriori. `mlxtend` implements the whole pipeline; your job is to shape the data and read the output. The input is a **one-hot matrix**: one row per transaction, one boolean column per item.
+
+<CodeBlock language="python">{`import pandas as pd
+from mlxtend.preprocessing import TransactionEncoder
+from mlxtend.frequent_patterns import apriori, association_rules
+
+# Same 10-basket grocery database from Module 1
+dataset = [
+    ['Bread', 'Milk'],
+    ['Bread', 'Diaper', 'Beer', 'Eggs'],
+    ['Milk', 'Diaper', 'Beer', 'Cola'],
+    ['Bread', 'Milk', 'Diaper', 'Beer'],
+    ['Bread', 'Milk', 'Diaper', 'Cola'],
+    ['Milk', 'Diaper', 'Beer'],
+    ['Bread', 'Beer'],
+    ['Bread', 'Milk', 'Diaper'],
+    ['Milk', 'Beer'],
+    ['Bread', 'Milk', 'Diaper', 'Beer'],
+]
+
+# 1. One-hot encode: shape (10 transactions, 6 items), all bool
+te = TransactionEncoder()
+onehot = te.fit(dataset).transform(dataset)
+df = pd.DataFrame(onehot, columns=te.columns_)   # columns: Beer, Bread, Cola, Diaper, Eggs, Milk
+
+# 2. Frequent itemsets, min_support = 0.3 (>= 3 of 10 baskets)
+freq = apriori(df, min_support=0.3, use_colnames=True)
+
+# 3. Rules with confidence >= 0.6, then rank by lift
+rules = association_rules(freq, metric='confidence', min_threshold=0.6)
+rules = rules.sort_values('lift', ascending=False)
+
+print(rules[['antecedents', 'consequents', 'support', 'confidence', 'lift']])`}</CodeBlock>
+
+The `rules` DataFrame carries every metric from Module 3 as columns — `support`, `confidence`, `lift`, `leverage`, `conviction` — so filtering and ranking is just pandas: `rules[rules.lift > 1.1]`, `rules.sort_values('conviction')`, and so on.
+
+<ConceptBox title="Two knobs, two failure modes">
+- **`min_support` too low** → millions of itemsets, memory blows up, runtime explodes. Too high → rare-but-valuable niche patterns vanish.
+- **`min_confidence` too low** → a flood of weak rules. Too high → only the obvious ones survive.
+
+Start strict, loosen until you get a workable number of rules, then rank by **lift** or **conviction** — never by confidence alone.
+</ConceptBox>
+
+## Why Apriori Gets Slow
+
+Apriori's guarantee costs it two expensive habits:
+
+1. **Repeated database scans** — one full pass *per level*. A frequent 5-itemset means at least five scans of the whole database.
+2. **Candidate explosion** — on dense data with a low `min_support`, the candidate sets between scans still get enormous even after pruning.
+
+## FP-Growth — Frequent Patterns Without Candidates
+
+**FP-Growth** (Han et al., 2000) fixes both by never generating candidate itemsets at all.
+
+<ConceptBox title="The FP-tree idea">
+1. **Two scans, total.** First scan counts items and drops infrequent ones. Second scan inserts each transaction — items sorted by descending frequency — into a prefix tree (the **FP-tree**), so shared prefixes collapse onto shared paths.
+2. **Mine the tree recursively.** For each item, follow its links to build a *conditional* FP-tree of the patterns it appears in, and recurse. Frequent itemsets fall out of the tree structure — **no candidate generation, no per-level rescans.**
+</ConceptBox>
+
+Same frequent itemsets, usually far faster on large dense data. The swap is trivial in code — the tree lives entirely inside the call:
+
+<CodeBlock language="python">{`from mlxtend.frequent_patterns import fpgrowth
+
+# Identical output to apriori(...), typically faster on large/dense data
+freq = fpgrowth(df, min_support=0.3, use_colnames=True)`}</CodeBlock>
+
+<ConceptBox title="Which to reach for">
+- **Apriori** — small/sparse data, or when you want the transparent level-by-level story for teaching or debugging.
+- **FP-Growth** — large or dense data where repeated scans dominate; same results, fewer passes.
+- **Eclat** — a third option using a vertical (item → transaction-id set) layout and set intersections; strong on sparse data.
+
+All three find the *same* frequent itemsets — they differ only in *how they search*. Rule generation and the metrics of Module 3 are identical afterward.
+</ConceptBox>
+
+## Practice
+
+**Problem 1 — Data shape.** Why must transactions be one-hot encoded before `apriori`?
+
+**Solution:** `apriori` expects a boolean matrix (transactions × items) so support is a fast column/row aggregation. `TransactionEncoder` builds exactly that, one column per distinct item.
+
+**Problem 2 — Same results, different engine.** You swap `apriori` for `fpgrowth` with the same `min_support`. Do the frequent itemsets change?
+
+**Solution:** No — both return the identical frequent itemsets. Only the search strategy (and speed) differs; FP-Growth avoids candidate generation and repeated scans.
+
+**Problem 3 — Tuning.** Your run returns 40,000 rules. What is the first knob to turn?
+
+**Solution:** Raise `min_support` (fewer frequent itemsets → fewer rules), then raise `min_confidence`/lift thresholds and rank by lift or conviction.
+
+<QuizCard
+  question="What is the key advantage of FP-Growth over Apriori?"
+  options={[
+    'It finds different, higher-quality itemsets that Apriori misses',
+    'It avoids generating candidate itemsets and needs only two database scans, so it is usually faster on large dense data',
+    'It does not require choosing a min_support threshold',
+    'It produces rules directly without a separate rule-generation step'
+  ]}
+  correct={1}
+/>

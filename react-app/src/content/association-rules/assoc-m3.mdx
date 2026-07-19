@@ -1,0 +1,77 @@
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import RuleTableWidget from '../../components/widgets/association-rules/RuleTableWidget.jsx'
+
+## From Itemsets to Rules
+
+Apriori (Module 2) gives us frequent itemsets. But an itemset like $\{Bread, Milk, Diaper\}$ is not yet a rule — it says these three are bought together, not that one *implies* the others. **Rule generation** turns each frequent itemset into directional rules and keeps only the confident ones.
+
+For a frequent itemset $I$, every way of splitting it into a non-empty antecedent $A$ and non-empty consequent $B = I \setminus A$ is a candidate rule $A \Rightarrow B$. An itemset of size $k$ yields $2^k - 2$ such rules.
+
+> **Support is already settled.** Every rule from $I$ has the *same* support — support($I$) — because support depends only on the item **set**, not the arrow's direction. Rule generation therefore only has to filter by **confidence**.
+
+## Confidence Pruning — Anti-Monotone Again
+
+Confidence has its own monotonicity that mirrors Apriori's. For rules drawn from the *same* itemset $I$, moving items from the antecedent to the consequent can **only lower confidence**:
+
+$$\text{if } A' \subset A, \text{ then } \text{conf}(A \Rightarrow I\setminus A) \geq \text{conf}(A' \Rightarrow I\setminus A')$$
+
+Both rules share numerator support($I$); the smaller antecedent $A'$ has *larger* support in the denominator, so its confidence is lower. The consequence: **if a rule fails the confidence threshold, every rule with a smaller antecedent (bigger consequent) fails too** — so we prune those without computing them, exactly as Apriori prunes itemsets.
+
+## Beyond Confidence — Three More Lenses
+
+Confidence favors popular consequents (Module 1's trap). Practitioners rank rules with metrics that correct for the baseline.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Lift — ratio vs. independence">
+$$\text{lift} = \frac{P(B\mid A)}{P(B)}$$
+&gt;1 positive association, =1 independent, &lt;1 negative. Symmetric: lift($A{\Rightarrow}B$) = lift($B{\Rightarrow}A$).
+</DerivationStep>
+<DerivationStep number={2} title="Leverage — difference vs. independence">
+$$\text{leverage} = \text{support}(A\cup B) - \text{support}(A)\,\text{support}(B)$$
+How much more often $A$ and $B$ co-occur than if independent, on an absolute (0-centered) scale. Leverage 0 means independence. Unlike lift, it weights by frequency — a rare pair with huge lift can still have tiny leverage.
+</DerivationStep>
+<DerivationStep number={3} title="Conviction — directed implication strength">
+$$\text{conviction} = \frac{1 - \text{support}(B)}{1 - \text{confidence}(A \Rightarrow B)}$$
+Frequency of $A$ appearing *without* $B$ if they were independent, over the observed rate. 1 = independence, $\infty$ = a rule that never breaks. Unlike lift it is **directional**, so it distinguishes $A{\Rightarrow}B$ from $B{\Rightarrow}A$.
+</DerivationStep>
+</DerivationSteps>
+
+## Worked Example
+
+Frequent itemset $\{Bread, Milk, Diaper\}$, support $0.40$. Take the split $A = \{Bread, Milk\}$, $B = \{Diaper\}$. Here support($A$) $= 0.50$, support($B$) $= 0.70$.
+
+$$\text{confidence} = \tfrac{0.40}{0.50} = 0.80, \quad \text{lift} = \tfrac{0.80}{0.70} \approx 1.14$$
+$$\text{leverage} = 0.40 - (0.50)(0.70) = 0.05, \quad \text{conviction} = \tfrac{1 - 0.70}{1 - 0.80} = 1.5$$
+
+All four agree this is a genuine positive rule. Now flip it: $\{Milk, Diaper\} \Rightarrow \{Bread\}$ has support($A$) $= 0.60$, so confidence $= \tfrac{0.40}{0.60} \approx 0.67$ and lift $= \tfrac{0.67}{0.70} \approx 0.95 < 1$ — same three items, opposite conclusion. **Direction matters.**
+
+<ConceptBox title="Common confusion — lift symmetry vs. rule direction">
+Lift is symmetric, so it can't tell $A{\Rightarrow}B$ from $B{\Rightarrow}A$. But confidence, leverage's role, and conviction are *directional*. Two rules over the same pair share one lift value yet can have very different confidence — always report the direction you actually intend to act on.
+</ConceptBox>
+
+<RuleTableWidget />
+
+## Practice
+
+**Problem 1 — How many rules?** How many candidate rules does the frequent 3-itemset $\{Bread, Milk, Diaper\}$ produce?
+
+**Solution:** $2^3 - 2 = 6$ (exclude the empty antecedent and empty consequent).
+
+**Problem 2 — Confidence pruning.** If $\{Bread, Milk\} \Rightarrow \{Diaper\}$ *fails* the confidence cut, what does that tell you about $\{Bread\} \Rightarrow \{Milk, Diaper\}$?
+
+**Solution:** It also fails. Shrinking the antecedent (Bread only) enlarges its support in the denominator, so confidence can only drop — no need to compute it.
+
+**Problem 3 — Choosing a metric.** A rule has confidence 0.85 but lift 0.9. Should you act on it?
+
+**Solution:** No. Lift < 1 means the consequent is *less* likely given the antecedent than at baseline — the high confidence only reflects a very common consequent. Prefer rules with lift (and conviction) clearly above 1.
+
+<QuizCard
+  question="Two rules come from the same frequent itemset: {A} ⇒ {B, C} and {A, B} ⇒ {C}. Which statement is guaranteed?"
+  options={[
+    'They have the same confidence because they share the itemset',
+    'confidence({A, B} ⇒ {C}) ≥ confidence({A} ⇒ {B, C}) — a larger antecedent never lowers confidence',
+    'They have the same lift, so they are interchangeable',
+    '{A} ⇒ {B, C} always has higher support than {A, B} ⇒ {C}'
+  ]}
+  correct={1}
+/>

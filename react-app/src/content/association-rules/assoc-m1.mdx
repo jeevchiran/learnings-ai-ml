@@ -1,0 +1,102 @@
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import SupportConfidenceWidget from '../../components/widgets/association-rules/SupportConfidenceWidget.jsx'
+
+## Why Association Rules?
+
+A supermarket has millions of receipts and one nagging question: **what gets bought together?** Nobody labeled these baskets — there is no target column, no "correct" answer to predict. This is unsupervised learning, but not clustering: we are not grouping *customers*, we are finding *items that co-occur*. The output is a set of human-readable rules like `{Diaper} ⇒ {Beer}` — "customers who buy diapers tend to buy beer" — that a merchandiser can act on directly.
+
+> **Not prediction, not clustering.** Association rule mining discovers *co-occurrence patterns* in transactions. The famous (if apocryphal) "beer and diapers" story — young fathers grabbing both on a late store run — is the canonical example of a rule no one thought to look for.
+
+Where it delivers value:
+
+| Domain | What a rule captures |
+|---|---|
+| Retail / e-commerce | "bought together" → shelf layout, bundle offers, `also bought` widgets |
+| Web usage | pages visited in the same session → navigation redesign |
+| Healthcare | symptoms / diagnoses co-occurring → clinical decision support |
+| Fraud / security | events firing together in one session → alert rules |
+| Bioinformatics | genes co-expressed across conditions |
+
+## The Vocabulary
+
+Everything is built on three objects:
+
+<ConceptBox title="Transactions, items, itemsets">
+- **Item** — a single product: `Milk`.
+- **Transaction** — one basket, a set of items: `{Bread, Milk, Diaper}`.
+- **Itemset** — any set of items we ask about: `{Milk, Diaper}`. A *k-itemset* has k items.
+- **Transaction database** — the full list of $N$ transactions we mine.
+</ConceptBox>
+
+We will use this 10-transaction grocery database throughout the whole track:
+
+| # | Items |
+|---|---|
+| 1 | Bread, Milk |
+| 2 | Bread, Diaper, Beer, Eggs |
+| 3 | Milk, Diaper, Beer, Cola |
+| 4 | Bread, Milk, Diaper, Beer |
+| 5 | Bread, Milk, Diaper, Cola |
+| 6 | Milk, Diaper, Beer |
+| 7 | Bread, Beer |
+| 8 | Bread, Milk, Diaper |
+| 9 | Milk, Beer |
+| 10 | Bread, Milk, Diaper, Beer |
+
+## Three Numbers That Define a Rule
+
+A rule $A \Rightarrow B$ (antecedent $A$, consequent $B$, with $A \cap B = \emptyset$) is judged by three metrics.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Support — how common is the pattern?">
+$$\text{support}(A) = \frac{\text{transactions containing } A}{N}$$
+The fraction of *all* baskets that contain the itemset. It measures how *frequent* — and therefore how *worth acting on* — a pattern is. A rule about an itemset bought twice in a million receipts is statistically noise.
+</DerivationStep>
+<DerivationStep number={2} title="Confidence — how reliable is the implication?">
+$$\text{confidence}(A \Rightarrow B) = \frac{\text{support}(A \cup B)}{\text{support}(A)} = P(B \mid A)$$
+Of the baskets that have $A$, what fraction also have $B$? This is the conditional probability of the consequent given the antecedent.
+</DerivationStep>
+<DerivationStep number={3} title="Lift — is the association real?">
+$$\text{lift}(A \Rightarrow B) = \frac{\text{confidence}(A \Rightarrow B)}{\text{support}(B)} = \frac{P(B \mid A)}{P(B)}$$
+Confidence compared against $B$'s *baseline* rate. Lift $> 1$: $A$ makes $B$ **more** likely than average (positive association). Lift $= 1$: independent. Lift $< 1$: $A$ makes $B$ **less** likely.
+</DerivationStep>
+</DerivationSteps>
+
+## Worked Example
+
+Take the rule $\{Milk\} \Rightarrow \{Diaper\}$ on the database above. Milk appears in 8 baskets, Diaper in 7, both together in 6.
+
+$$\text{support} = \tfrac{6}{10} = 0.60, \quad \text{confidence} = \tfrac{6}{8} = 0.75, \quad \text{lift} = \tfrac{0.75}{0.70} \approx 1.07$$
+
+High support, high confidence, lift just above 1 — a common pairing but only a *slight* real association, because both items are already so popular.
+
+<ConceptBox title="Common confusion — confidence is not enough">
+Consider $\{Beer\} \Rightarrow \{Milk\}$: Beer in 7 baskets, both in 5, so confidence $= \tfrac{5}{7} \approx 0.71$ — looks strong! But Milk's baseline support is 0.80, so lift $= \tfrac{0.71}{0.80} \approx 0.89 < 1$. Beer buyers are actually **less** likely than average to buy milk. High confidence just reflects that milk is *everywhere*. **Always check lift** — confidence alone favors popular consequents.
+</ConceptBox>
+
+<SupportConfidenceWidget />
+
+## Practice
+
+**Problem 1 — Support.** What is the support of the itemset $\{Bread, Diaper\}$?
+
+**Solution:** Baskets with both Bread and Diaper: #2, #4, #5, #8, #10 → 5 baskets. support $= 5/10 = 0.50$.
+
+**Problem 2 — Confidence.** Compute confidence of $\{Diaper\} \Rightarrow \{Beer\}$.
+
+**Solution:** Diaper in 7 baskets; Diaper+Beer in #2,#3,#4,#6,#10 → 5. confidence $= 5/7 \approx 0.71$.
+
+**Problem 3 — Lift and interpretation.** For $\{Diaper\} \Rightarrow \{Beer\}$, Beer's support is 0.70. Lift?
+
+**Solution:** lift $= 0.71 / 0.70 \approx 1.02$. Essentially **independent** — diapers and beer co-occur at almost exactly the chance rate here, despite the folklore. A lesson in checking your data before trusting a story.
+
+<QuizCard
+  question="A rule {A} ⇒ {B} has confidence 0.9 but lift 0.8. What does this tell you?"
+  options={[
+    'A and B have a strong positive association worth acting on',
+    'B is very common, so the high confidence is misleading — buying A actually makes B less likely than its baseline rate',
+    'The rule is invalid because confidence and lift must always agree',
+    'Support must also be high because confidence is high'
+  ]}
+  correct={1}
+/>

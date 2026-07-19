@@ -239,6 +239,20 @@ export const courses = [
       { id: 'xai-quiz', title: 'Track Quiz — Explainable AI',          file: 'xai-quiz.html', description: '13 questions — interpretability scope, LIME formulation, Shapley numericals, SHAP additivity, image attribution, and DeepLIFT.', readTime: 20 },
     ],
   },
+  {
+    id: 'association-rules',
+    title: 'Association Rule Mining',
+    description: '4 interactive modules on market-basket analysis — support/confidence/lift, the Apriori algorithm and its anti-monotone pruning, rule generation and evaluation, and FP-Growth — with a live metric explorer, a level-by-level Apriori stepper, and a rankable rule table.',
+    color: '#0891b2',
+    trackPath: 'association-rules',
+    modules: [
+      { id: 'assoc-m1',   title: 'Why Association Rules? Support, Confidence, Lift', file: 'assoc-m1.html',   description: 'Market-basket intuition, itemsets/transactions, the three core metrics, and why confidence alone misleads.', readTime: 14 },
+      { id: 'assoc-m2',   title: 'The Apriori Algorithm',                            file: 'assoc-m2.html',   description: 'Frequent itemsets, the anti-monotone property, candidate join-and-prune, and the level-by-level scan.',   readTime: 16 },
+      { id: 'assoc-m3',   title: 'Rule Generation & Evaluation',                     file: 'assoc-m3.html',   description: 'Splitting itemsets into rules, confidence pruning, and ranking with lift, leverage, and conviction.',      readTime: 16 },
+      { id: 'assoc-m4',   title: 'Apriori in Practice & FP-Growth',                  file: 'assoc-m4.html',   description: 'One-hot encoding, mlxtend apriori/association_rules, tuning the thresholds, and the FP-tree alternative.', readTime: 15 },
+      { id: 'assoc-quiz', title: 'Track Quiz — Association Rule Mining',             file: 'assoc-quiz.html', description: '13 questions — support/confidence/lift numericals, anti-monotone pruning, rule metrics, and FP-Growth.',   readTime: 20 },
+    ],
+  },
 ];
 
 /* ── Derived lookups (built once at module load) ── */
