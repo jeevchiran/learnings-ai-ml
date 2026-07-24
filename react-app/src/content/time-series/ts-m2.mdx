@@ -1,0 +1,67 @@
+import { ConceptBox, QuizCard } from '../../components/learning/index.js'
+import NaiveForecastWidget from '../../components/widgets/time-series/NaiveForecastWidget.jsx'
+
+## Before Anything Fancy: The Simple Baselines
+
+Every forecasting project should start here — not because these models are good, but because a fancy model that can't beat them isn't earning its complexity.
+
+<ConceptBox title="Three baseline forecasters">
+- **Naive** — tomorrow = today: $\hat y_{t+1} = y_t$. Hard to beat on a random walk (stock prices, for instance).
+- **Mean / average** — tomorrow = the average of everything seen so far: $\hat y_{t+1} = \tfrac{1}{t}\sum_{i=1}^{t} y_i$. Only sensible for a flat, trendless series.
+- **Moving average** — tomorrow = the average of the last $w$ points: $\hat y_{t+1} = \tfrac{1}{w}\sum_{i=t-w+1}^{t} y_i$. Smooths noise, but always lags behind a trend.
+</ConceptBox>
+
+## Judging a Forecast: RMSE
+
+**Root Mean Squared Error** is the standard yardstick — same units as the series, and squaring makes large misses cost disproportionately more than small ones.
+
+$$\text{RMSE} = \sqrt{\frac{1}{n}\sum_{t=1}^{n} (y_t - \hat y_t)^2}$$
+
+<ConceptBox title="Common confusion — never shuffle a time-series train/test split">
+Cross-validation randomly shuffles rows for i.i.d. data — doing that here leaks the future into training. Always split **chronologically**: train on the earlier segment, test on the later one (`sklearn.model_selection.TimeSeriesSplit` does rolling-origin splits correctly).
+</ConceptBox>
+
+<NaiveForecastWidget />
+
+## In Python
+
+```python
+import numpy as np
+import pandas as pd
+
+y = pd.read_csv('sales.csv')['sales'].values
+
+naive = np.r_[np.nan, y[:-1]]                                  # shift by 1
+mean_ = np.array([y[:i].mean() if i > 0 else np.nan for i in range(len(y))])
+w = 4
+moving_avg = pd.Series(y).rolling(w).mean().shift(1).values    # avg of last w, before t
+
+def rmse(y_true, y_pred):
+    mask = ~np.isnan(y_pred)
+    return np.sqrt(np.mean((y_true[mask] - y_pred[mask]) ** 2))
+
+print('Naive RMSE:', rmse(y, naive))
+print('Mean  RMSE:', rmse(y, mean_))
+print('MA(4) RMSE:', rmse(y, moving_avg))
+```
+
+## Practice
+
+**Problem 1.** A series is a pure random walk (each step is the last value plus noise, no trend). Which baseline wins, and why?
+
+**Solution:** Naive. The optimal one-step forecast of a random walk *is* the last value — nothing else carries more information about $y_{t+1}$.
+
+**Problem 2.** A series has a strong upward trend. Rank naive, mean, and moving-average(w=4) by expected RMSE, best to worst.
+
+**Solution:** Naive best, moving-average second, mean worst. Mean drags in every old, now-outdated low value; the wider the window the more moving-average lags, but at least it only looks at recent history.
+
+<QuizCard
+  question="Why is a plain k-fold (shuffled) cross-validation invalid for evaluating a time-series forecaster?"
+  options={[
+    'It uses too little data',
+    'It shuffles rows, so the model trains on future points and is tested on past ones — leaking information backward in time',
+    'RMSE cannot be computed on shuffled data',
+    'It only works for classification tasks'
+  ]}
+  correct={1}
+/>

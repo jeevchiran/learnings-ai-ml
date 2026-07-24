@@ -253,6 +253,21 @@ export const courses = [
       { id: 'assoc-quiz', title: 'Track Quiz — Association Rule Mining',             file: 'assoc-quiz.html', description: '13 questions — support/confidence/lift numericals, anti-monotone pruning, rule metrics, and FP-Growth.',   readTime: 20 },
     ],
   },
+  {
+    id: 'time-series',
+    title: 'Time Series Forecasting',
+    description: '5 interactive modules from trend/seasonality decomposition to exponential smoothing, stationarity/ADF, and autoregressive models — with a live decomposer, forecast-method comparisons, tunable Holt-Winters, ACF explorer, and an AR forecaster showing prediction intervals widen with horizon.',
+    color: '#0369a1',
+    trackPath: 'time-series',
+    modules: [
+      { id: 'ts-m1',   title: 'What Is a Time Series? Components & Decomposition', file: 'ts-m1.html',   description: 'Trend/seasonality/cycle/residual, additive vs multiplicative models, and decomposing with statsmodels.', readTime: 14 },
+      { id: 'ts-m2',   title: 'Simple Forecasting Models & RMSE',                  file: 'ts-m2.html',   description: 'Naive, mean, and moving-average baselines, RMSE, and why time-series splits must stay chronological.', readTime: 13 },
+      { id: 'ts-m3',   title: 'Exponential Smoothing — SES, Holt, Holt-Winters',   file: 'ts-m3.html',   description: 'Level/trend/seasonal smoothing equations, picking the right variant, and fitting α/β/γ by minimizing error.', readTime: 16 },
+      { id: 'ts-m4',   title: 'Stationarity — Tests & Autocorrelation',            file: 'ts-m4.html',   description: 'What stationarity means, the ADF test, differencing/log fixes, and reading the ACF.', readTime: 16 },
+      { id: 'ts-m5',   title: 'Autoregressive Models & Forecast Intervals',        file: 'ts-m5.html',   description: 'AR(p), the AR/MA/ARIMA family, Yule-Walker fitting, and confidence vs. prediction intervals.', readTime: 17 },
+      { id: 'ts-quiz', title: 'Track Quiz — Time Series Forecasting',              file: 'ts-quiz.html', description: '13 questions — decomposition, baselines/RMSE, smoothing parameters, stationarity/ADF, and AR intervals.', readTime: 20 },
+    ],
+  },
 ];
 
 /* ── Derived lookups (built once at module load) ── */

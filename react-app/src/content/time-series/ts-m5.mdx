@@ -1,0 +1,98 @@
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import ARForecastWidget from '../../components/widgets/time-series/ARForecastWidget.jsx'
+
+## The Autoregressive Model
+
+**AR(p)** predicts $y_t$ as a linear combination of its own last $p$ values — "regress the series on itself":
+
+$$y_t = c + \phi_1 y_{t-1} + \phi_2 y_{t-2} + \cdots + \phi_p y_{t-p} + \varepsilon_t, \qquad \varepsilon_t \sim \mathcal{N}(0,\sigma^2)$$
+
+$p$ is the **order**: how many past steps matter. The $\phi_i$ are fit from data — Module 4's stationarity requirement applies directly here, since these coefficients are assumed constant over time.
+
+<ConceptBox title="Picking p — the PACF">
+The **partial autocorrelation function (PACF)** measures the correlation between $y_t$ and $y_{t-k}$ with the effect of the *intermediate* lags removed. An AR(p) process has a PACF that cuts off sharply after lag $p$ — that cutoff point is the standard way to read off $p$ from `plot_pacf(y)`. (Contrast with the plain ACF, which decays gradually for an AR process — that asymmetry is exactly how you tell "this looks AR" from "this looks MA" in practice.)
+</ConceptBox>
+
+## Fitting: The Yule-Walker Equations
+
+Multiply the AR equation by $y_{t-k}$ and take expectations — the $\phi_i$ solve a small linear system built entirely from the sample ACF:
+
+<DerivationSteps>
+<DerivationStep number={1} title="Set up">
+$$\rho_k = \phi_1\rho_{k-1} + \phi_2\rho_{k-2} + \cdots + \phi_p \rho_{k-p}, \quad k=1,\dots,p$$
+</DerivationStep>
+<DerivationStep number={2} title="Solve">
+This is $p$ equations, $p$ unknowns — a Toeplitz linear system in $\rho_0,\dots,\rho_{p-1}$ on the left, $\rho_1,\dots,\rho_p$ on the right. Solving it (Levinson-Durbin recursion, or plain Gaussian elimination for small $p$) gives $\hat\phi_1,\dots,\hat\phi_p$ directly from the sample autocorrelations computed in Module 4.
+</DerivationStep>
+</DerivationSteps>
+
+## The AR Family
+
+| Model | Adds | Use when |
+|---|---|---|
+| **AR(p)** | past *values* | ACF decays, PACF cuts off |
+| **MA(q)** | past *forecast errors* | ACF cuts off, PACF decays |
+| **ARMA(p,q)** | both | mixed decay in both ACF and PACF |
+| **ARIMA(p,d,q)** | + differencing ($d$) | same as ARMA but on a non-stationary series, differenced $d$ times first |
+| **SARIMA** | + seasonal terms | ARIMA plus a seasonal $(P,D,Q,m)$ block |
+
+Everything in this family reduces to the same idea: model the *stationary* part with AR/MA terms, and let $d$ (and the seasonal $D$) handle getting there.
+
+## Confidence Interval vs. Prediction Interval
+
+This distinction matters more in forecasting than almost anywhere else in ML:
+
+<ConceptBox title="Two different questions">
+- **Confidence interval (CI)** — uncertainty about a **fixed quantity**, like the true mean or a coefficient. Reflects estimation error only. Roughly constant width.
+- **Prediction interval (PI)** — uncertainty about **one future observed value** $y_{t+h}$. Reflects estimation error **plus** the irreducible noise $\varepsilon$ of that specific future point — and that noise compounds as $h$ grows, since each step's error feeds into the next. PIs are always wider than CIs, and they **widen with the forecast horizon**.
+</ConceptBox>
+
+For an AR(p), the $h$-step forecast variance is $\sigma^2 \sum_{j=0}^{h-1}\psi_j^2$, where $\psi_j$ are the model's impulse-response ("MA($\infty$)") weights — more steps out, more compounded uncertainty, wider band.
+
+<ARForecastWidget />
+
+## In Python
+
+```python
+from statsmodels.tsa.ar_model import AutoReg
+
+model = AutoReg(y, lags=2, old_names=False).fit()
+print(model.params)                       # [const, phi_1, phi_2]
+
+pred = model.get_prediction(start=len(y), end=len(y) + 11)   # 12-step forecast
+forecast = pred.predicted_mean
+ci = pred.conf_int(alpha=0.05)            # 95% prediction interval, widens with horizon
+```
+
+## Practice
+
+**Problem 1.** PACF cuts off sharply after lag 2; ACF decays gradually. What order AR model, and why not check ACF's cutoff instead?
+
+**Solution:** AR(2). Plain ACF for an AR process decays gradually regardless of $p$ — it can't tell you the order. PACF isolates each lag's *direct* contribution, so its cutoff point is the informative signal.
+
+**Problem 2.** Two forecasts are quoted for $y_{t+1}$: a 95% CI of [48, 52] and a 95% PI of [40, 60]. Which is which, and why the gap?
+
+**Solution:** [48, 52] is the CI (uncertainty in the estimated mean level only); [40, 60] is the PI (adds the actual noise variance of a single future draw) — the PI is always the wider one.
+
+<QuizCard
+  question="Why does a prediction interval for an AR forecast widen as the horizon h increases, while a confidence interval for the mean roughly does not?"
+  options={[
+    'It is a plotting artifact with no statistical basis',
+    'Each additional forecast step compounds new forecast-error variance (via the ψ-weights), while a CI targets a fixed quantity with no such accumulation',
+    'PIs only widen because of measurement error in the original data',
+    'AR models become less accurate with more data'
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about AR models and forecast intervals are correct? (Select all that apply.)"
+  options={[
+    'AR(p) requires the series to be (roughly) stationary for the fitted coefficients to be meaningful over time',
+    'The order p of an AR model is typically read off from where the PACF cuts off',
+    'A prediction interval is always at least as wide as a confidence interval for the same forecast horizon',
+    'ARIMA is just ARMA fit on a differenced series to first restore stationarity',
+    'Yule-Walker equations require numerically integrating the likelihood function'
+  ]}
+  correct={[0, 1, 2, 3]}
+/>

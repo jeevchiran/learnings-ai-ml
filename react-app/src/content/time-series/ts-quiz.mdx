@@ -1,0 +1,154 @@
+# Track Quiz — Time Series Forecasting
+
+import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+<ConceptBox title="End-of-track checkpoint">
+Questions spanning all five modules — components and additive/multiplicative models, simple baselines and RMSE, exponential smoothing, stationarity and the ADF test, and AR models with confidence vs. prediction intervals.
+</ConceptBox>
+
+## Questions
+
+<QuizCard
+  question="A monthly series' seasonal spikes stay a constant absolute size no matter how high the trend climbs. Which decomposition model fits?"
+  options={[
+    'Multiplicative',
+    'Additive',
+    'Cyclical',
+    'Stationary'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="What distinguishes 'seasonality' from 'cycle' in a time series decomposition?"
+  options={[
+    'Seasonality is always additive; cycles are always multiplicative',
+    'Seasonality repeats at a fixed, known period; a cycle has no fixed period',
+    'Cycles only occur in financial data',
+    'There is no meaningful difference'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="On a pure random-walk series, which simple baseline forecaster is optimal (lowest expected RMSE)?"
+  options={[
+    'Naive (last value)',
+    'Expanding mean',
+    'A wide moving average',
+    'All three perform identically'
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about evaluating time-series forecasts are correct? (Select all that apply.)"
+  options={[
+    'RMSE is in the same units as the original series',
+    'Shuffled k-fold cross-validation is safe to use for time-series forecasts',
+    'A chronological train/test split avoids leaking future information into training',
+    'RMSE penalizes large errors more heavily than small ones, due to squaring',
+    'Moving-average forecasts always lag behind a trending series'
+  ]}
+  correct={[0, 2, 3, 4]}
+/>
+
+<QuizCard
+  question="Simple Exponential Smoothing (SES) is fit with a high α (close to 1). What happens?"
+  options={[
+    'The forecast becomes very smooth and slow to react',
+    'The forecast closely tracks the newest observations, chasing noise',
+    'SES becomes equivalent to Holt-Winters',
+    'α has no effect on the forecast'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="A series has both a trend and fixed-period seasonality. Which exponential smoothing variant is the minimum correct fit?"
+  options={[
+    'Simple Exponential Smoothing (SES)',
+    "Holt's Linear method",
+    'Holt-Winters',
+    'None of these can model seasonality'
+  ]}
+  correct={2}
+/>
+
+<QuizCard
+  question="In practice, how are the α, β, γ parameters of Holt-Winters chosen?"
+  options={[
+    'Always fixed at 0.5 by convention',
+    'Fit by minimizing in-sample squared error (equivalent to MLE under Gaussian noise), e.g. via statsmodels .fit()',
+    'They must be set manually by visual inspection',
+    'They are hyperparameters unrelated to the data'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="The ADF test returns a p-value of 0.02. What is the correct conclusion?"
+  options={[
+    'Fail to reject H0 — the series is non-stationary',
+    'Reject H0 — the series looks stationary',
+    'The series is definitely seasonal',
+    'The test failed to converge'
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about stationarity and fixing non-stationarity are correct? (Select all that apply.)"
+  options={[
+    'Weak stationarity requires constant mean, constant variance, and autocovariance depending only on lag',
+    'First-differencing typically removes a linear trend',
+    "ADF's null hypothesis is that the series IS stationary",
+    'A slowly-decaying ACF is a visual sign of non-stationarity',
+    'Seasonal differencing subtracts the value from one full period ago'
+  ]}
+  correct={[0, 1, 3, 4]}
+/>
+
+<QuizCard
+  question="For an AR(p) process, which tool is used to identify the order p?"
+  options={[
+    'The ACF, reading off where it decays to zero',
+    'The PACF, reading off where it cuts off sharply',
+    'The RMSE of a naive forecast',
+    'The seasonal period m'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="Which linear system is solved to fit an AR(p) model via Yule-Walker?"
+  options={[
+    'A gradient-descent loss over all future forecasts',
+    'A Toeplitz system built from the sample ACF values ρ0…ρp',
+    'A logistic regression on lagged values',
+    'The eigenvalue problem for the covariance matrix of residuals'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="A 95% confidence interval for the mean is [48, 52]; a 95% prediction interval for the next observation is [40, 60]. Why is the PI wider?"
+  options={[
+    "It isn't really wider — it's a plotting convention",
+    'The PI adds the irreducible noise of an individual future draw on top of the estimation error the CI already captures',
+    'The PI uses a different confidence level',
+    'Wider intervals always mean a worse model'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="Why does a prediction interval for a multi-step AR forecast widen as the horizon increases?"
+  options={[
+    'It is an arbitrary convention',
+    'Forecast-error variance compounds with each additional step (via the ψ-weights of the AR process)',
+    'The model coefficients change at each horizon',
+    'Longer horizons always have less data available'
+  ]}
+  correct={1}
+/>

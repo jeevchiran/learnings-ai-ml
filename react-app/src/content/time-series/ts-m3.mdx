@@ -1,0 +1,65 @@
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import SmoothingWidget from '../../components/widgets/time-series/SmoothingWidget.jsx'
+
+## The Idea: Weight Recent Points More
+
+A moving average treats every point in its window equally and ignores everything outside it. **Exponential smoothing** instead gives *every* past point some weight — geometrically decaying, so recent points count most but nothing is thrown away entirely.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Simple Exponential Smoothing (SES) — level only">
+$$\hat y_{t+1} = l_t, \qquad l_t = \alpha y_t + (1-\alpha) l_{t-1}$$
+One parameter, $\alpha \in (0,1)$. High $\alpha$ → trusts the newest point, chases noise. Low $\alpha$ → smooth, slow to react. Works for **flat series with no trend or seasonality**. The forecast is flat — the last level, repeated forever.
+</DerivationStep>
+<DerivationStep number={2} title="Holt's Linear — add a trend">
+$$l_t = \alpha y_t + (1-\alpha)(l_{t-1}+b_{t-1}) \qquad b_t = \beta(l_t - l_{t-1}) + (1-\beta) b_{t-1}$$
+$$\hat y_{t+h} = l_t + h\,b_t$$
+A second smoothed component $b_t$ tracks the trend's slope. Forecasts now extend as a straight line instead of a flat one. Still can't handle a repeating seasonal pattern.
+</DerivationStep>
+<DerivationStep number={3} title="Holt-Winters — add seasonality">
+$$l_t = \alpha(y_t - s_{t-m}) + (1-\alpha)(l_{t-1}+b_{t-1})$$
+$$b_t = \beta(l_t-l_{t-1}) + (1-\beta) b_{t-1} \qquad s_t = \gamma(y_t - l_t) + (1-\gamma) s_{t-m}$$
+A third component $s_t$ (period $m$) tracks the seasonal offset (additive form shown; multiplicative swaps $-$ for $/$ and $+$ for $\times$, same idea as Module 1). Three parameters now — $\alpha$ for level, $\beta$ for trend, $\gamma$ for seasonality.
+</DerivationStep>
+</DerivationSteps>
+
+## How Are α, β, γ Actually Chosen?
+
+Not by hand. In practice you **fit** them by minimizing in-sample squared error (equivalent to maximum likelihood under Gaussian errors) — the same grid-search-and-pick-the-best idea used everywhere else in ML, just over 1–3 parameters:
+
+```python
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+model = ExponentialSmoothing(
+    y, trend='add', seasonal='add', seasonal_periods=12
+).fit()   # optimizes alpha, beta, gamma internally
+
+print(model.params['smoothing_level'], model.params['smoothing_trend'], model.params['smoothing_seasonal'])
+forecast = model.forecast(12)
+```
+
+<SmoothingWidget />
+
+<ConceptBox title="Common confusion — which variant do I need?">
+Ask two questions: does the series **trend**? does it have **fixed-period seasonality**? No/no → SES. Yes/no → Holt. Yes/yes → Holt-Winters. Picking a model with components the data doesn't have just adds noisy, badly-estimated parameters; picking one with too few underfits systematically (e.g. SES on a trending series always forecasts flat and falls behind).
+</ConceptBox>
+
+## Practice
+
+**Problem 1.** A series is flat with random fluctuations, no trend, no seasonality. Which method, and roughly what α?
+
+**Solution:** SES, with a **low** α (e.g. 0.1–0.3) — the true signal isn't moving, so you want to smooth out noise, not chase it.
+
+**Problem 2.** Your Holt-Winters `fit()` returns γ ≈ 0.02. What does that tell you about the seasonal pattern?
+
+**Solution:** Near-zero γ means the seasonal component barely updates from new data — the fitted seasonal shape from early in the series is treated as essentially fixed/reliable throughout.
+
+<QuizCard
+  question="A series has a clear upward trend but no repeating seasonal pattern. Which exponential smoothing variant is the right minimum fit?"
+  options={[
+    'Simple Exponential Smoothing (SES)',
+    "Holt's Linear method",
+    'Holt-Winters (additive)',
+    'None — exponential smoothing cannot handle a trend'
+  ]}
+  correct={1}
+/>

@@ -1,0 +1,84 @@
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import StationarityWidget from '../../components/widgets/time-series/StationarityWidget.jsx'
+
+## Why This Module Exists
+
+Autoregressive models (next module) assume the relationship between $y_t$ and its past values is the **same at every point in time**. If the series is trending or its variance is changing, that relationship keeps shifting under the model's feet — coefficients fit on one stretch stop applying to the next. Stationarity is the precondition that makes AR modelling well-posed.
+
+## What "Stationary" Actually Means
+
+<ConceptBox title="(Weak/covariance) stationarity — 3 conditions">
+1. **Constant mean** — $E[y_t]$ doesn't depend on $t$.
+2. **Constant variance** — $\text{Var}(y_t)$ doesn't depend on $t$ (no widening/narrowing spread).
+3. **Autocovariance depends only on the lag, not on time** — $\text{Cov}(y_t, y_{t+k})$ is a function of $k$ alone, for every $t$.
+</ConceptBox>
+
+A trending series fails (1). A series whose swings grow over time fails (2). A series whose seasonal correlation shape changes decade to decade fails (3).
+
+## Testing for It: The ADF Test
+
+The **Augmented Dickey-Fuller (ADF)** test is the standard formal check. It fits
+
+$$\Delta y_t = \phi\, y_{t-1} + \sum_{i=1}^{p}\theta_i \Delta y_{t-i} + \varepsilon_t$$
+
+and tests $H_0: \phi = 0$ (a **unit root** — non-stationary) against $H_1: \phi < 0$ (stationary). Small p-value (< 0.05) → reject $H_0$ → treat as stationary.
+
+<ConceptBox title="Common confusion — ADF's null is 'non-stationary'">
+This trips people up constantly: a **low** p-value is the *good* outcome here (stationary), the opposite of most tests. There's also a companion test, **KPSS**, whose null is the *reverse* ("series IS stationary") — running both and checking they agree is safer than trusting either alone.
+</ConceptBox>
+
+```python
+from statsmodels.tsa.stattools import adfuller
+
+result = adfuller(y)
+print(f'ADF statistic: {result[0]:.3f}, p-value: {result[1]:.4f}')
+# p < 0.05  ->  reject H0  ->  series looks stationary
+```
+
+## Dealing With Non-Stationarity
+
+<DerivationSteps>
+<DerivationStep number={1} title="Differencing — remove trend">
+$$y_t' = y_t - y_{t-1}$$
+Turns "the level trends" into "the change is roughly flat." Usually $d=1$ is enough; rarely $d=2$. Overdifferencing adds noise, so stop as soon as ADF says stationary.
+</DerivationStep>
+<DerivationStep number={2} title="Seasonal differencing — remove a repeating cycle">
+$$y_t' = y_t - y_{t-m}$$
+Subtract the value from one full period ($m$) ago instead of one step ago — clears a seasonal pattern the way plain differencing clears a trend.
+</DerivationStep>
+<DerivationStep number={3} title="Log / Box-Cox transform — remove growing variance">
+$$y_t' = \log(y_t)$$
+Fixes variance that grows with the level (the multiplicative case from Module 1), often applied *before* differencing.
+</DerivationStep>
+</DerivationSteps>
+
+## Autocorrelation: Measuring "How Long Is the Memory"
+
+The **ACF** (autocorrelation function) is the correlation of the series with a lagged copy of itself:
+
+$$\rho_k = \frac{\sum_t (y_t-\bar y)(y_{t-k}-\bar y)}{\sum_t (y_t-\bar y)^2}$$
+
+A slowly-decaying ACF (still large at lag 15, 20…) is a visual tell for non-stationarity — the series "remembers" too far back, usually because of a trend. A properly stationary series' ACF drops toward the significance band ($\pm 1.96/\sqrt n$) within a handful of lags.
+
+<StationarityWidget />
+
+## Practice
+
+**Problem 1.** ADF on a series gives p = 0.62. What do you conclude, and what do you try next?
+
+**Solution:** Fail to reject $H_0$ → series looks non-stationary. Try first-differencing, then re-run ADF on the differenced series.
+
+**Problem 2.** After first-differencing, the ACF still decays slowly at seasonal lags (12, 24, …). What's the fix?
+
+**Solution:** Seasonal differencing ($y_t - y_{t-12}$ for monthly data) on top of the regular difference.
+
+<QuizCard
+  question="The ADF test on a series returns p = 0.01. What does that mean?"
+  options={[
+    'Reject H0 (unit root) — the series looks stationary',
+    'Fail to reject H0 — the series is non-stationary',
+    'The series is definitely seasonal',
+    'The test is inconclusive; run KPSS instead'
+  ]}
+  correct={0}
+/>

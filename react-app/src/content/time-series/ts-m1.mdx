@@ -1,0 +1,77 @@
+import { ConceptBox, QuizCard } from '../../components/learning/index.js'
+import DecompositionWidget from '../../components/widgets/time-series/DecompositionWidget.jsx'
+
+## What Is a Time Series?
+
+A **time series** is a sequence of values indexed in time order: daily stock prices, monthly sales, hourly server load. Two things make it different from a regular tabular dataset — **order matters** (shuffling rows destroys the signal), and **observations are usually not independent** (today's value leans on yesterday's).
+
+| Domain | Series |
+|---|---|
+| Retail | Monthly revenue |
+| Finance | Daily closing price |
+| Ops / SRE | Requests-per-minute |
+| Climate | Daily temperature |
+| Epidemiology | Weekly case counts |
+
+## The Components of a Time Series
+
+Any series can be thought of as a mix of up to four pieces:
+
+<ConceptBox title="Trend, Seasonality, Cycle, Residual">
+- **Trend (T)** — the long-run direction: steadily up, down, or flat.
+- **Seasonality (S)** — a pattern that repeats at a **fixed, known** period (every 12 months, every 7 days).
+- **Cycle (C)** — rises and falls with **no fixed period** (business cycles, multi-year), often folded into "trend" in practice since it's hard to separate.
+- **Residual / Noise (R)** — whatever is left after removing the above — ideally close to random.
+</ConceptBox>
+
+## Additive vs. Multiplicative
+
+The two components combine in one of two ways:
+
+$$\text{Additive: } y_t = T_t + S_t + R_t \qquad\qquad \text{Multiplicative: } y_t = T_t \times S_t \times R_t$$
+
+**Additive** — seasonal swings stay a *constant size* no matter how high the trend climbs (e.g. "+200 units every December, always"). **Multiplicative** — seasonal swings grow *proportionally* with the trend (e.g. "+20% every December" — bigger in absolute terms as the base grows). A quick visual test: if the amplitude of the wiggles grows alongside the level, it's multiplicative; a log-transform turns a multiplicative series additive, since $\log(T\times S \times R) = \log T + \log S + \log R$.
+
+<DecompositionWidget />
+
+## Decomposing in Python
+
+`statsmodels` does the trend/seasonal/residual split for you — the widget above implements the same centered-moving-average idea by hand.
+
+```python
+import pandas as pd
+from statsmodels.tsa.seasonal import seasonal_decompose
+
+# monthly series, 4 years, indexed by date
+df = pd.read_csv('sales.csv', parse_dates=['date'], index_col='date')
+
+result = seasonal_decompose(df['sales'], model='additive', period=12)
+result.plot()   # 4 stacked panels: observed, trend, seasonal, residual
+
+trend, seasonal, residual = result.trend, result.seasonal, result.resid
+```
+
+<ConceptBox title="Common confusion — trend vs. stationarity">
+A series can have zero trend and still be non-stationary (e.g. its *variance* grows over time), and a trending series is by definition non-stationary. "Stationary" is a stronger, more precise condition than "no visible trend" — Module 4 makes this exact.
+</ConceptBox>
+
+## Practice
+
+**Problem 1.** A retailer's monthly sales show a rising baseline, and the December spike over the baseline grows larger every year in absolute units. Additive or multiplicative?
+
+**Solution:** Multiplicative — the seasonal effect scales with the trend level.
+
+**Problem 2.** You log-transform a multiplicative series and decompose it as additive. Why does this work?
+
+**Solution:** $\log(T \cdot S \cdot R) = \log T + \log S + \log R$ — the product becomes a sum in log-space, so additive tools apply directly; exponentiate the result to get back to the original scale.
+
+<QuizCard
+  question="A series' seasonal swings roughly double in size whenever the trend level doubles. Which model fits, and what's a common trick to handle it with additive tools?"
+  options={[
+    'Additive model; no trick needed',
+    'Multiplicative model; log-transform the series first, then decompose additively',
+    'Cyclical model; difference the series twice',
+    'Additive model; multiply the residuals by the trend'
+  ]}
+  correct={1}
+/>
