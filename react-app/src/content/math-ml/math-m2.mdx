@@ -1,0 +1,69 @@
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import MatrixTransformWidget from '../../components/widgets/math-ml/MatrixTransformWidget.jsx'
+
+## A Matrix Is a Transformation
+
+Stop reading a matrix as "a grid of numbers." Read it as a **function that moves every point in space** — a linear one: straight lines stay straight, the origin stays fixed, and grid spacing stays even (parallel lines stay parallel).
+
+<DerivationSteps>
+<DerivationStep number={1} title="Matrix-vector multiplication">
+$$M\mathbf{v} = \begin{bmatrix}a & b\\ c& d\end{bmatrix}\begin{bmatrix}v_1\\v_2\end{bmatrix} = \begin{bmatrix}av_1+bv_2\\cv_1+dv_2\end{bmatrix}$$
+Each output coordinate is a dot product of a row of $M$ with $\mathbf{v}$.
+</DerivationStep>
+<DerivationStep number={2} title="The columns ARE where the basis vectors land">
+$$M\begin{bmatrix}1\\0\end{bmatrix} = \begin{bmatrix}a\\c\end{bmatrix}, \qquad M\begin{bmatrix}0\\1\end{bmatrix}=\begin{bmatrix}b\\d\end{bmatrix}$$
+This is the single most useful fact about matrices: to know what a matrix *does*, just look at its columns — they tell you exactly where each axis direction is sent.
+</DerivationStep>
+<DerivationStep number={3} title="Matrix-matrix multiplication = composing transformations">
+$$(AB)\mathbf{v} = A(B\mathbf{v})$$
+Multiplying two matrices builds a new matrix that applies $B$ first, then $A$. This is exactly what stacking neural network layers does: each layer's weight matrix is one more transformation composed onto the input.
+</DerivationStep>
+</DerivationSteps>
+
+<MatrixTransformWidget />
+
+## Why This Matters for ML
+
+A dense/linear layer computes $\mathbf{y} = W\mathbf{x} + \mathbf{b}$ — literally a matrix transformation plus a shift. Stack layers, and you're composing transformations (with a nonlinearity between each, or every composition would collapse back into one single matrix). Convolutions, attention projections, PCA — all matrix multiplication under the hood.
+
+<ConceptBox title="Common confusion — matrix multiplication doesn't commute">
+$AB \neq BA$ in general — "rotate then stretch" lands somewhere different than "stretch then rotate." Order matters, which is exactly why layer order in a network changes what it computes.
+</ConceptBox>
+
+## In Python (NumPy)
+
+```python
+import numpy as np
+
+M = np.array([[1.5, 0.5], [0, 1]])
+v = np.array([1, 1])
+
+Mv = M @ v                 # matrix-vector product
+e1_dest = M @ np.array([1, 0])   # where the x-axis basis vector lands
+e2_dest = M @ np.array([0, 1])   # where the y-axis basis vector lands
+
+A = np.array([[0, -1], [1, 0]])   # 90° rotation
+B = np.array([[2, 0], [0, 2]])    # scale by 2
+composed = A @ B                  # scale then rotate
+```
+
+## Practice
+
+**Problem 1.** $M = \begin{bmatrix}2&0\\0&3\end{bmatrix}$. Where does the point $(1,1)$ land after $M$?
+
+**Solution:** $(2\cdot1, 3\cdot1) = (2,3)$ — stretched 2× along x, 3× along y.
+
+**Problem 2.** Without computing anything, what do the columns of $M = \begin{bmatrix}0&1\\1&0\end{bmatrix}$ tell you about the transformation?
+
+**Solution:** Column 1 is $[0,1]$ (x-axis lands on y-axis), column 2 is $[1,0]$ (y-axis lands on x-axis) — this matrix swaps/reflects across the line $y=x$.
+
+<QuizCard
+  question="What does the determinant of a 2x2 transformation matrix measure?"
+  options={[
+    'The angle of rotation applied',
+    'The signed factor by which the matrix scales area (negative means orientation is flipped)',
+    'The number of dimensions in the input',
+    'Whether the matrix is symmetric'
+  ]}
+  correct={1}
+/>

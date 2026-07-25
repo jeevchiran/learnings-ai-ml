@@ -1,0 +1,84 @@
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import GradientDescentWidget from '../../components/widgets/math-ml/GradientDescentWidget.jsx'
+
+## Beyond the First Derivative
+
+The gradient (Module 9) tells you the slope. It says nothing about whether that slope is about to flatten out, keep going, or reverse — that's **curvature**, and it's the last piece needed to fully explain why gradient descent behaves the way it does.
+
+<ConceptBox title="Jacobian vs. Hessian — don't mix them up">
+- **Jacobian** — for a *vector-valued* function $f:\mathbb{R}^n\to\mathbb{R}^m$, the matrix of all first-order partial derivatives, $J_{ij}=\frac{\partial f_i}{\partial x_j}$. This is the general object backprop computes layer-to-layer (each layer's output is a vector, not a scalar).
+- **Hessian** — for a *scalar-valued* function $f:\mathbb{R}^n\to\mathbb{R}$, the matrix of all **second**-order partial derivatives, $H_{ij}=\frac{\partial^2 f}{\partial x_i \partial x_j}$. This is curvature — the Jacobian of the gradient.
+</ConceptBox>
+
+## The Hessian, for a Quadratic
+
+<DerivationSteps>
+<DerivationStep number={1} title="Set up">
+$$f(x,y) = ax^2+bxy+cy^2 \implies H = \begin{bmatrix}2a & b\\ b & 2c\end{bmatrix}$$
+For this family the Hessian is *constant* everywhere — the curvature doesn't change as you move, which is exactly why it's a useful teaching example (and a reasonable local approximation of any smooth loss surface near a point, via a second-order Taylor expansion).
+</DerivationStep>
+<DerivationStep number={2} title="Read the eigenvalues (Module 3) of H">
+Both eigenvalues positive → **convex bowl**, a genuine local minimum. Both negative → local maximum. **Mixed signs → saddle point** — curves up in one direction, down in another. This is the formal version of the "flat point" ambiguity from Module 9.
+</DerivationStep>
+</DerivationSteps>
+
+<GradientDescentWidget defaultShape="Saddle point" />
+
+<ConceptBox title="Common confusion — why deep learning worries more about saddles than local minima">
+In high dimensions, a critical point ($\nabla f=0$) needs *every* eigenvalue positive to be a true local minimum — increasingly unlikely by chance as dimensions grow. Most critical points in a high-dimensional loss landscape are saddles, not minima, which is a big part of why plain gradient descent can stall and why momentum-based optimizers (which carry velocity through flat/saddle regions) tend to outperform it in practice.
+</ConceptBox>
+
+## Where This Shows Up in Practice
+
+- **Newton's method** uses $H^{-1}\nabla f$ instead of just $\nabla f$ — it accounts for curvature directly, converging faster near a minimum, at the cost of computing (and inverting) the full Hessian, which is expensive at neural-network scale.
+- **Adam and other adaptive optimizers** approximate curvature *cheaply*, per-parameter, without ever forming the full Hessian.
+- **Second-order Taylor expansion**: $f(\theta+\Delta) \approx f(\theta) + \nabla f^\top \Delta + \tfrac12 \Delta^\top H \Delta$ — the Hessian is literally the quadratic term describing how the loss curves around your current point.
+
+## In Python
+
+```python
+import torch
+
+x = torch.tensor([1.0, 1.0], requires_grad=True)
+
+def f(v):
+    return v[0]**2 - v[1]**2   # saddle: eigenvalues [2, -2]
+
+hessian = torch.autograd.functional.hessian(f, x)
+print(hessian)
+# tensor([[ 2.,  0.],
+#         [ 0., -2.]])   -- matches the analytic [[2a,b],[b,2c]] formula, a=1,b=0,c=-1
+```
+
+## Practice
+
+**Problem 1.** $f(x,y)=2x^2+2y^2$. Write the Hessian and classify the critical point at the origin.
+
+**Solution:** $H=\begin{bmatrix}4&0\\0&4\end{bmatrix}$, eigenvalues both 4 (positive) → the origin is a local (here, global) minimum.
+
+**Problem 2.** $f(x,y)=x^2-4y^2$. Same question.
+
+**Solution:** $H=\begin{bmatrix}2&0\\0&-8\end{bmatrix}$, eigenvalues 2 and -8 (mixed signs) → a saddle point, not a minimum.
+
+<QuizCard
+  question="What does the Hessian matrix represent that the gradient alone does not?"
+  options={[
+    'The direction of steepest ascent',
+    "The curvature of the function — how the gradient itself changes — letting you distinguish a minimum, maximum, or saddle at a flat point",
+    'The learning rate to use',
+    'The number of parameters in the model'
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about Jacobians and Hessians are correct? (Select all that apply.)"
+  options={[
+    'A Jacobian applies to vector-valued functions; a Hessian applies to scalar-valued functions',
+    'A Hessian with all-positive eigenvalues at a critical point indicates a local minimum',
+    'A Hessian with mixed-sign eigenvalues at a critical point indicates a saddle point',
+    "Newton's method uses the Hessian to account for curvature, converging faster near a minimum but at higher per-step cost",
+    'The Hessian is always the same matrix as the Jacobian'
+  ]}
+  correct={[0, 1, 2, 3]}
+/>

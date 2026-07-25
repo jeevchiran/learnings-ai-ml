@@ -1,0 +1,63 @@
+import { ConceptBox, QuizCard } from '../../components/learning/index.js'
+import SVDPCAWidget from '../../components/widgets/math-ml/SVDPCAWidget.jsx'
+
+## From Eigenvectors to PCA
+
+Module 3 asked "what directions does a matrix leave unrotated?" Ask that question of a data cloud's **covariance matrix**, and the answer is **Principal Component Analysis**.
+
+<ConceptBox title="The covariance matrix">
+$$C = \frac{1}{n-1}\sum_i (\mathbf{x}_i-\bar{\mathbf{x}})(\mathbf{x}_i-\bar{\mathbf{x}})^\top$$
+A symmetric matrix whose diagonal holds each feature's variance, and off-diagonal entries hold covariances between feature pairs (Module 7 defines covariance precisely). Symmetric matrices are always real-eigenvalue, orthogonal-eigenvector — no complex-rotation edge case to worry about.
+</ConceptBox>
+
+**PCA is just:** eigendecompose $C$. The eigenvector with the **largest** eigenvalue is the direction of maximum spread in the data (**PC1**); the next-largest, orthogonal to it, is **PC2**; and so on. The eigenvalues themselves are the variance *along* each of those directions.
+
+<SVDPCAWidget />
+
+## SVD — The General-Purpose Version
+
+**Singular Value Decomposition** factors *any* matrix (not just square/symmetric) as
+
+$$X = U\Sigma V^\top$$
+
+where $V$'s columns are eigenvectors of $X^\top X$ (this IS the covariance-direction story above, up to a constant), $\Sigma$ holds the singular values (square roots of $X^\top X$'s eigenvalues), and $U$'s columns are eigenvectors of $XX^\top$. In practice, `sklearn.PCA` uses SVD internally rather than explicitly building the covariance matrix — same answer, better numerical stability on wide datasets.
+
+<ConceptBox title="Common confusion — PCA is not feature selection">
+PCA doesn't pick a subset of your original features — it builds brand-new axes (linear combinations of all of them) chosen to capture the most variance. Component 1 might mix "income" and "age" in some proportion; the original features vanish into rotated new ones, which is exactly why PCA components are usually hard to name.
+</ConceptBox>
+
+## In Python (scikit-learn)
+
+```python
+import numpy as np
+from sklearn.decomposition import PCA
+
+X = np.random.randn(200, 5)          # 200 samples, 5 features
+
+pca = PCA(n_components=2)
+X_reduced = pca.fit_transform(X)     # project onto top 2 principal components
+
+print(pca.explained_variance_ratio_)  # e.g. [0.61, 0.23] — how much variance each PC captures
+print(pca.components_)                # the principal axes themselves, in original feature space
+```
+
+## Practice
+
+**Problem 1.** PCA on a dataset returns explained-variance ratios `[0.85, 0.10, 0.05]`. How many components would you keep to retain ~95% of the variance?
+
+**Solution:** The first two: $0.85+0.10=0.95$.
+
+**Problem 2.** A 2D point cloud is a perfect circle (equal spread in every direction). What do PCA's eigenvalues look like, and why?
+
+**Solution:** Both eigenvalues equal — there's no single "direction of maximum variance" to prefer, every direction is equally valid, so PCA gives no useful axis to reduce onto.
+
+<QuizCard
+  question="Why does scikit-learn's PCA typically compute the SVD of the data matrix rather than explicitly eigendecomposing the covariance matrix?"
+  options={[
+    'SVD gives a completely different, unrelated result',
+    'SVD is numerically more stable, especially with many features, while giving mathematically equivalent principal directions',
+    'The covariance matrix cannot be eigendecomposed',
+    'SVD only works on square matrices'
+  ]}
+  correct={1}
+/>

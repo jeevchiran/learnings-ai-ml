@@ -1,5 +1,26 @@
 export const courses = [
   {
+    id: 'math-ml',
+    title: 'Mathematics for Machine Learning',
+    description: '11 interactive modules covering the linear algebra, probability, and calculus foundations behind every model in this curriculum — vectors, matrix transformations, eigendecomposition, PCA, Bayes\' theorem, distributions, MLE, and gradient descent, with draggable vectors, transform grids, an eigenvector explorer, a Bayes population grid, and a live gradient-descent contour.',
+    color: '#475569',
+    trackPath: 'math-ml',
+    modules: [
+      { id: 'math-m1',   title: 'Vectors & Dot Products',                file: 'math-m1.html',   description: 'Vector norms, the dot product, and cosine similarity vs. raw dot product.', readTime: 13 },
+      { id: 'math-m2',   title: 'Matrices & Linear Transformations',     file: 'math-m2.html',   description: 'Matrix-vector/matrix-matrix multiplication as transformations, and why layers compose them.', readTime: 14 },
+      { id: 'math-m3',   title: 'Eigenvalues, Eigenvectors & Rank',      file: 'math-m3.html',   description: 'Inverse, determinant, rank, and the directions a matrix only stretches, never rotates.', readTime: 15 },
+      { id: 'math-m4',   title: 'SVD & PCA Foundations',                 file: 'math-m4.html',   description: 'Eigendecomposing the covariance matrix, principal components, and dimensionality reduction.', readTime: 14 },
+      { id: 'math-m5',   title: "Probability Foundations & Bayes' Theorem", file: 'math-m5.html', description: 'Sample space, conditional probability, independence, and flipping conditionals with Bayes.', readTime: 15 },
+      { id: 'math-m6',   title: 'Random Variables & Key Distributions',  file: 'math-m6.html',   description: 'PMF vs PDF, and the Bernoulli/Binomial/Poisson/Gaussian distributions ML assumptions lean on.', readTime: 14 },
+      { id: 'math-m7',   title: 'Expectation, Variance & Covariance',    file: 'math-m7.html',   description: 'E[X], Var(X), covariance, and correlation as normalized covariance.', readTime: 13 },
+      { id: 'math-m8',   title: 'Maximum Likelihood Estimation',         file: 'math-m8.html',   description: 'Likelihood, log-likelihood, and why MLE is the same idea behind every model-fitting loss.', readTime: 14 },
+      { id: 'math-m9',   title: 'Derivatives & the Chain Rule',          file: 'math-m9.html',   description: 'Slopes, partial derivatives, the gradient, and the chain rule that makes backprop work.', readTime: 14 },
+      { id: 'math-m10',  title: 'Gradient Descent',                      file: 'math-m10.html',  description: 'The update rule, why learning rate has a knife-edge, and convex vs. non-convex reality.', readTime: 14 },
+      { id: 'math-m11',  title: 'Jacobians & Hessians',                  file: 'math-m11.html',  description: 'Curvature, classifying critical points, and why deep learning worries about saddles.', readTime: 15 },
+      { id: 'math-quiz', title: 'Track Quiz — Mathematics for ML',       file: 'math-quiz.html', description: '15 questions spanning linear algebra, probability, and calculus foundations.', readTime: 22 },
+    ],
+  },
+  {
     id: 'pandas-eda',
     title: 'Pandas EDA and Visualization',
     description: '9 interactive modules covering data cleaning, missing values, outlier detection, and visualization using one NYC taxi-trip dataset.',

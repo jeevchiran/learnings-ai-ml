@@ -1,0 +1,64 @@
+import { ConceptBox, QuizCard } from '../../components/learning/index.js'
+import VectorWidget from '../../components/widgets/math-ml/VectorWidget.jsx'
+
+## Why Linear Algebra, First
+
+Every dataset you feed a model is a table of numbers — rows are **vectors**. Every layer of a neural net multiplies its input by a **matrix**. Every embedding, every similarity score, every gradient step is vector arithmetic. This track builds that machinery from the ground up, so the rest of the curriculum reads as "applying linear algebra" rather than magic.
+
+## Vectors
+
+A vector is just an ordered list of numbers, $\mathbf{v} = [v_1, v_2, \dots, v_n]$ — and geometrically, an arrow from the origin to that point. In ML, a vector is usually a **feature row**: `[age, income, clicks]`, or a word/image **embedding**.
+
+<ConceptBox title="Norm — how long is a vector?">
+$$\|\mathbf{v}\| = \sqrt{v_1^2 + v_2^2 + \cdots + v_n^2}$$
+This is the Euclidean (L2) length — Pythagoras generalized to $n$ dimensions. It's the "magnitude" used in weight decay, gradient clipping, and normalizing embeddings to unit length.
+</ConceptBox>
+
+## The Dot Product
+
+$$\mathbf{a}\cdot\mathbf{b} = \sum_i a_i b_i = \|\mathbf{a}\|\,\|\mathbf{b}\|\cos\theta$$
+
+Two equivalent views: **algebraic** (multiply matching components, sum them) and **geometric** (lengths times the cosine of the angle between them). The geometric form is why the dot product is the standard *similarity* measure — it's large and positive when vectors point the same way, zero when perpendicular, negative when opposite.
+
+<ConceptBox title="Common confusion — cosine similarity vs. dot product">
+$$\cos\theta = \frac{\mathbf{a}\cdot\mathbf{b}}{\|\mathbf{a}\|\,\|\mathbf{b}\|}$$
+Cosine similarity is the dot product with length divided out — it measures *direction* only, ignoring magnitude. Raw dot product conflates "same direction" with "large vectors," which is exactly why recommender systems and embedding search almost always cosine-normalize first.
+</ConceptBox>
+
+<VectorWidget />
+
+## In Python (NumPy)
+
+```python
+import numpy as np
+
+a = np.array([3, 2])
+b = np.array([1, 3])
+
+dot_product = a @ b                              # or np.dot(a, b)
+norm_a = np.linalg.norm(a)
+cosine_sim = (a @ b) / (norm_a * np.linalg.norm(b))
+
+print(dot_product, norm_a, cosine_sim)
+```
+
+## Practice
+
+**Problem 1.** $\mathbf{a} = [3, 4]$. What is $\|\mathbf{a}\|$?
+
+**Solution:** $\sqrt{3^2+4^2} = \sqrt{25} = 5$.
+
+**Problem 2.** $\mathbf{a}=[1,0]$, $\mathbf{b}=[0,1]$. What is $\mathbf{a}\cdot\mathbf{b}$, and what does that tell you geometrically?
+
+**Solution:** $1\cdot0 + 0\cdot1 = 0$ — the vectors are perpendicular ($\theta=90°$).
+
+<QuizCard
+  question="Two embedding vectors have a large positive dot product but very different norms (one much longer). What does cosine similarity do that raw dot product doesn't?"
+  options={[
+    'Nothing — they measure the same thing',
+    'Cosine similarity divides out the magnitudes, isolating how aligned the directions are regardless of vector length',
+    'Cosine similarity is only defined for unit vectors',
+    'Cosine similarity always equals the dot product for embeddings'
+  ]}
+  correct={1}
+/>

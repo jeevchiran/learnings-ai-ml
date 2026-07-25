@@ -1,0 +1,73 @@
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import EigenWidget from '../../components/widgets/math-ml/EigenWidget.jsx'
+
+## Inverse, Determinant, Rank — Can You Undo M?
+
+<ConceptBox title="Three questions about a matrix M">
+- **Determinant** $\det(M)$ — the area/volume scale factor (Module 2). $\det(M)=0$ means M *collapses* space into a lower dimension — information is destroyed, and there's no way back.
+- **Invertible** — $M^{-1}$ exists iff $\det(M) \neq 0$. $M^{-1}M = I$ (the identity, which does nothing) — applying $M$ then $M^{-1}$ returns every point to where it started.
+- **Rank** — the dimension of the output space M actually reaches. A 2×2 matrix has rank 2 (full, invertible), rank 1 (collapses the plane onto a line), or rank 0 (collapses everything to the origin).
+</ConceptBox>
+
+Solving a linear system $A\mathbf{x}=\mathbf{b}$ (as in solving normal equations for linear regression) is exactly asking "which input landed on $\mathbf{b}$?" — that only has a unique answer when $A$ is invertible.
+
+## Eigenvalues & Eigenvectors
+
+Most directions get rotated *and* scaled by a transformation. An **eigenvector** is a special direction that only gets **scaled** — it doesn't rotate off its own line.
+
+<DerivationSteps>
+<DerivationStep number={1} title="The defining equation">
+$$M\mathbf{v} = \lambda \mathbf{v}$$
+$\mathbf{v}$ (nonzero) is an eigenvector, $\lambda$ its eigenvalue — the amount that direction gets stretched (or flipped, if $\lambda<0$; or shrunk, if $|\lambda|<1$).
+</DerivationStep>
+<DerivationStep number={2} title="Finding them">
+$$(M-\lambda I)\mathbf{v} = 0$$
+This has a nonzero solution only when $\det(M-\lambda I)=0$ — the **characteristic equation**. For a 2×2 matrix this is a quadratic in $\lambda$, solvable directly from the trace and determinant.
+</DerivationStep>
+<DerivationStep number={3} title="What the eigenvalues tell you">
+$\det(M) = \lambda_1\lambda_2$ and $\text{trace}(M)=\lambda_1+\lambda_2$. Both eigenvalues real and positive → M stretches everything outward (relevant for optimization curvature, Module 11). One negative → a saddle-like flip. Complex eigenvalues → a pure rotation, with **no** real eigenvector at all.
+</DerivationStep>
+</DerivationSteps>
+
+<EigenWidget />
+
+<ConceptBox title="Common confusion — eigenvectors aren't unique in length">
+If $\mathbf{v}$ is an eigenvector, so is $2\mathbf{v}$, $-\mathbf{v}$, any nonzero scalar multiple — same direction, same eigenvalue. Libraries return them normalized to unit length by convention, but the *direction* is the meaningful part.
+</ConceptBox>
+
+## In Python (NumPy)
+
+```python
+import numpy as np
+
+M = np.array([[3, 1], [1, 3]])   # symmetric — guaranteed real eigenvalues
+
+eigenvalues, eigenvectors = np.linalg.eig(M)
+print(eigenvalues)        # e.g. [4, 2]
+print(eigenvectors)       # columns are the eigenvectors
+
+print(np.linalg.det(M))               # 8
+print(np.linalg.matrix_rank(M))       # 2
+print(np.linalg.inv(M))               # exists since det != 0
+```
+
+## Practice
+
+**Problem 1.** $M = \begin{bmatrix}5&0\\0&1\end{bmatrix}$. Eigenvalues by inspection?
+
+**Solution:** For a diagonal matrix, the eigenvalues ARE the diagonal entries: $\lambda=5$ (eigenvector $[1,0]$) and $\lambda=1$ (eigenvector $[0,1]$) — no rotation involved, so the axes themselves are the eigenvectors.
+
+**Problem 2.** $\det(M)=0$ for some matrix M. What does that tell you about its eigenvalues, and about $M^{-1}$?
+
+**Solution:** Since $\det(M)=\lambda_1\lambda_2$, one eigenvalue must be 0. $M^{-1}$ does not exist — M collapses at least one direction to zero, and that information can't be recovered.
+
+<QuizCard
+  question="A 2x2 matrix has eigenvalues 4 and -2. What does this tell you about the transformation?"
+  options={[
+    'It rotates every vector by some angle with no scaling',
+    'It stretches one direction by 4x and flips + stretches a different direction by 2x — det = -8, so it also flips orientation',
+    'It is not invertible',
+    'Both eigenvectors point in the same direction'
+  ]}
+  correct={1}
+/>

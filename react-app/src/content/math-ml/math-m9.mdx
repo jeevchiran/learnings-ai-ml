@@ -1,0 +1,73 @@
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import DerivativeWidget from '../../components/widgets/math-ml/DerivativeWidget.jsx'
+
+## Starting the Calculus Track
+
+Vectors gave us space, probability gave us uncertainty — calculus gives us **optimization**: the machinery every training loop uses to turn "here's how wrong the model is" into "here's how to adjust it."
+
+## The Derivative
+
+$$f'(x) = \lim_{h\to0}\frac{f(x+h)-f(x)}{h}$$
+
+The instantaneous rate of change — geometrically, the slope of the line tangent to $f$ at $x$. $f'(x)>0$: increasing. $f'(x)<0$: decreasing. $f'(x)=0$: flat — a candidate minimum, maximum, or saddle.
+
+<DerivativeWidget />
+
+## Partial Derivatives & the Gradient
+
+Real models have many parameters, not one. A **partial derivative** $\frac{\partial f}{\partial x}$ treats every other variable as a constant and asks "how does $f$ change if only $x$ moves?" Stack all of them into a vector and you get the **gradient**:
+
+$$\nabla f = \left[\frac{\partial f}{\partial x_1}, \frac{\partial f}{\partial x_2}, \dots, \frac{\partial f}{\partial x_n}\right]$$
+
+The gradient points in the direction of **steepest ascent** — which is exactly why gradient *descent* (Module 10) moves opposite to it.
+
+## The Chain Rule
+
+<DerivationSteps>
+<DerivationStep number={1} title="Single variable">
+$$\frac{d}{dx}f(g(x)) = f'(g(x))\cdot g'(x)$$
+The derivative of a composition is the product of the derivatives of each piece — "how much does the outer function change per unit of inner function, times how much the inner function changes per unit of x."
+</DerivationStep>
+<DerivationStep number={2} title="Why this is backpropagation">
+A neural network is a composition of layers: $\text{loss}(\dots f_3(f_2(f_1(x))))$. Backprop computes $\frac{\partial \text{loss}}{\partial w}$ for every weight $w$ buried inside that composition by repeatedly applying the chain rule, layer by layer, back to front — multiplying local derivatives along the way.
+</DerivationStep>
+</DerivationSteps>
+
+<ConceptBox title="Common confusion — a zero gradient isn't always a minimum">
+$f'(x)=0$ also happens at local maxima and saddle points. Distinguishing them needs the *second* derivative (Module 11) — positive curvature confirms a minimum, negative confirms a maximum, mixed signs (in multiple dimensions) mean a saddle.
+</ConceptBox>
+
+## In Python (Autodiff, not by hand)
+
+```python
+import torch
+
+x = torch.tensor(2.0, requires_grad=True)
+y = (x ** 3) - 3 * x          # f(x) = x^3 - 3x
+
+y.backward()                   # computes dy/dx automatically via the chain rule
+print(x.grad)                  # 9.0  ==  3*(2**2) - 3, the analytic derivative
+```
+
+PyTorch's `autograd` is literally the chain rule applied automatically through every operation you write — this is what makes training arbitrary architectures practical without hand-deriving gradients.
+
+## Practice
+
+**Problem 1.** $f(x) = x^3 - 3x$. Find where $f'(x)=0$.
+
+**Solution:** $f'(x) = 3x^2-3 = 0 \implies x=\pm1$ — two flat points (one local max, one local min; verified with the widget above).
+
+**Problem 2.** $f(x) = (2x+1)^2$. Use the chain rule to find $f'(x)$.
+
+**Solution:** Outer function $u^2$ (derivative $2u$), inner $u=2x+1$ (derivative 2). $f'(x) = 2(2x+1)\cdot2 = 4(2x+1) = 8x+4$.
+
+<QuizCard
+  question="A neural network's loss is a composition of many layer functions. What rule computes how the loss changes with respect to a weight buried deep inside the network?"
+  options={[
+    'The fundamental theorem of calculus',
+    "The chain rule, applied repeatedly from the loss backward through each layer's local derivative",
+    'Direct numerical differentiation of the whole network at once',
+    'Integration by parts'
+  ]}
+  correct={1}
+/>

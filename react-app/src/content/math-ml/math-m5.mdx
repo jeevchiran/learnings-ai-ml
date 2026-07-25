@@ -1,0 +1,74 @@
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import BayesWidget from '../../components/widgets/math-ml/BayesWidget.jsx'
+
+## Starting the Probability Track
+
+Linear algebra described *space*; probability describes *uncertainty* — the language for noisy labels, model confidence, and the loss functions used to fit almost every model in this curriculum.
+
+<ConceptBox title="The vocabulary">
+- **Sample space** $\Omega$ — the set of all possible outcomes (e.g. all 6 faces of a die).
+- **Event** — any subset of outcomes you care about (e.g. "rolled even").
+- **P(A)** — a number in $[0,1]$ measuring how likely event A is; $P(\Omega)=1$.
+- **Independence** — A and B are independent iff $P(A \cap B) = P(A)P(B)$ — knowing one tells you nothing about the other.
+</ConceptBox>
+
+## Conditional Probability
+
+$$P(A\mid B) = \frac{P(A\cap B)}{P(B)}$$
+
+"Given that B happened, how likely is A?" — this is the single most-used probability tool in ML: a classifier's output *is* $P(\text{class}\mid \text{features})$.
+
+## Bayes' Theorem
+
+<DerivationSteps>
+<DerivationStep number={1} title="Start from conditional probability, both directions">
+$$P(A\cap B) = P(A\mid B)P(B) = P(B\mid A)P(A)$$
+</DerivationStep>
+<DerivationStep number={2} title="Solve for what you want">
+$$P(A\mid B) = \frac{P(B\mid A)P(A)}{P(B)}$$
+Bayes lets you **flip** a conditional: turn "P(evidence | hypothesis)," which is often what you can measure or model, into "P(hypothesis | evidence)," which is usually what you actually want.
+</DerivationStep>
+<DerivationStep number={3} title="Expand the denominator">
+$$P(B) = P(B\mid A)P(A) + P(B\mid \neg A)P(\neg A)$$
+The **law of total probability** — B happens either alongside A or alongside not-A, so sum both paths.
+</DerivationStep>
+</DerivationSteps>
+
+<BayesWidget />
+
+<ConceptBox title="Common confusion — P(B|A) ≠ P(A|B)">
+"90% of positive tests are accurate" and "90% of people who test positive have the disease" are *different claims* — confusing them is the prosecutor's fallacy. The widget above is built specifically to make that gap visible: a rare condition plus an imperfect test means most positives are false, even at high sensitivity.
+</ConceptBox>
+
+## In Python
+
+```python
+def bayes(p_a, p_b_given_a, p_b_given_not_a):
+    p_b = p_b_given_a * p_a + p_b_given_not_a * (1 - p_a)
+    return (p_b_given_a * p_a) / p_b
+
+# 1% prevalence, 90% sensitivity, 5% false-positive rate
+posterior = bayes(p_a=0.01, p_b_given_a=0.90, p_b_given_not_a=0.05)
+print(f'{posterior:.1%}')   # ~15.4% — most positives are false alarms
+```
+
+## Practice
+
+**Problem 1.** $P(A)=0.3$, $P(B\mid A)=0.6$, $P(B\mid \neg A)=0.2$. Find $P(A\mid B)$.
+
+**Solution:** $P(B) = 0.6(0.3)+0.2(0.7) = 0.18+0.14=0.32$. $P(A\mid B) = 0.18/0.32 = 0.5625$.
+
+**Problem 2.** Two events have $P(A)=0.4$, $P(B)=0.5$, $P(A\cap B)=0.2$. Are they independent?
+
+**Solution:** Independence requires $P(A)P(B)=0.2$ — it matches exactly, so yes, independent.
+
+<QuizCard
+  question="A disease has 1% prevalence. A test is 95% sensitive and has a 10% false-positive rate. Roughly, why is P(disease | positive test) much lower than 95%?"
+  options={[
+    'The test is broken',
+    'Because false positives from the much larger healthy population (10% of 99%) swamp the true positives from the small diseased population (95% of 1%)',
+    'Bayes theorem does not apply to medical tests',
+    'Sensitivity and false-positive rate must always sum to 100%'
+  ]}
+  correct={1}
+/>

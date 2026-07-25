@@ -1,0 +1,70 @@
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import LikelihoodWidget from '../../components/widgets/math-ml/LikelihoodWidget.jsx'
+
+## The Bridge to "Training a Model"
+
+Every model-fitting procedure in this curriculum — linear regression's least squares, logistic regression's cross-entropy, a neural net's loss function — is secretly the same idea: **pick the parameters that make the observed data most probable.** That idea has a name: **Maximum Likelihood Estimation.**
+
+<DerivationSteps>
+<DerivationStep number={1} title="The likelihood function">
+$$L(\theta \mid \text{data}) = P(\text{data}\mid \theta)$$
+Same formula as a PMF/PDF, but read backwards: fix the *data* you observed, and treat it as a function of the unknown parameter $\theta$. "How probable would this data have been, if $\theta$ were the true parameter?"
+</DerivationStep>
+<DerivationStep number={2} title="Maximize it">
+$$\hat\theta_{MLE} = \arg\max_\theta L(\theta\mid\text{data})$$
+Sweep every candidate $\theta$, find the one under which your actual observed data was most likely.
+</DerivationStep>
+<DerivationStep number={3} title="Log-likelihood — same argmax, easier math">
+$$\ell(\theta) = \log L(\theta) = \sum_i \log P(x_i\mid\theta)$$
+Log turns a product of many small probabilities (which underflows numerically) into a sum, and log is monotonic so the maximizing $\theta$ doesn't change. This is why you'll see "log-likelihood" or "negative log-likelihood loss" everywhere in ML code — it's MLE, just always in log form.
+</DerivationStep>
+</DerivationSteps>
+
+## Worked Example: Coin Flips
+
+Flip a coin $n$ times, observe $k$ heads. Each flip is Bernoulli($p$), so:
+
+$$\ell(p) = k\log p + (n-k)\log(1-p)$$
+
+Take the derivative (Module 9), set it to zero: $\dfrac{d\ell}{dp} = \dfrac{k}{p} - \dfrac{n-k}{1-p} = 0 \implies \hat p_{MLE} = \dfrac{k}{n}$ — exactly the sample proportion. No surprise — but the same three-step machine (write likelihood → log it → maximize with calculus) is what derives logistic regression's loss, a Gaussian's mean/variance estimators, and more.
+
+<LikelihoodWidget />
+
+<ConceptBox title="Common confusion — MLE can overfit with little data">
+With $n=1$ and 1 head, $\hat p_{MLE}=1$ — "this coin always lands heads," from a single flip. MLE has no built-in skepticism; regularization (a prior, in Bayesian terms) is what tempers that overconfidence with small samples.
+</ConceptBox>
+
+## In Python
+
+```python
+import numpy as np
+from scipy.optimize import minimize_scalar
+
+heads, n = 14, 20
+
+neg_log_likelihood = lambda p: -(heads * np.log(p) + (n - heads) * np.log(1 - p))
+result = minimize_scalar(neg_log_likelihood, bounds=(1e-6, 1 - 1e-6), method='bounded')
+
+print(result.x, heads / n)   # both give ~0.70 — numerical optimization matches the closed form
+```
+
+## Practice
+
+**Problem 1.** 8 heads in 20 flips. What's $\hat p_{MLE}$?
+
+**Solution:** $8/20 = 0.4$.
+
+**Problem 2.** Why do ML training logs report "loss" going down instead of "likelihood" going up?
+
+**Solution:** Loss is typically the *negative* log-likelihood — minimizing negative log-likelihood is the same optimization as maximizing log-likelihood, just framed to match the "minimize a cost" convention used by optimizers.
+
+<QuizCard
+  question="Why is log-likelihood used instead of raw likelihood when fitting models to large datasets?"
+  options={[
+    'Log-likelihood gives a different, more correct answer than raw likelihood',
+    'Multiplying many small probabilities underflows numerically; summing their logs is numerically stable and gives the same maximizing parameter, since log is monotonic',
+    'Raw likelihood cannot be differentiated',
+    'Log-likelihood is only valid for Gaussian data'
+  ]}
+  correct={1}
+/>
