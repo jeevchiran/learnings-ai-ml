@@ -29,7 +29,7 @@ export default function Dashboard() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.18 }}
     >
-      <h1 className="dashboard-heading">AI/ML Learning Portal</h1>
+      <h1 className="dashboard-heading">ML Atlas</h1>
       <p className="dashboard-sub">Self-paced interactive courses for data science and engineering.</p>
 
       <div className="stats-row">

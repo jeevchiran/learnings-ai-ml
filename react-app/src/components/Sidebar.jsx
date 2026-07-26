@@ -65,7 +65,7 @@ export default function Sidebar({ dark, onToggleDark, mobileOpen, collapsed, onC
             tabIndex={0}
             onKeyDown={e => e.key === 'Enter' && navigate('/')}
           >
-            AI/ML Portal
+            ML Atlas
           </span>
           <div className="sidebar-controls">
             <button className="icon-btn" onClick={onToggleDark} aria-label="Toggle dark mode" title="Toggle dark mode">

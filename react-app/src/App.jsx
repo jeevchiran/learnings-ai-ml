@@ -12,7 +12,7 @@ function AppInner({ dark, onToggleDark, sidebarOpen, collapsed, onOpen, onClose,
     <>
       <div className="mobile-header">
         <button className="icon-btn" onClick={onOpen} aria-label="Open menu">☰</button>
-        <Link to="/" style={{ fontWeight: 700, fontSize: '0.9rem', color: 'inherit', textDecoration: 'none' }}>AI/ML Portal</Link>
+        <Link to="/" style={{ fontWeight: 700, fontSize: '0.9rem', color: 'inherit', textDecoration: 'none' }}>ML Atlas</Link>
         <button className="icon-btn" onClick={onToggleDark} style={{ marginLeft: 'auto' }}>
           {dark ? '☀' : '◑'}
         </button>
