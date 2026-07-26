@@ -1,12 +1,15 @@
-import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useMatch } from 'react-router-dom'
 import { courses } from '../data/courses.js'
 import { useProgressContext } from '../hooks/useProgress.jsx'
 import SearchBar from './SearchBar.jsx'
 
-export default function Sidebar({ dark, onToggleDark, mobileOpen, onClose }) {
-  const { moduleId: activeId } = useParams();
+export default function Sidebar({ dark, onToggleDark, mobileOpen, collapsed, onClose, onHide }) {
+  // useParams() is empty here — Sidebar renders outside <Routes>, so it matches no route.
+  // useMatch works anywhere inside the Router.
+  const activeId = useMatch('/module/:moduleId')?.params.moduleId;
   const navigate  = useNavigate();
+  const activeRef = useRef(null);
   const { isCompleted, isBookmarked, toggleBookmark, getTrackProgress } = useProgressContext();
 
   const [expanded, setExpanded] = useState(() => {
@@ -20,6 +23,19 @@ export default function Sidebar({ dark, onToggleDark, mobileOpen, onClose }) {
     }
     return init;
   });
+
+  // Any navigation to a module opens its track: search, dashboard card, prev/next, direct URL.
+  // Only ever expands, so a track the user collapsed by hand stays collapsed.
+  useEffect(() => {
+    if (!activeId) return;
+    const track = courses.find(c => c.modules.some(m => m.id === activeId));
+    if (track) setExpanded(prev => (prev[track.id] ? prev : { ...prev, [track.id]: true }));
+  }, [activeId]);
+
+  // Depends on `expanded` too: re-runs after the track opens, when activeRef finally exists.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [activeId, expanded]);
 
   function toggleTrack(id) {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
@@ -39,7 +55,7 @@ export default function Sidebar({ dark, onToggleDark, mobileOpen, onClose }) {
   }
 
   return (
-    <aside className={`sidebar${mobileOpen ? ' mobile-open' : ''}`}>
+    <aside className={`sidebar${mobileOpen ? ' mobile-open' : ''}${collapsed ? ' collapsed' : ''}`}>
       <div className="sidebar-top">
         <div className="sidebar-brand">
           <span
@@ -55,7 +71,7 @@ export default function Sidebar({ dark, onToggleDark, mobileOpen, onClose }) {
             <button className="icon-btn" onClick={onToggleDark} aria-label="Toggle dark mode" title="Toggle dark mode">
               {dark ? '☀' : '◑'}
             </button>
-            <button className="icon-btn" onClick={onClose} aria-label="Close sidebar">✕</button>
+            <button className="icon-btn" onClick={onHide} aria-label="Hide sidebar" title="Hide sidebar">✕</button>
           </div>
         </div>
         <SearchBar />
@@ -97,6 +113,7 @@ export default function Sidebar({ dark, onToggleDark, mobileOpen, onClose }) {
                     return (
                       <div
                         key={mod.id}
+                        ref={active ? activeRef : null}
                         className={`module-item${active ? ' active' : ''}`}
                         onClick={() => goModule(mod.id)}
                         role="button"

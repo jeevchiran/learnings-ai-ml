@@ -6,7 +6,7 @@ import Sidebar from './components/Sidebar.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import ModuleViewer from './components/ModuleViewer.jsx'
 
-function AppInner({ dark, onToggleDark, sidebarOpen, onOpen, onClose }) {
+function AppInner({ dark, onToggleDark, sidebarOpen, collapsed, onOpen, onClose, onHide }) {
   const location = useLocation()
   return (
     <>
@@ -23,7 +23,19 @@ function AppInner({ dark, onToggleDark, sidebarOpen, onOpen, onClose }) {
           className={`sidebar-overlay${sidebarOpen ? ' active' : ''}`}
           onClick={onClose}
         />
-        <Sidebar dark={dark} onToggleDark={onToggleDark} mobileOpen={sidebarOpen} onClose={onClose} />
+        <Sidebar
+          dark={dark}
+          onToggleDark={onToggleDark}
+          mobileOpen={sidebarOpen}
+          collapsed={collapsed}
+          onClose={onClose}
+          onHide={onHide}
+        />
+
+        {/* Desktop only — mobile already has the ☰ in .mobile-header. */}
+        {collapsed && (
+          <button className="sidebar-reopen" onClick={onOpen} aria-label="Show sidebar" title="Show sidebar">☰</button>
+        )}
 
         <main className="main-panel">
           <AnimatePresence mode="wait">
@@ -43,6 +55,8 @@ export default function App() {
     try { return localStorage.getItem('theme') === 'dark'; } catch { return false; }
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Desktop-only hide. On mobile the CSS ignores it and `sidebarOpen` still drives the drawer.
+  const [collapsed, setCollapsed] = useState(false);
 
   const toggleDark = useCallback(() => {
     setDark(d => {
@@ -63,8 +77,10 @@ export default function App() {
           dark={dark}
           onToggleDark={toggleDark}
           sidebarOpen={sidebarOpen}
-          onOpen={() => setSidebarOpen(true)}
+          collapsed={collapsed}
+          onOpen={() => { setSidebarOpen(true); setCollapsed(false); }}
           onClose={() => setSidebarOpen(false)}
+          onHide={() => { setSidebarOpen(false); setCollapsed(true); }}
         />
       </ProgressProvider>
     </HashRouter>
