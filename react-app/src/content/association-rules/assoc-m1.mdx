@@ -1,5 +1,12 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import SupportConfidenceWidget from '../../components/widgets/association-rules/SupportConfidenceWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Unsupervised, but not clustering: we group **items that co-occur**, not customers.
+- Three numbers judge a rule $A\Rightarrow B$: **support** = how often (is it worth acting on?), **confidence** = $P(B\mid A)$ (how reliable?), **lift** = $P(B\mid A)/P(B)$ (is it real?).
+- **Lift is the honest one.** Confidence alone rewards popular consequents — a rule can hit 0.9 confidence purely because $B$ is in most baskets.
+- Read lift as: $>1$ positive association, $=1$ independent, $<1$ negative.
+</ConceptBox>
 
 ## Why Association Rules?
 
@@ -89,6 +96,13 @@ Consider $\{Beer\} \Rightarrow \{Milk\}$: Beer in 7 baskets, both in 5, so confi
 **Problem 3 — Lift and interpretation.** For $\{Diaper\} \Rightarrow \{Beer\}$, Beer's support is 0.70. Lift?
 
 **Solution:** lift $= 0.71 / 0.70 \approx 1.02$. Essentially **independent** — diapers and beer co-occur at almost exactly the chance rate here, despite the folklore. A lesson in checking your data before trusting a story.
+
+<Recall items={[
+  { q: "Write support, confidence and lift as probabilities, then say what each one guards against.", a: "support(A,B) = P(A and B) guards against acting on noise. confidence = P(B|A) guards against an unreliable implication. lift = P(B|A)/P(B) guards against being fooled by a popular consequent — it is the only one that compares against a baseline." },
+  { q: "Every rule with 'plastic bags' as the consequent shows 95% confidence. What is going on?", a: "Nearly every basket contains a bag, so P(bag) is around 0.95 already. Confidence just recovers that baseline regardless of the antecedent. Lift will sit at about 1.0, correctly reporting no association — this is exactly the failure mode confidence alone cannot see." },
+  { q: "Is lift symmetric? Does A ⇒ B have the same lift as B ⇒ A?", a: "Yes. lift = P(A and B) / (P(A)P(B)), which is unchanged if you swap A and B. Confidence is NOT symmetric, since P(B|A) and P(A|B) differ whenever the two items have different supports — so direction matters for confidence but not for lift." },
+  { q: "A rule has lift 4.0 and support 0.0002. Act on it?", a: "Probably not. The association is strong relative to baseline, but it appears in 2 baskets in 10,000 — the lift estimate rests on a handful of transactions, so it is both statistically unstable and commercially negligible. High lift on tiny support is the classic false-discovery trap." },
+]} />
 
 <QuizCard
   question="A rule {A} ⇒ {B} has confidence 0.9 but lift 0.8. What does this tell you?"

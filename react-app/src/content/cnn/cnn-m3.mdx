@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import FeatureMapWidget from '../../components/widgets/cnn/FeatureMapWidget.jsx'
 
 # Module 3: Feature Maps & Filters
+
+<ConceptBox title="TL;DR">
+- **A "3×3 kernel" on RGB is really 3×3×3 = 27 weights.** A filter always spans *every* input channel and sums across them, collapsing the channel dimension to one scalar per position.
+- So one filter → one feature map; $C_{out}$ filters → a $H\times W\times C_{out}$ tensor.
+- Parameters per layer: $K\times K\times C_{in}\times C_{out} + C_{out}$.
+- The standard shape trajectory is **spatial dimensions shrink, channel count grows** — trading "where" for "what".
+- **Receptive field grows with depth**, which is why deep layers encode abstract parts and shallow ones encode edges.
+</ConceptBox>
 
 <Bridge>
 **From Module 2:** a single kernel slides over the input and produces a single 2-D output — one feature map. Real conv layers apply *many* kernels simultaneously, each detecting a different pattern. This module covers multichannel convolution: how multiple filters produce multiple feature maps, how the receptive field grows with depth, and how to count parameters precisely in a multi-channel setting.
@@ -152,6 +160,14 @@ Deeper layers compose primitives into parts, exponentially expanding the feature
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "How many weights does 'a 3x3 kernel' have on a 64-channel input?", a: "3 times 3 times 64 = 576, plus one bias. A filter always extends through the full depth of its input — the '3x3' names only the spatial extent. Forgetting the channel dimension is the single most common parameter-counting error." },
+  { q: "Why does one filter produce exactly one feature map, regardless of input channels?", a: "Because the filter computes a dot product over its whole 3-D extent — spatial positions AND all input channels — and sums the result into a single scalar per position. The channel dimension is absorbed by that sum. To get more output channels you need more filters, not a bigger one." },
+  { q: "Write the parameter count for Conv2d(64, 128, kernel_size=3).", a: "3 times 3 times 64 times 128 = 73,728 weights, plus 128 biases, giving 73,856. Note that it is independent of the input's spatial size — the same layer costs the same on a 32x32 map or a 224x224 one, which is exactly the weight-sharing benefit from Module 1." },
+  { q: "Spatial size falls while channel count rises through a CNN. What is being traded?", a: "Precise location for semantic richness. Early layers keep high spatial resolution with few channels because they encode simple, position-specific things like edges. Deeper layers keep many channels at low resolution because they encode what is present — a wheel, a face — where the exact pixel no longer matters." },
+  { q: "Why do deeper layers detect more abstract patterns?", a: "Because their receptive field is larger. A neuron in layer 1 sees a 3x3 patch of raw pixels, so it can only respond to an edge; a neuron several layers down indirectly sees a large region of the original image through the stacked kernels, so it can respond to a configuration of edges — a texture, then a part, then an object." },
+]} />
 
 <MultiSelectQuiz
   question="Which of the following are true about feature maps in a CNN?"

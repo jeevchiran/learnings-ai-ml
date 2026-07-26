@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import ErrorRegionWidget from '../../components/widgets/hypothesis-testing/ErrorRegionWidget.jsx'
 import PValueWidget from '../../components/widgets/hypothesis-testing/PValueWidget.jsx'
 import CriticalValueWidget from '../../components/widgets/hypothesis-testing/CriticalValueWidget.jsx'
@@ -6,6 +6,14 @@ import CriticalValueWidget from '../../components/widgets/hypothesis-testing/Cri
 <Bridge>
 **Why it matters.** A jury can make exactly two mistakes: convict the innocent, or acquit the guilty. They pull opposite ways — a jury reluctant to convict rarely jails the innocent but lets more guilty walk. Every hypothesis test faces the same two errors. Understanding, quantifying, and balancing them is the most consequential decision in any analysis.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- **Type I ($\alpha$)** = false alarm, rejecting a true $H_0$. **Type II ($\beta$)** = missed effect. **Power** $=1-\beta$.
+- At fixed $n$, $\alpha$ and $\beta$ pull against each other. **Only a larger $n$ reduces both** — which is why sample size, $\alpha$, and target power are one decision.
+- The p-value is $P(\text{data this extreme}\mid H_0\text{ true})$ — **not** the probability that $H_0$ is true, not the probability the result was chance, not your error rate on rejecting.
+- Critical-value and p-value methods are the same geometry read two ways; they never disagree.
+- Memorise: two-tailed $z^*=1.96$ ($\alpha{=}.05$) and $2.576$ ($\alpha{=}.01$); one-tailed $1.645$ ($\alpha{=}.05$).
+</ConceptBox>
 
 ## Two Types of Error
 
@@ -136,6 +144,14 @@ New study app, historical $\mu_0 = 75$, $\sigma = 10$, $n = 25$, $\bar{x} = 79$.
 **Critical value:** $z^* = z_{0.05} = 1.645$; $2.00 > 1.645$ → **reject**.
 
 **Conclusion:** Both agree — at 5%, sufficient evidence the app raises scores above 75. (Statistical significance ≠ practical significance — weigh the 4-point gain on its real-world merit.)
+
+<Recall items={[
+  { q: "State precisely what p = 0.03 means, then state three things it does NOT mean.", a: "It means: if H0 were true, 3% of samples would produce a statistic at least this extreme. It does NOT mean there is a 3% chance H0 is true — H0 is not random and p was computed assuming it. It does NOT mean a 3% chance the result was due to chance. And it does NOT mean a 3% chance you are wrong to reject; that depends on how often H0 holds across the tests you run." },
+  { q: "Why can't you reduce both alpha and beta at fixed n?", a: "They are two tails of the same picture. Shrinking alpha moves the rejection boundary further out, which necessarily puts more of the alternative distribution on the non-rejection side — raising beta. Only increasing n changes the picture, by shrinking the standard error so the two distributions overlap less." },
+  { q: "A study reports p = 0.34 and concludes 'the drug has no effect.' What is wrong?", a: "Two things. It converts 'failed to reject' into 'accepted the null', which the test cannot support. And it ignores power: with a small sample or a noisy outcome, beta may be so high that a real, clinically important effect would usually go undetected. The honest statement is that this study did not detect an effect, plus the effect size it had power to find." },
+  { q: "Why do particle physics and genomics use alpha far below 0.05?", a: "Because they run enormous numbers of tests. At alpha = 0.05, a million genomic comparisons yield 50,000 false positives by construction. Tightening alpha — 5-sigma in physics, Bonferroni-corrected thresholds in genomics — keeps the expected number of false discoveries near zero despite the multiplicity." },
+  { q: "Show why the p-value and critical-value methods can never disagree.", a: "z* is DEFINED as the statistic whose tail area equals alpha. So |Z| = z* corresponds exactly to p = alpha, and because tail area decreases monotonically as the statistic grows, |Z| > z* is equivalent to p < alpha. They are the same inequality expressed on the statistic scale versus the probability scale." },
+]} />
 
 <QuizCard
   question="A Type II error (β) occurs when:"

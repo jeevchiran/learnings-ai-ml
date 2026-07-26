@@ -1,6 +1,14 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Multivariate Analysis
+
+<ConceptBox title="TL;DR">
+- **A third variable can reverse a two-variable story.** The distance–fare correlation from Module 7 is really two regimes, metered and flat-rate, averaged into one misleading line.
+- `pivot_table(values, index, columns, aggfunc)` and `groupby([a, b]).agg().unstack()` produce the same thing by different routes.
+- Colour-encoding a scatter by a category is the cheapest way to see three dimensions at once — and usually the fastest way to spot a hidden regime.
+- **Facets beat colour when groups overlap**: `FacetGrid` repeats the chart per category so crowded points don't mask each other.
+- Watch cell counts in a pivot table. A mean over two rows looks just as authoritative as a mean over two thousand.
+</ConceptBox>
 
 ## What, Why, and How
 
@@ -161,6 +169,13 @@ You hypothesise that high passenger_count trips have lower average tip_amount pe
 <Bridge>
 **What's next: putting it all together in a full EDA workflow.** You have now worked through every major EDA technique — missing values, invalid data, outliers, datetime features, univariate distributions, bivariate correlations, and multivariate interactions. Module 9 (Capstone) walks you through a complete end-to-end EDA on the taxi dataset, applying all techniques in sequence and producing a concise findings report.
 </Bridge>
+
+<Recall items={[
+  { q: "Why did the distance-fare relationship need a THIRD variable to be understood?", a: "Because two different pricing regimes were mixed together. Metered rides scale with distance; RatecodeID 2 airport trips charge a flat rate regardless. Averaged into one scatter they produce a single mediocre line that describes neither group. Splitting on RatecodeID reveals a clean relationship in one group and a flat band in the other." },
+  { q: "Give the groupby equivalent of a pivot_table with aggfunc='mean', and say what .unstack() does.", a: "df.groupby(['RatecodeID','passenger_count'])['fare_amount'].mean().unstack(). The groupby produces a Series with a two-level MultiIndex; unstack moves the inner level into columns, converting that long Series into the same 2-D table pivot_table returns directly." },
+  { q: "When should you facet rather than colour-encode a third variable?", a: "When the groups overlap heavily in the x-y plane. Colour puts every group in one set of axes, so dense regions become an unreadable pile and the later-drawn group hides the earlier one. Faceting gives each group its own panel on shared axes, which preserves comparability while removing occlusion." },
+  { q: "A pivot cell shows a mean fare of $87. What must you check before reporting it?", a: "How many rows it aggregates. A pivot table renders a mean over two observations with exactly the same authority as one over two thousand, and rare category combinations produce cells that are pure noise. Run the same pivot with aggfunc='count' alongside it, and treat thin cells as unreliable." },
+]} />
 
 <QuizCard
   question="What does df.pivot_table(values='fare_amount', index='RatecodeID', columns='passenger_count', aggfunc='mean') produce?"

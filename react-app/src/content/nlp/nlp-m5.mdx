@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import WordNetWidget from '../../components/widgets/nlp/WordNetWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Six relations to hold: synonymy, antonymy, **hyponymy/hypernymy** (IS-A), **meronymy/holonymy** (PART-OF), polysemy, homonymy.
+- **Polysemy = related senses of one word** ("head" of a body, of a company). **Homonymy = unrelated meanings that collided in spelling** ("bank").
+- That distinction is practical: polysemous senses share structure so context clues transfer between them; homonyms need wholly separate evidence.
+- **WordNet's unit is the synset, not the word** — a concept plus its synonymous lemmas and a gloss.
+- **Lesk** disambiguates by maximising overlap between the sentence context and each sense's gloss — cheap, no training, and limited by how short glosses are.
+</ConceptBox>
 
 <Bridge>
 Parse trees capture grammatical structure but are silent about meaning — NP and VP labels say nothing about what concepts or actions are involved. **Lexical semantics** bridges this gap by formalizing how individual words encode meaning and relate to each other.
@@ -147,6 +155,13 @@ print(result.name(), ":", result.definition())
 </CodeBlock>
 
 <WordNetWidget />
+
+<Recall items={[
+  { q: "Polysemy or homonymy: 'head' (body part / company leader) and 'bank' (money / river)? Why does the difference matter?", a: "'Head' is polysemy — the senses share a core notion of topmost or primary, and they descend from one word. 'Bank' is homonymy — two etymologically unrelated words that converged in spelling. It matters because polysemous senses share conceptual structure, so evidence that resolves one often helps another, while homonyms require entirely independent evidence per sense." },
+  { q: "Distinguish hyponymy from meronymy with an example of each.", a: "Hyponymy is IS-A: a poodle is a kind of dog, which is a kind of animal — and it is transitive up the chain. Meronymy is PART-OF: a wheel is part of a car, but a wheel is not a kind of car. Conflating them produces nonsense inferences, since PART-OF does not license the same substitutions IS-A does." },
+  { q: "Why is WordNet organised around synsets rather than words?", a: "Because meaning attaches to concepts, not to spellings. 'Couch' and 'sofa' denote the same concept and belong in one synset; 'bank' denotes several and appears in several. Indexing by concept lets the semantic relations — IS-A, PART-OF — be drawn between meanings rather than between ambiguous strings." },
+  { q: "How does Lesk pick a sense, and what is its main weakness?", a: "It counts word overlap between the surrounding context and each candidate sense's gloss, choosing the maximum — so 'opened an account at the bank' matches the financial synset whose gloss mentions deposits and accounts. Its weakness is that glosses are short, so overlap is often zero or one word, making the decision noisy and sensitive to exact wording." },
+]} />
 
 <QuizCard
   question="The Lesk algorithm selects the sense of a word by finding the synset whose gloss has the maximum overlap with the sentence context. 'He opened an account at the bank.' Which synset would it prefer, and why?"

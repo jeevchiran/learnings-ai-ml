@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import CurseWidget from '../../components/widgets/model-eval/CurseWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- "More features can't hurt, the model ignores the useless ones" is wrong often enough to be dangerous.
+- **The curse has two halves.** Covering space needs $k^d$ points (exponential), and pairwise distances concentrate until every point looks equidistant — which quietly breaks k-NN, clustering, and kernels.
+- Both are geometry. No smarter algorithm fixes them; only more data or fewer dimensions.
+- Three practical costs: noise features add variance, correlated features destabilise linear coefficients, and everything gets slower and less explainable.
+- **Selection keeps original, interpretable columns. Reduction (PCA) builds new mixed ones.** Different tools for different goals.
+</ConceptBox>
 
 ## More Columns Isn't Free
 
@@ -82,6 +90,14 @@ Filter methods come first because they're the cheapest lever. Module 6 works thr
   ]}
   correct={2}
 />
+
+<Recall items={[
+  { q: "Give the two distinct halves of the curse of dimensionality.", a: "Sparsity: to keep a fixed sampling density you need k^d points, so a fixed sample covers a vanishing fraction of space as d grows. Distance concentration: the ratio (max distance - min distance)/min distance tends to zero, so nearest and farthest neighbours become indistinguishable and any method built on 'nearby means similar' loses its footing." },
+  { q: "Why does distance concentration happen mathematically?", a: "A Euclidean distance is a sum of many per-coordinate contributions. As the number of terms grows, the sum concentrates around its expectation — the absolute spread grows more slowly than the mean does — so the RELATIVE difference between any two distances shrinks toward zero." },
+  { q: "Which model families are hit hardest by the curse, and which shrug it off?", a: "Hit hardest: k-NN, k-means, and kernel methods, all of which depend on distances being meaningful. More robust: trees and linear models, which use per-feature thresholds or weights rather than aggregate distances — though they still pay the variance cost of extra noise columns." },
+  { q: "PCA reduced my 200 columns to 10. Is that feature selection?", a: "No, it is dimensionality REDUCTION. Selection keeps a subset of the original columns, so the survivors are still 'age' and 'income' and remain interpretable. PCA builds new axes that are weighted mixtures of every original column, so nothing you keep has a business meaning any more." },
+  { q: "An irrelevant feature has no relationship to the target. How does adding it hurt?", a: "It is one more degree of freedom the model can use to fit chance patterns in THIS training sample. That raises variance and widens the train-test gap even though the feature carries no signal — and with enough such features, some will correlate with the target by luck alone." },
+]} />
 
 <MultiSelectQuiz
   question="Which statements about dimensionality and feature selection are correct? (Select all that apply.)"

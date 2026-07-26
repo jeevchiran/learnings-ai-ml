@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import RNNUnfoldWidget from '../../components/widgets/rnn/RNNUnfoldWidget.jsx'
 
 # Module 5: RNN Architecture Overview
+
+<ConceptBox title="TL;DR">
+- **Folded and unfolded are the same network drawn twice.** Folded shows the recurrence (one cell, a self-loop); unfolded shows the $T$ copies gradients actually flow through.
+- Use folded to reason about the *model*, unfolded to reason about *training*.
+- $\mathbf{h}_T$ is a **fixed-size compressed summary of the entire sequence** — not just of $x_T$ — which is why a linear classifier on top handles many-to-one tasks.
+- $\mathbf{h}$ has the hidden size $n$, independent of the input dimension $d$. They are unrelated by design.
+- The state resets to zero at the start of each new sequence; nothing leaks between examples.
+</ConceptBox>
 
 <Bridge>
 **From Module 4:** we've seen what RNNs can do. Now let's see how they work structurally — the two views of the same computation, and what information flows where. This module gives you the mental model before we zoom into individual cells (Module 6).
@@ -137,6 +145,13 @@ This gives each position access to **both past and future context**. Useful for 
   ]}
   correct={2}
 />
+
+<Recall items={[
+  { q: "Folded or unfolded — which view for which question?", a: "Folded when reasoning about the model itself: it makes clear there is ONE cell and one set of weights reused. Unfolded when reasoning about training: it shows the T copies as a deep feedforward chain, which is what backpropagation actually traverses and where the vanishing-gradient argument lives." },
+  { q: "Does h_T contain information only from x_T?", a: "No — that is the central misconception. Each step computes h_t from BOTH x_t and h_{t-1}, so information from every earlier step is folded in recursively. h_T is a compressed summary of the whole sequence, which is precisely why it can be fed to a classifier for a many-to-one task." },
+  { q: "Is the hidden state the same size as the input?", a: "No, and they are unrelated. The input dimension d is set by your data; the hidden size n is a hyperparameter you choose for capacity. W_x has shape n by d specifically to map between them, so a 300-dimensional embedding can feed a 128-unit hidden state or a 1024-unit one." },
+  { q: "What happens to the hidden state between two different training sequences?", a: "It is re-initialised, normally to zeros. Carrying state across unrelated examples would leak information between them and make each sequence's prediction depend on batch composition. The exception is deliberate stateful training on one long stream cut into chunks, where the carry-over is the point." },
+]} />
 
 <MultiSelectQuiz
   question="Which statements about the RNN hidden state h_T (the final state) are correct?"

@@ -1,5 +1,12 @@
-import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 import AccuracyInterpretabilityWidget from '../../components/widgets/xai/AccuracyInterpretabilityWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Accuracy answers *what*, never *why*. A model can be right for entirely spurious reasons and a held-out score will not tell you.
+- **Interpretability** = the model is readable by construction. **Explainability** = a technique applied afterwards to an opaque model. XAI mostly means the second.
+- The old trade-off was "accurate or readable, pick one." XAI refuses it: keep the accurate model, bolt explanation on as a separate layer.
+- Four concrete payoffs: trust, debugging (Clever Hans leaks), legal compliance, and discovery.
+</ConceptBox>
 
 ## The Black-Box Problem
 
@@ -49,6 +56,12 @@ A fraud model scores 99.4% accuracy on held-out data. Give one reason you might 
 Classify each: (a) reading a logistic regression's weights, (b) running SHAP on a random forest.
 
 **Solution:** (a) **Interpretability** — the model is transparent by construction; you read its own mechanism. (b) **Explainability** — the forest is opaque, so you apply an external post-hoc technique to explain it.
+
+<Recall items={[
+  { q: "Interpretability or explainability: reading a decision tree's splits, and running SHAP on a gradient-boosted ensemble?", a: "Reading the tree is interpretability — the model's own mechanism is the explanation. SHAP on the ensemble is explainability — the model is opaque, so an external post-hoc method is layered on to approximate its reasoning." },
+  { q: "Describe the Clever Hans failure and say what it proves about test accuracy.", a: "A vision model classified horses by detecting a copyright watermark that appeared only on horse photographs. It proves that high held-out accuracy demonstrates correlation with the label, not correct reasoning — because the artefact was present in the test set too, the split could not expose it." },
+  { q: "Your fraud model scores 99.4%. Give two distinct reasons to withhold deployment.", a: "First, the score may come from leakage — a field populated only after fraud is confirmed would produce near-perfect accuracy and zero real-time value. Second, in a regulated setting a decision needs a stated reason per case; a score without an explanation is not deployable regardless of how good it is." },
+]} />
 
 <QuizCard
   question="What core problem does Explainable AI address?"

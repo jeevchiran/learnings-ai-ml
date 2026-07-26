@@ -1,4 +1,12 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- Wins: one counting pass to train, instant prediction, excellent on **small data and huge sparse feature spaces**, naturally incremental, and per-feature interpretable.
+- Losses: **no feature interactions, ever** — "high income AND low expenses" is unlearnable by construction, at any data volume.
+- **The label is often right while the probability is wrong.** Correlated features double-count, pushing posteriors to 0 or 1. Treat `predict_proba` as a ranking, not a probability.
+- The zero-frequency trap is the classic from-scratch bug: one unseen pair zeroes a whole class. Add-$\alpha$ smoothing is mandatory, not optional.
+- Imbalance is handled cleanly *because* the prior is an explicit term — but resampling without adjusting that prior breaks it.
+</ConceptBox>
 
 ## Advantages
 
@@ -53,6 +61,14 @@ A Gaussian NB spam filter reports `predict_proba` almost always `>0.999` or `<0.
 A monthly-retrained filter sees a new slang word 10× in spam, 0× in ham. Without smoothing, what happens next month if it appears in one legit email — and how does Laplace change it?
 
 **Solution:** Unsmoothed, $P(\text{word}\mid\text{ham}) = 0$, so any email with it scores ham = 0 — guaranteed spam regardless of other words. With $\alpha=1$, $P(\text{word}\mid\text{ham}) = (0+1)/(N_{\text{ham}} + \alpha|\text{vocab}|)$ — small but positive — so the single word can no longer override all other evidence; ham can still win.
+
+<Recall items={[
+  { q: "Why is Naive Bayes unusually good when you have few examples and many features?", a: "Because it only ever estimates n small one-dimensional distributions per class, each using the whole class sample. A model that learns interactions must estimate parameters for feature COMBINATIONS, and with 200 documents and 30,000 words there is nowhere near enough data for that. The independence assumption acts as a strong implicit regulariser." },
+  { q: "Your NB filter reports 0.9999 on obviously ambiguous emails. Diagnose, and say whether the labels are wrong.", a: "Correlated features being double-counted: length, punctuation and word features all restate overlapping evidence, and each restatement multiplies the score further toward an extreme. The labels are not necessarily wrong — ranking often survives — so this is a calibration failure, fixable with Platt scaling or isotonic regression, not necessarily an accuracy failure." },
+  { q: "Give a target function Naive Bayes can never learn, and explain why more data doesn't help.", a: "Any conjunction where neither feature is predictive alone — fraud = high amount AND low account age. NB scores each feature independently against the class, so it can only ever sum up per-feature evidence; a rule that lives entirely in the interaction has no representation in the model. This is a structural limit, not a sample-size limit." },
+  { q: "A new slang word appears 10 times in spam, never in ham. Trace the unsmoothed and smoothed outcomes.", a: "Unsmoothed, P(word|ham) = 0, so any email containing it scores ham exactly 0 and is classified spam regardless of everything else it says. With alpha = 1 the likelihood becomes 1/(N_ham + vocabulary size) — small but positive — so the word contributes strong evidence without being able to veto the class outright." },
+  { q: "Why does the explicit prior make NB robust to imbalance, and when does that break?", a: "Because P(y) is a separate multiplicative term, a rare class starts from a correspondingly low score and is only predicted when the feature evidence genuinely overcomes it — the medical-test logic. It breaks if you oversample or undersample the training data without correcting the prior, because the model then believes a manufactured base rate." },
+]} />
 
 <MultiSelectQuiz
   question="Which of the following are genuine disadvantages of Naive Bayes? (Select all that apply.)"

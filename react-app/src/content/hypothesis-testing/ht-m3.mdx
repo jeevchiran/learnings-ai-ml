@@ -1,10 +1,18 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import ZTestSimulatorWidget from '../../components/widgets/hypothesis-testing/ZTestSimulatorWidget.jsx'
 import PowerCurveWidget from '../../components/widgets/hypothesis-testing/PowerCurveWidget.jsx'
 
 <Bridge>
 **Factory QC.** A cereal line targets 500 g per box, with a long-established known $\sigma = 8$ g. After maintenance, the manager samples 40 boxes and gets $\bar{x} = 497$ g. Is the 3 g shortfall random variation or systematic underfilling? To decide with a controlled error risk, she needs the **one-sample Z-test**.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- Four conditions, and the second is the one that decides everything: **$\sigma$ known** → Z-test; $\sigma$ estimated from the sample → t-test.
+- The **sampling distribution** describes how $\bar{x}$ moves across hypothetical samples — not how the data are spread. Its width is $\text{SE}=\sigma/\sqrt{n}$.
+- $Z=(\bar{x}-\mu_0)/\text{SE}$ reads as "observed minus predicted, in units of ordinary sampling wobble."
+- The CLT is what lets you use it on non-normal populations once $n\gtrsim30$.
+- Same data, different $\alpha$, different verdict — which is exactly why $\alpha$ is fixed first.
+</ConceptBox>
 
 ## When to Use It
 
@@ -123,6 +131,14 @@ A city claims a highway commute averages 25 min. A group times 64 trips, gets $\
 
 **Conclusion:** At 1%, insufficient evidence the mean differs from 25 min. Note: at $\alpha = 0.05$ we'd have rejected ($0.0456 < 0.05$) — exactly why $\alpha$ is fixed *before* data.
 </ConceptBox>
+
+<Recall items={[
+  { q: "One condition decides Z-test versus t-test. Which, and why does it matter?", a: "Whether sigma is KNOWN from outside the data or estimated from the sample. If estimated, the denominator is itself random, adding uncertainty the standard normal does not account for — so the statistic has heavier tails and follows Student's t. Using Z with an estimated sigma gives p-values that are too small, especially at small n." },
+  { q: "Distinguish the standard deviation from the standard error in one sentence each.", a: "The standard deviation describes how much individual observations vary around the mean. The standard error describes how much the SAMPLE MEAN varies from sample to sample, and equals sigma over root n — so it shrinks as you collect more data while the standard deviation does not." },
+  { q: "The population of box weights is skewed. Can you still run a Z-test?", a: "Yes, if n is large enough — roughly 30 or more. The test needs the SAMPLING DISTRIBUTION OF THE MEAN to be normal, not the population, and the Central Limit Theorem delivers that regardless of population shape. The heavier the skew, the larger the n required." },
+  { q: "x-bar = 497, mu0 = 500, sigma = 8, n = 40. Compute Z and interpret its size.", a: "SE = 8/sqrt(40) = 1.265, so Z = -3/1.265 = -2.37. The sample mean sits 2.37 standard errors below target; a departure that large or larger occurs about 1.8% of the time in either direction if the line were correctly calibrated." },
+  { q: "The same data give p = 0.0456: reject at alpha 0.05, fail to reject at 0.01. What does that teach?", a: "That the reject/fail dichotomy is a convention laid on top of a continuous measure, not a fact read from the data. It is also why alpha must be fixed before the analysis — otherwise the threshold can be chosen after the fact to produce whichever verdict is wanted." },
+]} />
 
 <QuizCard
   question="In a one-sample Z-test with x̄ = 497, μ₀ = 500, σ = 8, n = 40 (two-tailed, α = 0.05), what is the correct decision?"

@@ -1,10 +1,18 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import PairedDifferenceWidget from '../../components/widgets/hypothesis-testing/PairedDifferenceWidget.jsx'
 import PairedVsIndependentWidget from '../../components/widgets/hypothesis-testing/PairedVsIndependentWidget.jsx'
 
 <Bridge>
 **Blood pressure treatment.** A cardiologist tests whether a 12-week lifestyle program lowers systolic BP, measuring each of 15 patients before and after. The key phrase is "each patient" — measured twice, so the two readings aren't independent: a patient high at the start tends to be high at the end. Treating this as two independent groups (Module 4) throws away that structure — and statistical power. The **paired t-test** exploits the link between the two measurements.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- **The paired t-test is a one-sample t-test on the differences $d_i$.** That's the whole idea — everything else follows.
+- Subtracting within a person **cancels that person's baseline**, removing between-subject noise that would otherwise sit in the SE and hide the effect.
+- Hence $t=\bar d/(s_d/\sqrt n)$ with $n-1$ df, where $n$ is the number of *pairs*, not observations.
+- **The design dictates the test.** Paired data analysed as independent throws away power and gets the error rates wrong — it isn't a choice.
+- Normality is required of the **differences**, not the raw measurements. Extreme outliers in $d_i$ push you to Wilcoxon signed-rank.
+</ConceptBox>
 
 ## Paired vs. Independent
 
@@ -95,6 +103,14 @@ Differences: 12, 11, 12, 9, 8, 14. $\bar{d} = 66/6 = 11$. Squared deviations sum
 
 $t = 11/0.895 \approx 12.29$, df $= 5$. Critical $t^*(0.05,5) = 2.015$; $12.29 \gg 2.015$ → **reject $H_0$**. Strong evidence the workshop improves scores, mean gain ≈ 11 points.
 </ConceptBox>
+
+<Recall items={[
+  { q: "Reduce the paired t-test to something you already know.", a: "Compute d_i for each pair, then run a one-sample t-test asking whether the mean difference is zero. Once you have the differences there is no 'two-sample' problem left — there is one column of numbers and one null value." },
+  { q: "Why does pairing raise power? Be specific about what cancels.", a: "Each person's baseline level — patient A naturally at 155, patient B at 135 — appears in BOTH of their measurements and vanishes on subtraction. That between-subject spread is usually far larger than the treatment effect, and in an independent analysis it sits in the standard error, swamping the signal. Differencing removes it, leaving only within-person change." },
+  { q: "12 participants measured before and after. Name the test and the degrees of freedom, and say why not 22.", a: "Paired t-test with 11 degrees of freedom. There are 12 PAIRS, not 24 independent observations, so after estimating the mean difference you have n - 1 = 11 left. The 22 figure comes from treating them as two independent groups of 12, which double-counts information the design does not contain." },
+  { q: "Which quantity must be approximately normal, and when does it stop mattering?", a: "The differences d_i, not the before or after measurements themselves — the raw values can be skewed as long as their differences are roughly symmetric. It matters for n below about 30; beyond that the CLT makes d-bar approximately normal regardless." },
+  { q: "Your differences contain one enormous outlier. What now?", a: "Both d-bar and s_d are non-robust, so a single extreme pair can either manufacture or erase significance. Investigate whether it is a recording error or a real responder, and if it is genuine, use the Wilcoxon signed-rank test, which works on ranks of the differences and is insensitive to the magnitude of the extreme." },
+]} />
 
 <QuizCard
   question="A researcher measures anxiety scores for 12 participants before and after a meditation program. They compute dᵢ = before − after for each participant. Which test is appropriate, and what are the degrees of freedom?"

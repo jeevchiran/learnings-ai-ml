@@ -1,6 +1,14 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
 # EDA Foundations & First Look
+
+<ConceptBox title="TL;DR">
+- Five calls open every pandas session: `.shape`, `.dtypes`, `.head()`, `.info()`, `.describe()`.
+- **`.shape` first** — a row count that doesn't match expectations means a join silently duplicated or dropped rows.
+- A numeric column showing up as `object` in `.dtypes` means stray text or mixed formatting is hiding in it.
+- `.info()` is the fastest null detector: any non-null count below the row count means missing data.
+- **`.describe()` computes happily on dirty data.** Read its min and max as a bug report — that's where the $-12.50 fare and the $399 fare surface.
+</ConceptBox>
 
 ## Why This Topic?
 
@@ -139,6 +147,13 @@ Even pandas's own nullable `Int64` extension type (capital "I") needs a special 
 <Bridge>
 **What's next: how much data is actually here?** `.describe()` already flagged something off — a $399 fare and a negative one. Before trusting any of these numbers, find out how much of the data is even there to compute on. Module 2 starts with missing values.
 </Bridge>
+
+<Recall items={[
+  { q: "You load a CSV and .shape says 4.2 million rows when you expected 900,000. What happened?", a: "Almost certainly a join that fanned out — a many-to-many merge where the key was not unique on one side multiplies rows. Checking shape immediately after loading or merging is the cheapest way to catch it, before any statistic computed on the duplicated rows misleads you." },
+  { q: "fare_amount shows dtype object instead of float64. What does that imply and what breaks?", a: "The column contains something non-numeric — currency symbols, thousands separators, an 'N/A' string, or mixed types. Arithmetic and .describe() will either fail or silently skip the column, and any model will treat it as categorical. It needs cleaning and an explicit conversion before use." },
+  { q: "Which single call tells you both the dtype and the completeness of every column?", a: ".info(), which combines dtypes with a non-null count per column plus memory usage. Any column whose non-null count is below the total row count has missing values — making it the fastest first pass at spotting nulls." },
+  { q: "Why is .describe() dangerous if you only read the mean?", a: "Because it computes on whatever is there, ignoring NaNs silently and including invalid values happily. The mean is the number most distorted by both. The min and max rows are where the real information is: a negative fare and a $399 fare are visible there and invisible in the mean." },
+]} />
 
 <QuizCard
   question="What does df.shape return?"

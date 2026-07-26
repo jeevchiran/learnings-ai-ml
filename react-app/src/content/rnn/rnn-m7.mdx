@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import SharedWeightsWidget from '../../components/widgets/rnn/SharedWeightsWidget.jsx'
 
 # Module 7: Shared Weights Across Time
@@ -6,6 +6,13 @@ import SharedWeightsWidget from '../../components/widgets/rnn/SharedWeightsWidge
 <Bridge>
 **From Module 6:** we opened the RNN cell and saw the equations. One crucial detail was mentioned but not fully explained: the same weight matrices $\mathbf{W}_h$, $\mathbf{W}_x$, and $\mathbf{W}_y$ apply at every time step. This is not an implementation shortcut — it's a core design decision with deep consequences. This module explains why.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- One set of matrices $\mathbf{W}_h, \mathbf{W}_x, \mathbf{W}_y$ is reused at **every** time step — the unrolled diagram shows copies of the *same* weights, not different ones.
+- Three payoffs: any sequence length on a fixed parameter budget, one detector that fires wherever a pattern sits, and gradient from all $T$ steps folded into one update.
+- The cost: $\mathbf{W}_h$ multiplies itself $T-1$ times in the backward pass — that product is exactly what vanishes or explodes (Module 9).
+- Same inductive bias as a CNN kernel sliding over an image: *useful patterns are position-independent*.
+</ConceptBox>
 
 ## What weight sharing means
 
@@ -116,6 +123,13 @@ The weight $\mathbf{W}_x$ does not appear in this product — it affects the gra
 ---
 
 <SharedWeightsWidget />
+
+<Recall items={[
+  { q: "Why does an RNN's parameter count not grow when you feed it a longer sequence?", a: "Because the same W_h, W_x, W_y are reused at every step. Length T only adds more applications of the same matrices, not more matrices. Dedicated per-step weights would cost T times as much and would be undefined for any length not seen in training." },
+  { q: "Which weight matrix governs long-range gradient flow, and why that one?", a: "W_h. The step-to-step Jacobian is W_h^T · diag(tanh'), so travelling back T steps multiplies W_h by itself T-1 times. W_x appears only in the current step's term, so it never enters that product." },
+  { q: "State the inductive bias weight sharing encodes, in one sentence, and name its CNN counterpart.", a: "The function applied at step t must not depend on t — temporal invariance. In a CNN the same kernel slides over every spatial position: translation equivariance." },
+  { q: "Weight sharing gives richer gradient signal AND causes the vanishing gradient problem. Reconcile these.", a: "Both come from the same fact: W_h appears at every step. Summing across steps means one matrix collects gradient from all T positions (rich signal); chaining across steps means one matrix's Jacobian is raised to the power T-1 (exponential decay or blow-up). Sharing is the cause of both; it does not solve vanishing gradients." },
+]} />
 
 ## Quiz
 

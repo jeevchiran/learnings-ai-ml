@@ -1,9 +1,17 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import BaggingRandomForestWidget from '../../components/widgets/decision-trees/BaggingRandomForestWidget.jsx'
 
 <Bridge>
 **From instability to ensemble design.** Module 4 identified a core tension: a fully grown tree memorizes training data (high variance, low bias), while an aggressively pruned tree underfits. Pruning helps, but even a well-tuned single tree suffers from instability — small changes to the training data can produce entirely different tree structures. The insight is that variance can be reduced by averaging, but only if the things being averaged are not perfectly correlated. The entire engineering challenge of ensemble methods is reducing that correlation — making the base learners diverse enough that their errors cancel out when aggregated.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- Averaging $B$ independent estimators divides variance by $B$. Trees on the same data **aren't** independent — so the whole engineering problem is **decorrelation**.
+- **Bootstrap**: sample $n$ points with replacement. Each tree sees ~63.2% of the data; the other ~36.8% is **out-of-bag** and gives a free validation estimate.
+- Bagging alone isn't enough: one dominant feature ends up at the root of every tree, so they stay correlated.
+- **Random forest's extra move** is sampling $m$ features *at each split* ($\sqrt p$ classification, $p/3$ regression) — forcing trees to use different features.
+- Variance floor: $\rho\sigma^2 + (1-\rho)\sigma^2/B$. More trees kill the second term only; **$\rho$ is what `max_features` attacks.**
+</ConceptBox>
 
 ## 1. The Averaging Idea
 
@@ -151,6 +159,14 @@ $$\text{PI}(j) = \text{err}_{\text{OOB}}^{(j)} - \text{err}_{\text{OOB}}$$
 A large positive $\text{PI}(j)$ means feature $j$ matters. Permutation importance requires an extra pass through the OOB data for each feature, but is generally considered more reliable for feature selection.
 
 <BaggingRandomForestWidget />
+
+<Recall items={[
+  { q: "Derive the 63.2% figure.", a: "One specific point avoids being picked on a single draw with probability 1 - 1/n, and there are n independent draws, so it is left out entirely with probability (1 - 1/n)^n, which tends to e^-1 = 0.368. So it appears in the bootstrap sample about 63.2% of the time, and the remaining 36.8% are out-of-bag for that tree." },
+  { q: "Bagging already resamples the data. Why did random forests need to add feature sampling?", a: "Because resampling alone leaves the trees correlated: if one feature is strongly predictive, it wins the root split in nearly every bootstrap sample, so all trees share the same top-level structure and make correlated errors. Sampling m features at each split sometimes hides the dominant feature, forcing trees to discover alternative structure." },
+  { q: "Read the variance formula rho*sigma^2 + (1-rho)*sigma^2/B and say what each knob touches.", a: "n_estimators (B) shrinks only the second term, which is why returns diminish sharply past a couple of hundred trees. The first term, rho*sigma^2, is a floor that no amount of trees removes — it is lowered only by reducing correlation, which is what max_features controls. That is why max_features is the more impactful knob." },
+  { q: "What is OOB error and why is it nearly free?", a: "For each training point, average the predictions of only those trees that did not see it — about a third of them — and compare against its label. It costs no extra data and no separate fitting because those trees already exist; it is roughly equivalent to cross-validation, computed as a side effect of bootstrapping." },
+  { q: "Why is permutation importance preferred over the built-in impurity importance?", a: "Impurity-based importance is computed from training-set splits and is biased toward high-cardinality and continuous features, which get more chances to look useful. Permutation importance shuffles one feature in the OOB data and measures the actual increase in held-out error, so it reports what the feature contributes to GENERALISATION." },
+]} />
 
 <QuizCard
   question="In a random forest with p = 100 features, approximately how many features are considered at each split by default for a classification task, and why?"

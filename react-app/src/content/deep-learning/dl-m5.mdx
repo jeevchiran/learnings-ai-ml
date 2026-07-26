@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import NeuralNetworkWidget from '../../components/widgets/deep-learning/NeuralNetworkWidget.jsx'
 
 # Module 5: Forward Propagation
+
+<ConceptBox title="TL;DR">
+- The forward pass does **two** jobs: produce $\hat{\mathbf{y}}$, and **cache** $(\mathbf{Z}^{[l]}, \mathbf{A}^{[l]})$ for the backward pass.
+- That cache is why training uses far more memory than inference — the activations of every layer stay alive until backprop consumes them.
+- Hence **`torch.no_grad()` for inference**: it skips building the graph, so nothing is retained.
+- Shape conventions: input `[B, n_features]`, `nn.Linear(in, out).weight` is `[out, in]`, every $\mathbf{Z}$ and $\mathbf{A}$ is `[B, n_layer]`.
+- The bias broadcasts across the batch dimension — one bias vector serves every sample.
+</ConceptBox>
 
 <Bridge>
 **From Module 4:** You know how to define a model (`nn.Module`) and load data. When you call `output = model(input)`, PyTorch executes the `forward()` method — this is **forward propagation**. This module formalizes exactly what happens mathematically during that call: how signals flow from input to output, what gets cached (and why), and how the shapes of tensors change at each layer. This understanding is the prerequisite for Module 6, where we reverse this process to compute gradients.
@@ -184,6 +192,14 @@ $$\text{softmax}(\mathbf{z})_k = \frac{e^{z_k - \max(\mathbf{z})}}{\sum_j e^{z_j
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Name the forward pass's second job and why it dominates memory.", a: "Caching every layer's pre-activation Z and activation A, because backprop needs them to compute local gradients. Those tensors are all [batch, width] and none can be freed until the backward pass reaches that layer — so peak memory scales with depth times batch size times width, which is why training OOMs where inference fits comfortably." },
+  { q: "Why does torch.no_grad() reduce memory rather than just speed?", a: "Because it stops autograd building the computation graph at all, so intermediate activations are freed as soon as the next layer consumes them instead of being retained for a backward pass that will never happen. The saving is the entire activation cache, which is usually the largest allocation in the model." },
+  { q: "nn.Linear(784, 128).weight has what shape, and why that order?", a: "[128, 784] — output features first. PyTorch computes x @ W.T + b, so storing the weight as [out, in] lets the transpose line up with an input of shape [batch, in] to give [batch, out]. It surprises people who expect [in, out], and it matters when initialising or inspecting weights manually." },
+  { q: "One bias vector, a batch of 64 samples. How does that work?", a: "Broadcasting. The bias has shape [out] and the pre-activation has shape [64, out]; aligning from the right, the bias's single implicit leading dimension stretches across the batch. Every sample gets the same bias added, which is correct — the bias is a property of the layer, not of the example." },
+  { q: "Why must you understand the forward cache before backprop makes sense?", a: "Because backprop is not a separate computation over the network — it is a traversal of the graph the forward pass built, consuming exactly the values it stored. The local gradient at layer l needs A from layer l-1 to differentiate with respect to W, and Z at layer l to differentiate through the activation. No cache, no backward pass." },
+]} />
 
 <MultiSelectQuiz
   question="Which of the following are true about forward propagation shapes in PyTorch's batch-first convention?"

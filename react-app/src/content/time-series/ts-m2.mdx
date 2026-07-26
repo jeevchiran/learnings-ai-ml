@@ -1,5 +1,12 @@
-import { ConceptBox, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, QuizCard, Recall } from '../../components/learning/index.js'
 import NaiveForecastWidget from '../../components/widgets/time-series/NaiveForecastWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Three baselines to beat: **naive** (tomorrow = today), **mean** (tomorrow = average so far), **moving average** (tomorrow = average of last $w$).
+- A model that can't beat naive isn't earning its complexity. On a random walk, naive is *optimal*.
+- RMSE is the yardstick — same units as the series, big misses punished hardest.
+- **Split chronologically, never shuffle.** Shuffled k-fold trains on the future and tests on the past.
+</ConceptBox>
 
 ## Before Anything Fancy: The Simple Baselines
 
@@ -54,6 +61,13 @@ print('MA(4) RMSE:', rmse(y, moving_avg))
 **Problem 2.** A series has a strong upward trend. Rank naive, mean, and moving-average(w=4) by expected RMSE, best to worst.
 
 **Solution:** Naive best, moving-average second, mean worst. Mean drags in every old, now-outdated low value; the wider the window the more moving-average lags, but at least it only looks at recent history.
+
+<Recall items={[
+  { q: "Your LSTM beats the mean baseline by 40% on RMSE. Why is your manager right to be unimpressed?", a: "The mean baseline is the weakest one on almost any series with structure. The meaningful comparison is against naive — and on many real series, especially near-random-walk ones, naive is genuinely hard to beat. Beating only the weakest baseline says nothing." },
+  { q: "Why is naive the OPTIMAL forecast for a random walk, not merely a decent one?", a: "A random walk is y_t = y_{t-1} + noise with zero-mean noise. The conditional expectation of the next value given everything known is exactly the last value, and the conditional expectation is what minimises squared error. No extra history helps, because the increments are independent." },
+  { q: "You widen a moving average from w=4 to w=12 on a trending series. What happens to the forecast, and why?", a: "It gets smoother but lags further behind. A window average sits at the centre of the window, roughly (w-1)/2 steps in the past, so on an upward trend a wider window means a systematically larger under-forecast." },
+  { q: "Describe the correct evaluation split for a forecaster in one sentence.", a: "Train on an earlier contiguous block and test on a later one, ideally repeated with a rolling or expanding origin so several forecast horizons are evaluated — the training set must never contain a timestamp later than any test timestamp." },
+]} />
 
 <QuizCard
   question="Why is a plain k-fold (shuffled) cross-validation invalid for evaluating a time-series forecaster?"

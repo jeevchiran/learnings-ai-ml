@@ -1,4 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- A language model assigns $P(w_1\ldots w_n)$. The chain rule decomposes it exactly — and is intractable, because the conditioning history grows without bound.
+- **The Markov assumption is the whole n-gram idea**: truncate the history to the last $n-1$ words. Tractable, and deliberately blind to anything further back.
+- Any unseen n-gram gives probability 0, which **zeroes the entire sentence** — products again.
+- **Smoothing** moves probability mass from seen to unseen n-grams. Add-1 is the simple version; Kneser-Ney is what actually gets used.
+- **Perplexity** is the standard metric — read it as the model's average branching factor. Lower is better.
+- N-grams stay useful where they're interpretable, cheap, and domain-specific; neural LMs win on long range and generalisation.
+</ConceptBox>
 
 <Bridge>
 Module 9 gave us embeddings capturing what words *mean*. Now we ask: how probable is a *sequence* of words? A **language model** assigns a probability $P(w_1 w_2 \ldots w_n)$ to any word sequence, enabling ranking, generation, and evaluation of fluency.
@@ -144,6 +153,14 @@ N-gram models have two fundamental limitations: the context is bounded by $k$ wo
 - **N-gram models** — interpretable, fast inference, no GPU required, good for constrained vocabularies and domain-specific corpora where training data for neural models is scarce
 - **Neural LMs** — superior perplexity, better handling of long-range dependencies, generalize across domains, the foundation of modern NLP (pre-training + fine-tuning paradigm)
 </ConceptBox>
+
+<Recall items={[
+  { q: "The chain rule is exact. Why is it useless on its own, and what replaces it?", a: "Because the final factors condition on the entire preceding sentence, and no corpus contains enough examples of any specific long history to estimate them — most counts would be 0 or 1. The Markov assumption replaces the full history with the last n-1 words, which is estimable at the cost of being unable to see any dependency longer than the window." },
+  { q: "Why does one unseen bigram destroy the probability of a whole sentence?", a: "Because the sentence probability is a PRODUCT of conditional probabilities. A single zero factor makes the entire product zero, so 'I dislike cats' becomes impossible on the strength of one unobserved pair — regardless of how ordinary the rest of the sentence is. It is the same annihilating-zero problem as unsmoothed Naive Bayes." },
+  { q: "What does smoothing do, and why is add-1 the teaching version rather than the practical one?", a: "It moves probability mass from observed n-grams to unobserved ones so nothing is exactly zero. Add-1 does this uniformly, which over-corrects badly when the vocabulary is large — it takes far too much mass from well-attested n-grams and spreads it evenly over a vast number of implausible ones. Kneser-Ney redistributes based on how many distinct contexts a word appears in, which is much better calibrated." },
+  { q: "Perplexity is 120. What does that number mean concretely?", a: "The model is, on average, as uncertain as if it were choosing uniformly among 120 words at each position — an average branching factor. It is the exponential of the average negative log-likelihood per word, so lower means the model assigned higher probability to the text actually observed." },
+  { q: "When would you still choose an n-gram model over a neural one?", a: "When you need interpretability and auditability, when inference must be fast on CPU with no GPU, or when the domain is narrow and the training data too small to fit a neural model — a constrained command vocabulary, for instance. You give up long-range dependencies and cross-domain generalisation to get transparency and cheapness." },
+]} />
 
 <QuizCard
   question="A bigram language model assigns probability 0 to the sentence 'I dislike cats' because 'dislike' was never seen in training. What smoothing technique should you apply, and what does it do?"

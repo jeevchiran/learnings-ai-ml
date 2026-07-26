@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import ProjectionWidget from '../../components/widgets/regression/ProjectionWidget.jsx'
 import GradientDescentWidget from '../../components/widgets/regression/GradientDescentWidget.jsx'
 
@@ -7,6 +7,14 @@ import GradientDescentWidget from '../../components/widgets/regression/GradientD
 <Bridge>
 **Bridge from Module 1:** In Module 1, we fit a line by minimizing the sum of squared residuals. We stated the result; now we derive it from first principles. Why does OLS work? How do we compute the optimal parameters analytically and iteratively? What guarantees does the solution carry?
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- Squared error isn't arbitrary — it's the **maximum-likelihood** loss when errors are i.i.d. Gaussian.
+- Set the gradient of $J$ to zero and you get the **normal equations** $\mathbf{X}^T\mathbf{X}\boldsymbol{\beta}=\mathbf{X}^T\mathbf{y}$, hence $\hat{\boldsymbol{\beta}}=(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}$ — valid only when $\mathbf{X}$ has full column rank.
+- **Geometrically it's a projection**: $\hat{\mathbf{y}}$ is $\mathbf{y}$'s shadow on the column space of $\mathbf{X}$, and the residual is perpendicular to it. That perpendicularity *is* the normal equations.
+- $J$ is convex (Hessian $\tfrac1n\mathbf{X}^T\mathbf{X}$ is PSD), so gradient descent has no local minima to get stuck in — it's the fallback when $\mathbf{X}^T\mathbf{X}$ is too big or ill-conditioned to invert.
+- **Gauss-Markov**: under assumptions 1–5 (normality *not* required), OLS is BLUE — minimum variance among linear unbiased estimators.
+</ConceptBox>
 
 ## The Cost Function
 
@@ -185,6 +193,14 @@ $\text{Var}(\hat{\boldsymbol{\beta}}) = \sigma^2(\mathbf{X}^T\mathbf{X})^{-1}$. 
 ### Climate Trend Application
 
 Fitting a linear trend to global temperature anomalies (1880-present): $\text{Anomaly} = \beta_0 + \beta_1 \cdot \text{Year}$. The OLS estimate $\hat{\beta}_1 \approx 0.008$ degrees C per year is the BLUE -- no other linear unbiased procedure produces a tighter confidence interval for the warming trend.
+
+<Recall items={[
+  { q: "Derive the normal equations in four moves.", a: "Write J = (1/2n)(y - X.beta)^T (y - X.beta). Expand to y^T y - 2 beta^T X^T y + beta^T X^T X beta. Differentiate: grad = (1/n)(X^T X beta - X^T y). Set to zero: X^T X beta = X^T y, and left-multiply by the inverse to isolate beta-hat." },
+  { q: "State the geometric meaning of the normal equations in one sentence.", a: "The residual is orthogonal to every column of X — X^T e = 0 — which is exactly the statement that y-hat is the orthogonal projection of y onto the column space of X, i.e. the closest point in the space of achievable predictions." },
+  { q: "You have 200,000 features. Why not use the closed form?", a: "X^T X is 200,000 x 200,000 — around 160 GB in float32 to store, and inverting it costs order n^3. Gradient descent never forms that matrix; each step only needs the matrix-vector product X^T(X.beta - y), which is linear in the number of nonzeros." },
+  { q: "Why is convexity the property that makes gradient descent safe here, and what supplies it?", a: "Convexity guarantees every local minimum is the global one, so descent cannot be trapped. It comes from the Hessian (1/n) X^T X being positive semi-definite — any matrix of the form A^T A has non-negative eigenvalues, since v^T A^T A v = ||Av||^2 >= 0." },
+  { q: "Gauss-Markov says OLS is BLUE. Name the two words people over-read.", a: "'Best' means minimum variance ONLY among LINEAR UNBIASED estimators — a biased estimator like ridge can and often does beat it on mean squared error. And 'BLUE' does not require normality; normality is needed for exact t and F inference, not for the theorem." },
+]} />
 
 <QuizCard
   question="In the Normal Equation, what condition is required for (X^T X)^{-1} to exist?"

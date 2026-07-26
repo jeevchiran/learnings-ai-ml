@@ -1,4 +1,12 @@
-import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- **Kernel SHAP is LIME with one substitution**: swap the proximity kernel for the SHAP kernel, and the fitted coefficients *become* Shapley values.
+- That kernel up-weights very small and very large coalitions — the ones that isolate an individual feature's effect most cleanly.
+- **Tree SHAP** is exact and polynomial-time for tree ensembles: the tree structure already encodes which feature subsets reach which leaves.
+- "Absent" means *unknown*, not zero — the **background dataset** supplies the replacement values, so changing it changes your SHAP values.
+- Rule of thumb: tree model → always Tree SHAP. Anything else → Kernel SHAP, with `nsamples` and background size capped.
+</ConceptBox>
 
 ## The Computational Wall
 
@@ -73,6 +81,13 @@ Kernel SHAP reuses LIME's "perturb and fit a linear model" structure. What singl
 You've trained a LightGBM model with 50 features and need SHAP values for 100,000 rows. Kernel or Tree SHAP, and why?
 
 **Solution:** **Tree SHAP.** LightGBM is a tree ensemble, so Tree SHAP gives *exact* values in polynomial time — feasible for 100k rows. Kernel SHAP would need thousands of model queries *per row* to approximate, making 100k rows prohibitively slow, and it would only be approximate.
+
+<Recall items={[
+  { q: "One change converts LIME into Kernel SHAP. What is it, and why does it matter?", a: "The kernel weights. LIME weights perturbed samples by proximity to the instance; Kernel SHAP weights coalitions by the SHAP kernel, which is the unique weighting under which the fitted linear coefficients equal the Shapley values. The same machinery goes from 'a plausible local fit' to 'the provably fair attribution'." },
+  { q: "Why does the SHAP kernel up-weight the smallest and largest coalitions?", a: "Those coalitions isolate a feature's effect most cleanly — adding a feature to the empty set, or to the set of everything else, attributes the change to that feature alone. Mid-sized coalitions are muddied by interactions among the many other features present." },
+  { q: "You change the background dataset from the full training set to a single all-zeros row. What happens to your explanations?", a: "They change, potentially a lot. The background defines what 'absent' means, so switching from 'average over typical values' to 'assume zero' redefines the baseline every contribution is measured against. An all-zeros reference is often not a plausible data point, which produces attributions relative to a scenario the model never sees." },
+  { q: "How does Tree SHAP collapse an exponential sum into polynomial time?", a: "The tree already encodes which feature subsets route to which leaves. Tree SHAP walks the tree once, tracking at every node the fraction of subsets that would flow down each branch, so the 2^F enumeration is replaced by roughly trees × leaves × depth^2 bookkeeping — and the result is exact, not sampled." },
+]} />
 
 <QuizCard
   question="Why is Tree SHAP preferred over Kernel SHAP for XGBoost models?"

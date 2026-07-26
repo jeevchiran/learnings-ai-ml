@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import ActivationWidget from '../../components/widgets/deep-learning/ActivationWidget.jsx'
 
 # Module 7: Activation Functions
+
+<ConceptBox title="TL;DR">
+- $g'(\mathbf{Z}^{[l]})$ appears in **every** backprop step, so the activation's *derivative* — not its shape — decides whether the network trains.
+- **Sigmoid's derivative peaks at 0.25** and collapses when saturated. Multiply many of those and you get the vanishing gradient. tanh peaks at 1 and is zero-centred, so it's strictly better, and still saturates.
+- **ReLU's derivative is exactly 1 on the positive side** — no shrinkage with depth. That single property is why it made deep networks trainable.
+- ReLU's real costs: **dying neurons** (derivative 0 for $z\le0$, permanently) and non-zero-centred output. It is *cheaper* than sigmoid, not more expensive.
+- Leaky ReLU / GELU keep a small negative slope so nothing dies permanently.
+</ConceptBox>
 
 <Bridge>
 **From Module 6:** The backpropagation formula $\delta^{[l]} = (W^{[l+1]})^T \delta^{[l+1]} \odot g'^{[l]}(Z^{[l]})$ shows that the **derivative of the activation function** appears in every gradient computation. The choice of activation function directly controls how easily gradients flow backward — and whether the network can be trained at all. This module covers every major activation function, its derivative, and when to use each one.
@@ -169,6 +177,14 @@ Unlike ReLU which hard-gates (0 or 1), GELU soft-gates proportional to the input
   ]}
   correct={2}
 />
+
+<Recall items={[
+  { q: "Why does the DERIVATIVE matter more than the activation's shape?", a: "Because backprop multiplies g'(Z) at every layer. A function whose derivative is bounded well below 1 shrinks the gradient once per layer, compounding exponentially with depth — so the forward behaviour can look perfectly reasonable while the network is untrainable below a few layers." },
+  { q: "Sigmoid's derivative maxes at 0.25. Work out what that means over 10 layers.", a: "Even in the best case, with every unit sitting at its steepest point, the gradient is multiplied by 0.25 ten times — about 10^-6. In practice units are saturated and the factor is far smaller. Early layers receive essentially nothing, which is precisely why deep sigmoid networks stalled before ReLU." },
+  { q: "Name the two genuine drawbacks of ReLU and one common false one.", a: "Genuine: dying neurons, since the derivative is exactly 0 for z at or below 0 and a unit pushed there stops receiving gradient permanently; and non-zero-centred output, which biases the gradient directions of the next layer. False: that it is expensive — ReLU is a max, far cheaper than sigmoid's exponential." },
+  { q: "How does a neuron 'die', and what prevents it?", a: "A large gradient update pushes its weights so that z is negative for every input in the data. The derivative is then 0 for all inputs, so no gradient ever reaches it again and it is frozen at zero output forever. Leaky ReLU and GELU keep a small non-zero slope on the negative side, so a badly placed unit can still recover." },
+  { q: "tanh over sigmoid — what is the concrete argument?", a: "Two things: its derivative peaks at 1 instead of 0.25, so it shrinks the gradient far less per layer, and its output is zero-centred, so the next layer's inputs are not all the same sign. That second point matters because all-positive inputs force every weight in a neuron to receive gradient of the same sign, causing zig-zag updates." },
+]} />
 
 <MultiSelectQuiz
   question="Which of the following are limitations of the ReLU activation function?"

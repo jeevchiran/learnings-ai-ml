@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import WeightInitWidget from '../../components/widgets/deep-learning/WeightInitWidget.jsx'
 
 # Module 9: Weight Initialization
+
+<ConceptBox title="TL;DR">
+- **Zero weights break symmetry, permanently.** Every neuron in a layer computes the same thing and receives the same gradient, so the layer is forever equivalent to one neuron. Random init exists to break that tie.
+- Biases at zero are fine — the random weights already break symmetry.
+- The goal is to **hold activation variance roughly constant across depth**. Too small and the signal vanishes layer by layer; too large and it explodes.
+- **Xavier/Glorot** targets tanh and sigmoid. **He/Kaiming** uses $2/n_{in}$ for ReLU — the factor 2 compensates for ReLU zeroing half its inputs.
+- "Small random normal" is *not* a safe default: at 50 layers it vanishes the signal just as reliably as a bad constant.
+</ConceptBox>
 
 <Bridge>
 **From Module 8:** You have loss functions and optimizers. Before training starts, there is one critical choice that determines whether gradients will flow at all: **how to initialize the weights**. Initialize wrong — all zeros, or too large, or too small — and backpropagation will fail before it begins. Initialize right, and even very deep networks train efficiently. This module derives exactly what "right" means from first principles.
@@ -178,6 +186,14 @@ For uniform init: $W \sim \mathcal{U}(-r, r)$ where $r = \sqrt{6/(n^{[l-1]}+n^{[
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Why is all-zero weight initialization fatal in a way that a merely bad value is not?", a: "It is a symmetry problem, not a scale problem. Every neuron in a layer computes an identical pre-activation and therefore receives an identical gradient, so they update identically forever — the layer is permanently equivalent to a single neuron no matter how long you train. A badly scaled random init trains poorly; a zero init cannot train at all." },
+  { q: "Biases start at zero. Why is that not the same problem?", a: "Because the weights are already random, so neurons compute different pre-activations from the outset and receive different gradients. Symmetry is broken by the weights alone; the bias adds nothing to that and starting it at zero avoids an arbitrary offset." },
+  { q: "Explain the factor of 2 in He initialization.", a: "ReLU zeroes roughly half its inputs, which halves the variance of the output relative to a linear unit. Setting the weight variance to 2/n_in rather than 1/n_in compensates exactly for that loss, keeping activation variance stable as depth grows. Xavier, designed for symmetric activations that do not zero anything, needs no such factor." },
+  { q: "What quantity are initialization schemes actually trying to control, and why?", a: "The variance of activations — and correspondingly of gradients — as the signal moves through layers. If each layer multiplies the variance by a factor below 1, the signal decays exponentially with depth and early layers get nothing; above 1 and it explodes into overflow. The schemes solve for the weight variance that keeps that factor at 1." },
+  { q: "Why is 'just use small random values' wrong for a 50-layer network?", a: "Because small means each layer shrinks the variance, and over 50 layers that shrinkage compounds exponentially — activations and gradients at the input end reach numerical zero. The correct scale is not universally small; it depends on the fan-in and on the activation, which is exactly what Xavier and He compute." },
+]} />
 
 <MultiSelectQuiz
   question="Which initialization strategies are correctly matched to their target activation?"

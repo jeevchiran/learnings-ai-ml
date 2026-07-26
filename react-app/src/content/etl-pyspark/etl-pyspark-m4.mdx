@@ -1,4 +1,11 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- Same concept, different execution model: PySpark is **lazy, distributed, immutable, optimised**; Pandas is **eager, single-machine, mutable, unoptimised**.
+- Pick by data size and where it lives. Fits in one machine's RAM → Pandas, and its interactivity wins. Spread across a cluster → PySpark.
+- **Distributed isn't free.** On small data Spark's scheduling and shuffle overhead makes it slower than Pandas, not faster.
+- Schema-awareness is the point: named typed columns are what let Catalyst optimise, which RDDs could never offer.
+</ConceptBox>
 
 In Module 3, we worked with RDDs — Spark's low-level API using tuples and lambdas. DataFrames provide a higher-level, schema-aware interface with automatic optimizations through the Catalyst query planner.
 
@@ -195,6 +202,13 @@ print(avg_gpa_by_major)
 <Bridge>
 DataFrames give us a structured, optimized API. But sometimes you want to query data using familiar SQL syntax instead of method chains. Next, we'll register DataFrames as SQL tables and query them directly.
 </Bridge>
+
+<Recall items={[
+  { q: "Give the four axes on which PySpark and Pandas DataFrames differ.", a: "Execution — lazy DAG versus eager immediate. Scale — distributed across a cluster versus one machine's RAM. Mutability — immutable transformations returning new frames versus in-place modification. Optimisation — Catalyst rewrites your plan versus you optimising by hand." },
+  { q: "Your dataset is 200 MB. Someone proposes PySpark for 'scalability'. Respond.", a: "It will be slower. 200 MB fits comfortably in memory, so Pandas runs in-process with no serialisation, no task scheduling, and no shuffle. Spark pays fixed overheads — JVM startup, partition planning, network coordination — that only pay off when the data genuinely exceeds one machine. Scalability you do not need is just latency." },
+  { q: "Why can Pandas support in-place mutation while PySpark cannot?", a: "Because Pandas owns one array in one process, so writing to it is well defined. A Spark DataFrame is a logical plan over partitions on many machines, and its fault tolerance depends on being able to recompute any partition from its lineage. In-place mutation would invalidate that recipe, so every transformation returns a new DataFrame instead." },
+  { q: "What does schema-awareness buy a DataFrame that an RDD cannot have?", a: "Optimisation. Knowing each column's name and type lets Catalyst prune unread columns, push filters down into the file reader, reorder joins, and generate specialised bytecode. An RDD holds opaque objects manipulated by arbitrary lambdas, so Spark can only run them in the order you wrote." },
+]} />
 
 <QuizCard
   question="When would you choose PySpark over Pandas?"

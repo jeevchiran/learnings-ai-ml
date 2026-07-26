@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import OverfittingWidget from '../../components/widgets/deep-learning/OverfittingWidget.jsx'
 
 # Module 11: Preventing Overfitting & PyTorch Examples
+
+<ConceptBox title="TL;DR">
+- The diagnostic is the **gap**, not the absolute loss: training loss falling while validation loss rises is overfitting made visible.
+- Fix in order of leverage: **more data** → augmentation → early stopping → dropout/weight decay → smaller model.
+- Four lines the training loop must get right: `model.train()` / `model.eval()`, `torch.no_grad()` for validation, `optimizer.zero_grad()` before every `backward()`, and logits straight into `CrossEntropyLoss`.
+- **`model.eval()` isn't cosmetic** — it switches BatchNorm to running statistics and turns dropout off.
+- The one legitimate exception: **MC Dropout**, keeping dropout on at inference *deliberately* to sample an uncertainty estimate.
+</ConceptBox>
 
 <Bridge>
 **From Module 10:** You have the full toolkit: regularization (L1/L2, dropout) and normalization (BatchNorm, LayerNorm). This final module shows how to use them together to prevent overfitting — the gap between train and validation performance that kills real-world model utility. It also walks through a complete end-to-end PyTorch training loop so that everything from Module 1 to Module 10 comes together in working code.
@@ -270,6 +278,14 @@ $$\nabla_\theta J_\text{full} = \nabla_\theta J + \frac{\lambda_2}{m}\theta + \f
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "You forget model.eval() before validation. Name both things that go wrong.", a: "Dropout stays active, so activations are randomly zeroed and your validation score is both worse than the true one and non-deterministic between runs. And BatchNorm keeps using batch statistics AND keeps updating its running averages from validation data — so evaluation silently contaminates the model state you will deploy." },
+  { q: "Order the overfitting remedies by leverage and say why that order.", a: "More real data first — it addresses the cause rather than the symptom and has no downside. Then augmentation, which manufactures plausible new data cheaply. Then early stopping, free and reversible. Then dropout and weight decay, which trade a little training fit for generalisation. Shrinking the model last, since it reduces capacity you may actually need." },
+  { q: "Training loss is still falling and validation loss has been rising for 5 epochs. What is happening and what do you do?", a: "The model has moved from learning signal to memorising noise — the divergence between the curves IS the variance term becoming visible. Stop training and restore the checkpoint from the validation minimum. Continuing only widens the gap; the lowest training loss is not the model you want." },
+  { q: "Why does no_grad() belong in the validation loop even though you never call backward there?", a: "Because without it autograd still builds the graph and retains every intermediate activation, in case a backward call arrives. That is pure waste — it raises peak memory enough to force a smaller validation batch and slows the loop. no_grad tells autograd nothing will be differentiated, so activations are freed as they are consumed." },
+  { q: "Dropout at inference is normally a bug. When is it deliberate?", a: "MC Dropout. You keep dropout active and run the same input many times, treating the spread of predictions as an uncertainty estimate — it approximates sampling from a distribution over models. The distinction from the bug is that it is turned on knowingly and the outputs are aggregated, rather than a single noisy prediction being reported as the answer." },
+]} />
 
 <MultiSelectQuiz
   question="Which of the following best practices are recommended in a production PyTorch training loop?"

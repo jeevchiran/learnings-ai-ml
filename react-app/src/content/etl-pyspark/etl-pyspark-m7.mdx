@@ -1,4 +1,12 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- Five standard defects: nulls, duplicates, inconsistent casing, stray whitespace, out-of-range values.
+- **Order matters for cost**: drop nulls and duplicates *first* to shrink the row count, then run string transforms on what's left.
+- Order also matters for *correctness*: normalise casing and trim whitespace **before** deduplicating, or `"Data Structures "` and `"data structures"` won't be recognised as the same row.
+- `dropDuplicates()` with no arguments needs every column to match — pass the subset that actually defines a duplicate.
+- Range validation is a domain rule, not a statistic: a grade of −5 or 150 is impossible regardless of the distribution.
+</ConceptBox>
 
 <Bridge>
 In Module 6, we wrote UDFs to apply custom logic to our data. Now we face a real-world challenge: our dataset has problems. Before any analysis, we need to clean it.
@@ -129,6 +137,13 @@ The order of cleaning steps affects performance. Put the cheapest, highest-selec
 
 Spark's Catalyst optimizer can reorder some filters automatically, but explicit ordering makes intent clear and aids debugging.
 </ConceptBox>
+
+<Recall items={[
+  { q: "Two different arguments govern cleaning order — cost and correctness. Give both.", a: "Cost: dropping nulls and duplicates first shrinks the row count, so every later string transform runs on less data. Correctness: normalising case and trimming whitespace must happen BEFORE deduplication, because 'Data Structures ' and 'data structures' are only recognisable as duplicates once normalised. When the two arguments conflict, correctness wins." },
+  { q: "Why is dropDuplicates() with no arguments usually wrong?", a: "Because it requires every column to match exactly, so two records of the same enrollment that differ in a timestamp or a whitespace artefact both survive. Pass the subset of columns that genuinely identifies a record — for example the enrollment id — so the dedup matches your definition of duplicate rather than byte equality." },
+  { q: "Catalyst reorders filters automatically. Why write them in a deliberate order anyway?", a: "Because Catalyst can only reorder operations whose semantics it understands, and it will not reorder anything that changes results — such as moving a dedup across a normalisation. Explicit ordering also documents intent and makes a pipeline debuggable step by step, which matters more than the marginal optimisation." },
+  { q: "A grade column contains -5 and 150. Which module's technique catches this, and which does not?", a: "A domain range rule catches it: grades are defined on 0 to 100, so both are impossible regardless of how the data is distributed. An outlier method like IQR fences would not reliably catch 150 if the spread is wide, and would flag legitimate extremes alongside it. Impossible and unusual are different categories." },
+]} />
 
 <QuizCard
   question="You have a DataFrame with 1M rows. Which cleaning step order is most efficient?"

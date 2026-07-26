@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import AugmentationWidget from '../../components/widgets/cnn/AugmentationWidget.jsx'
 
 # Module 7: Data Preparation & Augmentation
+
+<ConceptBox title="TL;DR">
+- `ToTensor` rescales to $[0,1]$ **and** reorders HWC → CHW; `Normalize` then centres each channel with dataset mean/std.
+- **Augmentation belongs on the training set only.** Augmenting validation makes the score noisy and no longer comparable.
+- **The right augmentations are the label-preserving ones** — and that's domain-specific. Horizontal flip is safe on CIFAR; vertical flip is not, and neither is any flip on digits or text.
+- Mixup and CutMix blend *both* images and labels, producing soft targets rather than a harder version of one image.
+- Cutout/random erasing forces the model to use the whole object instead of one discriminative patch.
+</ConceptBox>
 
 <Bridge>
 **From Module 6:** we can train a CNN end-to-end with backpropagation. But the model is only as good as the data pipeline feeding it. Before gradients even flow, every image must be normalised to a well-conditioned range, and during training the effective dataset must be expanded through augmentation. This module covers both: the mathematics of normalisation and the catalogue of augmentation techniques that close the gap between train and test performance.
@@ -158,6 +166,14 @@ This is equivalent to training with a smoother version of the label distribution
   ]}
   correct={0}
 />
+
+<Recall items={[
+  { q: "What are the two things ToTensor does, and why does the second matter?", a: "It scales uint8 pixels from 0-255 down to floats in 0-1, and it permutes the axes from height-width-channel to channel-height-width. The permutation matters because PyTorch convolutions expect channels-first; feeding HWC gives either a shape error or, worse, a silently wrong interpretation of the tensor." },
+  { q: "Why augment the training set but never the validation set?", a: "Validation exists to give a stable, comparable measurement. Random augmentation makes the score vary run to run for reasons unrelated to the model, and it measures performance on distorted images rather than on the distribution you will actually deploy against. Augmentation is a training-time regulariser, not a property of the data." },
+  { q: "Horizontal flip is standard on CIFAR-10. Give two datasets where it would be wrong.", a: "Digit recognition, where a mirrored 2 is not a 2 and may resemble a different symbol; and any text or scene-text task, where mirrored characters are meaningless. The rule is that an augmentation must preserve the label — which is a domain question, not a hyperparameter." },
+  { q: "How does Mixup differ from every other augmentation here?", a: "It changes the LABEL as well as the image. It blends two images with weight lambda and sets the target to the same blend of their one-hot labels, producing a soft target. Every other technique here perturbs one image while keeping its original hard label." },
+  { q: "What specific failure does Cutout address?", a: "Over-reliance on a single discriminative region. If a model can identify a dog from the head alone it never learns the rest, and it fails when that region is occluded. Randomly erasing a patch forces it to distribute evidence across the whole object, which improves robustness to occlusion at test time." },
+]} />
 
 <MultiSelectQuiz
   question="Which augmentation techniques are label-preserving for CIFAR-10 classification?"

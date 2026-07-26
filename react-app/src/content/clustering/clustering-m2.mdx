@@ -1,5 +1,12 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import DistanceCentroidWidget from '../../components/widgets/clustering/DistanceCentroidWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- The metric decides the cluster **shape** the algorithm can find: Euclidean → round, Manhattan → diamond, cosine → angular sector.
+- **Metric and centroid update are one decision, not two.** Squared Euclidean ⟹ the mean is the exact minimiser; L1 ⟹ the median (K-medians). Swapping the metric alone breaks convergence.
+- Cosine ignores magnitude, which is what you want for documents — but it doesn't drop into standard K-means without also changing the update.
+- **Always Z-score before K-means.** Euclidean distance is not scale-invariant, so an unscaled income column will cluster your data by units, not structure.
+</ConceptBox>
 
 ## Why Distance?
 
@@ -95,6 +102,14 @@ Z-score gives mean 0, SD 1 per feature (preferred — min-max is outlier-sensiti
 **Problem 2 — Centroid minimizes WCSS.** Points $(0,0)$, $(4,0)$, $(2,4)$. Centroid $\mu = (2, 4/3)$; its WCSS $\approx 18.67$ vs $\mu'=(3,2)$'s $13+5+5 = 23$. The true centroid wins.
 
 **Problem 3 — L2 mean vs L1 median.** For $f(\mu) = \sum\|x_i-\mu\|^2$, expand around $\bar x$: cross term vanishes since $\sum(x_i-\bar x)=0$, giving $f(\mu) = \sum\|x_i-\bar x\|^2 + n\|\bar x - \mu\|^2$, minimized at $\mu = \bar x$. For $g(\mu) = \sum|x_i-\mu|$, the subgradient $\#\{x_i<\mu\} - \#\{x_i>\mu\} = 0$ at the **median**.
+
+<Recall items={[
+  { q: "Show that the mean is not a convention but the forced answer under squared Euclidean distance.", a: "Minimise f(mu) = sum ||x_i - mu||^2. Differentiating gives -2 sum (x_i - mu) = 0, hence sum x_i = |C| mu and mu is the arithmetic mean. The second derivative 2|C| is positive, confirming a minimum. Change the distance to L1 and the same procedure yields the median instead." },
+  { q: "Why can't you just pass metric='cosine' to K-means and expect it to work?", a: "Because the update step is derived from the metric. The arithmetic mean minimises squared EUCLIDEAN distance; under cosine the optimal centroid is the re-normalised mean of unit vectors. Keeping the Euclidean update with a cosine assignment means the two steps optimise different objectives, so the monotonic-decrease argument — and the convergence guarantee — no longer holds." },
+  { q: "Age 0-80 and income 0-100,000, unscaled. Predict what K-means finds.", a: "It clusters almost entirely on income. A 60-year age gap contributes 3,600 to squared distance while a 1,000-rupee income gap contributes 1,000,000 — age is numerically invisible. The resulting clusters are income bands, an artefact of the units chosen." },
+  { q: "When is Manhattan the better choice than Euclidean?", a: "When outliers are a concern — absolute differences do not amplify large gaps the way squaring does — and on sparse high-dimensional data such as text or genomics, where L1 suffers less from the concentration of distances that makes L2 nearly uninformative in high dimensions." },
+  { q: "Z-score or min-max scaling before clustering?", a: "Z-score. Min-max maps to a fixed range using the extremes, so a single outlier compresses every other point into a narrow band. Z-score uses the mean and standard deviation, which are far less distorted by one extreme value." },
+]} />
 
 <QuizCard
   question="Why must features be standardised before running K-means?"

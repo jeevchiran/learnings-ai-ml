@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import ShuffleWidget from '../../components/widgets/etl-pyspark/ShuffleWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Five join types worth knowing cold: `inner`, `left`, `right`, `full`, and **`anti`** — the last answers "which rows have *no* match?" in one step.
+- **Narrow vs wide is the performance distinction.** Narrow operations stay within a partition; wide ones (joins, `groupBy`, `distinct`) shuffle data across the network.
+- The shuffle is the expensive part of any Spark job. Reduce data *before* it, never after.
+- **`union()` matches by position, `unionByName()` by name.** Position-matching silently produces garbage when column orders differ — prefer the named variant.
+- Window functions rank and aggregate *without collapsing rows*, which is what separates them from `groupBy`.
+</ConceptBox>
 
 <Bridge>
 In Module 8, we explored our clean dataset — examining distributions, statistics, and cross-tabulations. Now we reshape it: joining tables, aggregating values, pivoting, and ranking.
@@ -139,6 +147,14 @@ combined.show()`}
 <ConceptBox title="union() vs unionByName()">
 `union()` matches columns by position — column names don't matter, only order. `unionByName()` matches by name and handles schema differences gracefully. When DataFrames have columns in different orders, always use `unionByName()`.
 </ConceptBox>
+
+<Recall items={[
+  { q: "Find all students with no enrollments. Two ways — which is better and why?", a: "Anti join expresses it directly: students.join(enrollments, 'student_id', 'anti') returns exactly the unmatched left rows. The alternative — left join then filter where the right columns are null — works but materialises all the matched rows first and is fragile if the right side legitimately contains nulls. The anti join says what you mean and moves less data." },
+  { q: "Define narrow and wide operations, and name three of each.", a: "Narrow: each output partition depends on one input partition, so no data crosses the network — filter, select, withColumn. Wide: output partitions depend on many input partitions, forcing a shuffle — join, groupBy, distinct. The narrow-to-wide boundary is where Spark stages break and where jobs get slow." },
+  { q: "Why does 'reduce data before the shuffle' matter more than any other tuning advice here?", a: "Because the shuffle writes intermediate data to disk and sends it over the network, and its cost scales with the volume crossing that boundary. Filtering a billion rows to a million BEFORE a join means the shuffle moves a thousandth of the data; doing it after means you paid full price and then discarded the result." },
+  { q: "Two DataFrames have the same columns in different orders. What does union() do?", a: "It matches by POSITION, so it will happily stack a name column onto a major column and produce a DataFrame that is silently wrong — no error, because the types may still line up. unionByName matches on column names and can also handle missing columns with allowMissingColumns. Prefer it as the default." },
+  { q: "When do you need a window function rather than a groupBy?", a: "When you need a per-group calculation attached to every original row rather than one row per group — ranking students within their major, computing a running total, or comparing each value to its group's average. groupBy collapses the rows; a window preserves them and adds the aggregate as a new column." },
+]} />
 
 <QuizCard
   question="You want to find all students who have NO enrollments. Which join type gives you this result?"

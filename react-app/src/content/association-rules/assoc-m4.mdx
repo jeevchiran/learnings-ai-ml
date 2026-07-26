@@ -1,4 +1,12 @@
-import { ConceptBox, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- `mlxtend` pipeline: `TransactionEncoder` → one-hot matrix → `apriori()` → `association_rules()`. Every metric from Module 3 arrives as a DataFrame column.
+- Apriori's cost is structural: **one full database scan per level**, plus candidate blow-up on dense data.
+- **FP-Growth** removes both — two scans total, no candidates, by compressing transactions into a prefix tree and mining it recursively.
+- Apriori, FP-Growth and Eclat all return the **identical** frequent itemsets. They differ only in how they search.
+- Tuning order: start strict, loosen `min_support` until the rule count is workable, then rank by lift or conviction — never by confidence.
+</ConceptBox>
 
 ## Apriori in Real Code
 
@@ -89,6 +97,13 @@ All three find the *same* frequent itemsets — they differ only in *how they se
 **Problem 3 — Tuning.** Your run returns 40,000 rules. What is the first knob to turn?
 
 **Solution:** Raise `min_support` (fewer frequent itemsets → fewer rules), then raise `min_confidence`/lift thresholds and rank by lift or conviction.
+
+<Recall items={[
+  { q: "Name Apriori's two structural costs and say which one FP-Growth attacks with the tree.", a: "Repeated database scans — one per level — and candidate explosion between levels. The FP-tree attacks both at once: transactions are compressed into a prefix tree in two scans, and mining reads patterns straight off the tree structure, so no candidates are ever enumerated." },
+  { q: "Why do items get sorted by descending frequency before insertion into the FP-tree?", a: "So the most common items sit near the root and the greatest number of transactions share a prefix path. Maximum prefix sharing means maximum compression, which is exactly what makes mining the tree cheaper than scanning the raw data." },
+  { q: "A colleague expects FP-Growth to surface rules Apriori missed. Correct them.", a: "It won't. Both are exact algorithms for the same problem — every itemset meeting min_support is returned by either. The choice is purely about speed and memory on your data shape, not about result quality." },
+  { q: "You get 40,000 rules. Give the tuning sequence, in order.", a: "Raise min_support first — it cuts frequent itemsets at the root, and rule count grows combinatorially from them. Then raise min_confidence. Then filter to lift above 1 and sort by lift or conviction. Support first, because it is the only knob that reduces the work done, not just the output printed." },
+]} />
 
 <QuizCard
   question="What is the key advantage of FP-Growth over Apriori?"

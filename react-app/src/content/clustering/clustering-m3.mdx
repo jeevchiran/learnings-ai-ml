@@ -1,9 +1,17 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import WCSSElbowWidget from '../../components/widgets/clustering/WCSSElbowWidget.jsx'
 
 <Bridge>
 **Building on Module 2:** updating a centroid to the mean of its points minimizes the sum of squared distances within that cluster. K-means does this across all K clusters at once. The single number it drives down is the **Within-Cluster Sum of Squares (WCSS)** — scikit-learn's **inertia**.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- WCSS (sklearn's `inertia_`) is the one number K-means drives down, and the two steps are **coordinate descent** on it.
+- **WCSS always falls as $K$ rises**, hitting 0 at $K=n$ — so it can never pick $K$ by itself. You look at the *rate* of decrease instead: the elbow.
+- The elbow is subjective, often has no visible kink, and measures **cohesion only** — it is blind to whether clusters overlap.
+- The **gap statistic** compares your log-WCSS against uniform random data, and can therefore say "there is no structure here." The elbow always returns some answer.
+- $\text{TSS}=\text{WCSS}+\text{BCSS}$, with TSS fixed — so tightening clusters and separating them are the same trade.
+</ConceptBox>
 
 ## What K-Means Optimizes
 
@@ -82,6 +90,14 @@ $$\text{TSS} = \text{WCSS} + \text{BCSS}$$
 As K rises, WCSS falls and BCSS rises (TSS fixed). A good K makes clusters tight (low WCSS) *and* far apart (high BCSS).
 
 <WCSSElbowWidget />
+
+<Recall items={[
+  { q: "Prove WCSS(K+1) is never worse than WCSS(K).", a: "Take the optimal K-clustering and split any one cluster in two. Each half's own mean fits its points at least as well as the shared centroid did, because the mean is the minimiser of squared distance. So total WCSS cannot rise — and any optimal (K+1)-clustering is at least this good." },
+  { q: "Why is the elbow a heuristic about the DERIVATIVE rather than the value?", a: "Because the value is monotone and therefore uninformative — it always favours more clusters. The signal is in the rate: below the true K, each extra cluster separates a genuinely distinct group and drops WCSS a lot; above it, you are only splitting already-tight clusters, so the drop is small. The kink is where that regime changes." },
+  { q: "Name the elbow's blind spot that silhouette fixes.", a: "Separation. WCSS only measures how tight clusters are, so two compact clusters sitting almost on top of each other score just as well as two compact clusters far apart. Silhouette compares each point's own-cluster distance against the nearest competing cluster, so overlap is penalised." },
+  { q: "What can the gap statistic tell you that the elbow structurally cannot?", a: "That there is no cluster structure at all. It compares observed log-WCSS to the expected log-WCSS on uniform random data in the same bounding box; if the gap stays near zero for every K, the data is essentially structureless. The elbow, applied to uniform noise, will still produce a plausible-looking kink." },
+  { q: "TSS = WCSS + BCSS with TSS constant. What does that identity buy you?", a: "It means minimising within-cluster spread is exactly the same as maximising between-cluster spread — they are not two goals to balance but one quantity viewed from either side. It also underpins the Calinski-Harabasz ratio, which scores a clustering by BCSS over WCSS with degrees-of-freedom corrections." },
+]} />
 
 <QuizCard
   question="Why can't WCSS alone be used to select the optimal number of clusters K?"

@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import ParseTreeWidget from '../../components/widgets/nlp/ParseTreeWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- A CFG is $(N,\Sigma,R,S)$: non-terminals, terminals, production rules, start symbol. "Context-free" means a rule for $A$ applies wherever $A$ appears, regardless of neighbours.
+- **Recursive rules like `NP → NP PP` are what buy infinite expressiveness** from a finite rule set.
+- **Structural ambiguity** = one sentence, several valid trees. "I shot an elephant in my pajamas" is the canonical PP-attachment case.
+- Ambiguity here is grammatical, not lexical: every word's POS is settled, and the trees still differ.
+- **Constituency** trees group words into phrases; **dependency** trees link head words directly — more compact and closer to semantic roles.
+</ConceptBox>
 
 <Bridge>
 Shallow parsing labels flat spans like `[NP the cat]` but cannot represent nested relationships — "the cat that sat on the mat" contains a relative clause modifying the subject. **Deep parsing** produces a constituency tree that captures every level of embedding.
@@ -157,6 +165,13 @@ for token in doc:
 
 Dependency trees: more compact, closer to semantic roles, better suited for many downstream tasks.
 </ConceptBox>
+
+<Recall items={[
+  { q: "What does 'context-free' actually mean in Context-Free Grammar?", a: "That a production for a non-terminal applies regardless of what surrounds it — the rule NP goes to DT N is valid anywhere an NP appears, with no condition on neighbouring symbols. That restriction is what makes efficient parsing algorithms possible, and also what makes CFGs unable to express agreement constraints spanning arbitrary distance." },
+  { q: "Which rule makes a finite grammar generate infinitely many sentences?", a: "Any recursive one, such as NP goes to NP PP. Because the symbol reappears on its own right-hand side, it can be applied repeatedly — 'the cat on the mat in the house by the river' — so a handful of rules covers unboundedly long sentences." },
+  { q: "'I shot an elephant in my pajamas' — name the ambiguity type and locate it precisely.", a: "Structural, specifically PP attachment. Every word's part of speech is unambiguous; the question is whether the prepositional phrase attaches to the NP 'an elephant' — the elephant was wearing them — or to the VP 'shot' — I was wearing them. Two valid derivations from the same grammar, same tokens." },
+  { q: "Constituency or dependency tree — what does each give you?", a: "Constituency groups words into nested phrases, showing which spans form units, which suits questions about phrase structure. Dependency links each word directly to its syntactic head, giving a flatter, more compact structure that maps closely onto who-did-what-to-whom — which is why most modern downstream systems prefer it." },
+]} />
 
 <QuizCard
   question="Sentence: 'I shot an elephant in my pajamas.' Which type of ambiguity does this exhibit, and which grammar element causes it?"

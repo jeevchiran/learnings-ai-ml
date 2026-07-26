@@ -1,5 +1,14 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import FeatureSelectionWidget from '../../components/widgets/model-eval/FeatureSelectionWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- **Wrappers fit a real model on feature subsets**, so unlike filters they see interactions — at the cost of many fits.
+- **RFE** works backwards: fit, drop the weakest, refit, repeat. `RFECV` picks the subset size by cross-validation instead of your guess.
+- **Embedded methods select while fitting** — L1/Lasso drives coefficients to exactly zero; L2/Ridge only shrinks toward it.
+- Forward and backward selection are greedy, so they can and do land on different subsets. Neither is guaranteed optimal.
+- **Selection is model-specific.** Features Lasso keeps for a linear model are not necessarily what a random forest wants.
+- Caveat: impurity-based importance is biased toward high-cardinality features — prefer permutation importance.
+</ConceptBox>
 
 ## Wrapper Methods: Let a Model Vote on Subsets
 
@@ -152,6 +161,14 @@ Forward picks `{A,B,C}`, backward picks `{A,D,E}`, same model/CV, both targeting
   ]}
   correct={[0, 2, 4]}
 />
+
+<Recall items={[
+  { q: "What do wrappers see that filters structurally cannot, and what does it cost?", a: "Interactions. A wrapper fits the real model on feature COMBINATIONS, so a pair that only works jointly shows up as a genuine performance gain. The cost is many model fits — RFE with step 1 is roughly one fit per feature, and RFECV multiplies that by the number of folds." },
+  { q: "Why is RFECV preferred over plain RFE?", a: "Plain RFE requires you to state n_features_to_select up front, and guessing the answer defeats the purpose of the search. RFECV cross-validates each subset size during elimination and keeps the size that actually scored best, so the count is chosen by evidence rather than by assumption." },
+  { q: "Why does L1 produce exact zeros where L2 never does?", a: "The L1 penalty has a constant-magnitude gradient right up to zero, so it keeps pushing a small coefficient until it lands exactly on zero and stays. The L2 gradient is proportional to the coefficient, so it weakens as the coefficient shrinks and only ever approaches zero asymptotically. That is why Lasso selects and Ridge merely shrinks." },
+  { q: "Forward and backward selection on the same data give different subsets. Is one broken?", a: "No — both are greedy and neither is optimal. Forward selection can never recover a feature that is only valuable alongside one added later; backward elimination can drop a feature early whose value depended on one it removes afterwards. Finding the truly best subset is combinatorial and is not what either method attempts." },
+  { q: "Lasso kept 12 features. Can you hand that list to the random forest team?", a: "Not as a finished answer. Lasso judged features by their usefulness in a LINEAR model, so it will discard a feature whose relationship to the target is non-monotonic — exactly the kind a tree exploits well. Selection is model-specific; re-run it with the model you intend to deploy." },
+]} />
 
 <Bridge>
 Wrapper and embedded methods fit models to *choose* features — raising a sharp question: when is that fitting allowed to see your data? Run selection on the full dataset before splitting, and the "honest" score afterward is lying. Module 8 shows how that leak happens, how badly it inflates accuracy, and the pipeline discipline that keeps selection leakage-safe.

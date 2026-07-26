@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import GradientFlowWidget from '../../components/widgets/rnn/GradientFlowWidget.jsx'
 
 # Module 9: Gradient Problems in RNNs
+
+<ConceptBox title="TL;DR">
+- One product causes both failures: $\prod_t \mathbf{W}_h^T\,\text{diag}(1-\mathbf{h}_t^2)$. Factors below 1 vanish, above 1 explode — exponentially in $T$.
+- **The two failures are not symmetric.** Exploding is loud (loss spikes, NaN) and easy to fix. Vanishing is silent — the model just never learns long-range structure.
+- **Gradient clipping rescales the gradient vector to a maximum norm, preserving its direction.** It fixes exploding only.
+- Order matters: `clip_grad_norm_` goes **after `loss.backward()`, before `optimizer.step()`**.
+- Clipping is not a substitute for LSTM/GRU — those exist for the vanishing half, which no rescaling can recover.
+</ConceptBox>
 
 <Bridge>
 **From Module 8:** BPTT sends gradients backward through every time step — multiplying by $\mathbf{W}_h^T$ and the tanh derivative at each step. Module 7 warned that this product is the critical bottleneck. Now let's examine what happens when that product becomes either very small or very large, and what practitioners do about it.
@@ -134,6 +142,14 @@ The update $\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} - \alpha \mathbf{
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Why is vanishing the more dangerous of the two failures?", a: "Because it is silent. Exploding gradients announce themselves with loss spikes and NaNs, so you cannot miss them. Vanishing gradients just mean early time steps receive negligible updates — training proceeds, loss decreases, and the model quietly learns only short-range structure while appearing to work." },
+  { q: "What does gradient clipping do to the gradient vector, and what does it deliberately preserve?", a: "If the global norm exceeds max_norm, it multiplies the whole gradient by max_norm divided by that norm. That caps the step size while preserving the DIRECTION — every component is scaled by the same factor, so the update still points where backprop said, just less far." },
+  { q: "Where exactly does clip_grad_norm_ go in the training loop?", a: "After loss.backward(), because the gradients must exist before they can be clipped, and before optimizer.step(), because the point is for the optimizer to consume the clipped values. Placing it after the step does nothing; placing it before backward operates on stale or zeroed gradients." },
+  { q: "Does clipping fix vanishing gradients too?", a: "No. Clipping only ever shrinks gradients that are too large — it never amplifies small ones, and rescaling a vector that has decayed to numerical noise recovers no information. The vanishing half requires an architectural change, which is what the additive cell state in LSTM and GRU provides." },
+  { q: "Point at the exact factor in the product that causes each failure.", a: "Each step contributes W_h^T times diag(1 - h_t^2). The tanh derivative term is at most 1 and near 0 when saturated, so it drives vanishing. The spectral radius of W_h can exceed 1, which drives exploding. Both compound over T steps, which is why the effect is exponential rather than gradual." },
+]} />
 
 <MultiSelectQuiz
   question="Which of these are correct statements about gradient clipping in RNN training?"

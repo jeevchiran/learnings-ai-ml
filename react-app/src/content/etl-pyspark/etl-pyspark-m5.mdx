@@ -1,4 +1,11 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- `createOrReplaceTempView("name")` makes a DataFrame queryable by name. It's **session-scoped and stores nothing on disk** — the view is a label on a plan, not a copy of data.
+- `spark.sql(...)` returns a DataFrame, so SQL and the method-chain API are freely interchangeable mid-pipeline.
+- **Both go through Catalyst and produce the same physical plan.** The choice is readability, not performance.
+- Rule of thumb: complex joins and aggregations often read better in SQL; programmatic, parameterised column logic reads better in the DataFrame API.
+</ConceptBox>
 
 In Module 4, we compared PySpark and Pandas DataFrame APIs. Both use method chaining for transformations. Now we'll use a third approach: writing SQL queries directly against our DataFrames.
 
@@ -191,6 +198,13 @@ result.show()
 <Bridge>
 SQL and the DataFrame API cover most data operations. But sometimes you need custom logic — a calculation or classification that doesn't exist as a built-in function. That's where User-Defined Functions come in.
 </Bridge>
+
+<Recall items={[
+  { q: "Does createOrReplaceTempView write anything to disk?", a: "No. It registers a name in the session catalogue pointing at the DataFrame's logical plan. Nothing is materialised or persisted, and the view disappears when the session ends — it is a label, not a table. Use write.saveAsTable if you need something durable." },
+  { q: "Is SQL slower than the DataFrame API in Spark?", a: "No — both are parsed into the same logical plan and optimised by the same Catalyst engine, producing identical physical plans for equivalent queries. Choose whichever expresses the intent more clearly; there is no performance argument either way." },
+  { q: "When does SQL read better, and when does the DataFrame API?", a: "SQL for declarative shape — multi-table joins, window functions, nested aggregations, where the query reads like the question. The DataFrame API when the logic is programmatic — building column expressions in a loop, applying a transformation to a computed list of columns, or anything where you would otherwise be assembling a SQL string." },
+  { q: "You can mix the two mid-pipeline. Why does that work?", a: "Because spark.sql returns an ordinary DataFrame, and any DataFrame can be registered as a view. So you can filter with the API, register the result, run a SQL aggregation over it, and continue chaining methods on the output — it is all one lazy plan regardless of which syntax built each node." },
+]} />
 
 <QuizCard
   question="What does createOrReplaceTempView do?"

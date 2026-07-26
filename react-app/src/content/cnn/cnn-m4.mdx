@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import PoolingWidget from '../../components/widgets/cnn/PoolingWidget.jsx'
 
 # Module 4: Pooling Layers
+
+<ConceptBox title="TL;DR">
+- Pooling is a **fixed aggregation with zero learnable parameters** — it downsamples, it does not learn.
+- **Max pooling keeps whether a feature was present and discards exactly where.** That's the source of approximate translation *invariance* (convolution only gave equivariance).
+- Stride 2 halves each spatial dimension, quartering the map. **Channels are untouched** — pooling never changes $C$.
+- **Global average pooling** collapses each channel to one number, so the FC head no longer depends on input spatial size — and it removes the largest parameter block in the network.
+- No universal winner: max wins on sharp features, average on smooth ones. Many modern nets use strided convolutions instead.
+</ConceptBox>
 
 <Bridge>
 **From Module 3:** conv layers build increasingly rich feature maps, but they can be very large — a 32×32 input with 64 filters gives a 32×32×64 = 65,536-dimensional tensor. As networks go deeper, these tensors become computationally expensive to process. Pooling layers reduce the spatial dimensions while retaining the most important information, and introduce a degree of **translation invariance** that convolution alone cannot provide.
@@ -149,6 +157,14 @@ This is equivalent to applying a $1 \times 1$ conv with weights $\mathbf{w}_k$ t
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Convolution gave equivariance. How does pooling turn that into invariance?", a: "Max pooling reports the strongest activation in a window and discards which position it came from. So if the input shifts by less than the pooling window, the same maximum is still selected and the output is unchanged — the network becomes insensitive to small translations rather than merely tracking them." },
+  { q: "Does pooling change the channel count?", a: "No. It is applied independently to each feature map, so a 32x32x64 tensor pooled with stride 2 becomes 16x16x64. Only the spatial dimensions shrink — reducing channels requires a convolution, typically a 1x1 one." },
+  { q: "What does Global Average Pooling buy you, on two separate counts?", a: "It collapses each channel to a single mean, so the head's input size equals the channel count regardless of the input image size — the network accepts any resolution. And it eliminates the flatten-then-large-FC block, which is usually where most of a classic CNN's parameters live, so it is a large regularisation and size win at once." },
+  { q: "Max or average pooling — is one better?", a: "Neither universally. Max preserves the strongest response and suits sharp, localised features like edges, which is why it dominated in classification. Average smooths and retains overall magnitude, which suits texture-like signals and is what global pooling uses. Many modern architectures skip both and downsample with strided convolutions, which are learnable." },
+  { q: "Pooling has no parameters. Does it still affect what the network learns?", a: "Yes, substantially. It changes the receptive field growth rate, forces the following layers to work on a coarser representation, and imposes the invariance described above as an architectural prior. Having no weights means it is not trained, not that it is neutral." },
+]} />
 
 <MultiSelectQuiz
   question="Which of the following are true about pooling layers?"

@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import RegressionLineWidget from '../../components/widgets/regression/RegressionLineWidget.jsx'
 import AssumptionWidget from '../../components/widgets/regression/AssumptionWidget.jsx'
 import ResidualDiagnosticsWidget from '../../components/widgets/regression/ResidualDiagnosticsWidget.jsx'
@@ -8,6 +8,14 @@ import ResidualDiagnosticsWidget from '../../components/widgets/regression/Resid
 <Bridge>
 **Why?** A client asks "how much is my 2,200 sq ft house worth?" You have hundreds of past sales. You need a principled way to model how each feature drives price — not guessing or averaging. That's linear regression.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- Model $y$ as a weighted sum of predictors, and pick the weights that minimise **squared** residuals (OLS).
+- Each $\beta_j$ reads as "expected change in $y$ per unit of $x_j$, **holding the others fixed**." Standardise before comparing importance across scales.
+- Six assumptions; two matter most in practice. **Homoscedasticity** failing breaks your standard errors (not your predictions); **linearity** failing biases everything.
+- $R^2$ only ever rises as you add predictors — use **adjusted $R^2$** to compare models, RMSE to state error in real units.
+- **Residual plots are the diagnostic.** Curve = nonlinearity, funnel = heteroscedasticity, off-diagonal Q-Q = non-normal errors, high leverage + big residual = influential point.
+</ConceptBox>
 
 ## What Is Linear Regression?
 
@@ -105,6 +113,14 @@ $h_{ii}$ = leverage (hat-matrix diagonal). Cook's distance $> 1$ flags points to
 - **Linearity** — a nonlinear truth underfits; needs polynomial features or another model.
 - **Multicollinearity** — correlated predictors make coefficients unstable (predictions can stay fine).
 - **Can't classify** — predicts $(-\infty, \infty)$, giving "probabilities" outside [0,1] for binary outcomes → logistic regression (Module 3).
+
+<Recall items={[
+  { q: "Why does 'holding others constant' make a coefficient's sign flip when you add a predictor?", a: "Because the coefficient answers a different question in each model. Alone, a predictor absorbs the effect of everything correlated with it; once a confounder is included, the coefficient measures only the part of the relationship not explained by that confounder. A sign flip is a signal of confounding, not an error." },
+  { q: "Residuals fan out as fitted values grow. Name the violated assumption and say what is and is not broken.", a: "Homoscedasticity. Point predictions and coefficient estimates remain unbiased; what breaks is the STANDARD ERRORS, which are too narrow at high fitted values — so confidence intervals and p-values are wrong. Fixes: weighted least squares, a log transform, or HC1/HC3 robust standard errors." },
+  { q: "You add five junk predictors and R^2 rises. Explain, and give the right metric.", a: "R^2 is a monotone function of residual sum of squares, and adding any column can only reduce RSS by fitting noise — it can never fall. Adjusted R^2 penalises by the parameter count, so it goes DOWN when a predictor buys less than its degrees of freedom cost." },
+  { q: "Residuals-vs-fitted looks clean, but residuals-vs-age is U-shaped. Why did the first plot miss it?", a: "Fitted values are a blend of all predictors, so if size and location dominate y-hat, age's curvature is smeared across the x-axis and averages away. Always plot residuals against EACH predictor separately — that is what isolates a single feature's misspecification." },
+  { q: "A point has Cook's distance 1.8. Delete it?", a: "Not automatically. High influence means the point moves the fit a lot, not that it is wrong. If it is a legitimate member of the population you are modelling, keep it — deleting it makes the model lie about the real data. Remove or model separately only if it belongs to a different population than the one you are predicting for, or use robust regression." },
+]} />
 
 <QuizCard
   question="What does the Adjusted R-squared penalize compared to regular R-squared?"

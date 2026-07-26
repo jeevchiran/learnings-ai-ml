@@ -1,6 +1,14 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
 # Module 4: PyTorch — Data Handling & Parameters
+
+<ConceptBox title="TL;DR">
+- Three abstractions, three jobs: **`Dataset`** returns one sample, **`DataLoader`** batches/shuffles/parallelises, **`nn.Module`** holds the architecture and its parameters.
+- The split lets you swap datasets or add augmentation without touching model or training code.
+- **`nn.Parameter` = learnable**: auto `requires_grad=True`, appears in `model.parameters()`, updated by the optimizer.
+- **Buffer = state that isn't learned** (BatchNorm's running mean, a positional-encoding table). Saved in `state_dict`, moved by `.to(device)`, but *not* in `parameters()` and never updated by the optimizer.
+- Getting that distinction wrong is silent: register a learnable tensor as a plain attribute and the optimizer simply never sees it.
+</ConceptBox>
 
 <Bridge>
 **From Module 3:** You can create tensors, multiply them, and run them on GPU. The next step is structuring your code for real training: loading data in batches, defining models as reusable modules, and managing learnable parameters. PyTorch provides three abstractions for this — `Dataset`, `DataLoader`, and `nn.Module` — and together they define the standard deep learning workflow used everywhere from academic papers to production systems.
@@ -230,6 +238,13 @@ Larger batches: lower variance estimate but need more memory, may converge to sh
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Parameter or buffer: BatchNorm's running mean, BatchNorm's gamma scale, a fixed positional encoding table?", a: "Running mean is a BUFFER — it is state computed from data, not optimised by gradient descent. Gamma is a PARAMETER — it is learned. A fixed positional encoding is a BUFFER — needed at inference and saved with the model, but never updated. The test is simply whether the optimizer should touch it." },
+  { q: "You assign self.weight = torch.randn(10, 5) in __init__. What breaks, and how does it fail?", a: "It never trains. A plain tensor attribute is not registered, so it does not appear in model.parameters(), the optimizer never receives it, and it also will not move with .to(device) or be saved in state_dict. Nothing errors — the model simply learns less than you think, which is why this bug is hard to spot." },
+  { q: "Why separate Dataset from DataLoader rather than having one class?", a: "Because they answer different questions. Dataset answers 'how do I fetch and transform sample i' — data-specific logic. DataLoader answers 'how do I assemble samples into batches, shuffle them, and load them in parallel' — training-loop logic that is identical for every dataset. Splitting them means you write the first once per dataset and never write the second." },
+  { q: "What do buffers share with parameters, and where do they diverge?", a: "Both are saved in state_dict and both move with .to(device), so a checkpoint round-trips correctly and nothing is left on the CPU. They diverge on gradients: parameters have requires_grad set and appear in model.parameters(), so the optimizer updates them; buffers do neither." },
+]} />
 
 <MultiSelectQuiz
   question="Which of the following are true about nn.Parameter vs register_buffer?"

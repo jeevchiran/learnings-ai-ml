@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import IQRBoxplotWidget from '../../components/widgets/pandas-eda/IQRBoxplotWidget.jsx'
 
 # Outlier Detection & Treatment (IQR)
+
+<ConceptBox title="TL;DR">
+- **Tukey fences**: $Q1-k\cdot IQR$ and $Q3+k\cdot IQR$, with $k=1.5$ standard and $k=3$ for "far" outliers.
+- IQR beats z-scores because **Q1 and Q3 are unaffected by the very outliers you're hunting** — the mean and SD are not.
+- Detection is step one, not the decision. A $399 fare is a meter fault; a $52 fare is a legitimate JFK flat rate. Both sit outside the fence.
+- **Extreme is not the same as wrong.** Only domain knowledge separates them.
+- Cap or remove is a judgement call: capping keeps the row and distorts the value, removing loses the row entirely.
+</ConceptBox>
 
 ## What, Why, and How
 
@@ -145,6 +153,14 @@ Why might you choose k=2.0 over k=1.5 for `fare_amount`? What does the differenc
 <Bridge>
 **What's next: the time dimension.** Outlier detection asked "is this value too extreme?" — a purely numeric question. Module 5 adds a new kind of column: datetime. When was each trip? What hour, what day of week? Extracting those features unlocks time-based patterns that numeric cleaning alone can never reveal.
 </Bridge>
+
+<Recall items={[
+  { q: "Why is the IQR method more robust than a z-score cutoff for finding outliers?", a: "Because Q1 and Q3 are order statistics — moving one extreme point further out does not shift them at all. The mean and standard deviation both absorb the outlier, so a single huge value inflates sigma and can pull its own z-score back under the threshold. The IQR method cannot be hidden from in that way." },
+  { q: "Compute the upper fence for Q1 = 6.125, Q3 = 19.125, k = 1.5.", a: "IQR = 19.125 - 6.125 = 13.0. Upper fence = Q3 + 1.5 * 13.0 = 19.125 + 19.5 = 38.625. Anything above that is flagged, which catches the $399 fare and also the legitimate $45 and $52 airport fares." },
+  { q: "Both a $399 fare and a $52 fare fall outside the fence. Why treat them differently?", a: "Because the fence is a statistical flag, not a verdict. $399 for a 6.7-mile trip is physically implausible and points at a meter fault. $52 matches the JFK flat rate, confirmed by RatecodeID 2 — a real value that is simply rare in this sample. Only the domain rule separates them; the arithmetic cannot." },
+  { q: "Cap the outlier at the fence, or drop the row?", a: "Capping keeps the row's other columns and its contribution to counts, but writes a value that was never observed — fine when the extreme is a recording error and the rest of the row is sound. Dropping is right when the whole record is untrustworthy. Neither is right when the extreme is genuine, in which case you keep it and use robust statistics instead." },
+  { q: "When do Tukey fences mislead you badly?", a: "On strongly skewed distributions. Fares, incomes and durations have long right tails by nature, so a symmetric fence flags a large chunk of perfectly normal high values as outliers. Log-transform first, or use domain thresholds, rather than deleting the tail the data genuinely has." },
+]} />
 
 <QuizCard
   question="Given Q1=6.125, Q3=19.125, and k=1.5, what is the upper Tukey fence for fare_amount?"

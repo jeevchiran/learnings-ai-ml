@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, QuizCard, DerivationSteps, DerivationStep } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, DerivationSteps, DerivationStep, Recall } from '../../components/learning/index.js'
 import LIMEWidget from '../../components/widgets/xai/LIMEWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- One insight: **a boundary that is hopelessly nonlinear globally looks straight if you zoom in far enough.** So fit a line locally instead of explaining the whole model.
+- Four steps: perturb around $x$ → query the black box → weight samples by proximity → fit a sparse linear model. Its coefficients *are* the explanation.
+- The proximity kernel $\pi_x$ is what makes it *local*; drop it and you get a bad global fit.
+- The complexity term $\Omega(g)$ is what makes it *readable*; drop it and $g$ uses every feature with tiny weights.
+- $g$ is fit on human-readable features (is this word present? this superpixel? ), not raw pixels or embeddings.
+</ConceptBox>
 
 ## LIME in One Sentence
 
@@ -63,6 +71,13 @@ If you fit an ordinary (unweighted) linear model to the perturbed samples, what 
 What is the role of $\Omega(g)$, and what happens if you drop it?
 
 **Solution:** $\Omega(g)$ penalises complexity — typically the number of features $g$ uses — keeping the explanation short enough for a human to read. Drop it and $g$ may use all features with tiny weights: a technically better local fit that no one can interpret, defeating the purpose.
+
+<Recall items={[
+  { q: "Recite LIME's four steps and name the purpose of each.", a: "Perturb — build a sample of inputs around x. Query — get the black box's outputs on them, which is the only access needed. Weight by proximity — make near samples count most, which is what makes the explanation local. Fit a sparse linear model — its coefficients are the human-readable explanation." },
+  { q: "Read the objective L(f, g, pi_x) + Omega(g) out loud in plain English.", a: "Find the simplest model g that still mimics the black box f in the neighbourhood of x. The first term punishes disagreement with f on proximity-weighted samples; the second punishes using too many features." },
+  { q: "What breaks if you remove the proximity kernel, and what breaks if you remove Omega(g)?", a: "Without the kernel, distant samples count equally, so g approximates f over a wide region where f is genuinely nonlinear — the explanation stops being local and becomes a poor global compromise. Without Omega, g spreads tiny weights over every feature: a tighter fit that no human can read, which defeats the purpose." },
+  { q: "Why does LIME fit on a binary 'interpretable representation' rather than the raw input?", a: "Because a coefficient on raw pixel 4,217 or embedding dimension 300 means nothing to a person. Recoding to 'is this superpixel present, is this word present, is this feature near its original value' makes each coefficient read directly as 'this region/word/feature mattered this much'." },
+]} />
 
 <QuizCard
   question="What is the central assumption that makes LIME work?"

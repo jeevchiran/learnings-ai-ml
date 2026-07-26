@@ -1,6 +1,14 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Data Quality & Invalid Values
+
+<ConceptBox title="TL;DR">
+- **Missing and invalid are different failure modes.** `.isna()` finds absent cells; nothing generic finds *present but impossible* ones.
+- Catching invalid values requires **domain rules**, not a pandas method: a fare can't be negative, a rate code must be in the documented set.
+- Each rule becomes a boolean mask — a condition that should never be true for a healthy row.
+- Use `&` and `|` on Series, never Python's `and`/`or`, and parenthesise each condition.
+- **Flag before you delete.** A zero-distance trip with a real fare may be a legitimate cancellation charge, not an error.
+</ConceptBox>
 
 ## Why This Topic?
 
@@ -116,6 +124,13 @@ Confirm whether any row is *both* zero-distance and negative-fare by combining t
 <Bridge>
 **What's next: when "wrong" becomes a matter of degree.** Invalid values here were caught with a hard boolean rule — a fare is either negative or it isn't. But how far is "too far" before a *positive*, plausible-looking value still counts as wrong? Module 4 makes that boundary statistical: the IQR method.
 </Bridge>
+
+<Recall items={[
+  { q: "Give the one-line distinction between a missing and an invalid value, and why the second is harder.", a: "Missing means the cell is empty and any generic null check finds it. Invalid means the cell is populated with something the domain forbids — a negative fare, an undocumented rate code — so no generic method can detect it. You have to know what the column means to write the rule." },
+  { q: "Why does df[df.fare > 0 and df.distance > 0] raise an error?", a: "Python's 'and' tries to evaluate the truth of an entire Series, which is ambiguous — pandas raises rather than guess. Element-wise logic needs the bitwise operators & and |, and because those bind more tightly than comparison, each condition must be parenthesised: (df.fare > 0) & (df.distance > 0)." },
+  { q: "You find rows with trip_distance = 0 and fare_amount > 0. Delete them?", a: "Not without checking. A cancelled ride can legitimately trigger a minimum charge, so these may be real records rather than corruption. Contrast them with rows where distance AND fare are both zero — a true non-event. Flag the suspicious pattern, understand it, and only then decide whether to drop, keep, or model it separately." },
+  { q: "Why is a RatecodeID outside 1-6 worth investigating even if it is a small number of rows?", a: "Because it signals the column cannot be trusted as a clean categorical. An undocumented code means either a data-entry path you do not know about or a join against the wrong reference table — and any groupby or one-hot encoding on that column will silently produce a bogus category. The row count matters less than what the anomaly reveals about the pipeline." },
+]} />
 
 <QuizCard
   question="Which operator performs element-wise logical AND on two pandas boolean Series?"

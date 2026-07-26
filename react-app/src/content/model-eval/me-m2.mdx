@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import SplitWidget from '../../components/widgets/model-eval/SplitWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Three splits, three jobs: **train** fits parameters, **validation** compares models and tunes knobs, **test** is used **exactly once** at the very end.
+- Any decision made from the test score — model choice, a knob, when to stop — converts it from an honest estimate into another validation set.
+- A single holdout score is itself **noisy**: changing only the split seed moved the same model 5 accuracy points here.
+- So a 1–2 point difference between candidates can easily be split luck, not model quality.
+- `stratify=y` preserves class proportions across splits — essential on imbalanced data.
+</ConceptBox>
 
 ## Splitting the Data Three Ways
 
@@ -91,6 +99,14 @@ Splitting a fraud dataset with 2% positives, `test_size=0.2`. Use `stratify=y`? 
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Give each split's job in one phrase, and the rule attached to the third.", a: "Train fits the model's parameters. Validation compares candidates and tunes hyperparameters, and may be reused freely. Test produces one final generalisation estimate and must be looked at exactly once, after every modelling decision is locked." },
+  { q: "You checked test accuracy after each of six candidate models and shipped the best. What did you actually measure?", a: "The best of six noisy draws, not generalisation. By selecting on the test score you fitted to it — the reported number is optimistically biased, and the more candidates you compared the worse the bias. The test set is now spent and only fresh data can replace it." },
+  { q: "The same model scored 0.902 to 0.951 across five split seeds. What does that mean for model comparison?", a: "That the holdout estimate has a standard deviation of a couple of points on this data. Any comparison where two models differ by less than that spread is uninformative — one unlucky split can crown the worse model. It is the argument for cross-validation." },
+  { q: "What does stratify=y do, and when is omitting it actively harmful?", a: "It preserves each class's proportion in both splits. Omitting it is harmful with imbalanced classes or small data: a random split can leave a rare class badly under-represented — or absent — in validation, making the score both biased and unstable." },
+  { q: "Why is the holdout method worse on small datasets, for two separate reasons?", a: "First, carving off 25% for validation removes scarce training data, so the model you evaluate is weaker than the one you would deploy. Second, a small validation set gives a noisier estimate, since each individual prediction carries more weight in the score. Both effects worsen as n shrinks." },
+]} />
 
 <MultiSelectQuiz
   question="Which statements about validation sets and the holdout method are correct? (Select all that apply.)"

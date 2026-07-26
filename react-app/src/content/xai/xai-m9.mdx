@@ -1,4 +1,12 @@
-import { ConceptBox, Bridge, QuizCard, DerivationSteps, DerivationStep } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, DerivationSteps, DerivationStep, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- Gradients answer "sensitivity to a tiny nudge," not "how much did this feature contribute." A **saturated** neuron has gradient ≈0, so gradients call the feature that holds it there irrelevant.
+- DeepLIFT explains a **finite difference against a reference**: contributions sum exactly to $f(x)-f(x^0)$. No saturation, because it spans the whole range instead of reading a local slope.
+- Multipliers obey a chain rule, so the whole thing runs in **one backward pass** — as cheap as ordinary backprop.
+- Two credit rules: **Rescale** (proportional, the default) and **RevealCancel** (separates positive and negative so cancelling effects don't vanish).
+- **The reference defines the question.** Black baseline asks "why this vs. nothing"; blurred asks "why this vs. the general scene." Always report it.
+</ConceptBox>
 
 ## Why Not Just Use Gradients?
 
@@ -73,6 +81,14 @@ A sigmoid neuron is saturated at 0.99; its input feature is what holds it there.
 Two engineers run DeepLIFT on the same image model and get different attributions. Neither made an error. What likely differs?
 
 **Solution:** Their **reference/baseline** inputs. DeepLIFT explains $f(x) - f(x^0)$, so the attributions are defined *relative to* $x^0$. A black baseline and a blurred-image baseline pose different questions ("vs. nothing" vs. "vs. the general scene") and legitimately yield different contributions. The reference must be reported for an explanation to be interpretable.
+
+<Recall items={[
+  { q: "Explain the saturation failure concretely, with a sigmoid sitting at 0.99.", a: "The sigmoid's slope near 0.99 is almost zero, so a plain-gradient method reports that nudging the input barely moves the output and marks the feature unimportant. But that feature is precisely what drove the neuron to 0.99 in the first place. Sensitivity and contribution are different questions, and the gradient only answers the first." },
+  { q: "What does DeepLIFT compute instead, and why does that dodge saturation?", a: "It computes contributions to the finite difference f(x) - f(x0) against a reference input. A finite difference spans the entire range from reference to input, so the flat region at the end does not erase the large activation change that got there." },
+  { q: "Why is DeepLIFT as cheap as backprop?", a: "Its multipliers — contribution per unit of input difference — satisfy a chain rule of the same form as derivatives. So contributions can be propagated from output to inputs in a single backward pass, rather than requiring repeated forward evaluations the way masking methods do." },
+  { q: "Two engineers get different DeepLIFT attributions on the same model and image, and neither is wrong. Why?", a: "Different baselines. DeepLIFT explains x RELATIVE TO x0, so a black reference and a blurred reference pose genuinely different questions and correctly give different answers. This is why the reference must be reported alongside any attribution." },
+  { q: "How does DeepLIFT become Deep SHAP?", a: "By using a DISTRIBUTION of references — the background set — instead of one, and averaging the resulting contributions. That averaging over baselines is what turns reference-based contributions into approximate Shapley values." },
+]} />
 
 <QuizCard
   question="How does DeepLIFT avoid the saturation problem that breaks plain-gradient explanations?"

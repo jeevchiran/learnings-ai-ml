@@ -1,4 +1,11 @@
-import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- A probabilistic classifier estimates $P(y\mid\mathbf{x})$ and takes the arg-max — the **Bayes decision rule**, provably optimal if the probabilities were exact.
+- **Prior** = belief before evidence (the base rate). **Posterior** = belief after. Everything here is machinery for that update.
+- **Discriminative** models draw the boundary ($P(y\mid\mathbf{x})$ directly). **Generative** models build a per-class simulator ($P(\mathbf{x}\mid y)$ and $P(y)$) and let Bayes do the rest.
+- Generative buys you extras: sampling, graceful handling of missing features by marginalising, and incremental updates.
+</ConceptBox>
 
 ## Why Probabilistic Classification?
 
@@ -49,6 +56,13 @@ Naive Bayes is the simplest generative classifier: each class's "simulator" is j
 Classify each: (a) logistic regression, (b) Gaussian Naive Bayes, (c) decision tree, (d) linear discriminant analysis.
 
 **Solution:** (a) Discriminative — models $P(y\mid\mathbf{x})$ via a sigmoid, no model of $\mathbf{x}$. (b) Generative — per-class Gaussian over $\mathbf{x}$ plus prior. (c) Discriminative — axis-aligned splits partition $\mathbf{x}$-space directly. (d) Generative — per-class Gaussian with shared covariance, then Bayes' theorem.
+
+<Recall items={[
+  { q: "Sort these into generative and discriminative, and say what the test is: logistic regression, Gaussian NB, decision tree, LDA.", a: "Discriminative: logistic regression and decision tree — both carve up x-space without ever modelling how x is distributed. Generative: Gaussian NB and LDA — both fit a distribution over x per class, then apply Bayes. The test is whether the model could GENERATE a plausible feature vector for a class; if not, it is discriminative." },
+  { q: "What can a generative model do that a discriminative one structurally cannot?", a: "Three things: sample new synthetic examples of a class; handle a missing feature by integrating it out of P(x|y) rather than imputing a guess; and update incrementally from new data by adjusting per-class statistics without refitting a boundary." },
+  { q: "Why is 'take the arg-max of the posterior' called optimal, and what is the catch?", a: "Given the TRUE P(y|x), no decision rule achieves lower expected error — that is the Bayes rule and its error is the irreducible Bayes rate. The catch is that you never have the true posterior; every classifier is an approximation from finite data, so the optimality is a target, not an achievement." },
+  { q: "Symptoms strongly suggest a condition with prevalence 1 in 500. What must the doctor NOT do?", a: "Discard the prior. The relevant quantity is the posterior, which combines how strongly the symptoms point at the condition WITH how rare it is to begin with. Reasoning from the likelihood alone is the base-rate fallacy, and with a prior of 0.002 it can be wrong by an order of magnitude." },
+]} />
 
 <QuizCard
   question="A generative classifier like Naive Bayes primarily models which quantity before applying Bayes' theorem?"

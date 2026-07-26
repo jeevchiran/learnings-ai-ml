@@ -1,6 +1,15 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
 # Module 4: Applications of RNNs
+
+<ConceptBox title="TL;DR">
+- Every application reduces to one of four **input/output shapes**, and the shape dictates the architecture.
+- **Many→one**: sentiment, classification, readmission risk. Read the whole sequence, emit one answer from the final state.
+- **Many→many (synced)**: POS tagging, NER. One output per input, aligned position by position.
+- **Many→many (encoder-decoder)**: translation, summarisation. Lengths differ, so you read fully *then* generate.
+- **One→many**: image captioning. One input, a generated sequence out.
+- Naming the shape first is the practical skill — it tells you where the loss attaches and what the final state must carry.
+</ConceptBox>
 
 <Bridge>
 **From Module 3:** we've established why order matters and why standard networks can't handle it. Before diving into architecture, let's survey the landscape of what RNNs actually build — the motivation for everything that follows in this track.
@@ -113,6 +122,13 @@ For many of these tasks, Transformers (BERT, GPT, Wav2Vec) have surpassed RNNs b
   ]}
   correct={3}
 />
+
+<Recall items={[
+  { q: "Classify these by shape: sentiment analysis, NER, translation, image captioning.", a: "Sentiment is many-to-one — the whole review yields one label. NER is many-to-many synced — one tag per token, aligned. Translation is many-to-many encoder-decoder — input and output lengths differ and there is no positional alignment. Captioning is one-to-many — a single image produces a generated sequence." },
+  { q: "Why can't translation use the synced many-to-many setup that works for POS tagging?", a: "Because the output has a different length and a different word order from the input — there is no position-by-position correspondence to attach an output to. The encoder-decoder split exists precisely for this: read the entire source into a state, then generate the target freely from it." },
+  { q: "Where does the loss attach in a many-to-one model versus a synced many-to-many one?", a: "Many-to-one puts a single loss on the final time step's output, so gradient must travel back through every earlier step from that one point. Synced many-to-many puts a loss at every step, so each position gets direct gradient — which is one reason tagging models train more easily than long-sequence classifiers." },
+  { q: "What must the final hidden state carry in a many-to-one model, and why is that demanding?", a: "It must be a compressed representation of the ENTIRE sequence sufficient to make the decision — a fixed-size vector summarising arbitrarily many steps. That is a genuine bottleneck: information from early steps has to survive all the way to the end, which is exactly the pressure that motivates gating and later attention." },
+]} />
 
 <MultiSelectQuiz
   question="Which of these applications use the 'many-to-one' RNN pattern?"

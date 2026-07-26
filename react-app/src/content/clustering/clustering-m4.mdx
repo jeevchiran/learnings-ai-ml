@@ -1,9 +1,17 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import SilhouetteWidget from '../../components/widgets/clustering/SilhouetteWidget.jsx'
 
 <Bridge>
 **The key insight.** A good clustering places each point closer to its own cluster than to any other — by a wide margin. The silhouette score quantifies that margin for every point, then averages them. WCSS can't: two clusters can each be tight yet sit right next to each other, overlapping at the boundary.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- Silhouette scores every point by **cohesion vs separation at once**: $s = (b-a)/\max(a,b)$, where $a$ is the mean distance inside its own cluster and $b$ the mean distance to the nearest *other* cluster.
+- Read the sign first. $s>0$ correctly clustered, $s\approx0$ on the boundary, **$s<0$ means the point is on average closer to a competing cluster** — a reassignment candidate.
+- Rough bands: above 0.7 strong, 0.5–0.7 reasonable, below 0.25 no real structure.
+- **Silhouette plots** show more than the mean: thickness = cluster size, bar length = confidence, negative bars = misfits.
+- Davies-Bouldin (lower better) and Calinski-Harabasz (higher better) are cheaper second opinions. **Pick $K$ where two or three metrics agree**, not where one is best.
+</ConceptBox>
 
 ## Why WCSS Isn't Enough
 
@@ -103,6 +111,14 @@ No single metric is definitive — use several and look for agreement:
 **Workflow:** run K = 2–10 with restarts (n_init ≥ 10); note the elbow; compute mean silhouette per K (note the max); compare DB and CH; pick where 2–3 metrics agree; inspect silhouette plots for the top candidates.
 
 <SilhouetteWidget />
+
+<Recall items={[
+  { q: "Define a(i) and b(i), then read off what each of the three sign cases means.", a: "a(i) is the mean distance from the point to the other members of its OWN cluster; b(i) is the smallest mean distance to any other cluster. a < b gives s positive — correctly placed. a = b gives s = 0 — on the boundary. a > b gives s negative — the point is on average nearer a competing cluster and should probably move." },
+  { q: "A point has a = 3.2, b = 1.8. Compute s and say what to do.", a: "s = (1.8 - 3.2)/max(3.2, 1.8) = -1.4/3.2 = -0.44. It is strongly misplaced: it sits closer on average to a different cluster than to its own. A cluster full of such points usually means K is wrong or the clusters are not spherical." },
+  { q: "Why can silhouette handle non-spherical clusters better than the elbow?", a: "Because it is computed from pairwise distances between points, not from distances to a centroid. A crescent-shaped cluster has a centroid that may not even lie inside it, which wrecks WCSS-based reasoning, while point-to-point distances still capture that its members are mutually close." },
+  { q: "Mean silhouette is 0.62 but the plot shows one cluster entirely below the average line. What does that tell you?", a: "The mean is being propped up by the well-separated clusters while one cluster is genuinely poor — probably two real groups merged, or a group that overlaps a neighbour. The aggregate number hides it; this is exactly why you inspect the plot rather than trusting the single score." },
+  { q: "Give the practical workflow for choosing K.", a: "Run K from 2 to 10 with n_init at least 10. Note the elbow in WCSS, the K maximising mean silhouette, the K minimising Davies-Bouldin, and the K maximising Calinski-Harabasz. Choose where two or three agree, then inspect silhouette plots for the top candidates before committing." },
+]} />
 
 <QuizCard
   question="A data point has a(i) = 3.2 and b(i) = 1.8. What does this indicate about its cluster assignment?"

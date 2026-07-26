@@ -1,5 +1,12 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LazyEvaluationWidget from '../../components/widgets/etl-pyspark/LazyEvaluationWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- The name is the definition. **R**esilient = rebuildable from lineage; **D**istributed = partitioned across nodes; **D**ataset = just a collection of elements.
+- **Immutability is what makes resilience possible.** Because every transformation returns a new RDD and the source is unchanged, a lost partition can be recomputed by replaying its lineage.
+- That's fault tolerance without replication — Spark stores the *recipe*, not a backup copy.
+- RDDs are the low-level API: raw tuples and lambdas, no schema, no Catalyst optimisation. DataFrames exist because of that gap.
+</ConceptBox>
 
 In Module 2, we saw how Spark keeps data in memory and uses lazy evaluation with DAGs. Now we'll look at the data structure that makes this possible: the RDD.
 
@@ -237,6 +244,13 @@ for major, avg in avg_gpa:
 <Bridge>
 RDDs are powerful but low-level — you work with raw tuples and lambdas. Spark introduced DataFrames to give you a higher-level, schema-aware API with built-in optimizations. Next, we'll compare DataFrames in PySpark and Pandas.
 </Bridge>
+
+<Recall items={[
+  { q: "Unpack R-D-D, one clause each.", a: "Resilient: a lost partition is rebuilt by replaying the recorded lineage of transformations. Distributed: the data is split into partitions across cluster nodes, each processed in parallel. Dataset: underneath it is simply a collection of elements — tuples, numbers, arbitrary Python objects." },
+  { q: "Why does immutability enable fault tolerance rather than merely being good hygiene?", a: "Because recovery works by REPLAYING the transformations from the original source. If an RDD could be modified in place, the inputs a step depended on might no longer exist in their original form, and replaying would produce a different result. Immutability guarantees the recipe still reproduces exactly what was lost." },
+  { q: "A node dies mid-job. What does Spark do, and what does it NOT need?", a: "It identifies which partitions lived on that node and recomputes only those by re-running their lineage from the source. It does not need a replicated copy of the data — the lineage graph substitutes for replication, which is why Spark's fault tolerance costs storage nothing." },
+  { q: "Why did DataFrames get added when RDDs already worked?", a: "RDDs carry no schema, so Spark sees opaque Python objects and lambdas it cannot reason about — no column pruning, no predicate pushdown, no code generation. DataFrames expose named typed columns, which lets Catalyst optimise the plan and Tungsten generate efficient code. You give up arbitrary object flexibility and get large speedups." },
+]} />
 
 <QuizCard
   question="Which of these is a transformation, not an action?"

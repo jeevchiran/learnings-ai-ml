@@ -1,9 +1,18 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import GradientBoostingWidget from '../../components/widgets/decision-trees/GradientBoostingWidget.jsx'
 
 <Bridge>
 **From variance reduction to bias reduction.** Module 5 showed that bagging and random forests reduce variance. But what if the fundamental problem is **bias**? Consider a depth-1 decision tree — a stump. No matter how many stumps you average, the resulting ensemble is still constrained by what a stump can express. To reduce bias, we need **sequential learning**: train models one after another, where each new model specifically targets the errors made by all previous models combined.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- **Bagging cannot reduce bias.** The bias of an average equals the bias of one member — averaging identical mistakes reproduces them.
+- Boosting is **sequential**: each new tree is fitted to the *residuals* of the current ensemble, so it targets exactly what the ensemble still gets wrong.
+- $F_m = F_{m-1} + \eta\,h_m$, starting from $F_0=\bar y$. The learning rate $\eta$ shrinks each correction so no single tree dominates.
+- Fitting residuals under squared loss = **gradient descent in function space**; other losses just replace residuals with negative gradients.
+- **Parallel vs sequential is the deep split**: RF trees are independent (parallelisable, robust); GB trees are dependent (accurate, overfit-prone, must be tuned).
+- XGBoost adds second-order terms and explicit regularisation; LightGBM adds histogram binning and leaf-wise growth for speed.
+</ConceptBox>
 
 ## 1. Bias vs. Variance — Two Different Problems
 
@@ -146,6 +155,14 @@ $$\mathcal{L}_{\text{XGB}} = \sum_{i=1}^{n} L(y_i, F(x_i)) + \lambda \|w\|^2 + \
 **LightGBM:** Uses histogram-based splitting (bucketing continuous features into 255 bins) and leaf-wise tree growth (expand the leaf with the largest loss reduction, not all leaves at the same depth). Substantially faster than XGBoost for large datasets while maintaining similar accuracy.
 
 <GradientBoostingWidget />
+
+<Recall items={[
+  { q: "Why can't averaging 10,000 stumps fix a bias problem?", a: "Because the bias of an average is the average of the biases. If every stump is systematically wrong in the same direction — as a depth-1 model must be on a complex target — their average is wrong in exactly that direction too. Averaging cancels the random part of the error, never the systematic part." },
+  { q: "State what tree m in gradient boosting is actually fitted to.", a: "The residuals of the CURRENT ensemble, y_i - F_{m-1}(x_i), not the original targets. Each tree's job is only to explain what the ensemble so far still gets wrong, which is why the model reduces bias step by step rather than re-fitting the same thing repeatedly." },
+  { q: "In what sense is boosting gradient descent?", a: "For squared loss, the negative gradient of the loss with respect to the prediction at each point IS the residual. So fitting a tree to the residuals and adding it with a small step size is a gradient descent step taken in function space rather than parameter space. Swap the loss and you fit the corresponding negative gradient — logistic loss gives probability residuals, and so on." },
+  { q: "What does the learning rate do, and why does it help generalisation?", a: "It scales down each tree's contribution, so no single correction dominates the ensemble. Many small corrections mean each tree fits a smaller, more general slice of the remaining error rather than aggressively chasing a few hard points, which is a form of regularisation — at the cost of needing more iterations." },
+  { q: "Contrast RF and GB on the axis that matters most.", a: "Independence. RF trees are trained in parallel on independent bootstrap samples, so more trees can only stabilise the result and it is hard to overfit by adding them. GB trees are trained sequentially, each conditioned on all previous ones, so more iterations keep increasing capacity and WILL eventually overfit — which is why GB needs a validation set and early stopping while RF largely does not." },
+]} />
 
 <QuizCard
   question="Why can gradient boosting reduce bias while bagging cannot?"

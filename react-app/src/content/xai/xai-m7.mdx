@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 import ShapForceWidget from '../../components/widgets/xai/ShapForceWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- One equation carries the module: $f(x) = \phi_0 + \sum_i \phi_i$. The explanation reconstructs the **exact** prediction — LIME only approximates it.
+- That turns an explanation into a story: *you started at the average, this pushed up, that pushed down, here you landed.*
+- **Consistency** is the guarantee others lack: make the model rely on a feature more, and its SHAP value cannot fall. XGBoost's gain importance can and does.
+- Three plots: **force/waterfall** (one decision), **beeswarm** (global importance *and* direction), **dependence** (one feature's nonlinearity and interactions).
+- Global importance = mean $|\phi_i|$ over the dataset — and it decomposes back to individual predictions.
+</ConceptBox>
 
 ## The Property That Makes SHAP Click: Additivity
 
@@ -13,7 +21,7 @@ The prediction equals the **base value** $\phi_0$ (the average prediction $E[f(x
 
 Because of additivity, a SHAP explanation is a story: *"You started at the average. Feature A pushed you up \$120k, feature B down \$40k, and here you landed."* LIME can't promise this — its surrogate only *approximates* the prediction.
 
-## The Four Guarantees
+## The Three Guarantees
 
 SHAP inherits the Shapley axioms as concrete properties:
 
@@ -63,6 +71,13 @@ A house model has base value $\phi_0 = 300$ and SHAP values $\phi_{\text{size}}=
 You retrain a model so that feature X now increases the prediction in *every* coalition it joins, more than before. Can X's SHAP value go down?
 
 **Solution:** **No** — the **consistency** property forbids it. If a feature's marginal contribution rises (or stays equal) in every coalition, its SHAP value cannot decrease. This is precisely the guarantee that gain-based importance lacks.
+
+<Recall items={[
+  { q: "Base value 300, phi values +140, +70, -10. What is the prediction, and which property lets you assert it exactly rather than approximately?", a: "500. Local accuracy — the additive form f(x) = phi_0 + sum(phi_i) holds exactly, not as an approximation, which is why you can reconstruct the prediction from the explanation and verify it with an assert." },
+  { q: "State the consistency guarantee and the concrete bug it prevents.", a: "If you change the model so a feature's marginal contribution rises or stays equal in every coalition, its attribution cannot decrease. It prevents the gain-based-importance bug where making a model depend MORE on a feature can lower that feature's reported importance — which silently misranks features." },
+  { q: "You must explain one loan denial to the applicant, and separately justify your feature set to the model-risk team. Which plot for each?", a: "Force or waterfall for the applicant — it walks from the average outcome to their specific one, feature by feature. Beeswarm for the risk team — it shows every feature's overall importance AND the direction high versus low values push, across the whole population." },
+  { q: "How does a purely local method produce a global ranking, and why is that ranking better than most?", a: "Average the absolute SHAP values of each feature over many predictions. It is better because it inherits consistency, and because it decomposes — any global number can be traced back to the individual predictions that produced it, so you can audit a surprising ranking instead of just accepting it." },
+]} />
 
 <QuizCard
   question="The SHAP additivity property states that a prediction equals:"

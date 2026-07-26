@@ -1,4 +1,12 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- MapReduce writes to disk between every stage; Spark keeps intermediates in RAM. That single difference is most of the speedup — iterative workloads benefit most.
+- **Transformations are lazy, actions execute.** `filter`, `select`, `groupBy`, `withColumn` only record a plan; `count`, `show`, `collect`, `write` run it.
+- The recorded plan is a **DAG**, and laziness is what makes it optimisable — Catalyst can reorder and fuse steps before any data moves.
+- Classic optimisation: **predicate pushdown**, moving a filter earlier so less data flows through everything after it.
+- Consequence: a bug in a transformation surfaces at the *action*, which is why stack traces point at the wrong line.
+</ConceptBox>
 
 In Module 1, we built an ETL pipeline: extracting data from CSV files, transforming it with filters and column operations, and loading results to storage. Now we'll understand *why* Spark is fast — it keeps data in memory.
 
@@ -152,6 +160,14 @@ print(f"Recreate is {time_recreate / time_inmemory:.1f}x slower")
 <Bridge>
 Now that we understand why data lives in memory, let's look at the lowest-level abstraction Spark uses to represent it: Resilient Distributed Datasets (RDDs).
 </Bridge>
+
+<Recall items={[
+  { q: "Sort into transformations and actions: filter, count, select, collect, withColumn, write.", a: "Transformations (lazy, return a new DataFrame): filter, select, withColumn. Actions (trigger execution, return a value or side effect): count, collect, write. The test is whether the call returns another DataFrame — if it does, nothing has run yet." },
+  { q: "Why is laziness a prerequisite for optimisation rather than just a performance trick?", a: "Because an optimiser can only rearrange work it has not yet done. If each line executed immediately, Spark would have already materialised a wide intermediate before learning that a later filter discards 99% of it. Deferring execution lets Catalyst see the whole DAG and choose a physical plan for the entire chain." },
+  { q: "Give a concrete example of predicate pushdown and what it saves.", a: "You write select over all columns, then filter on year >= 3. Catalyst moves the filter before the select — and, with a columnar source like Parquet, pushes it into the reader so non-matching row groups are never decoded. The saving is I/O and shuffle volume, not just CPU." },
+  { q: "Your filter has a typo, but the traceback points at .count(). Explain.", a: "Because the filter only recorded a plan node; the error is raised when the plan is analysed and executed, which the action triggers. Reading Spark stack traces means looking upstream from the action to the transformations that built the plan, not at the line the trace names." },
+  { q: "Which workloads benefit most from in-memory processing, and why?", a: "Iterative ones — machine-learning training loops, graph traversals, repeated joins against the same table. They touch the same dataset many times, so MapReduce would re-read it from disk on every pass while Spark holds it in RAM and reuses it. A single-pass scan-and-write job benefits far less." },
+]} />
 
 <QuizCard
   question="Why does Spark delay execution until an action is called?"

@@ -1,5 +1,12 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import SmoothingWidget from '../../components/widgets/time-series/SmoothingWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- A moving average uses a hard window; exponential smoothing gives **every** past point a geometrically decaying weight.
+- Three variants, one per component: **SES** = level only (flat forecast), **Holt** = level + trend (straight-line forecast), **Holt-Winters** = level + trend + seasonality.
+- Pick by asking two questions: does it trend? does it have fixed-period seasonality?
+- $\alpha,\beta,\gamma$ are **fitted** by minimising in-sample squared error, not chosen by hand. High $\alpha$ chases noise, low $\alpha$ reacts slowly.
+</ConceptBox>
 
 ## The Idea: Weight Recent Points More
 
@@ -52,6 +59,13 @@ Ask two questions: does the series **trend**? does it have **fixed-period season
 **Problem 2.** Your Holt-Winters `fit()` returns γ ≈ 0.02. What does that tell you about the seasonal pattern?
 
 **Solution:** Near-zero γ means the seasonal component barely updates from new data — the fitted seasonal shape from early in the series is treated as essentially fixed/reliable throughout.
+
+<Recall items={[
+  { q: "Expand l_t = alpha*y_t + (1-alpha)*l_{t-1} one step and say where the 'exponential' comes from.", a: "Substituting l_{t-1} gives alpha*y_t + alpha(1-alpha)*y_{t-1} + (1-alpha)^2 * l_{t-2}, and continuing shows the weight on a point k steps back is alpha*(1-alpha)^k — a geometric, i.e. exponentially decaying, sequence that never quite reaches zero." },
+  { q: "Two questions pick your variant. What are they, and what does each answer buy you?", a: "Does the series trend? If yes you need Holt's b_t component, which turns a flat forecast into a sloped line. Does it have fixed-period seasonality? If yes you need Holt-Winters' s_t component, which adds a repeating per-period offset. No to both means SES suffices." },
+  { q: "Someone runs SES on a strongly trending series. Describe the failure precisely.", a: "SES forecasts the last level, flat, forever. On an upward trend that is a systematically increasing under-forecast — the error grows linearly with the horizon rather than staying bounded. It is a bias, not noise, so no amount of data fixes it." },
+  { q: "Why is fitting alpha, beta and gamma by minimising squared error the same as maximum likelihood?", a: "Under the assumption that the one-step errors are independent Gaussians with constant variance, the log-likelihood is a negative constant times the sum of squared errors. Maximising one is minimising the other — the same connection Module 8 of the maths track draws for MSE generally." },
+]} />
 
 <QuizCard
   question="A series has a clear upward trend but no repeating seasonal pattern. Which exponential smoothing variant is the right minimum fit?"

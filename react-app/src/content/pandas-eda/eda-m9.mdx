@@ -1,6 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Capstone — End-to-End EDA Workflow
+
+<ConceptBox title="TL;DR">
+- **The order is not arbitrary.** Outlier fences computed before invalid rows are removed are contaminated by them; a correlation matrix computed before cleaning describes the errors as much as the data.
+- Nine steps mapping to Modules 1–8: inspect → missing → invalid → outliers → features → univariate → bivariate → multivariate → report.
+- Cleaning is **subtractive and irreversible** — record what you dropped and why, so row counts reconcile at the end.
+- The deliverable isn't a clean DataFrame, it's a short findings report: what you found, what you changed, what still can't be trusted.
+</ConceptBox>
 
 ## The EDA Pipeline
 
@@ -145,6 +152,13 @@ Based on all pipeline steps applied to the 30-row NYC taxi sample:
 - B: Module 6 — Univariate Visualization
 - C: Module 7 — Bivariate Analysis
 - D: Module 8 — Multivariate Analysis (pivot table with RatecodeID × passenger_count) ✓
+
+<Recall items={[
+  { q: "Why must invalid-value removal come BEFORE outlier detection, not after?", a: "Because Tukey fences are computed from Q1 and Q3 of the column as it stands. Leaving a -12.50 fare and a $399 meter fault in place shifts those quartiles, so the fences themselves are derived from corrupted data. Clean the known-impossible values first, then let the statistics describe what remains." },
+  { q: "Why is a correlation matrix meaningless on uncleaned data?", a: "Because covariance weights every point by its deviation from the mean, so one 120-mile trip or one $399 fare dominates the sum. The resulting r describes the relationship between the errors as much as between the variables — and it can be strongly positive, strongly negative, or near zero depending purely on where the bad points landed." },
+  { q: "You started at 30 rows and finished at 24. What belongs in your report?", a: "The count and reason for every removal — 2 negative fares as impossible values, 4 zero-distance-with-fare rows as suspected cancellations — so the arithmetic reconciles and a reader can disagree with a specific decision. Cleaning is irreversible and subtractive; an unexplained row count is a result nobody can audit." },
+  { q: "What is the actual deliverable of an EDA, if not a cleaned file?", a: "A findings report: what the data contains, which assumptions failed, what was changed and why, and which columns still cannot be trusted. The cleaned DataFrame is a by-product — the judgements are the thing a modeller or stakeholder needs, because they determine what questions the data can legitimately answer." },
+]} />
 
 <QuizCard
   question="After removing 2 negative-fare rows and 4 zero-distance rows from the 30-row NYC taxi sample, how many rows remain?"

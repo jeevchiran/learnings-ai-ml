@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import LossLandscapeWidget from '../../components/widgets/regression/LossLandscapeWidget.jsx'
 import MLEWidget from '../../components/widgets/regression/MLEWidget.jsx'
 import NewtonWidget from '../../components/widgets/regression/NewtonWidget.jsx'
@@ -6,6 +6,15 @@ import NewtonWidget from '../../components/widgets/regression/NewtonWidget.jsx'
 <Bridge>
 Module 3 used logistic regression as a classification tool. Now we derive the mathematical foundations: why the sigmoid function? Why cross-entropy and not MSE? How does optimization actually find the parameters?
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- The sigmoid isn't a design choice — it **falls out** of writing Bernoulli in exponential-family form and setting the natural parameter equal to $\mathbf{x}^T\boldsymbol{\beta}$.
+- Handy identity used everywhere below: $\sigma'(z)=\sigma(z)(1-\sigma(z))$.
+- **Cross-entropy is convex; MSE-with-sigmoid is not.** That, not accuracy, is why classification uses cross-entropy.
+- The gradient is $\mathbf{X}^T(\mathbf{y}-\mathbf{p})$ — the same "$\mathbf{X}^T\times$ residual" form as linear regression, but $\mathbf{p}$ is nonlinear in $\boldsymbol{\beta}$, so **no closed form exists**. Iterate.
+- **Newton / IRLS** adds curvature ($\mathbf{H}=-\mathbf{X}^T\mathbf{W}\mathbf{X}$) and converges in far fewer steps.
+- Linear and logistic are the same object with different link + distribution — both are **GLMs**, and a neural net layer is a GLM feeding the next.
+</ConceptBox>
 
 ## Why Sigmoid? From Bernoulli to Logistic
 
@@ -181,6 +190,14 @@ Both linear and logistic regression are special cases of the GLM framework: an e
 
 Neural networks extend this by stacking nonlinear transformations: each layer is a GLM whose output feeds the next.
 </ConceptBox>
+
+<Recall items={[
+  { q: "Where does the sigmoid come from, if not from someone picking a nice S-curve?", a: "Write the Bernoulli PMF in exponential-family form; its natural parameter is the log-odds. A GLM sets that natural parameter equal to the linear predictor. Solving back for p gives p = 1/(1+e^-eta), which IS the sigmoid — it is the inverse link, forced by the choice of distribution." },
+  { q: "Give the real reason logistic regression uses cross-entropy rather than MSE.", a: "Convexity. Composing MSE with the sigmoid creates flat saturated regions and a non-convex surface where gradient descent can stall in a local minimum. Cross-entropy is convex in beta because -log(sigma(z)) has a strictly positive second derivative, so there is one global optimum and convergence is reliable." },
+  { q: "Compare the two gradients: X^T(y - X.beta) and X^T(y - sigma(X.beta)). What is identical and what is not?", a: "The FORM is identical — the design matrix transposed, times a residual. What differs is that the linear residual is linear in beta, so setting the gradient to zero yields a solvable linear system; the logistic residual passes through a sigmoid, making the equation transcendental. Hence closed form versus iteration." },
+  { q: "What does Newton's method add over gradient ascent here, and what does it cost?", a: "It uses the Hessian -X^T W X, with W = diag(p_i(1-p_i)), so each step accounts for curvature and converges quadratically — typically a handful of iterations instead of thousands. The cost is forming and inverting a p x p matrix per step, which is why it is the default for modest p and impractical for very wide data." },
+  { q: "Place linear, logistic, and Poisson regression in one framework.", a: "All three are GLMs: pick an exponential-family distribution for the response and a link connecting E[y] to the linear predictor. Gaussian with identity link gives linear regression and MSE; Bernoulli with logit link gives logistic regression and cross-entropy; Poisson with log link gives count regression. Only the distribution and link change." },
+]} />
 
 <QuizCard
   question="Why does minimizing cross-entropy loss guarantee finding the global optimum, while minimizing MSE with the sigmoid does not?"

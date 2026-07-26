@@ -1,7 +1,16 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import LSTMGateWidget from '../../components/widgets/rnn/LSTMGateWidget.jsx'
 
 # Module 10: LSTM & GRU — Extended Memory Architectures
+
+<ConceptBox title="TL;DR">
+- **The whole idea is additive vs multiplicative.** A vanilla RNN *replaces* the state through tanh every step; the LSTM *adds* to a separate cell state: $\mathbf{c}_t=\mathbf{f}_t\odot\mathbf{c}_{t-1}+\mathbf{i}_t\odot\tilde{\mathbf{c}}_t$.
+- With $\mathbf{f}_t\approx1$ the gradient path from $\mathbf{c}_T$ to $\mathbf{c}_1$ multiplies by ~1 each step instead of by a tanh derivative. That's the **constant error carousel**.
+- Gates are sigmoids, so they live in $(0,1)$ and act as **soft, learned** switches — 0 erases, 1 passes through untouched.
+- The forget gate controls $\mathbf{c}_t$, not $\mathbf{h}_t$ directly. $\mathbf{h}_t$ comes from the output gate applied to the cell state.
+- **GRU merges cell and hidden state into one** and uses two gates instead of three — fewer parameters, usually comparable accuracy.
+- Neither *eliminates* vanishing gradients; they make long-range paths trainable in practice.
+</ConceptBox>
 
 <Bridge>
 **From Module 9:** vanishing gradients prevent vanilla RNNs from learning long-range dependencies. The fix requires redesigning the cell so that a gradient can travel directly from step T back to step 1 without repeatedly passing through a squash function. This module introduces the two dominant solutions: LSTM (1997) and GRU (2014).
@@ -149,6 +158,14 @@ The gradient is transmitted from step $T$ to step 1 **without decay**. This is w
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "State the single structural change that fixes the gradient problem, and why it works.", a: "The cell state is updated ADDITIVELY rather than being replaced through a squash function. Because c_t = f_t * c_{t-1} + something, the derivative of c_t with respect to c_{t-1} is f_t — and if the forget gate is near 1, the gradient is multiplied by roughly 1 at each step instead of by a tanh derivative below 1. The exponential decay disappears." },
+  { q: "Why are gates sigmoids specifically?", a: "Because a gate must express 'how much of this to let through' as a fraction, and sigmoid maps any real value into (0, 1). It is also differentiable everywhere, so the gating decision itself is learned by gradient descent — the network discovers WHEN to remember and forget from data rather than being told." },
+  { q: "The forget gate controls which state?", a: "The cell state c_t. It multiplies c_{t-1} to decide how much of the long-term memory survives. The hidden state h_t is produced separately, by applying the output gate to a squashed cell state — which is why an LSTM can hold something in memory without exposing it in its output at that step." },
+  { q: "f_t = 0 versus f_t = 1 — what happens in each case?", a: "All zeros wipes the previous cell state entirely, so the memory restarts from just the new candidate — appropriate at a sentence or episode boundary. All ones passes the previous cell state through unchanged, giving perfect retention and an undamped gradient path. Real gates sit between, per dimension." },
+  { q: "GRU versus LSTM — what is traded?", a: "GRU merges the cell and hidden state into one vector and uses two gates instead of three, so it has roughly 25% fewer parameters and trains faster. It gives up the LSTM's ability to keep memory separate from output. Empirically the two perform comparably on most tasks, so GRU is often the better default on limited data." },
+]} />
 
 <MultiSelectQuiz
   question="Which statements correctly describe the forget gate f_t in an LSTM?"

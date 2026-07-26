@@ -1,5 +1,12 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import BayesTheoremWidget from '../../components/widgets/naive-bayes/BayesTheoremWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- The whole derivation is one move: **the joint can be written two ways**, $P(A\mid B)P(B)=P(B\mid A)P(A)$. Solve for what you want.
+- Four terms worth naming: posterior, likelihood, prior, evidence. The **evidence is just a normaliser** built by the law of total probability.
+- Because the denominator sums over every class, it's the same for all of them — which is why it can be dropped when you only need the arg-max.
+- **The medical-test paradox**: a 99%-accurate test on a 1%-prevalence disease gives a positive patient only ~17% chance of being ill. Rare disease ⟹ false positives outnumber true ones.
+</ConceptBox>
 
 ## Conditional Probability
 
@@ -74,6 +81,14 @@ One word roughly doubles a 5% prior into 51.3% — a big update, still far from 
 Show $P(A\mid B)P(B) = P(B\mid A)P(A)$ implies $P(A \mid B)/P(B\mid A) = P(A)/P(B)$.
 
 **Solution:** Divide both sides by $P(B\mid A)P(B)$: $\frac{P(A\mid B)}{P(B\mid A)} = \frac{P(A)}{P(B)}$. The relative pull of $A$ vs $B$ as the "given" mirrors how common $A$ is versus $B$ to begin with.
+
+<Recall items={[
+  { q: "Derive Bayes' theorem from scratch in two lines.", a: "The joint P(A and B) equals P(A|B)P(B) and also equals P(B|A)P(A), since conditioning either way describes the same intersection. Set them equal and divide by P(B) to get P(A|B) = P(B|A)P(A)/P(B)." },
+  { q: "Why is a 99%-accurate test on a rare disease still mostly false alarms?", a: "Because the 1% false-positive rate applies to the 99% of people who are healthy, producing about 5 false positives per 100 people, while the 99% detection rate applies to only the 1% who are ill, producing about 1 true positive. The healthy pool is so much larger that its small error rate dominates." },
+  { q: "Where does the denominator P(B) come from when you cannot measure it directly?", a: "The law of total probability: sum P(B|A_k)P(A_k) over every class A_k. The evidence must have arisen through one of the classes, so summing all the routes to it reconstructs its total probability." },
+  { q: "Explain why classification can ignore the evidence term but calibration cannot.", a: "The denominator is identical for every class, so it scales all scores by one constant and cannot change which is largest — the arg-max is unaffected. But it IS what makes the numbers sum to 1, so without it your 'probabilities' are unnormalised scores and cannot be reported or thresholded meaningfully." },
+  { q: "P(spam) = 0.05; 'free' appears in 40% of spam and 2% of legit mail. Estimate the posterior.", a: "Evidence = 0.40*0.05 + 0.02*0.95 = 0.02 + 0.019 = 0.039. Posterior = 0.02/0.039 = about 0.513. One word takes a 5% prior to roughly 51% — a large update, and still a coin flip, which is why real filters use many words." },
+]} />
 
 <QuizCard
   question="In Bayes' theorem P(A|B) = P(B|A)P(A) / P(B), what role does the denominator P(B) play?"

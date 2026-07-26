@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import ConvolutionWidget from '../../components/widgets/cnn/ConvolutionWidget.jsx'
 
 # Module 2: Convolution Operations
+
+<ConceptBox title="TL;DR">
+- Convolution is a **sliding dot product**: the response is large where the local patch matches the kernel pattern, small where it doesn't.
+- Frameworks actually compute **cross-correlation** (no kernel flip). Irrelevant in practice — the kernel just learns the flipped version.
+- Output size: $\lfloor (H + 2P - K)/S \rfloor + 1$. **Same padding** is $P=(K-1)/2$ at stride 1.
+- Padding exists so the kernel can centre on border pixels — without it, edges are undersampled and every layer shrinks the map.
+- **Padding and stride change the output size, never the parameter count.** Only $K$, $C_{in}$, and $C_{out}$ do that.
+</ConceptBox>
 
 <Bridge>
 **From Module 1:** we established that MLPs fail on images because they ignore locality, repeat redundant weights, and have no translation equivariance. The mechanism that fixes all three is the **convolution** — or more precisely, the *cross-correlation* that deep learning frameworks call convolution. This module goes into the full mechanics: what the operation computes, why it works, and how stride, padding, and kernel size affect the output.
@@ -156,6 +164,14 @@ The ratio is $\frac{K^2}{H \times W}$ — for a $28 \times 28$ image with $K=3$,
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Why does a dot product detect a pattern?", a: "Because the dot product is maximised when the two vectors point the same way. A patch that matches the kernel's pattern of positive and negative weights produces a large sum; a mismatched or flat patch produces a small one. The kernel is a template and convolution scores every location against it." },
+  { q: "Which knobs change the output SIZE and which change the PARAMETER COUNT?", a: "Padding and stride change only the output size — they alter where the kernel is placed, not what it contains. Parameter count depends solely on the kernel size, the input channels, and the number of filters: K times K times C_in times C_out plus C_out biases. A stride-2 layer has exactly as many weights as a stride-1 one." },
+  { q: "Give the output-size formula and apply it to a 32x32 input, K=3, P=1, S=1.", a: "Output is floor((H + 2P - K)/S) + 1. Here that is floor((32 + 2 - 3)/1) + 1 = 32 — the spatial size is preserved, which is exactly what same padding with P = (K-1)/2 guarantees at stride 1." },
+  { q: "What actually goes wrong without padding, beyond the map shrinking?", a: "Border pixels are undersampled. A kernel can never be centred on them, so they participate in far fewer dot products than interior pixels and contribute less to the learned representation. In a deep stack the shrinkage also compounds — enough unpadded 3x3 layers and the spatial dimension runs out entirely." },
+  { q: "Does the cross-correlation-versus-convolution distinction ever matter here?", a: "No, for learned kernels. True convolution flips the kernel before the dot product, so a network trained with cross-correlation simply learns the flipped weights and computes the same family of functions. It only matters when you import a hand-designed kernel from signal processing and expect a specific orientation." },
+]} />
 
 <MultiSelectQuiz
   question="Which statements about stride and padding are correct?"

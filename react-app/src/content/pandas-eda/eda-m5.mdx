@@ -1,6 +1,14 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Datetime Parsing & Feature Engineering
+
+<ConceptBox title="TL;DR">
+- A datetime string is an opaque blob until parsed. `pd.to_datetime()` first, then the **`.dt` accessor** unlocks everything.
+- The three signals worth extracting from trip timestamps: **hour** (demand cycle), **dayofweek** (0=Mon, 6=Sun), and **duration** (dropoff − pickup).
+- You can't group by "rush hour" until hour exists as a column — extraction is the gateway to the entire time dimension.
+- Pass `format=` explicitly on large data; auto-detection is convenient and slow.
+- Duration is also a **quality check**: a 45-minute trip logging 120 miles is caught the moment you compute it.
+</ConceptBox>
 
 ## What, Why, and How
 
@@ -32,7 +40,7 @@ In ML pipelines, raw datetime strings must be converted before any feature can b
 Convert the string column to `datetime64` dtype. Pandas auto-detects common formats; pass `format=` for speed on large data.
 </DerivationStep>
 <DerivationStep number={2} title="Extract scalar features via .dt">
-The `.dt` accessor unlocks sub-components: `.dt.hour`, `.dt.dayofweek`, `.dt.month`, `.dt.is_weekend`, and dozens more — each returns a full column of integers.
+The `.dt` accessor unlocks sub-components: `.dt.hour`, `.dt.dayofweek`, `.dt.month`, `.dt.day_name()`, `.dt.is_month_start`, and dozens more — each returns a full column. Note there is **no** `.dt.is_weekend`; build it yourself with `df['pickup'].dt.dayofweek >= 5`.
 </DerivationStep>
 <DerivationStep number={3} title="Compute duration as a timedelta">
 Subtracting two datetime columns gives a `timedelta64` column. Chain `.dt.total_seconds() / 60` to get minutes as a float.
@@ -164,6 +172,13 @@ Two strong features for demand forecasting:
 <Bridge>
 **What's next: seeing the data.** You have cleaned missing values, caught invalid values, flagged outliers, and engineered time features. Module 6 puts all of these cleaned columns under a microscope with **univariate visualisation** — histograms, KDE curves, and bar charts that reveal the shape of each variable's distribution.
 </Bridge>
+
+<Recall items={[
+  { q: "Why can't a model just use the raw datetime string?", a: "Because it is text. It cannot be averaged, differenced, or ordered numerically, and a model that accepts it will treat every distinct timestamp as its own category — so it learns nothing about the fact that 08:00 and 08:15 are adjacent, or that Monday recurs weekly. All temporal structure is invisible until you extract it." },
+  { q: "There is no .dt.is_weekend. How do you build one?", a: "df['pickup'].dt.dayofweek >= 5, using pandas' convention that Monday is 0 and Sunday is 6. It is worth knowing which .dt attributes are real — is_month_start and is_leap_year exist, is_weekend does not — because a typo here raises AttributeError rather than silently misbehaving." },
+  { q: "How does computing trip duration double as a data-quality check?", a: "Because it produces a value you can sanity-check against another column. A 45-minute duration paired with a 120-mile distance implies an average speed no taxi achieves, so the pair is inconsistent even though each column alone looks plausible. Derived features often expose contradictions that no single-column rule catches." },
+  { q: "When does passing format= to pd.to_datetime() matter?", a: "On large data. Without it pandas infers the format, which in the worst case means attempting several parses per value. Supplying the exact format string skips inference entirely and can be an order of magnitude faster — and it also makes malformed rows fail loudly instead of being silently reinterpreted." },
+]} />
 
 <QuizCard
   question="What does the .dt accessor enable after calling pd.to_datetime() on a column?"

@@ -1,4 +1,11 @@
-import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- Tabular: pass the training data so LIME learns each feature's distribution for realistic perturbation; `discretize_continuous` turns weights into readable *"feature in this range"* rules.
+- Text: interpretable features are the words, and perturbation is **deleting words** and watching the score move.
+- Weight sign = direction of push toward the predicted class; `num_features` is the $\Omega$ knob.
+- **LIME is non-deterministic.** Same row, two runs, possibly different signs. Re-run before trusting; raise `num_samples`, fix the seed, or switch to SHAP.
+</ConceptBox>
 
 ## Running LIME on Tabular Data
 
@@ -94,6 +101,13 @@ LIME's honesty problem — *is this the "right" explanation, or just one of many
 You explain the same row twice and a feature's weight flips from +0.12 to −0.09. What's happening and what do you do?
 
 **Solution:** LIME's random perturbation sampling makes it non-deterministic; with too few samples the local fit is noisy and unstable. Increase `num_samples`, fix the random seed for reproducibility, and consider averaging several runs. Persistent flipping means the explanation isn't trustworthy for that instance.
+
+<Recall items={[
+  { q: "Why does LimeTabularExplainer need the training set to explain a single test row?", a: "It perturbs by sampling plausible values for each feature, which requires knowing each feature's distribution — means, standard deviations, or bin edges — and those are learned from the training data. Without them the perturbations would be unrealistic and the discretised range labels could not be formed." },
+  { q: "A feature's LIME weight flips from +0.12 to -0.09 across two runs. Diagnose and prescribe.", a: "The perturbation sample is random and too small, so the local linear fit is dominated by sampling noise. Raise num_samples to several thousand, fix the seed for reproducibility, and average across runs. If the sign still flips, the explanation is not trustworthy for that instance — use SHAP, whose values are deterministic." },
+  { q: "How does LIME perturb text, and why is that choice appropriate?", a: "By randomly deleting words from the sentence and re-scoring. It is appropriate because the interpretable unit for text IS the word — so each coefficient reads directly as 'this word contributed this much', which is what a human wants to check." },
+  { q: "Name the concrete debugging win a text LIME explanation gives you.", a: "It exposes a model keying on the wrong token. If a sentiment classifier's top weights land on punctuation, a reviewer's username, or a formatting artefact rather than words like 'brilliant' and 'dragged', you have found a spurious correlation that accuracy alone would never surface." },
+]} />
 
 <QuizCard
   question="On text data, how does LIME generate perturbations of an input sentence?"

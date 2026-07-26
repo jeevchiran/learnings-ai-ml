@@ -1,7 +1,14 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import CNNParamsWidget from '../../components/widgets/cnn/CNNParamsWidget.jsx'
 
 # Module 1: Why CNNs? MLP Fails for Images
+
+<ConceptBox title="TL;DR">
+- An MLP *can* fit images — the objection is cost and inductive bias, not capability. One ImageNet-sized first layer alone is ~150M parameters.
+- **Three structural mismatches**: no locality (every pixel wired to every neuron), no weight sharing (the same edge relearned at every position), no translation equivariance (shifting an object rewrites the whole input vector).
+- Convolution fixes all three with one design: a **small kernel** (locality) **slid across every position** (sharing + equivariance).
+- Parameter count is the visible symptom; the inductive bias is the real win.
+</ConceptBox>
 
 <Bridge>
 **Coming from Foundations of Deep Learning:** you know how to build, train, and regularise a multi-layer perceptron. An MLP can approximate any continuous function — so why can't it just learn to classify images? It can, technically. The question is whether it will, and at what cost. This module exposes the three structural mismatches between fully-connected networks and image data, and shows exactly how the convolutional design pattern fixes each one.
@@ -145,6 +152,13 @@ This is the algebraic guarantee that convolution preserves relative spatial stru
   ]}
   correct={3}
 />
+
+<Recall items={[
+  { q: "Name the three structural mismatches and the single convolutional feature that fixes each.", a: "No locality — fixed by a small kernel that only ever sees a local patch. No weight sharing — fixed by reusing the same kernel at every position instead of learning independent weights per pixel. No translation equivariance — fixed by sliding that shared kernel, so a shifted input produces a correspondingly shifted feature map." },
+  { q: "Why is 'an MLP has too many parameters' the weaker half of the argument?", a: "Because you could shrink an MLP and it would still be the wrong model. The deeper problem is inductive bias: nothing tells it that adjacent pixels are related or that a cat is a cat wherever it appears, so it must learn those facts from data. The parameter count is what that missing prior costs you." },
+  { q: "Define translation equivariance and contrast it with invariance.", a: "Equivariance: shift the input and the output shifts correspondingly — convolution has this, since the same kernel fires wherever the pattern moves to. Invariance: shift the input and the output does not change at all — that comes from pooling and global aggregation later in the network. Convolution gives equivariance; the architecture builds invariance on top." },
+  { q: "Compute the first-layer parameters for a 224x224x3 image into 1,000 fully-connected units.", a: "224 times 224 times 3 = 150,528 inputs, each connected to all 1,000 units, giving about 150.5 million weights plus 1,000 biases — in one layer. A 3x3 convolution with 64 filters over the same input needs 3 times 3 times 3 times 64 plus 64, about 1,792 parameters, and it sees every position." },
+]} />
 
 <MultiSelectQuiz
   question="Which of these are genuine reasons MLPs underperform CNNs on image classification?"

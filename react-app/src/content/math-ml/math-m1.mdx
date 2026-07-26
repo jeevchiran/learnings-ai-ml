@@ -1,5 +1,11 @@
-import { ConceptBox, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, QuizCard, Recall } from '../../components/learning/index.js'
 import VectorWidget from '../../components/widgets/math-ml/VectorWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- A vector is a feature row or an embedding; its **norm** $\|\mathbf{v}\|$ is its length.
+- The dot product has two faces: $\sum_i a_ib_i$ (compute it) and $\|\mathbf{a}\|\|\mathbf{b}\|\cos\theta$ (interpret it) — positive = same direction, zero = perpendicular.
+- **Cosine similarity is the dot product with lengths divided out.** Use it when direction matters and magnitude doesn't — which is nearly always, in embedding search.
+</ConceptBox>
 
 ## Why Linear Algebra, First
 
@@ -51,6 +57,12 @@ print(dot_product, norm_a, cosine_sim)
 **Problem 2.** $\mathbf{a}=[1,0]$, $\mathbf{b}=[0,1]$. What is $\mathbf{a}\cdot\mathbf{b}$, and what does that tell you geometrically?
 
 **Solution:** $1\cdot0 + 0\cdot1 = 0$ — the vectors are perpendicular ($\theta=90°$).
+
+<Recall items={[
+  { q: "Write both forms of the dot product and say what each is FOR.", a: "Algebraic: a·b = sum of a_i·b_i — this is the one you compute. Geometric: a·b = ||a||·||b||·cos(theta) — this is the one you reason with, because it says the dot product is alignment scaled by both lengths." },
+  { q: "A search index returns a long document vector as the top hit for a short query. Which similarity measure was probably used, and what would fix it?", a: "Raw dot product, which rewards large norms — a long document scores high just for being long. Cosine similarity divides both norms out, so only the direction (topic overlap) counts." },
+  { q: "Two vectors have dot product 0. What is the angle between them, and does the answer depend on their lengths?", a: "90 degrees. From a·b = ||a||||b||cos(theta), if neither vector is the zero vector then cos(theta) must be 0. Lengths cannot change that — they only scale the magnitude of the result, not its sign or zero-ness." },
+]} />
 
 <QuizCard
   question="Two embedding vectors have a large positive dot product but very different norms (one much longer). What does cosine similarity do that raw dot product doesn't?"

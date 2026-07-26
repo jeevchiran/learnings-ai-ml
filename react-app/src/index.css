@@ -69,6 +69,28 @@ button { font-family: inherit; }
   transition: transform 0.2s;
 }
 
+/* ☰ that brings a hidden sidebar back. Desktop only — mobile has .mobile-header.
+   A flex item in .app, not fixed: it reserves its own space so it can never
+   overlap the topbar. margin-top centres it in the 48px topbar: (48-32)/2 = 8. */
+.sidebar-reopen {
+  align-self: flex-start;
+  flex-shrink: 0;
+  margin: 8px 0 0 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.sidebar-reopen:hover { color: var(--text); }
+
 .sidebar-top {
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
@@ -488,6 +510,9 @@ button { font-family: inherit; }
 
   .sidebar-overlay.active { display: block; }
 
+  /* Mobile uses the ☰ in .mobile-header; the floating one would overlap it. */
+  .sidebar-reopen { display: none; }
+
   /* ── Module topbar: condense for small screens ── */
   .module-topbar {
     gap: 6px;
@@ -522,6 +547,7 @@ button { font-family: inherit; }
 @media (min-width: 769px) {
   .mobile-header { display: none; }
   .sidebar-overlay { display: none !important; }
+  .sidebar.collapsed { display: none; }
 }
 
 /* ── Learning Components ─────────────────────────────── */
@@ -551,6 +577,61 @@ button { font-family: inherit; }
   font-size: 0.9rem;
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* TL;DR: a ConceptBox whose title starts with "TL;DR" gets a flatter, denser look. */
+.lc-concept-box.lc-tldr {
+  background: none;
+  border-left-width: 4px;
+  padding: 10px 16px;
+}
+
+.lc-concept-box.lc-tldr ul { margin: 4px 0; }
+
+.lc-recall {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px 14px;
+  margin: 24px 0;
+}
+
+.lc-recall-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.lc-recall-item {
+  border-top: 1px solid var(--border);
+  padding: 8px 0;
+}
+
+.lc-recall-item summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  list-style: none;
+}
+
+.lc-recall-item summary::-webkit-details-marker { display: none; }
+
+.lc-recall-item summary::before {
+  content: '▸ ';
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.lc-recall-item[open] summary::before { content: '▾ '; }
+
+.lc-recall-a {
+  margin-top: 6px;
+  padding-left: 16px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  border-left: 2px solid var(--border);
 }
 
 .lc-derivation { margin: 16px 0; }

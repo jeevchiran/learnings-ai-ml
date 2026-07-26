@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import NeuralNetworkWidget from '../../components/widgets/deep-learning/NeuralNetworkWidget.jsx'
 
 # Module 2: Hidden Layers & Multilayer Perceptrons
+
+<ConceptBox title="TL;DR">
+- Hidden layers are "hidden" because nothing supervises them — they're **learned intermediate representations**, not targets.
+- **The nonlinearity is what buys depth its power.** Stack linear layers without one and $W_3W_2W_1$ collapses into a single equivalent matrix.
+- **Universal approximation**: one hidden layer, enough neurons, approximates any continuous function on a compact domain.
+- Read that theorem carefully — it's an **existence** result. It says such weights exist, not that training finds them, and not that the layer is a sensible width.
+- Depth is usually more **parameter-efficient** than width: deep nets compose features hierarchically instead of enumerating them.
+</ConceptBox>
 
 <Bridge>
 **From Module 1:** A single perceptron draws one straight line. XOR is not linearly separable, so one perceptron fails. The solution: stack multiple perceptrons into layers. The intermediate layers are called **hidden layers** because their outputs are never directly observed as targets — they are internal representations that the network learns to construct. This module explains how stacking layers overcomes the XOR problem and, more profoundly, creates models that can approximate any function.
@@ -196,6 +204,13 @@ Network B uses **72% fewer parameters** but has 4 composition steps instead of 2
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Prove in one line that a network without nonlinearities gains nothing from depth.", a: "The composition is W3(W2(W1 x)) = (W3 W2 W1) x, and the product of matrices is a single matrix. So an arbitrarily deep linear network is exactly equivalent to one linear layer — same expressive power, more parameters, no benefit." },
+  { q: "Universal approximation says one hidden layer suffices. Name the three things it does NOT say.", a: "It does not say how many neurons are needed — the width may be astronomically large. It does not say training will find those weights — it is an existence proof, silent about optimisation. And it says nothing about generalisation to unseen data, only about approximating a function on the training domain." },
+  { q: "If one hidden layer is universal, why is anyone deep?", a: "Parameter efficiency. Functions with compositional structure — edges into shapes into objects — can be represented by a deep network with far fewer parameters than a shallow one needs, because each layer reuses the features below it. A shallow net must effectively enumerate what a deep one composes, and for some function families that gap is exponential." },
+  { q: "How does a hidden layer let an MLP solve XOR when a perceptron cannot?", a: "The hidden units learn new features that are themselves linear boundaries, and in that transformed space the classes become linearly separable. Two hidden units can encode 'at least one input is on' and 'both inputs are on'; the output layer then separates XOR with a single line over those two features." },
+]} />
 
 <MultiSelectQuiz
   question="Which statements about the Universal Approximation Theorem are correct?"

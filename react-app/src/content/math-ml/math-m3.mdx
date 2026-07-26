@@ -1,5 +1,11 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import EigenWidget from '../../components/widgets/math-ml/EigenWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- $\det(M)=0$ ⟺ $M$ collapses space ⟺ no inverse ⟺ some direction is destroyed. These are four ways of saying one thing.
+- An **eigenvector** is a direction the matrix only stretches, never rotates: $M\mathbf{v}=\lambda\mathbf{v}$. The eigenvalue $\lambda$ is the stretch factor.
+- Shortcuts worth memorising: $\det(M)=\lambda_1\lambda_2$, $\text{trace}(M)=\lambda_1+\lambda_2$, and a diagonal matrix's eigenvalues are its diagonal.
+</ConceptBox>
 
 ## Inverse, Determinant, Rank — Can You Undo M?
 
@@ -60,6 +66,13 @@ print(np.linalg.inv(M))               # exists since det != 0
 **Problem 2.** $\det(M)=0$ for some matrix M. What does that tell you about its eigenvalues, and about $M^{-1}$?
 
 **Solution:** Since $\det(M)=\lambda_1\lambda_2$, one eigenvalue must be 0. $M^{-1}$ does not exist — M collapses at least one direction to zero, and that information can't be recovered.
+
+<Recall items={[
+  { q: "Chain together: det(M) = 0 implies what about rank, invertibility, and the eigenvalues?", a: "Rank drops below full (space is collapsed onto a lower-dimensional subspace); M has no inverse, because the collapsed direction cannot be recovered; and since det = product of the eigenvalues, at least one eigenvalue is exactly 0." },
+  { q: "Define an eigenvector without using the word 'eigenvalue'.", a: "A nonzero direction that the transformation leaves pointing along its own line — the matrix may lengthen it, shrink it, or flip it end-for-end, but it never rotates it off that line." },
+  { q: "A 2x2 matrix has complex eigenvalues. What is it doing geometrically?", a: "Rotating. There is no real direction left on its own line, which is precisely what a rotation does to every vector in the plane. Real eigenvectors exist only for maps with an unrotated axis." },
+  { q: "Why is the normal-equations solution to linear regression fragile when features are correlated?", a: "It needs (X^T X)^-1. Perfectly correlated features make X^T X rank-deficient, so det = 0 and the inverse does not exist; near-correlation makes det tiny, so the inverse is huge and the fitted coefficients swing wildly on small data changes." },
+]} />
 
 <QuizCard
   question="A 2x2 matrix has eigenvalues 4 and -2. What does this tell you about the transformation?"

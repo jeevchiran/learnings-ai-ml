@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import LossOptimizerWidget from '../../components/widgets/deep-learning/LossOptimizerWidget.jsx'
 
 # Module 8: Loss Functions & Optimizers
+
+<ConceptBox title="TL;DR">
+- **The loss defines what "good" means; the optimizer decides how to get there.** Two separate choices, often confused.
+- Regression: MSE punishes big errors quadratically (outlier-sensitive); MAE is robust but has a constant gradient. Huber interpolates.
+- **`nn.CrossEntropyLoss` wants raw logits and integer labels** — it applies log-softmax internally for numerical stability. Adding your own softmax layer is a real, common bug.
+- Momentum accumulates a velocity to damp oscillation; **Adam** adds per-parameter adaptive step sizes on top.
+- Adam converges fast and is the sane default; well-tuned SGD+momentum often generalises slightly better.
+</ConceptBox>
 
 <Bridge>
 **From Module 7:** You now know how gradients flow through activation functions. Those gradients start from a **loss function** — the scalar value that measures how wrong the network is. The loss function defines what "good" means. The **optimizer** then uses the loss gradient to update weights. This module covers both: choosing the right loss for your task, and choosing the optimizer that finds the minimum fastest.
@@ -194,6 +202,14 @@ In PyTorch: `optim.lr_scheduler.CosineAnnealingLR`, `LinearLR`, `OneCycleLR`.
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "You add nn.Softmax to your model's last layer and use CrossEntropyLoss. What goes wrong?", a: "You apply softmax twice — CrossEntropyLoss runs log-softmax internally on whatever it receives. The doubly-normalised distribution is much flatter, so gradients shrink and the model trains slowly or barely at all. It does not error; the loss just plateaus higher than it should." },
+  { q: "Why does CrossEntropyLoss fuse log-softmax and NLL instead of calling them separately?", a: "Numerical stability. Computing softmax then taking its log can underflow to zero for confident predictions, giving log(0) = -inf. The fused version uses the log-sum-exp trick — subtracting the max logit before exponentiating — so the computation stays in a safe range regardless of how extreme the logits are." },
+  { q: "MSE, MAE, or Huber — pick for a target with occasional sensor glitches.", a: "Huber, or MAE. MSE squares the error, so a single glitchy reading contributes enormously to the loss and drags the fit towards it. MAE's constant gradient makes it robust but gives poor convergence near the optimum. Huber is quadratic near zero and linear in the tails, getting robustness without sacrificing the smooth minimum." },
+  { q: "What does momentum add to SGD, and what does Adam add beyond that?", a: "Momentum keeps a running average of past gradients and steps along it, so oscillations across a narrow valley cancel while consistent progress along it accumulates. Adam adds a second running average — of squared gradients — and divides by its root, giving each parameter its own effective step size so rarely-updated parameters are not starved." },
+  { q: "Adam is faster to converge. Why does anyone still use SGD with momentum?", a: "Because Adam's adaptive scaling often finds sharper minima that generalise slightly worse, and a well-tuned SGD with momentum and a learning-rate schedule frequently ends at a better test score. Adam is the right default when you have limited tuning budget; SGD is worth the effort when the last point of accuracy matters." },
+]} />
 
 <MultiSelectQuiz
   question="Which of the following are true about PyTorch's CrossEntropyLoss?"

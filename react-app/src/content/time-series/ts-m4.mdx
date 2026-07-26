@@ -1,5 +1,12 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import StationarityWidget from '../../components/widgets/time-series/StationarityWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Stationary = constant mean, constant variance, and autocovariance that depends only on the lag. AR models need it or their coefficients drift out of date.
+- **ADF's null hypothesis is "non-stationary"** — so here a *low* p-value is the good news. Backwards from most tests.
+- Three repair tools, one per symptom: difference for trend, seasonally difference for a repeating cycle, log for growing variance.
+- A slowly-decaying ACF is the visual tell for non-stationarity.
+</ConceptBox>
 
 ## Why This Module Exists
 
@@ -71,6 +78,13 @@ A slowly-decaying ACF (still large at lag 15, 20…) is a visual tell for non-st
 **Problem 2.** After first-differencing, the ACF still decays slowly at seasonal lags (12, 24, …). What's the fix?
 
 **Solution:** Seasonal differencing ($y_t - y_{t-12}$ for monthly data) on top of the regular difference.
+
+<Recall items={[
+  { q: "State the three conditions for weak stationarity and name a series that fails each one.", a: "Constant mean — a trending stock index fails. Constant variance — a series whose swings widen every year fails. Autocovariance depending only on lag — a series whose correlation structure changes regime between decades fails." },
+  { q: "ADF returns p = 0.30. What is the conclusion, and what is the trap?", a: "Fail to reject the null, so treat the series as non-stationary and try differencing. The trap is reading a high p-value as 'good' out of habit — ADF's null IS non-stationarity, so failing to reject means you have a problem, not a clean bill of health." },
+  { q: "Match symptom to fix: upward trend / repeating annual pattern / swings that grow with the level.", a: "Trend → first differencing, y_t minus y_{t-1}. Repeating annual pattern → seasonal differencing, y_t minus y_{t-m}. Growing swings → log or Box-Cox transform, usually applied BEFORE differencing since it changes the scale the differencing operates on." },
+  { q: "Why is overdifferencing a real cost rather than harmless insurance?", a: "Each difference removes signal along with the trend and injects extra noise into the series, inflating the variance and introducing a spurious negative autocorrelation at lag 1. That corrupts the ACF/PACF you then use to choose the model order. Stop at the smallest d that passes ADF." },
+]} />
 
 <QuizCard
   question="The ADF test on a series returns p = 0.01. What does that mean?"

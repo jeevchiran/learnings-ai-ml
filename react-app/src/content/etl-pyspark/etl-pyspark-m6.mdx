@@ -1,4 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- A UDF runs your Python on each row — reach for it only when built-ins and `when()` chains genuinely can't express the rule.
+- **UDFs are a Catalyst black box.** Spark can't see inside, so no pushdown, no reordering, no optimisation of that step.
+- Worse, a regular UDF serialises every row across the JVM↔Python boundary. That round-trip is the real cost.
+- **Pandas UDFs fix the transport**, not the opacity: Arrow ships batches instead of rows, typically an order of magnitude faster.
+- Preference order: built-in function → `when()`/`expr` → Pandas UDF → regular UDF.
+- `returnType` is mandatory and unchecked — declare `StringType()` and return a float and you get silent nulls.
+</ConceptBox>
 
 <Bridge>
 In Module 5, we queried DataFrames using SQL syntax — SELECT, JOIN, GROUP BY, CTEs. These built-in operations handle most transformations. But when you need custom logic, you write a **UDF** (User-Defined Function).
@@ -120,6 +129,13 @@ result.show(5)`}
 | Pandas UDF | Fast | No | Batch-friendly custom logic |
 | Regular UDF | Slow | No | Last resort for complex logic |
 </ConceptBox>
+
+<Recall items={[
+  { q: "Give the two separate reasons a regular UDF is slow.", a: "Transport: every row is serialised from the JVM to a Python process and the result serialised back, so you pay per-row overhead on the whole dataset. Opacity: Catalyst cannot see inside arbitrary Python, so it cannot push a filter through the UDF or reorder around it — the step becomes an optimisation barrier." },
+  { q: "Which of those two problems does a Pandas UDF solve, and which remains?", a: "It solves transport, by shipping columnar batches over Apache Arrow instead of one row at a time — usually an order of magnitude faster. Opacity remains: Catalyst still cannot reason about the function's semantics, so the plan around it is still constrained." },
+  { q: "State the preference order and the reason for it.", a: "Built-in function first, since Catalyst understands it fully and it runs in the JVM. Then when/otherwise or expr for conditional logic, which are still native expressions. Then a Pandas UDF when you need real Python but want batched transport. A regular row-at-a-time UDF last, when nothing else expresses the logic." },
+  { q: "You declare returnType=StringType() and your function returns 3.7. What happens?", a: "You get null, silently. Spark trusts the declared return type and does not verify it — a mismatch produces nulls rather than an exception, so a whole column can quietly become empty. Declared return types are a contract you must honour yourself." },
+]} />
 
 <QuizCard
   question="Why are Pandas UDFs faster than regular row-at-a-time UDFs?"

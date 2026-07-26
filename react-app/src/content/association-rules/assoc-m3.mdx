@@ -1,5 +1,12 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import RuleTableWidget from '../../components/widgets/association-rules/RuleTableWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- A frequent $k$-itemset splits into $2^k-2$ candidate rules. **All of them share the same support**, so rule generation filters on confidence alone.
+- Confidence is anti-monotone too: shrink the antecedent and confidence can only fall — so one failed rule prunes a whole family.
+- Three baseline-aware metrics beyond confidence: **lift** (ratio vs independence, symmetric), **leverage** (difference, frequency-weighted), **conviction** (directional, $\infty$ = never broken).
+- Same three items, opposite arrow, opposite verdict. **Direction matters** — report the one you'll act on.
+</ConceptBox>
 
 ## From Itemsets to Rules
 
@@ -64,6 +71,13 @@ Lift is symmetric, so it can't tell $A{\Rightarrow}B$ from $B{\Rightarrow}A$. Bu
 **Problem 3 — Choosing a metric.** A rule has confidence 0.85 but lift 0.9. Should you act on it?
 
 **Solution:** No. Lift < 1 means the consequent is *less* likely given the antecedent than at baseline — the high confidence only reflects a very common consequent. Prefer rules with lift (and conviction) clearly above 1.
+
+<Recall items={[
+  { q: "Why does rule generation never need to re-check support?", a: "Support is a property of the item SET, not of the arrow. Every rule carved out of itemset I has support equal to support(I), which already cleared min_support during Apriori. Only confidence varies across the splits." },
+  { q: "Explain why moving an item from antecedent to consequent can only lower confidence.", a: "Confidence is support(I) / support(A). The numerator is fixed at support(I) for all splits of I. Shrinking A makes support(A) larger — fewer requirements means more baskets qualify — so the denominator grows and the ratio falls." },
+  { q: "Lift and leverage both measure departure from independence. When do they disagree, and why?", a: "On rare pairs. Lift is a RATIO, so a pair occurring at three times its tiny expected rate scores lift 3. Leverage is a DIFFERENCE, so the same pair scores near zero because the absolute excess is negligible. Lift finds interesting rarities; leverage finds commercially significant ones." },
+  { q: "Which metrics are directional, and why does that matter operationally?", a: "Confidence and conviction are directional; lift and leverage are symmetric. It matters because you act in one direction — recommending B to buyers of A is a different intervention from the reverse, and the same pair can have confidence 0.80 one way and 0.67 the other." },
+]} />
 
 <QuizCard
   question="Two rules come from the same frequent itemset: {A} ⇒ {B, C} and {A, B} ⇒ {C}. Which statement is guaranteed?"

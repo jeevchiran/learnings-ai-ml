@@ -1,5 +1,12 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import GradientDescentWidget from '../../components/widgets/math-ml/GradientDescentWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- One rule runs nearly all of training: $\theta_{t+1} = \theta_t - \eta\,\nabla f(\theta_t)$.
+- The learning rate $\eta$ sits on a knife's edge — too small wastes steps, too large diverges. The tipping point is set by the curvature.
+- Convergence is only *guaranteed* on a convex bowl. Real loss surfaces have local minima, plateaus and saddles.
+- Momentum and Adam exist precisely to survive that non-convex reality.
+</ConceptBox>
 
 ## The Optimization Loop, Distilled
 
@@ -58,6 +65,13 @@ In practice you never hand-write `grad()` — autodiff (Module 9) computes it, a
 **Problem 2.** Same setup, but $\eta=1.1$. What happens?
 
 **Solution:** $x_1 = 4 - 1.1(8) = -4.8$ — larger in magnitude than the start. Each step overshoots further; the sequence diverges instead of converging, since $|1-2\eta|>1$ for $\eta=1.1$.
+
+<Recall items={[
+  { q: "Your training loss goes to NaN within a few steps. What is the first hyperparameter to suspect, and why?", a: "The learning rate, set too high. Each step overshoots the minimum by more than the last step undershot, so the parameters grow without bound and overflow. On f(x) = x^2 this happens as soon as the step multiplier |1 - 2*eta| exceeds 1." },
+  { q: "Loss falls fast, then crawls for thousands of steps. What is happening geometrically?", a: "Either a plateau or an elongated valley. In a valley the steep direction is nearly converged so its gradient is small, while the shallow direction still has far to travel with a tiny gradient — a single shared learning rate cannot serve both, so progress along the long axis is glacial." },
+  { q: "Why can't you just pick a very small learning rate and be safe?", a: "It converges, but the number of steps scales inversely with the rate — a rate ten times smaller needs roughly ten times as many steps. It also makes shallow local minima and plateaus much harder to escape, since every step is too weak to leave them." },
+  { q: "What does momentum change about the update rule, and which failure does it target?", a: "It accumulates a running average of past gradients and steps along that velocity instead of the raw gradient. Oscillations across a narrow valley cancel out between steps while the consistent component along the valley floor accumulates — so it damps zig-zag and carries the iterate through flat regions and saddles." },
+]} />
 
 <QuizCard
   question="On the 'Elongated valley' preset above (very different curvature in each direction), why does gradient descent zig-zag instead of moving straight toward the minimum?"

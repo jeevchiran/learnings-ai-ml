@@ -1,4 +1,12 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- **Bag of Words** discards order entirely — "dog bites man" and "man bites dog" become the same vector. Often good enough for topic-level tasks, fatal for anything about relations.
+- **TF-IDF = frequency here × rarity everywhere.** The IDF factor is what stops "the" from dominating.
+- So a word scores high only when it's *frequent in this document and rare across the corpus* — exactly the definition of distinctive.
+- Both produce huge sparse vectors where every word is orthogonal to every other; "dog" and "cat" have similarity 0.
+- **Topic models** (LSA via SVD, LDA via Dirichlet priors) compress that into $k$ topics. $k$ is your choice, and both are unsupervised.
+</ConceptBox>
 
 <Bridge>
 NLP gives us annotations — tokens, POS tags, entities, parse trees. This module turns those annotations into numbers a machine can learn from: three document representation approaches that bridge text and ML.
@@ -137,6 +145,13 @@ for topic_idx, topic in enumerate(H):
 
 **LDA** (Latent Dirichlet Allocation): probabilistic Bayesian model, assigns Dirichlet priors over topic-word and document-topic distributions, more interpretable but slower. Both are unsupervised — the number of topics k is a hyperparameter you choose.
 </ConceptBox>
+
+<Recall items={[
+  { q: "'the' appears 50 times, 'entanglement' 3 times. Which wins on TF-IDF and why?", a: "'entanglement'. TF favours 'the', but IDF is the log of the ratio of total documents to documents containing the term — 'the' appears in essentially every document so its IDF is near zero, annihilating its high TF. 'entanglement' appears in very few, so a large IDF multiplies its modest TF into the higher score." },
+  { q: "What exactly does Bag of Words throw away, and when is that fatal?", a: "Word order, and therefore syntax and relations. It is usually acceptable for topic classification or spam detection, where the presence of words carries the signal. It is fatal for anything about who did what to whom — sentiment with negation, relation extraction, question answering — since 'dog bites man' and 'man bites dog' are identical vectors." },
+  { q: "In these representations, what is the cosine similarity of 'dog' and 'cat'?", a: "Zero — the same as 'dog' and 'calculus'. Each vocabulary word is its own orthogonal dimension, so the representation encodes no semantic relatedness whatsoever. That limitation is precisely what dense embeddings in Module 9 exist to fix." },
+  { q: "LSA or LDA — what actually differs?", a: "LSA applies SVD to the document-term matrix, giving linear-algebraic topics that are fast to compute but can carry negative weights and resist interpretation. LDA is a probabilistic generative model with Dirichlet priors over topic-word and document-topic distributions, giving non-negative, more interpretable topics at a higher computational cost. Both need you to pick k." },
+]} />
 
 <QuizCard
   question="A document about quantum physics contains the word 'the' 50 times and 'entanglement' 3 times. Which word gets a higher TF-IDF score, and why?"

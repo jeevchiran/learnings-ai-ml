@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import BackpropWidget from '../../components/widgets/deep-learning/BackpropWidget.jsx'
 
 # Module 6: Backward Propagation
+
+<ConceptBox title="TL;DR">
+- Backprop is the chain rule run **output → input**, computing gradients for *all* $P$ parameters in **one** backward pass — not $O(P)$ passes.
+- The efficiency comes from **reuse**: each layer receives an upstream gradient, multiplies by its local gradient, and passes the product down.
+- It consumes exactly the $(\mathbf{Z}^{[l]}, \mathbf{A}^{[l]})$ that Module 5 cached.
+- Worth memorising: **softmax + cross-entropy gives $\hat{\mathbf{y}} - \mathbf{y}$** at the output. The messy Jacobians cancel.
+- **PyTorch accumulates gradients**, so `optimizer.zero_grad()` before each `backward()` — forget it and you silently train on a running sum of batches.
+</ConceptBox>
 
 <Bridge>
 **From Module 5:** Forward propagation computes the prediction and caches $(Z^{[l]}, A^{[l]})$ for each layer. Now we need to answer: given the loss, how should we update each weight to reduce it? The answer is **backpropagation** — applying the chain rule of calculus in reverse order through the network. This module derives every gradient from first principles and shows how PyTorch's autograd implements this automatically.
@@ -198,6 +206,14 @@ For $l = 1$ to $L$: compute $Z^{[l]} = W^{[l]} A^{[l-1]} + b^{[l]}$ and $A^{[l]}
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Why is backprop O(1) backward passes rather than O(P) for P parameters?", a: "Because every parameter's gradient shares the same upstream factors. Computing the gradient one parameter at a time would recompute the chain from the loss down to that layer P times; backprop computes each layer's upstream gradient once and reuses it for every weight in that layer, then passes it further down. Total cost is roughly one forward pass." },
+  { q: "Derive why softmax with cross-entropy gives y-hat minus y at the output.", a: "Cross-entropy's derivative with respect to the softmax output contains a division by that probability, and the softmax Jacobian contains a matching factor of the same probability. They cancel exactly, leaving the elegant y-hat minus y. This is why the pair is always used together — separating them reintroduces a numerically awkward Jacobian." },
+  { q: "You forget optimizer.zero_grad(). Describe the failure.", a: "Gradients accumulate, since PyTorch adds into .grad rather than overwriting. Step two uses the sum of batch 1 and batch 2's gradients, step three the sum of three, and so on — so the effective learning rate grows without bound and training diverges or behaves erratically. Nothing errors; the loss curve just misbehaves in a way that looks like a bad learning rate." },
+  { q: "Where in backprop do vanishing gradients originate?", a: "In the product of local gradients. Each layer contributes a factor, and for saturated sigmoid or tanh units that factor is well below 1. Chaining many such factors shrinks the signal exponentially with depth, so early layers receive almost nothing. ReLU, residual connections, and normalisation all exist to keep those factors near 1." },
+  { q: "What is the relationship between the forward cache and the backward pass?", a: "The backward pass is a traversal of the graph the forward pass constructed, consuming the cached values as it goes. A[l-1] is needed to get the gradient with respect to W[l], and Z[l] is needed to evaluate the activation's derivative. That is why deleting the cache — via no_grad — makes backward impossible, not merely slower." },
+]} />
 
 <MultiSelectQuiz
   question="Which of the following are true about backpropagation?"

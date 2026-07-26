@@ -1,5 +1,12 @@
-import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import DistributionsWidget from '../../components/widgets/math-ml/DistributionsWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- A random variable turns outcomes into numbers so you can do arithmetic on uncertainty.
+- **PMF gives probability; PDF gives density.** A PDF value can exceed 1 — only the *area* under it is a probability.
+- Four workhorses: Bernoulli (one binary trial), Binomial (count of successes), Poisson (count of rare events per window), Gaussian (continuous noise).
+- Choosing a loss quietly chooses a distribution: MSE ⟺ "residuals are Gaussian."
+</ConceptBox>
 
 ## Random Variables
 
@@ -51,6 +58,13 @@ counts = stats.poisson.rvs(mu=4, size=1000)
 **Problem 2.** A call center averages 4 calls per minute. Which distribution models the number of calls in the next minute?
 
 **Solution:** Poisson(λ=4) — counting rare, independent events in a fixed window is the Poisson's defining use case.
+
+<Recall items={[
+  { q: "A PDF returns 2.5 at some x. Is that a bug?", a: "No. A PDF returns density, not probability — its units are probability per unit x, so a narrow, tall distribution legitimately exceeds 1 in height. Only the integral over an interval is a probability, and that integral is still capped at 1." },
+  { q: "You are counting how many fraud alerts fire per hour. Which distribution, and what must hold for it to be appropriate?", a: "Poisson(lambda). It requires events to be independent and to occur at a constant average rate over the window. If alerts arrive in bursts — one fraud triggering ten more — the independence assumption breaks and the real counts will be over-dispersed relative to Poisson." },
+  { q: "Connect Bernoulli and Binomial in one sentence.", a: "Binomial(n, p) is the distribution of the sum of n independent Bernoulli(p) trials — Bernoulli is the n=1 case." },
+  { q: "Why is MSE loss sensitive to outliers, in distributional terms?", a: "MSE is the negative log-likelihood of Gaussian noise, and a Gaussian's tails decay as exp(-x^2/2). A far-out point is assigned an extremely low probability, so the log-likelihood penalises it enormously and the fit is dragged towards it. Heavier-tailed assumptions (Laplace, giving MAE) treat the same point as unremarkable." },
+]} />
 
 <QuizCard
   question="What is the key difference between a PMF and a PDF?"

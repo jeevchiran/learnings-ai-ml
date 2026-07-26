@@ -1,4 +1,12 @@
-import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- Tabular workflow: `TreeExplainer` → `waterfall` for one row, `beeswarm` for the model, `scatter` for one feature's shape.
+- **Verify additivity with an assert** — SHAP values plus base value must equal `model.predict()` on every row.
+- Images: a "feature" is a **region**, not a pixel, and absent regions are filled from a **baseline**. Deep SHAP is the fast path for nets.
+- Correlated features make SHAP split credit oddly because marginalising one creates unrealistic inputs. Interpret them as a group.
+- The payoff is debugging: a heatmap over the snow instead of the wolf exposes a leak no accuracy number can.
+</ConceptBox>
 
 ## Numerical Data: End-to-End
 
@@ -79,6 +87,13 @@ In image SHAP you can't literally delete a pixel. What happens to "absent" pixel
 A cat classifier's SHAP heatmap shows strong red over a text watermark in the corner and little over the cat. What do you conclude?
 
 **Solution:** The model is keying on the **watermark**, not the cat — a spurious correlation (likely a data leak where that watermark co-occurs with the class). Despite possibly high accuracy, the model isn't learning the intended concept. Fix the data (remove/randomise the watermark) and retrain.
+
+<Recall items={[
+  { q: "Write the one-line check that your SHAP values are correct, and say what it tests.", a: "assert np.allclose(sv.values.sum(1) + sv.base_values, model.predict(X)). It tests local accuracy — every row's attributions plus the base value must reconstruct the model's actual output. If it fails, the explainer is mismatched to the model or the wrong output margin is being explained." },
+  { q: "Why can't each pixel be its own feature in image SHAP, and what replaces that scheme?", a: "A 224x224 image has over 50,000 pixels, so the coalition space is impossibly large and a single-pixel attribution is meaningless anyway. Pixels are grouped into regions or superpixels, and 'absent' regions are filled from a baseline — a blur, grey, inpainting, or the dataset mean." },
+  { q: "A wolf-vs-dog classifier's heatmap glows over the snow. What has the model learned, and what is the fix?", a: "It learned 'snow implies wolf' — a background correlation in the training photos, not anything about the animal. The fix is in the data: collect wolves on non-snowy backgrounds and dogs on snowy ones, or augment backgrounds, then retrain. No amount of held-out accuracy would have surfaced this." },
+  { q: "SHAP splits credit strangely between two highly correlated features. Bug or expected?", a: "Expected. Marginalising one of a correlated pair produces inputs the data almost never contains — 8 rooms with 1 bedroom — and SHAP faithfully reports how the MODEL behaves there. The correct response is to interpret the correlated features as a group rather than ranking them against each other." },
+]} />
 
 <QuizCard
   question="When applying SHAP to images, how are 'features' typically defined?"

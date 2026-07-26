@@ -1,4 +1,12 @@
-import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- "Training" is counting. `fit` computes class fractions and per-feature frequency tables; there is no optimiser.
+- **Laplace smoothing** is `(count + α) / (n_c + α·|values|)` — it hands every category a pretend observation so no likelihood can be exactly 0.
+- `α=0` reproduces raw frequencies; large `α` washes the likelihoods toward uniform and the prediction collapses to the **prior**.
+- `CategoricalNB` is this same counting formula, vectorised. Writing it from scratch buys understanding, not speed.
+- `class_prior_` is the *empirical* class fraction of your training split, not a uniform default — and Gaussian NB's posteriors come out near-one-hot, i.e. overconfident.
+</ConceptBox>
 
 ## From Formula to Code
 
@@ -124,6 +132,14 @@ As `alpha` grows very large (e.g. 1000), what happens to `predict_proba`?
 For query `("Rain", "False")`, what do the two likelihood factors reveal about how independence is applied?
 
 **Solution:** Yes: $(3{+}1)/(7{+}3) = 0.4$ and $(5{+}1)/(7{+}2) = 0.667$, so $0.7 \times 0.4 \times 0.667 \approx 0.187$. No: $(1{+}1)/(3{+}3) = 0.333$ and $(1{+}1)/(3{+}2) = 0.4$, so $0.3 \times 0.333 \times 0.4 \approx 0.04$. The code never builds a joint (Outlook, Windy) table — it multiplies two independently-looked-up scalars. That multiplication *is* the independence assumption: there's no code path to represent "Rain and calm co-occur more than their marginals predict."
+
+<Recall items={[
+  { q: "Write the smoothed likelihood formula and explain both alpha terms.", a: "(count + alpha) / (n_c + alpha * number_of_possible_values). Alpha in the numerator is the pretend count given to this category; alpha times the number of categories in the denominator keeps the distribution summing to 1, since every category received that same pretend count." },
+  { q: "Predict the behaviour at alpha = 0 and at alpha = 1000.", a: "At 0 you get raw relative frequencies — maximum use of the data, and a hard zero for any unseen category. At 1000 the pretend counts swamp the real ones, every likelihood tends to 1 over the number of categories, the features stop discriminating, and predictions collapse to the priors alone." },
+  { q: "Smoothing changed the tennis posteriors from 0.30/0.70 to 0.4375/0.5625 but not the label. What does that illustrate?", a: "That smoothing is a confidence adjustment, not usually a decision adjustment. It pulls estimates toward uniform, which corrects the overconfidence you get from small counts, while leaving the ranking intact unless a score was near-tied or driven by a zero." },
+  { q: "Point at the exact line of code where the independence assumption lives.", a: "The score computation that multiplies priors[c] by outlook_lik[c][outlook] and windy_lik[c][windy]. Two separate one-dimensional lookups multiplied together — there is no joint (Outlook, Windy) table anywhere, so the code has no way to represent 'these two co-occur more often than their marginals suggest'." },
+  { q: "Why is class_prior_ on Iris [0.295, 0.352, 0.352] rather than three equal thirds?", a: "Because the prior is estimated by counting labels in the TRAINING SPLIT, and a random 70/30 split does not preserve exact class balance. It is a reminder that the prior is learned from data like everything else — use a stratified split if you want the balance preserved." },
+]} />
 
 <QuizCard
   question="In the from-scratch implementation, what specifically changes when alpha (smoothing strength) increases from 0 to 1?"

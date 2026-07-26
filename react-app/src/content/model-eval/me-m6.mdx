@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import FilterRankWidget from '../../components/widgets/model-eval/FilterRankWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Filters score each feature **independently, with no model fitted** — so they're cheap enough to run on thousands of columns as a first pass.
+- **Variance threshold is target-blind**: it only drops near-constant columns. A rare-but-critical flag looks dead to it.
+- Pearson catches **linear** relationships only; ANOVA F catches monotonic group differences; **mutual information** catches arbitrary dependence but has no clean p-value.
+- Chi-square needs **non-negative** inputs — counts or one-hot, never raw signed values.
+- The shared blind spot: scoring one feature at a time **cannot see interactions**. Latitude and longitude are each useless and jointly decisive.
+</ConceptBox>
 
 ## Scoring Features One at a Time
 
@@ -133,6 +141,14 @@ Binary `a`, `b`, target = 1 exactly when `a != b` (XOR). What do correlation and
   ]}
   correct={2}
 />
+
+<Recall items={[
+  { q: "What is the structural blind spot every filter method shares?", a: "They score each feature in isolation against the target, so a feature that is only useful in combination with another scores near zero and gets dropped. Latitude and longitude individually predict house price barely at all; together they encode location, which is often the strongest signal in the data." },
+  { q: "Variance threshold flagged a column as near-constant. Why might dropping it be a mistake?", a: "Because it never looks at the target. A binary flag that fires on 3 of 10,000 rows has almost no variance and may be exactly the fraud indicator you need. Use it to remove genuinely dead columns, not as a judgement about relevance." },
+  { q: "Pick the right filter: numeric feature with numeric target; count feature with categorical target; a suspected U-shaped relationship.", a: "Numeric-numeric: Pearson correlation, remembering it only sees linear structure. Counts with a categorical target: chi-square, which requires the non-negative values counts naturally have. U-shaped: mutual information, since correlation would report near zero for a relationship that is real but non-monotonic." },
+  { q: "Mutual information detects anything. What do you give up by using it?", a: "Interpretability of the threshold and stability of the estimate. It has no natural significance cut-off the way a correlation p-value does, so 'how much MI is enough' is a judgement call, and estimating it requires binning or nearest-neighbour density estimates that are noisy on small samples." },
+  { q: "How do you use correlation to find redundancy rather than relevance?", a: "Compute it between FEATURE PAIRS instead of feature and target. Two features correlated near +1 or -1 carry essentially the same information, so keeping both adds multicollinearity without signal — drop one, preferring the cheaper or more interpretable of the pair." },
+]} />
 
 <MultiSelectQuiz
   question="Which statements about filter-based feature selection are correct? (Select all that apply.)"

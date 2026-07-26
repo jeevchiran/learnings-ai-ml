@@ -1,5 +1,12 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import DerivativeWidget from '../../components/widgets/math-ml/DerivativeWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- A derivative is a slope; a **partial** derivative is the slope along one axis with the rest held still.
+- Stack the partials into the **gradient** $\nabla f$ — it points along steepest *ascent*, which is why descent subtracts it.
+- The **chain rule** multiplies the derivatives of composed functions. A network *is* a composition, so backprop is the chain rule run back-to-front.
+- $f'(x)=0$ marks a flat point, not necessarily a minimum — maxima and saddles are flat too.
+</ConceptBox>
 
 ## Starting the Calculus Track
 
@@ -60,6 +67,13 @@ PyTorch's `autograd` is literally the chain rule applied automatically through e
 **Problem 2.** $f(x) = (2x+1)^2$. Use the chain rule to find $f'(x)$.
 
 **Solution:** Outer function $u^2$ (derivative $2u$), inner $u=2x+1$ (derivative 2). $f'(x) = 2(2x+1)\cdot2 = 4(2x+1) = 8x+4$.
+
+<Recall items={[
+  { q: "Why does gradient descent subtract the gradient rather than add it?", a: "The gradient points in the direction of steepest ascent — the direction that increases f fastest. Training wants f (the loss) to go down, so the step goes the opposite way." },
+  { q: "Explain backprop in one sentence using only the chain rule.", a: "The loss is a composition of layer functions, so the derivative of the loss with respect to any inner weight is the product of every local derivative between that weight and the output — backprop just evaluates that product from the output end backwards, reusing shared factors instead of recomputing them." },
+  { q: "The gradient of a loss is exactly zero. Name three different things that could be true.", a: "A local minimum, a local maximum, or a saddle point. The first derivative cannot tell them apart; you need the second derivative (curvature) to classify which one you are sitting on." },
+  { q: "Where in the chain-rule product does the vanishing-gradient problem come from?", a: "Backprop multiplies one local derivative per layer. If those factors are consistently below 1 — as saturated sigmoid or tanh derivatives are — the product shrinks exponentially with depth, so early layers receive almost no signal. Factors above 1 give the mirror-image explosion." },
+]} />
 
 <QuizCard
   question="A neural network's loss is a composition of many layer functions. What rule computes how the loss changes with respect to a weight buried deep inside the network?"

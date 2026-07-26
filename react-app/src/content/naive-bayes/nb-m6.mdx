@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LogSpaceWidget from '../../components/widgets/naive-bayes/LogSpaceWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Multiplying thousands of sub-1 probabilities underflows to **exactly 0.0** — float64 stops near $10^{-308}$, and a realistic document needs $10^{-1500}$.
+- Then every class scores 0, the arg-max is decided by tie-breaking, and the *representation* destroyed the answer, not the model.
+- Fix: **work in log-space.** $\log(ab)=\log a+\log b$ turns the product into a sum of moderate negatives.
+- $\log$ is monotonic, so **the predicted class is unchanged** — only the numerical path differs.
+- This is a baseline requirement, not an optimisation. Every production implementation does it.
+</ConceptBox>
 
 ## Where the Numbers Break
 
@@ -95,6 +103,13 @@ With each likelihood ≈ 0.2, roughly how many features underflow below $10^{-30
 A student proposes multiplying every likelihood by 10, then dividing the result by $10^n$. Does it work?
 
 **Solution:** No — it turns underflow into *overflow*. The intermediate product grows as $(10 \times 0.2)^n = 2^n$, hitting `inf` for moderate $n$, and `inf / 10**n` is unrecoverable. A constant rescale can't fix exponential blow-up; only log-space, where multiply becomes add, avoids exponential growth or decay entirely.
+
+<Recall items={[
+  { q: "Why is underflow here a correctness bug rather than a precision annoyance?", a: "Because the result is exactly 0.0, not a slightly wrong small number. Every class then scores 0, so the comparison 0.0 > 0.0 is false for all of them and the prediction is decided by whichever class the arg-max happens to visit first. The genuine ranking information existed mathematically and was destroyed by the float representation." },
+  { q: "State the identity that fixes it and the property that makes the fix safe.", a: "log(ab) = log a + log b converts the product into a sum, so instead of a number shrinking toward 10^-1500 you get a sum of moderate negatives around -3700. It is safe because log is strictly monotonic increasing: whichever class had the largest score still has the largest log-score." },
+  { q: "A student proposes multiplying every likelihood by 10 and dividing by 10^n at the end. Evaluate.", a: "It converts underflow into overflow. The running product now grows like (10 * 0.2)^n = 2^n, hitting inf for moderate n, and inf divided by 10^n is unrecoverable. Any constant rescale keeps the growth exponential; only moving to logs, where multiplication becomes addition, makes the magnitude linear in n." },
+  { q: "You need actual probabilities, not just the label, from log-scores. How?", a: "Subtract the maximum log-score from all of them before exponentiating — the log-sum-exp trick. Shifting by a constant is exactly dividing every score by the same factor, so the normalised probabilities are unchanged, but the largest exponent becomes e^0 = 1 and nothing overflows or underflows." },
+]} />
 
 <QuizCard
   question="Why does converting Naive Bayes scores to log-space avoid underflow while producing the same predicted class?"

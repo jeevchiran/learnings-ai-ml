@@ -1,9 +1,17 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import GiniSplitWidget from '../../components/widgets/decision-trees/GiniSplitWidget.jsx'
 
 <Bridge>
 **Building on Module 2:** You now know how to *measure* node impurity using the Gini index and entropy. The next question is: given a continuous feature, how do we systematically *find* the split threshold that maximises impurity reduction?
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- A continuous feature has up to $n-1$ candidate thresholds — the **midpoints between adjacent sorted values**.
+- Midpoints because *any* threshold inside $(v_i, v_{i+1})$ gives the identical partition; the midpoint is just the canonical representative.
+- **Sort once, then sweep.** Maintaining running class counts makes each candidate $O(1)$, turning $O(n^2p)$ per node into $O(np\log n)$.
+- Choose $(j^*, s^*)$ maximising $\text{GiniGain}=G(t)-\frac{n_L}{n}G(t_L)-\frac{n_R}{n}G(t_R)$ — the same gain idea from Module 2, now searched exhaustively.
+- Categorical features have $2^{C-1}-1$ possible subsets, so sklearn sidesteps it: ordinal encoding treated as continuous, or one-hot beforehand.
+</ConceptBox>
 
 ## 1. The Core Problem of Splitting
 
@@ -121,6 +129,13 @@ For a categorical feature with $C$ unique values, there are $2^{C-1} - 1$ possib
 **Common approach:** In scikit-learn, ordinal encodings are used and treated as continuous features. For truly nominal features, one-hot encoding is applied before tree training, converting each category into a binary feature.
 
 <GiniSplitWidget />
+
+<Recall items={[
+  { q: "Why midpoints rather than the observed feature values?", a: "Every threshold strictly between two adjacent sorted values v_i and v_{i+1} sends exactly the same samples left and right, so they are all the same split. The midpoint is a canonical choice, and it also avoids ambiguity about whether a sample equal to the threshold goes left or right." },
+  { q: "How does sorting collapse the cost from O(n^2 p) to O(n p log n) per node?", a: "Naively, each of the O(n) candidate thresholds needs a full O(n) scan to count classes on each side. If you sort once and sweep in order, moving the threshold past one sample changes the left and right class counts by exactly one — an O(1) update — so all candidates are evaluated in a single O(n) pass after the O(n log n) sort." },
+  { q: "Write the Gini gain for a candidate split and name the term people forget.", a: "GiniGain(j,s) = G(t) - (n_L/n)G(t_L) - (n_R/n)G(t_R). The forgotten part is the n_L/n and n_R/n weights — without them a tiny pure child looks as valuable as a large one, and the tree fragments." },
+  { q: "Why are truly nominal categorical features awkward for CART, and what does sklearn do?", a: "A feature with C categories has 2^(C-1) - 1 possible ways to split the categories into two groups, which is exponential and cannot be exhaustively searched for large C. sklearn does not implement subset splits at all: you either ordinal-encode and let it treat the codes as continuous — which imposes a false ordering — or one-hot encode first, which is correct but widens the feature space." },
+]} />
 
 <QuizCard
   question="Why are midpoints used as candidate split thresholds rather than the raw feature values themselves?"

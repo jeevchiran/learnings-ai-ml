@@ -1,9 +1,17 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import PruningWidget from '../../components/widgets/decision-trees/PruningWidget.jsx'
 
 <Bridge>
 **Doctor analogy.** A doctor who asks twenty questions before making a diagnosis may memorize every patient they have ever seen, giving perfect accuracy on past cases. But facing a new patient with a slightly different presentation, they fail — they are reciting memorized rules rather than reasoning. Conversely, a doctor who asks only two questions misses crucial nuance. The right number of questions is somewhere in between: enough to capture the real signal, not so many that noise gets memorized. Tree depth plays exactly the same role.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- Genuine wins: readable rules, **no scaling needed** (thresholds, not distances), mixed data types, automatic interactions, irrelevant features cost nothing, $O(\log n)$ inference.
+- Genuine losses, all traceable to one design: greedy + axis-aligned + unconstrained depth.
+- **High variance** is the defining flaw — one different training point can change the whole topology, because a greedy split is never revisited.
+- A diagonal boundary needs a *staircase* of splits, so trees pay exponentially for what one linear model does in a single cut.
+- Depth is the bias-variance dial. Control it with `min_samples_leaf` and cross-validated `ccp_alpha`; if variance persists, the answer is an ensemble.
+</ConceptBox>
 
 ## 1. Advantages of Decision Trees
 
@@ -132,6 +140,14 @@ Evaluate the validation error of each tree in the sequence using $k$-fold cross-
 - Apply cost-complexity pruning via cross-validated `ccp_alpha` for principled depth control.
 - Check feature importances to confirm the tree uses meaningful signals.
 - If variance is still high after pruning, move to ensemble methods (Module 5: Random Forests, Module 6: Gradient Boosting).
+
+<Recall items={[
+  { q: "Why do trees need no feature scaling when k-NN and SVMs do?", a: "Trees only ever ask whether a value is above or below a threshold, and that comparison is invariant to any monotonic rescaling of the feature. Distance-based methods combine features into a single magnitude, so a feature with a larger range dominates that magnitude." },
+  { q: "Explain trees' high variance in terms of the algorithm, not just as a fact.", a: "The algorithm is greedy and never revisits a split. So a single changed or mislabelled point that flips which candidate wins at the ROOT changes the data reaching every subsequent node, and the whole tree below is rebuilt differently. Errors do not stay local — they cascade." },
+  { q: "The true boundary is x1 + x2 > 5. What does the tree do, and what does it cost?", a: "It approximates the diagonal with a staircase of axis-aligned cuts, each one shaving off a rectangle. Getting close requires many splits and therefore great depth, and each extra split is fitted on fewer samples — so accuracy costs both depth and variance, where a linear model needs one cut." },
+  { q: "100% training accuracy, 62% validation. Which limitation, and why not the others?", a: "Overfitting. A perfect training score means the tree grew deep enough to isolate individual samples, memorising noise. It is not the axis-aligned limitation — that would cap TRAINING accuracy too — and not the greedy limitation, which would show as mediocre performance on both sets rather than a large gap." },
+  { q: "Give the practical control sequence for a tree that is overfitting.", a: "Fit unconstrained first to see the natural depth and the size of the train-validation gap. Set min_samples_leaf to at least 5 as a floor against single-sample leaves. Then tune ccp_alpha by cross-validation, which prunes on a principled cost-complexity criterion rather than a guessed depth. If variance is still high, move to a random forest — averaging many high-variance trees is the designed fix." },
+]} />
 
 <QuizCard
   question="A decision tree achieves 100% training accuracy but 62% validation accuracy. Which limitation is most directly responsible?"

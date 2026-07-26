@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import NERWidget from '../../components/widgets/nlp/NERWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Three extraction tasks: **NER** (what entities are named), **SRL** (who did what to whom), **coreference** (which mentions are the same thing).
+- **BIO tagging** turns span-finding into per-token classification: `B-` begins an entity, `I-` continues it, `O` is outside.
+- That encoding has invalid states — `I-PERSON` directly after `O` names no entity. A **CRF** learns to forbid them by scoring transitions, not just tokens.
+- NER is why Module 1's lowercasing warning mattered: capitalization is a top feature here.
+- **Coreference is what connects facts across sentences.** Without it, "He said it would ship" attaches to nobody.
+</ConceptBox>
 
 <Bridge>
 We can now tag words (Module 3), parse structure (Module 4), and measure meaning (Module 5–6). This module applies that foundation to three information extraction tasks: identifying *what* entities are named (NER), *who did what to whom* (SRL), and *which mentions refer to the same entity* (coreference).
@@ -132,6 +140,13 @@ All three expressions (Obama, He, the 44th president) form one coreference chain
 **Why it matters:** Without coreference resolution, information extraction cannot connect facts spread across sentences. "Tesla's CEO **announced** a new product. **He** said it would ship in 2025." — without knowing that "He" = Elon Musk = Tesla's CEO, we cannot attribute the statement.
 
 <NERWidget />
+
+<Recall items={[
+  { q: "Why does NER need BIO tags rather than just labelling each token with its entity type?", a: "Because you must be able to tell where one entity ends and the next begins. With bare type labels, 'New York Boston' is an unbroken run of GPE tokens and you cannot recover whether it is one entity or two. B- marks a new span, I- marks continuation, so adjacent same-type entities stay separable." },
+  { q: "Why is I-PERSON after O invalid, and what enforces the constraint?", a: "An inside tag with no preceding begin tag describes the middle of an entity that never started — it corresponds to no valid span. A CRF enforces it by scoring TRANSITIONS between adjacent labels alongside per-token scores, learning a strongly negative weight for O to I-anything, so the decoder never emits that path." },
+  { q: "Connect this module back to the normalization warning in Module 1.", a: "Lowercasing destroys capitalization, and capitalization is one of the strongest NER features in English — it is most of what separates 'Apple' the company from 'apple' the fruit, and it marks proper names the model has never seen. This is the concrete task where a standard normalization step causes real damage." },
+  { q: "Why can't information extraction work without coreference resolution?", a: "Because facts are distributed across sentences and referred to by pronouns and shortened names. 'Tesla's CEO announced a product. He said it ships in 2025' contains an attributable claim only if you resolve 'He' to the CEO and 'it' to the product. Without that, each sentence yields a fragment attached to nothing." },
+]} />
 
 <QuizCard
   question="In BIO tagging, why is an 'I-PERSON' tag after an 'O' tag invalid, and which model enforces this constraint during decoding?"

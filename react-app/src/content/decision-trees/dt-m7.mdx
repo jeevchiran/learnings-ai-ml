@@ -1,9 +1,18 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import HyperparameterWidget from '../../components/widgets/decision-trees/HyperparameterWidget.jsx'
 
 <Bridge>
 Modules 5–6 gave the Random Forest variance $\text{Var}(F) = \rho\sigma^2 + \frac{(1-\rho)\sigma^2}{B}$ and the GB update $F_m = F_{m-1} + \eta h_m$. Every major hyperparameter maps to a term in one of these — this module makes those links explicit and turns them into tuning recipes.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- Before turning any knob, name what you're fixing: **bias, variance, or compute**. Underfit → add complexity. Overfit → add regularisation.
+- **RF**: grow deep trees and let averaging handle variance. `max_features` is the highest-leverage knob because it's the only one that moves $\rho$.
+- More RF trees never hurt accuracy — they just stop helping. Read OOB error vs $B$ and stop at the elbow.
+- **GB is far more sensitive**, because capacity compounds across iterations.
+- **Never tune $\eta$ and $M$ independently** — effective capacity is roughly $\eta\cdot M$. Halving $\eta$ needs roughly double $M$.
+- Early stopping on a validation set is what actually chooses $M$.
+</ConceptBox>
 
 ## The Tuning Mindset
 
@@ -85,6 +94,14 @@ print(f"Best iteration: {model.best_iteration}")
 ```
 
 <HyperparameterWidget />
+
+<Recall items={[
+  { q: "Why leave max_depth=None for a random forest but never for a lone tree?", a: "A single deep tree's variance is the model's variance. In a forest, averaging across decorrelated trees removes most of that variance, so depth buys you low bias almost for free — capping it would just add bias with no compensating benefit. The ensemble, not the individual tree, is the regularised object." },
+  { q: "Why is max_features the highest-leverage RF knob?", a: "Because variance is rho*sigma^2 + (1-rho)*sigma^2/B, and only max_features moves rho. Everything else — more trees, bigger leaves — attacks terms that either vanish quickly or trade against bias. Reducing m decorrelates the trees, lowering the irreducible floor, at the cost of making each individual tree slightly worse." },
+  { q: "You halve learning_rate from 0.1 to 0.05 and keep n_estimators fixed. Predict the result.", a: "Underfitting. Effective capacity is roughly eta times M, so halving eta halves how far the ensemble travels from its starting point in the same number of steps — it stops before reaching the fit it previously achieved. To keep capacity constant you must roughly double M." },
+  { q: "Why does gradient boosting need early stopping while random forests essentially don't?", a: "RF trees are independent, so adding more only averages away noise — test error flattens rather than rising. GB trees are conditioned on their predecessors, so each iteration adds capacity aimed at the current residuals, which eventually means fitting noise. Test error therefore has a minimum and rises after it, and early stopping on a validation set is what finds that point." },
+  { q: "Train error low, test error high, on a gradient boosting model. Name three knobs, in order.", a: "First lower n_estimators via early stopping — the most direct capacity reduction. Then reduce max_depth, since shallow trees fit interactions less aggressively. Then add subsampling of rows or columns, or increase the L2 regularisation term, to inject randomness and shrink leaf weights. Raising the learning rate would be counterproductive." },
+]} />
 
 <QuizCard
   question="You set learning_rate=0.05 instead of 0.1 in your gradient boosting model, keeping n_estimators the same. What will most likely happen?"

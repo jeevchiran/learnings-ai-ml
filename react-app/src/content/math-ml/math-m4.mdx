@@ -1,5 +1,12 @@
-import { ConceptBox, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, QuizCard, Recall } from '../../components/learning/index.js'
 import SVDPCAWidget from '../../components/widgets/math-ml/SVDPCAWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- **PCA = eigendecompose the covariance matrix.** Largest eigenvalue → direction of most spread (PC1); its eigenvalue *is* the variance along that direction.
+- Covariance matrices are symmetric, so the eigenvectors come out real and mutually perpendicular — no complex-rotation edge case.
+- **SVD** ($X=U\Sigma V^\top$) does the same job for any matrix and is what libraries actually run: same axes, better numerics.
+- PCA builds *new* axes from mixtures of your features. It is not feature selection, and the components usually have no clean name.
+</ConceptBox>
 
 ## From Eigenvectors to PCA
 
@@ -50,6 +57,13 @@ print(pca.components_)                # the principal axes themselves, in origin
 **Problem 2.** A 2D point cloud is a perfect circle (equal spread in every direction). What do PCA's eigenvalues look like, and why?
 
 **Solution:** Both eigenvalues equal — there's no single "direction of maximum variance" to prefer, every direction is equally valid, so PCA gives no useful axis to reduce onto.
+
+<Recall items={[
+  { q: "Say what PCA is in one sentence that uses only Module 3 vocabulary.", a: "PCA is the eigendecomposition of the data's covariance matrix: the eigenvectors are the new axes and each eigenvalue is the variance captured along its axis." },
+  { q: "A colleague says 'PCA told me age and income are my two most important features.' What is wrong with that sentence?", a: "PCA never selects original features. PC1 is a linear combination of ALL features — it might be 0.7*age + 0.3*income + small contributions from everything else. The output axes are rotated mixtures, not a shortlist of columns." },
+  { q: "Why must you standardise features before PCA?", a: "PCA maximises variance, and variance carries units. A feature measured in rupees has a numerically enormous variance next to one measured in years, so it would dominate PC1 purely through its scale rather than through any real structure." },
+  { q: "Explained-variance ratios come back as [0.98, 0.01, 0.01]. What does that say about the data?", a: "It is effectively one-dimensional — 98% of the spread lies along a single direction, so the other features are nearly redundant (highly correlated or near-constant). One component would keep almost all the information." },
+]} />
 
 <QuizCard
   question="Why does scikit-learn's PCA typically compute the SVD of the data matrix rather than explicitly eigendecomposing the covariance matrix?"

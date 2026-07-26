@@ -1,7 +1,14 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import HistogramSkewWidget from '../../components/widgets/pandas-eda/HistogramSkewWidget.jsx'
 
 # Univariate Visualization
+
+<ConceptBox title="TL;DR">
+- **Mean and SD cannot distinguish symmetric, skewed, bimodal, and uniform.** Two very different columns can share both numbers. Plotting is the only way to see the shape.
+- **Histogram** = binned counts (bin count changes the story). **KDE** = smoothed version (bandwidth changes the story). **Box plot** = five-number summary plus flagged outliers, compact enough to stack.
+- The **mean-versus-median gap is your skew detector**: fares average $26 with a median of $11.75, and that gap *is* the $399 outlier.
+- A histogram immediately reveals a discrete column — `passenger_count` takes only 1–6, mode 1.
+</ConceptBox>
 
 ## What, Why, and How
 
@@ -134,6 +141,13 @@ The `fare_amount` mean is ~$26 but the median is ~$11.75. Should you use mean or
 <Bridge>
 **What's next: relationships between two variables.** Univariate charts answer "what does this column look like?" — but not "does it move together with another column?" Module 7 adds a second variable: scatter plots, correlation coefficients, and grouped comparisons that reveal whether fare amount grows with trip distance, and whether borough choice predicts price.
 </Bridge>
+
+<Recall items={[
+  { q: "Mean $26, median $11.75, on the same column. What does the gap tell you before you plot anything?", a: "Strong right skew, almost certainly driven by a small number of very large values. The median barely moves when one point goes to infinity; the mean does. A large mean-above-median gap is the cheapest skew detector you have, and here it is the $399 outlier making itself visible in the summary statistics." },
+  { q: "Histogram or KDE — what is the honest weakness of each?", a: "A histogram's shape depends on the bin count: too few bins hide structure such as bimodality, too many make sparse regions look like noise. A KDE removes that but substitutes a bandwidth parameter with exactly the same problem — over-smooth and peaks merge, under-smooth and you get spurious bumps. Neither is parameter-free; always try more than one setting." },
+  { q: "Why is a box plot preferred when comparing many columns at once?", a: "Because it compresses a whole distribution into a few marks, so a dozen of them fit side by side and stay readable. It also draws the Tukey fences from Module 4 directly, so outliers are marked individually rather than being lost inside a bar." },
+  { q: "What does a box plot hide that a histogram shows?", a: "Multimodality. The five-number summary is identical for a single broad hump and for two separate clusters with the same quartiles, so a bimodal distribution — for example metered versus flat-rate fares — looks like one wide box. If you suspect distinct regimes, you need the histogram or KDE." },
+]} />
 
 <QuizCard
   question="Which chart type simultaneously encodes the five-number summary (min, Q1, median, Q3, max) and highlights outliers?"

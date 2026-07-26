@@ -1,9 +1,18 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import SigmoidROCWidget from '../../components/widgets/regression/SigmoidROCWidget.jsx'
 
 <Bridge>
 Modules 1–2 covered linear regression for continuous outcomes. Many real problems involve categorical decisions: Is this email spam? Does this patient have diabetes? Linear regression fails — it produces values outside [0,1] with no principled way to represent probability. We need a model that outputs probabilities.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- The sigmoid squashes $\mathbb{R}\to(0,1)$, so the output is a legal probability instead of an unbounded number.
+- **The model is linear in log-odds, not in probability.** That single sentence explains every coefficient interpretation here.
+- So $\beta_j$ is additive on log-odds and **multiplicative on odds**: one unit of $x_j$ multiplies the odds by $e^{\beta_j}$.
+- Multiclass: **OvR** trains $K$ independent binaries (probabilities need not sum to 1); **softmax** models all $K$ jointly (they do, by construction).
+- L1 zeroes coefficients (selection), L2 shrinks them (stability). `C` in sklearn is $1/\lambda$ — bigger `C` means *less* regularisation.
+- **Accuracy lies on imbalanced data.** The threshold, not the model, sets the precision/recall trade-off.
+</ConceptBox>
 
 ## Why Linear Regression Fails for Classification
 
@@ -172,6 +181,14 @@ for C in [0.001, 0.01, 0.1, 1, 10, 100]:
 </CodeBlock>
 
 <SigmoidROCWidget />
+
+<Recall items={[
+  { q: "A coefficient is 1.2. Give its meaning three ways: log-odds, odds, and probability.", a: "Log-odds: one more unit of that feature adds 1.2 to the log-odds. Odds: it multiplies the odds by e^1.2 = 3.32. Probability: no fixed answer — the change in probability depends on where you start, because the sigmoid is steep near 0.5 and flat at the extremes. That last point is why coefficients are quoted as odds ratios." },
+  { q: "Why is the model called 'linear' when its output curve is an S?", a: "Because linearity is claimed on the LOG-ODDS scale, not the probability scale. log(p/(1-p)) is exactly a linear combination of the features; passing that through the sigmoid produces the S-shape in probability. The nonlinearity lives entirely in the link, not the model." },
+  { q: "OvR or softmax — and what actually differs?", a: "OvR trains K independent binary classifiers, so each is unaware of the others and the K probabilities need not sum to 1; you take the argmax anyway. Softmax models all K jointly with a shared normaliser, so probabilities sum to 1 by construction and are better calibrated. Prefer softmax when the probabilities themselves matter." },
+  { q: "Your fraud model reports 99.9% accuracy. Why is that number worthless, and what do you report instead?", a: "Because only 0.1% of cases are fraud, so predicting 'never fraud' scores 99.9% while catching nothing. Report precision and recall on the positive class, or AUC-PR, which is sensitive to performance on the rare class in a way accuracy and AUC-ROC are not." },
+  { q: "Cancer screening wants recall 0.95; fraud review wants precision 0.90. Same model — how?", a: "By moving the decision threshold. A low threshold flags anything remotely suspicious, raising recall at the cost of false alarms — right when a missed cancer is far worse than an extra biopsy. A high threshold does the reverse, right when each investigated case is expensive. The model's ranking is unchanged; only the cut point moves." },
+]} />
 
 <QuizCard
   question="A cancer screening model has Precision=0.60 and Recall=0.95. A fraud detection model has Precision=0.90 and Recall=0.55. Which metric is each model optimizing for, and which threshold setting achieves it?"

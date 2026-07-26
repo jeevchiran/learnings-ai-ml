@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import CNNParamsWidget from '../../components/widgets/cnn/CNNParamsWidget.jsx'
 
 # Module 5: CNN Architecture & Parameter Numericals
+
+<ConceptBox title="TL;DR">
+- The canonical block is **Conv → BN → ReLU → Pool**, repeated, then Flatten/GAP + FC.
+- Two numbers to trace by hand through every layer: **output shape** and **parameter count**. Doing this is how you debug an architecture.
+- **Most parameters usually sit in the first FC layer after Flatten**, not in the convolutions. That's the block GAP deletes.
+- Three 3×3 convs beat one 7×7: same receptive field, fewer parameters ($27C^2$ vs $49C^2$), and two extra nonlinearities.
+- **BN makes the conv bias redundant** — BN subtracts the mean, so `bias=False` on a conv followed by BN costs nothing.
+</ConceptBox>
 
 <Bridge>
 **From Modules 2–4:** you understand individual operations — convolution produces feature maps, pooling reduces spatial dimensions. Now we assemble these into complete architectures and trace the tensor shape and parameter count through every layer. This module is deliberately numerical: the ability to compute shapes and params by hand is how you debug architectures and understand published models.
@@ -147,6 +155,14 @@ Ratio: $\frac{18C^2}{25C^2} = 0.72$ — two 3×3 layers use 28% fewer parameters
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Why do three stacked 3x3 convolutions beat one 7x7?", a: "They cover the same 7x7 receptive field, but cost 3 times 9 times C^2 = 27C^2 weights against 49C^2 — roughly 45% fewer. They also insert two extra nonlinearities between the layers, so the composed function is more expressive than a single linear filter of the same span." },
+  { q: "Where do a classic CNN's parameters actually concentrate, and what removes them?", a: "In the first fully-connected layer after Flatten. A 7x7x512 feature tensor flattened to 25,088 units feeding 4,096 gives over 100 million weights — usually more than every convolution combined. Global Average Pooling collapses each channel to one number, reducing that input to 512 and deleting the block." },
+  { q: "Why set bias=False on a convolution followed by BatchNorm?", a: "Because BatchNorm subtracts the batch mean, which cancels any constant offset the bias added — the bias has literally no effect on the output. Its own learned shift parameter beta plays that role instead. Leaving the bias in wastes parameters and adds a redundant direction to the optimisation." },
+  { q: "Increasing filters per layer: what does it do to parameters and to compute?", a: "Parameters scale as C_in times C_out, so raising the output channels of consecutive layers raises the cost roughly quadratically. Compute scales with that AND with the spatial size of the map, which is why widening early high-resolution layers is far more expensive than widening deep low-resolution ones." },
+  { q: "Why bother computing shapes by hand when the framework reports them?", a: "Because a shape error usually surfaces as a confusing runtime exception several layers downstream, or as a silently wrong flatten dimension. Being able to trace H, W and C through each layer tells you immediately where the mismatch was introduced — and it is the only way to read a published architecture table and know what it costs." },
+]} />
 
 <MultiSelectQuiz
   question="Which design choices reduce total parameter count in a CNN?"

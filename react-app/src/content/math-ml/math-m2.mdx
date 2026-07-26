@@ -1,5 +1,11 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import MatrixTransformWidget from '../../components/widgets/math-ml/MatrixTransformWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- A matrix is not a grid of numbers — it's a **function that moves every point**, keeping lines straight and the origin fixed.
+- **Read the columns.** Column $j$ is where basis vector $j$ lands. That one fact tells you what any matrix does.
+- $AB$ means "apply $B$, then $A$" — so stacking layers is composing transformations, and $AB \neq BA$ is why layer order matters.
+</ConceptBox>
 
 ## A Matrix Is a Transformation
 
@@ -25,6 +31,11 @@ Multiplying two matrices builds a new matrix that applies $B$ first, then $A$. T
 ## Why This Matters for ML
 
 A dense/linear layer computes $\mathbf{y} = W\mathbf{x} + \mathbf{b}$ — literally a matrix transformation plus a shift. Stack layers, and you're composing transformations (with a nonlinearity between each, or every composition would collapse back into one single matrix). Convolutions, attention projections, PCA — all matrix multiplication under the hood.
+
+<ConceptBox title="The determinant — how much does the transformation inflate space?">
+$$\det\begin{bmatrix}a&b\\c&d\end{bmatrix} = ad - bc$$
+Take the unit square, apply $M$, and measure the parallelogram you get: its area is $|\det(M)|$. So $\det = 3$ triples areas, $\det = 0.5$ halves them, and a **negative** determinant means the transformation flipped orientation (a reflection — the x-axis and y-axis swapped handedness). The special case $\det(M) = 0$ means the square was squashed flat onto a line: area zero, information destroyed. Module 3 picks this up.
+</ConceptBox>
 
 <ConceptBox title="Common confusion — matrix multiplication doesn't commute">
 $AB \neq BA$ in general — "rotate then stretch" lands somewhere different than "stretch then rotate." Order matters, which is exactly why layer order in a network changes what it computes.
@@ -56,6 +67,12 @@ composed = A @ B                  # scale then rotate
 **Problem 2.** Without computing anything, what do the columns of $M = \begin{bmatrix}0&1\\1&0\end{bmatrix}$ tell you about the transformation?
 
 **Solution:** Column 1 is $[0,1]$ (x-axis lands on y-axis), column 2 is $[1,0]$ (y-axis lands on x-axis) — this matrix swaps/reflects across the line $y=x$.
+
+<Recall items={[
+  { q: "You are handed a 2x2 matrix and 5 seconds. What do you look at to know what it does?", a: "The columns. Column 1 is where [1,0] lands, column 2 is where [0,1] lands. Since a linear map is fully determined by what it does to the basis, those two arrows describe the whole transformation." },
+  { q: "Why does a stack of dense layers need a nonlinearity between them?", a: "Without one, y = W3(W2(W1 x)) = (W3 W2 W1) x — the composition of linear maps is itself a single linear map. The depth collapses into one equivalent matrix, so the network gains no expressive power over a single layer." },
+  { q: "In the product AB applied to a vector, which matrix touches the vector first — and why does the notation feel backwards?", a: "B first: (AB)v = A(Bv). It reads right-to-left because the matrix nearest the vector is applied first. This is why 'rotate then stretch' is written stretch-matrix times rotate-matrix." },
+]} />
 
 <QuizCard
   question="What does the determinant of a 2x2 transformation matrix measure?"

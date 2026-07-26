@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import PPMIWidget from '../../components/widgets/nlp/PPMIWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- **The distributional hypothesis**: words in similar contexts have similar meanings. Unsupervised, language-agnostic, and the basis of every embedding method that follows.
+- Raw co-occurrence **counts** are dominated by frequency — "the" co-occurs with everything and means nothing.
+- **PMI fixes that** by comparing observed co-occurrence to what independence predicts: $\log\frac{P(x,y)}{P(x)P(y)}$.
+- So PMI("ice","the") ≈ 0 not because they're rare together but because they're *exactly as together as chance predicts*.
+- **PPMI clips negatives to 0**, because "these two words co-occur less than chance" is unreliably estimated from sparse counts.
+</ConceptBox>
 
 <Bridge>
 WordNet (Module 5) is hand-crafted and hard to scale. Can we instead *learn* meaning automatically from raw text? Firth (1957) answered this: "You shall know a word by the company it keeps." The **distributional hypothesis** — words appearing in similar contexts have similar meanings — is the foundation of modern word representations.
@@ -141,6 +149,13 @@ SVD compresses sparse PPMI vectors into dense low-dimensional ones. Word2Vec (Mo
 </ConceptBox>
 
 <PPMIWidget />
+
+<Recall items={[
+  { q: "State the distributional hypothesis and why it made large-scale semantics possible.", a: "Words that appear in similar contexts have similar meanings. It made scale possible because it needs no labels — any raw corpus works — and no language-specific engineering, so the same procedure learns meaning for English, Swahili, or a medical sub-domain." },
+  { q: "'ice' and 'the' co-occur millions of times, yet PMI is about 0. Explain without the formula.", a: "PMI does not ask how often two words co-occur; it asks how much MORE often than chance. 'the' sits beside nearly every word, so the observed joint probability is almost exactly the product of the marginals — the ratio is 1 and its log is 0. Frequency of association is uninformative; excess over independence is the signal." },
+  { q: "Why clip negative PMI to zero rather than keeping it?", a: "A negative value claims two words co-occur LESS than chance, which requires reliably estimating a very small joint probability. With sparse counts, the difference between 'never observed' and 'genuinely avoids' is unmeasurable, so negative values are mostly noise. PPMI discards them rather than treating noise as evidence." },
+  { q: "How does a PPMI co-occurrence matrix relate to the embeddings in Module 9?", a: "It is the same information in explicit form. A PPMI matrix is high-dimensional and sparse, one column per context word; Word2Vec and GloVe learn dense low-dimensional vectors that approximate a factorisation of essentially that matrix. Understanding PPMI is why the embeddings work rather than merely that they do." },
+]} />
 
 <QuizCard
   question="PMI('ice', 'the') ≈ 0 even though they co-occur millions of times in a large corpus. Why?"

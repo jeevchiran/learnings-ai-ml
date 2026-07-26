@@ -1,4 +1,12 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- Embeddings fix both TF-IDF problems at once: **~300 dense dimensions instead of ~50,000 sparse ones**, and similar words end up close instead of orthogonal.
+- Word2Vec's trick: train a shallow net on a fake task (predict context from word, or the reverse), then **throw the network away and keep the weight matrix**. That matrix *is* the embedding table.
+- **Negative sampling** is what makes it tractable — replace one $O(|V|)$ softmax with $k\approx5$–$20$ binary classifications per step.
+- Static embeddings give one vector per word type, so "bank" gets a single blurred vector averaging both senses.
+- **Contextual embeddings (ELMo, BERT) fixed that** — one vector per *occurrence*, which is the breakthrough modern NLP is built on.
+</ConceptBox>
 
 <Bridge>
 TF-IDF gives each word a number — its importance in a document. But TF-IDF vectors are huge (|vocabulary| dimensions) and treat every word as orthogonal — "dog" and "cat" have zero cosine similarity, same as "dog" and "calculus". **Word embeddings** solve both: dense low-dimensional vectors that encode semantic similarity.
@@ -116,6 +124,13 @@ Word2Vec and GloVe produce *static* embeddings — "bank" always has the same ve
 
 The shift from static to contextual embeddings was the key breakthrough enabling modern NLP — BERT (2018) demonstrated that pretraining on language modeling, then fine-tuning on downstream tasks, outperformed all prior approaches.
 </ConceptBox>
+
+<Recall items={[
+  { q: "Word2Vec trains a network and then discards it. What is kept, and why is that not wasteful?", a: "The input-to-hidden weight matrix is kept — one row per vocabulary word, which IS the embedding table. The prediction task was never the goal; it was a pretext that forces the weights to encode which words share contexts. The learned representation is the product, the classifier is scaffolding." },
+  { q: "Why does the full softmax make Word2Vec infeasible, and how does negative sampling avoid it?", a: "The softmax normalises over the entire vocabulary, so every single training step costs O(|V|) — 50,000 exponentials and a gradient for every word. Negative sampling replaces it with one binary classification for the true context word plus k around 5 to 20 sampled non-context words, making each step O(k) and independent of vocabulary size." },
+  { q: "What is the fundamental limitation of a static embedding?", a: "One vector per word TYPE. 'bank' gets a single point that averages the financial and river senses, so it is close to neither and the polysemy from Module 5 is unresolvable in principle. No amount of training data fixes it, because the representation has no slot for context." },
+  { q: "What did contextual embeddings change, and why was that the breakthrough?", a: "They produce a vector per OCCURRENCE — the same word gets different vectors in 'river bank' and 'savings bank' because the representation is computed from the surrounding sentence. That let one pretrained model be fine-tuned to many downstream tasks and beat every task-specific architecture, which is the paradigm modern NLP runs on." },
+]} />
 
 <QuizCard
   question="Why does negative sampling make Word2Vec training feasible despite a 50,000-word vocabulary?"

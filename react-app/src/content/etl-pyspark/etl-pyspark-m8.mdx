@@ -1,4 +1,11 @@
-import { ConceptBox, Bridge, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- `printSchema()` before anything else — column names, types, and nullability decide what operations are even legal.
+- **`describe()` omits the median.** It gives count, mean, stddev, min, max only; use `summary()` or `approxQuantile()` for percentiles.
+- Percentiles are *approximate* by default in Spark, because an exact median requires a full sort across partitions.
+- Every inspection call is an **action** — it runs the whole lineage. On an expensive pipeline, cache before exploring.
+</ConceptBox>
 
 <Bridge>
 In Module 7, we cleaned our messy dataset — removed nulls, duplicates, fixed casing, and filtered invalid values. Now we explore the clean data to understand what we're working with.
@@ -99,6 +106,13 @@ students_df.crosstab("major", "year").show()
 # |       Stat|  2|  3|  3|  2|
 # +-----------+---+---+---+---+`}
 </CodeBlock>
+
+<Recall items={[
+  { q: "What does describe() give you, and what conspicuous statistic is missing?", a: "Count, mean, standard deviation, min and max. The median is absent. That matters because on skewed data the mean alone is misleading and the median is exactly the robust number you want — reach for summary(), which includes quartiles, or approxQuantile()." },
+  { q: "Why is Spark's median approximate by default?", a: "An exact median requires knowing the global ordering, which means a full sort or a shuffle of the entire column across partitions. Spark instead uses a streaming quantile sketch with a tunable error bound, trading a small inaccuracy for avoiding a distributed sort. Set the relative error to 0 for an exact answer, at that cost." },
+  { q: "Why check nullability in printSchema before analysing?", a: "Because nullable columns silently propagate nulls through arithmetic and comparisons, and aggregate functions skip them rather than failing. A mean computed over a column that is 30% null is the mean of the remaining 70% with no warning — you need to know that before quoting the number." },
+  { q: "Your exploration calls feel slow on a long pipeline. What is happening and what fixes it?", a: "Every describe, show and count is an ACTION, so each one re-executes the entire lineage from the source files. Cache the cleaned DataFrame once before the exploration block, so the pipeline runs a single time and every subsequent inspection reads from memory." },
+]} />
 
 <QuizCard
   question="What does df.describe() NOT show by default?"

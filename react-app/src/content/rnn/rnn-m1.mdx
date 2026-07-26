@@ -1,6 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
 # Module 1: Introduction to Sequential Data
+
+<ConceptBox title="TL;DR">
+- Sequential data is data where **position carries meaning** — reorder it and you change what it says.
+- Two properties follow, and both break the MLP: **order sensitivity** and **variable length**.
+- The test for "is this a sequence": would shuffling it destroy information? If yes it's sequential; if no it's just a set.
+- A flattened image is *not* sequential in this sense — its structure is spatial, which is what CNNs already exploit.
+</ConceptBox>
 
 <Bridge>
 **Coming from Convolutional Neural Networks:** you can classify images using spatial hierarchies of features. But images are *static* — the 3×3 grid at position (5,5) carries no time-ordering information. Now consider a sentence, a stock price curve, or a speech signal. The same values in a different order mean something entirely different. This track is about models that process data *in order* — Recurrent Neural Networks.
@@ -132,6 +139,12 @@ For $d=50, n=128, k=10$: $50 \times 128 + 128^2 + 128 + 10 \times 128 + 10 = 24{
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Give a one-line test for whether data is sequential.", a: "Ask whether shuffling it destroys information. Stock prices, words, and DNA bases all lose their meaning when reordered, so they are sequential. A set of customer IDs does not, so it is not — order there is an artefact of storage, not signal." },
+  { q: "Why is a flattened 256x256 image NOT sequential data in this sense?", a: "Its structure is spatial and two-dimensional, not temporal and ordered along one axis. Flattening imposes an arbitrary raster order in which vertically adjacent pixels end up 256 positions apart — the relationships that matter are neighbourhoods, which is exactly what convolution exploits and recurrence does not." },
+  { q: "Name the two properties of sequences that together defeat an MLP.", a: "Order sensitivity — the same values in a different arrangement mean something different, and an MLP has no mechanism to represent that beyond memorising position. And variable length — sequences differ in length while an MLP's first weight matrix hardcodes the input dimension at construction." },
+]} />
 
 <MultiSelectQuiz
   question="Which of these are genuine examples of sequential data where order carries meaning?"

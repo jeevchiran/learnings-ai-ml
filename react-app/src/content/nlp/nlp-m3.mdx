@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import POSTaggerWidget from '../../components/widgets/nlp/POSTaggerWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- **Open class** (noun, verb, adjective, adverb) accepts new members constantly; **closed class** (preposition, determiner, conjunction, pronoun) is essentially fixed.
+- An HMM tagger multiplies two things: **transition** probabilities $P(\text{tag}\mid\text{previous tag})$ — learned grammar — and **emission** probabilities $P(\text{word}\mid\text{tag})$.
+- Transitions are where the syntax lives: $P(\text{DT}\mid\text{DT})\approx0$ encodes "you don't get two determiners in a row" without anyone writing that rule.
+- **Viterbi** finds the single best tag sequence in $O(n\cdot|T|^2)$ instead of enumerating $|T|^n$ paths.
+- Tagging is genuinely ambiguous — "back" alone can be four different parts of speech. Context is the only resolver.
+</ConceptBox>
 
 <Bridge>
 Normalized tokens from Module 2 still leave meaning underspecified — word order matters. "The dog bites the man" and "The man bites the dog" contain identical tokens but describe opposite events. **Syntax** captures not just which words appear but how they are arranged and what role each plays.
@@ -169,6 +177,13 @@ for chunk in doc.noun_chunks:
 </ConceptBox>
 
 <POSTaggerWidget />
+
+<Recall items={[
+  { q: "What is the difference between transition and emission probabilities, and which one encodes grammar?", a: "Transition is P(tag | previous tag) — how likely one category follows another. Emission is P(word | tag) — how likely a tag produces a particular word form. Grammar lives in the transitions: P(DT | DT) near zero says two determiners cannot be adjacent, a syntactic rule learned purely from tag bigram counts." },
+  { q: "Why is Viterbi necessary rather than just picking the best tag for each word independently?", a: "Because the best local choice can make the sequence globally impossible — greedily tagging 'the' then 'back' might produce DT followed by a verb reading that no valid sentence supports. Viterbi uses dynamic programming to find the highest-probability full path in O(n * T^2), where enumerating all T^n sequences is intractable." },
+  { q: "Give the open/closed class distinction and why it matters computationally.", a: "Open classes — nouns, verbs, adjectives, adverbs — gain new members constantly, so a tagger must handle unseen words in them, typically by falling back on suffix shape. Closed classes — prepositions, determiners, conjunctions, pronouns — are fixed and small enough to enumerate, so they can essentially be looked up." },
+  { q: "'Back' can be a noun, verb, adjective, or adverb. What resolves it?", a: "The surrounding tags, via the transition probabilities. After a determiner ('the back') a noun reading dominates; after a pronoun ('I back') a verb reading does. This is exactly why tagging is a SEQUENCE problem — the word in isolation carries genuinely insufficient information." },
+]} />
 
 <QuizCard
   question="An HMM POS tagger learns that P(VBD | NN) is high and P(DT | DT) is near zero. What linguistic knowledge do these probabilities encode?"

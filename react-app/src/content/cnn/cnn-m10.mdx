@@ -1,6 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
 # Module 10: CIFAR-10 with PyTorch — End-to-End
+
+<ConceptBox title="TL;DR">
+- Every module in the track shows up as one line of this loop: normalisation stats, augmentation, block structure, GAP head, loss, schedule.
+- **Cosine annealing** decays the learning rate smoothly from $\eta_{max}$ to $\eta_{min}$ — large steps early to explore, tiny steps late to settle.
+- **Label smoothing** ($\varepsilon{=}0.1$) replaces hard one-hot targets with a soft distribution, curbing overconfidence and improving calibration.
+- `pin_memory=True` uses page-locked host memory so the CPU→GPU copy can go by DMA — a free throughput win.
+- `AdaptiveAvgPool2d(1)` is the GAP head from Module 4: kills the biggest parameter block and frees the model from a fixed input size.
+- **BatchNorm is not just a stability trick** — it measurably improves final validation accuracy, not only the shape of the loss curve.
+</ConceptBox>
 
 <Bridge>
 **From Modules 1–9:** you understand why CNNs work (locality, weight sharing), how they compute (convolution, pooling), how to size them (parameter numericals), how to train them (backprop through conv layers), how to feed them data (normalisation, augmentation), how to leverage pretrained weights (transfer learning), and how to inspect them (GradCAM). This module puts it all together in a production-quality training loop that achieves ~92–94% on CIFAR-10 from scratch.
@@ -265,6 +274,14 @@ Effect: the model is prevented from outputting probability close to 1 for any si
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Why anneal the learning rate rather than keeping it fixed?", a: "Early in training you want large steps to traverse the loss surface and escape poor regions; late in training large steps bounce around the minimum instead of settling into it. Cosine annealing decays smoothly from the maximum to near zero, giving exploration first and refinement last, without the abrupt jumps of step decay." },
+  { q: "What does label smoothing change, and what problem does it solve?", a: "It replaces a one-hot target with 1 minus epsilon on the true class and epsilon spread over the rest. That stops the model driving the correct logit towards infinity to reach a probability of exactly 1, which curbs overconfidence, improves calibration, and acts as a mild regulariser." },
+  { q: "What does pin_memory=True actually do?", a: "It allocates the DataLoader's output in page-locked host memory, which the operating system cannot swap out. That lets the GPU copy it by direct memory access without an intermediate staging buffer, so host-to-device transfer is faster and can overlap with compute. It costs a little host RAM and nothing else." },
+  { q: "AdaptiveAvgPool2d(1) — which two module-4 benefits does it deliver here?", a: "It removes the Flatten plus large fully-connected block, which is where most of the parameters would otherwise sit, and it makes the head's input size equal to the channel count regardless of the spatial dimensions — so the same network accepts different input resolutions without modification." },
+  { q: "Is BatchNorm purely a training-stability device?", a: "No. It reliably improves final validation accuracy as well, by smoothing the optimisation landscape and by injecting batch-dependent noise that acts as a regulariser. Treating it as cosmetic understates it — removing BN from this network costs accuracy, not just convergence speed." },
+]} />
 
 <MultiSelectQuiz
   question="Which of the following claims about the CIFAR-10 training pipeline are correct?"

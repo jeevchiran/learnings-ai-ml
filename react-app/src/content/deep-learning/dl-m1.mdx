@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import PerceptronWidget from '../../components/widgets/deep-learning/PerceptronWidget.jsx'
 
 # Module 1: The Perceptron
+
+<ConceptBox title="TL;DR">
+- One neuron = weighted sum + bias, then an activation: $z=\mathbf{w}^T\mathbf{x}+b$, $\hat y = g(z)$. Every modern architecture is this primitive, stacked.
+- The weights set the **orientation** of the decision boundary; the bias sets its **offset** from the origin.
+- **Convergence is guaranteed — but only if the data is linearly separable.** On non-separable data the rule never settles.
+- **XOR is the fatal counterexample**: no single line separates it, so one perceptron cannot solve it at any training budget.
+- Trained by a local update rule, not backprop — backprop only becomes necessary once there are hidden layers.
+</ConceptBox>
 
 <Bridge>
 **Where does it all begin?** In 1943, Warren McCulloch and Walter Pitts proposed the first mathematical model of a neuron. In 1957, Frank Rosenblatt built the Perceptron — a single artificial neuron that could learn to classify patterns. Every transformer, every diffusion model, every large language model you encounter today is built from stacking and connecting this one primitive. Understanding the perceptron from first principles is not a historical exercise — it is the foundation on which all of modern deep learning rests.
@@ -145,6 +153,13 @@ Notice: the gradient has the same beautiful form as the perceptron update rule �
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "What do the weights control, and what does the bias control?", a: "The weight vector is the normal to the decision hyperplane, so it sets the boundary's ORIENTATION — which direction counts as 'more positive'. The bias shifts that hyperplane away from the origin. Without a bias every boundary would be forced through the origin, which cannot separate most real datasets." },
+  { q: "State the perceptron convergence theorem and the condition people forget.", a: "If the training data is linearly separable, the perceptron learning rule is guaranteed to find a separating hyperplane in a finite number of updates. The forgotten condition is separability — on non-separable data the rule never converges, it oscillates indefinitely, and there is no signal in the algorithm telling you which case you are in." },
+  { q: "Why can't a perceptron learn XOR, and why is more data or more epochs no help?", a: "XOR outputs 1 when the inputs differ and 0 when they match, and no straight line in the plane separates those two sets — the positives sit on one diagonal and the negatives on the other. A perceptron can only represent a linear boundary, so this is a representational limit, not an optimisation one. No amount of data or training changes what the model class can express." },
+  { q: "Why does the perceptron need no backpropagation?", a: "Because it has a single layer, so every weight touches the output directly and the error attributable to it is immediate — the update is just error times input. Backprop exists to assign credit through INTERMEDIATE layers whose contribution to the loss is indirect; with no hidden layer there is nothing to propagate through." },
+]} />
 
 <MultiSelectQuiz
   question="Which of the following are true about the original perceptron?"

@@ -1,5 +1,12 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import ExpectationCovarianceWidget from '../../components/widgets/math-ml/ExpectationCovarianceWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- $E[X]$ is the probability-weighted average — a long-run average, not necessarily an achievable value.
+- $\text{Var}(X)=E[X^2]-(E[X])^2$ is the one-pass shortcut; $\sigma=\sqrt{\text{Var}}$ puts it back in readable units.
+- **Covariance's sign is meaningful, its size is not** (it carries units). Divide by both standard deviations and you get correlation $r\in[-1,1]$.
+- $r=0$ rules out a *linear* relationship only. $Y=X^2$ has $r\approx0$ and is perfectly deterministic — plot the scatter.
+</ConceptBox>
 
 ## Expectation — The Probability-Weighted Average
 
@@ -58,6 +65,13 @@ print(np.corrcoef(X, Y))          # 2x2 correlation matrix, diagonal = 1
 **Problem 2.** Cov(X,Y) = 12, Var(X)=16, Var(Y)=9. Find the correlation.
 
 **Solution:** $r = 12/(\sqrt{16}\sqrt9) = 12/12 = 1$ — a perfect positive linear relationship.
+
+<Recall items={[
+  { q: "Derive Var(X) = E[X^2] - (E[X])^2 from the definition.", a: "Expand E[(X - E[X])^2] = E[X^2 - 2X·E[X] + E[X]^2]. Linearity of expectation gives E[X^2] - 2E[X]E[X] + E[X]^2, and the last two terms collapse to -E[X]^2." },
+  { q: "Cov(height, weight) = 400 for one dataset and 5 for another. Which relationship is stronger?", a: "Unanswerable from those numbers. Covariance carries the product of both variables' units, so measuring height in millimetres instead of metres inflates it a thousandfold with no change in the underlying relationship. Convert both to correlation before comparing." },
+  { q: "Give a concrete case where r = 0 but X fully determines Y.", a: "Y = X^2 with X spread symmetrically about 0. Positive and negative deviations of X both push Y up, so the products in the covariance sum cancel exactly — r is 0 while Y is a deterministic function of X." },
+  { q: "How does this module connect to PCA in Module 4?", a: "The covariance matrix PCA eigendecomposes is exactly the pairwise covariances defined here, arranged in a grid: variances on the diagonal, covariances off it. Module 7 examines its entries; Module 4 looks for its eigenvectors." },
+]} />
 
 <QuizCard
   question="Why is correlation generally more useful than raw covariance for comparing relationships across different variable pairs?"

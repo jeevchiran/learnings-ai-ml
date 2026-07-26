@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 import ShapleyWidget from '../../components/widgets/xai/ShapleyWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Treat the prediction as a payout and the features as a team. **How much credit does each deserve?** Shapley solved exactly this in 1953.
+- A feature's contribution depends on who else is already present, so SHAP averages its **marginal contribution over every possible joining order**.
+- Four axioms — efficiency, symmetry, dummy, additivity — and the Shapley value is the **only** attribution satisfying all four. That uniqueness is SHAP's edge over LIME.
+- Efficiency is the one you'll use daily: the $\phi_i$ sum exactly to prediction − base value.
+- The exact formula sums over $2^{|F|}$ subsets, so SHAP ships as a family of estimators (Kernel, Tree, Deep, Linear).
+</ConceptBox>
 
 ## The Fair-Credit Question
 
@@ -64,6 +72,13 @@ A model's base value is 300 and its prediction for an instance is 500. The SHAP 
 A feature is added to the model but the prediction never changes for any coalition it joins. What is its Shapley value?
 
 **Solution:** **Zero**, by the **dummy axiom**. Every marginal contribution $v(S\cup\{i\}) - v(S)$ is 0, so their weighted average is 0. A feature that does no work gets no credit — as it should.
+
+<Recall items={[
+  { q: "Why average over ALL orderings instead of just adding each feature once?", a: "Because features interact. Location alone might add 40k, but location added after size might add only 25k where the two overlap. Any single ordering would credit some features for overlap they share and rob others; averaging over every ordering is provably the only even-handed resolution." },
+  { q: "Base value 300, prediction 500, phi_size = 110, phi_loc = 70. Find phi_age and name the axiom.", a: "Efficiency requires the SHAP values to sum to prediction minus base = 200, so phi_age = 200 - 110 - 70 = 20. Efficiency is what guarantees the attributions fully account for the gap with nothing lost or invented." },
+  { q: "State the four axioms in one phrase each.", a: "Efficiency — contributions sum to prediction minus base. Symmetry — features that contribute identically get equal credit. Dummy — a feature that never moves the output gets zero. Additivity — explaining an ensemble equals summing the explanations of its members." },
+  { q: "What exactly does SHAP have that LIME does not?", a: "Uniqueness. LIME returns A local linear fit, and a different kernel width or sample gives a different one with no principle to prefer either. SHAP returns THE attribution that satisfies all four fairness axioms — it is a theorem, not a heuristic, which is why SHAP values are also stable across runs." },
+]} />
 
 <QuizCard
   question="A feature's SHAP value is defined as its:"

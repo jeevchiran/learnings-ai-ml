@@ -1,9 +1,17 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import RejectionRegionWidget from '../../components/widgets/hypothesis-testing/RejectionRegionWidget.jsx'
 
 <Bridge>
 **Why it matters.** A drug company claims their new drug cuts mean recovery from 10 days to 8. You have data on 50 patients. Is the 2-day improvement real, or chance in a small sample? You can't measure every future patient, and intuition can't separate signal from noise. You need a principled procedure for deciding under uncertainty — **hypothesis testing**.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- The logic is indirect: assume $H_0$ (no effect), then ask how unlikely the observed data would be under it.
+- **You never accept $H_0$.** You reject it or fail to reject it — absence of evidence against it is not evidence for it.
+- Hypotheses are about the **population** ($\mu$, $p$), never the sample. $H_0:\bar{x}=10$ is always wrong.
+- Direction is chosen **before** seeing data. Matching the tail to the observed result afterwards invalidates the test.
+- Every test — Z, t, F, $\chi^2$ — is the same six steps and the same statistic shape: $T=(\hat\theta-\theta_0)/\text{SE}$, "how many standard errors from the null."
+</ConceptBox>
 
 ## What Is a Hypothesis Test?
 
@@ -121,6 +129,14 @@ A university claims graduates earn a mean starting salary of \$65,000. A student
 $$H_0 : \mu = 65{,}000 \qquad H_1 : \mu \neq 65{,}000$$
 
 **Two-tailed** — "different" signals no prior direction; both departures are equally interesting. ("Earn more than" would justify right-tailed.) Don't write $H_0 : \bar{x} = 65{,}000$ — $\bar{x}$ is a sample statistic; hypotheses describe the population.
+
+<Recall items={[
+  { q: "Why is 'we accept H0' always wrong, and what is the correct phrasing?", a: "The test never gathers evidence FOR the null — it only checks whether the data are surprising under it. A non-significant result can equally mean there is no effect or that the sample was too small to detect one. Say 'we fail to reject H0', which claims only that the evidence did not clear the bar." },
+  { q: "Spot the error: H0: x-bar = 65,000.", a: "A hypothesis makes a claim about an unknown POPULATION parameter, but x-bar is a number you computed from your sample — there is nothing to hypothesise about it. It should be H0: mu = 65,000." },
+  { q: "You planned a two-tailed test, then saw the effect went up, so you switched to right-tailed. What did you just do?", a: "Doubled your real Type I error rate. A one-tailed test at alpha = 0.05 puts all 5% in one tail; by choosing the tail after seeing the direction, you effectively had 5% available in EACH tail, so the true false-positive rate is 10%. The direction must be fixed before the data." },
+  { q: "Why does the test statistic divide by the standard error rather than the standard deviation?", a: "Because the question is about the sampling distribution of the ESTIMATE, not about individual observations. The standard error is the standard deviation of x-bar, which shrinks as sqrt(n) — so the same 2-day difference is strong evidence with n=500 and weak with n=5, and only the SE captures that." },
+  { q: "When is a one-tailed test legitimate?", a: "Only when an effect in the opposite direction would be genuinely irrelevant to the decision, and you can argue that BEFORE collecting data — for instance a safety screen where you act only if a contaminant exceeds a limit. Otherwise use two-tailed, which is the conservative default." },
+]} />
 
 <QuizCard
   question="A researcher believes a new teaching method increases test scores above the historical average of 72. Which alternative hypothesis correctly captures this claim?"

@@ -1,4 +1,11 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- **E**xtract from sources → **T**ransform (clean, filter, reshape, enrich) → **L**oad to a destination. Every pipeline is this shape.
+- `SparkSession` is the entry point; `spark.read.csv(...)` returns a **DataFrame** — a distributed table of named columns.
+- `inferSchema=True` costs an extra pass over the file. Convenient for exploration, wasteful in production — supply an explicit schema there.
+- Transform is where filtering and computed columns live; that's the phase this whole track expands on.
+</ConceptBox>
 
 ## Introduction: What is ETL?
 
@@ -161,6 +168,12 @@ print(f"Enrollments count: {enrollments_df.count()}")
 <Bridge>
 Next up: Now that we can extract, transform, and load data, we'll explore why Spark keeps this data in memory — and what makes that so powerful.
 </Bridge>
+
+<Recall items={[
+  { q: "Name the three ETL phases and the one question each answers.", a: "Extract — where does the data come from? Transform — what shape must it be in to be useful? Load — where does the result need to live for its consumer? Almost every pipeline failure traces to a wrong answer in one of those three, not to the code between them." },
+  { q: "What does inferSchema=True actually do, and why avoid it in production?", a: "It makes Spark read the file an extra time to work out each column's type. That doubles the I/O on a large file, and the inference can differ between runs if the data changes — a column that was all integers last month becomes a string this month. Declaring an explicit StructType is both faster and stable." },
+  { q: "You call spark.read.csv and nothing appears to happen. Bug?", a: "No — reading is lazy like every other transformation. Spark records the plan and does no work until an action such as show, count or write forces execution. This is the behaviour Module 2 and 3 build on, and it is why a typo in a filter often surfaces only at the action." },
+]} />
 
 <QuizCard
   question="In the ETL pipeline, which step involves filtering rows and adding computed columns?"

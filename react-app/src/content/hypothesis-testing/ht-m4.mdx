@@ -1,9 +1,18 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import TwoDistributionWidget from '../../components/widgets/hypothesis-testing/TwoDistributionWidget.jsx'
 
 <Bridge>
 **Which email wins?** A team sends subject line A to 200 subscribers (12% click) and B to another 200 (15% click). The 3-point gap — real, or chance even if both lines are equally good? To answer rigorously they run a **two-sample test**, the same framework used in clinical trials and QC whenever two groups are compared.
 </Bridge>
+
+<ConceptBox title="TL;DR">
+- Same skeleton as Module 3, new parameter: the **difference** $\mu_1-\mu_2$. Statistic = (estimate − null) / SE, always.
+- Variances add for independent groups, so $\text{SE}=\sqrt{s_1^2/n_1+s_2^2/n_2}$.
+- **Welch is the default.** The pooled t-test assumes equal variances, which is often false and then breaks the Type I error rate.
+- **Independence is a design property, not a choice.** Same subjects in both arms ⟹ paired test (Module 5).
+- A/B testing on a binary outcome is the **two-proportion Z-test**, pooling $\hat p$ under $H_0$.
+- With enough $n$, any difference becomes significant. **Always report effect size and a CI**, not just a verdict.
+</ConceptBox>
 
 ## The Two-Sample Framework
 
@@ -74,6 +83,14 @@ $$d = \frac{|\bar{X}_1 - \bar{X}_2|}{s_p}, \qquad s_p = \sqrt{\frac{(n_1-1)s_1^2
 Cohen stressed these are rough guidelines — what counts as practically important depends on the domain and the decision's stakes.
 
 <TwoDistributionWidget />
+
+<Recall items={[
+  { q: "Why does the standard error ADD the two variance terms rather than subtract them?", a: "For independent random variables, Var(X - Y) = Var(X) + Var(Y). Subtracting the means does not subtract their uncertainties — each group contributes its own sampling noise to the estimated difference, so the uncertainties accumulate." },
+  { q: "Why is Welch the default rather than the pooled t-test?", a: "The pooled version assumes the two populations have equal variance and borrows strength across groups on that basis. When variances actually differ — common when one group is a treatment that changes spread as well as level — the pooled test's Type I error rate drifts away from alpha. Welch estimates each variance separately and stays calibrated either way, at negligible cost when variances happen to be equal." },
+  { q: "An A/B test on 2 million users reports p < 0.0001 for a 0.02 percentage-point lift. What do you tell the team?", a: "That it is statistically significant and practically irrelevant. Enormous n shrinks the standard error until any non-zero difference clears the threshold, so the p-value has stopped carrying information about magnitude. Report the confidence interval for the lift and let the business decide whether that band is worth shipping." },
+  { q: "Same subjects measured in both conditions — why can't you just run the two-sample test?", a: "It assumes the two groups are independent, and repeated measures on one person are strongly correlated. The two-sample SE therefore includes all the person-to-person variability that pairing would have cancelled, inflating the standard error and losing power — and the stated error rates no longer hold." },
+  { q: "What does Cohen's d add over the p-value, and what does its denominator do?", a: "It reports the size of the difference in standard-deviation units, which is comparable across studies and independent of sample size. Dividing by the pooled standard deviation is what makes it scale-free — a 5-point gap is large if the spread is 2 and trivial if the spread is 50." },
+]} />
 
 <QuizCard
   question="In Welch's two-sample t-test, why is the pooled t-test generally NOT recommended as the default?"

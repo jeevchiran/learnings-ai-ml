@@ -1,7 +1,16 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import SentimentWidget from '../../components/widgets/rnn/SentimentWidget.jsx'
 
 # Module 14: RNNs in Language — NLP Applications
+
+<ConceptBox title="TL;DR">
+- Four tasks, four patterns: **sentiment** (many→one), **NER** (synced many→many), **language modelling** (next-token prediction), **translation** (encoder-decoder).
+- Sentiment is where order pays off concretely: the hidden state accumulates context, so "not good" and "good, but" are handled where bag-of-words cannot.
+- **Bidirectional LSTMs help NER** because a token's tag depends on what comes *after* it as well as before — legitimate only when the full sequence is available.
+- So bidirectionality is impossible for language modelling: seeing the future is the answer you're predicting.
+- Encoder and decoder have **separate vocabularies and embeddings** — different languages, no requirement to match.
+- The single-context-vector bottleneck is the through-line: it's what motivated attention, and from there transformers.
+</ConceptBox>
 
 <Bridge>
 **From Module 13:** we've seen RNNs applied to time series and classification. This final module covers their most prominent domain: natural language. Four tasks — sentiment analysis, named entity recognition, language modeling, and machine translation — each revealing a different dimension of what recurrent networks can do with text.
@@ -203,6 +212,14 @@ The `torchcrf` library provides a drop-in CRF layer for PyTorch. BiLSTM-CRF is t
   ]}
   correct={0}
 />
+
+<Recall items={[
+  { q: "Why does a bidirectional LSTM help NER but not language modelling?", a: "NER labels a token using its full context, and the evidence often follows — 'Washington' is a person or a place depending on the next word, so reading right-to-left as well genuinely helps. Language modelling predicts the next token, so a backward pass would let the model see the answer it is being asked for. Bidirectionality is legitimate only when the entire sequence is available and is not itself the target." },
+  { q: "Concretely, how does an RNN handle negation better than bag-of-words?", a: "The hidden state carries accumulated context, so when 'not' is read it modifies the state, and the subsequent 'good' is processed against that modified state rather than in isolation. A bag-of-words model counts 'not' and 'good' independently, so 'not good' and 'good' differ only by one extra common token." },
+  { q: "Must the encoder and decoder share a vocabulary?", a: "No — they are usually different languages, so they have separate vocabularies and separate embedding tables. The only thing passed between them is the context vector in the shared hidden space. Sharing a vocabulary is a deliberate choice in some multilingual or subword-tokenised systems, not a requirement." },
+  { q: "Trace the bottleneck argument from this track to transformers.", a: "The encoder compresses an arbitrarily long source into one fixed-size vector, so long inputs degrade. Attention let the decoder read all encoder states, weighted per output step, removing the bottleneck. Once attention proved sufficient on its own, the recurrence could be dropped entirely — which is the transformer, and it also removed the sequential-processing constraint that made RNNs slow to train." },
+  { q: "What is a language model actually trained to do, and why is that so useful?", a: "Predict the next token given all previous ones — a self-supervised objective needing no labels, so any text corpus is training data. That is why it scales: the pretraining signal is unlimited, and the representations learned from it transfer to nearly every downstream language task." },
+]} />
 
 <MultiSelectQuiz
   question="Which of these statements about using RNNs for NLP applications are correct?"

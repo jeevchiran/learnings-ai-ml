@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import NBTennisWidget from '../../components/widgets/naive-bayes/NBTennisWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- $P(\mathbf{x}\mid y)$ over $n$ binary features needs $2^n$ numbers per class. Hopeless.
+- The naive assumption factors it: $P(\mathbf{x}\mid y)=\prod_i P(x_i\mid y)$. **Exponential becomes linear.**
+- It claims **conditional** independence: once you know the class, one feature says nothing extra about another. "free" and "money" *are* correlated overall — that's allowed.
+- Final rule, all from counting: $\hat y=\arg\max_y P(y)\prod_i P(x_i\mid y)$.
+- Usually false, still works — because classification only needs the **ranking** right, and correlation distorts all classes' scores in the same direction.
+</ConceptBox>
 
 ## From Bayes' Theorem to a Classifier
 
@@ -90,6 +98,14 @@ Classify Outlook = Overcast, Windy = False.
 If Sunny and Windy were perfectly correlated but the classifier still multiplies their likelihoods, what happens to the score?
 
 **Solution:** The true joint $P(\text{Sunny},\text{Windy}\mid y)$ would equal $P(\text{Sunny}\mid y)$ alone (windiness adds nothing). Naive Bayes instead computes $P(\text{Sunny}\mid y)\times P(\text{Windy}\mid y)$ — squaring a probability that should appear once, shrinking every class's score. Since the shrinkage is similar across classes the arg-max often survives, but the posteriors become overconfident and poorly calibrated.
+
+<Recall items={[
+  { q: "State the naive assumption precisely, and say what it does NOT claim.", a: "It claims that GIVEN THE CLASS, the features are independent: P(x|y) factors into a product of P(x_i|y). It does not claim the features are independent overall — 'free' and 'money' can be strongly correlated across all email, as long as knowing an email is spam makes one uninformative about the other." },
+  { q: "Quantify what the assumption buys you.", a: "For n binary features it replaces one table of 2^n entries per class with n small one-dimensional distributions — 20 features go from over a million parameters to 40. It also means every parameter is estimated from the full class sample rather than from the handful of rows matching one exact feature combination." },
+  { q: "The assumption is usually false. Why does the classifier still work?", a: "Because only the ranking of the class scores has to be correct, not their values. Correlated features get double-counted in EVERY class's product, shifting all scores in the same direction, so the arg-max frequently survives. The probabilities, however, become overconfident — which is why Naive Bayes classifies well but calibrates badly." },
+  { q: "Sunny and Windy are perfectly correlated. Trace what the model computes versus what is true.", a: "The truth is P(Sunny, Windy | y) = P(Sunny | y), because windiness adds nothing once you know it is sunny. Naive Bayes computes P(Sunny|y) times P(Windy|y), effectively squaring a probability that should appear once. Every class's score shrinks, so the label often survives, but the posteriors are too extreme." },
+  { q: "A category never appears with one class in training. What happens, and why is it dangerous?", a: "That likelihood is 0, and because the scores are PRODUCTS, one zero annihilates the entire class score no matter how strongly every other feature supports it. A single unseen category in the training data can veto a class outright — the brittleness that Laplace smoothing exists to fix." },
+]} />
 
 <QuizCard
   question="What does the conditional independence assumption in Naive Bayes actually claim?"

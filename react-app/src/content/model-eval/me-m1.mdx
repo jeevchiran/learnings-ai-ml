@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import BiasVarianceWidget from '../../components/widgets/model-eval/BiasVarianceWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Training error measures **memorisation**, not understanding. It's the one number that always improves with complexity, which is exactly why it can't select a model.
+- $\text{Error}=\text{Bias}^2+\text{Variance}+\sigma^2$. You choose the first two; the third is a floor no model beats.
+- **Bias** = systematically wrong the same way (too simple). **Variance** = answer swings with the training sample (too flexible).
+- Diagnose from the *gap*: both errors high and close ⟹ underfit; training error tiny and test error far above ⟹ overfit.
+- More data mainly attacks **variance**, not bias. A line stays a line no matter how many points you give it.
+</ConceptBox>
 
 ## Two Models, Zero Training Error, One Winner
 
@@ -105,6 +113,14 @@ A $k=1$ k-NN badly overfits noisy data. What change to $k$, and why per the deco
   ]}
   correct={2}
 />
+
+<Recall items={[
+  { q: "Define bias and variance in terms of an experiment you could actually run.", a: "Retrain the same model on many independent training sets drawn from the same distribution and predict one fixed test point each time. Bias is how far the AVERAGE of those predictions sits from the truth; variance is how much the individual predictions scatter around that average." },
+  { q: "Which term does more data reduce, and which does it not touch?", a: "It reduces variance — larger samples pin down the fit, so retraining moves the prediction less. It does essentially nothing for bias: if the model class cannot represent the true function, a million points still leave it systematically wrong, and nothing removes the irreducible noise sigma^2." },
+  { q: "Train error 4.8, test 5.1 versus train 0.02, test 9.4. Diagnose each.", a: "The first is underfitting: both errors are high and nearly equal, so the model is systematically wrong everywhere rather than sensitive to the sample — a bias problem. The second is overfitting: near-perfect training error with a huge gap, which is the variance term made visible as memorised noise." },
+  { q: "Why is the best training number on the page also the most misleading?", a: "Because training error decreases monotonically with capacity — a flexible enough model can interpolate every point, noise included, and score near zero. It measures fit to the observed sample, which is precisely the thing that does not transfer. The gap to held-out error is where the information is." },
+  { q: "Why can't you just minimise variance by always choosing the simplest model?", a: "Because the objective is the SUM of bias squared and variance. Driving complexity down does kill variance, but bias rises to meet it, and total error goes back up. Model selection is finding the minimum of the sum, not of either term alone." },
+]} />
 
 <MultiSelectQuiz
   question="Which statements about bias, variance, and model complexity are correct? (Select all that apply.)"

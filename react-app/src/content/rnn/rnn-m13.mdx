@@ -1,6 +1,14 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
 # Module 13: Time Series & Sequence Classification
+
+<ConceptBox title="TL;DR">
+- Forecasting is a **many→one** problem built from **sliding windows**: turn one long series into (input window, horizon) pairs.
+- **Normalise inputs, and fit the scaler on training data only.** Fitting on the whole series leaks future statistics into the past.
+- **Never sort or shuffle within a sequence** — sorting by value destroys the exact signal you're modelling. Shuffling *between* sequences is fine.
+- **Gradient clipping is standard practice here**, not an emergency measure — long windows are exactly where exploding gradients appear.
+- **Teacher forcing is a training-only device.** Using ground truth at inference isn't a trick, it's leakage — the future isn't available.
+</ConceptBox>
 
 <Bridge>
 **From Module 12:** the four sequence patterns are clear. Now let's put them into practice with two concrete use cases — time-series forecasting and sequence classification — with complete PyTorch code you can run and adapt.
@@ -186,6 +194,14 @@ Concatenating $[\overrightarrow{\mathbf{h}}_T; \overleftarrow{\mathbf{h}}_1]$ gi
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "How does one long time series become a supervised training set?", a: "By sliding a window along it: each position yields an input of the previous T observations paired with a target of the next k. A 1,000-point series with T=30 and k=7 gives roughly 960 training pairs from a single sequence — which is why forecasting works at all with limited data." },
+  { q: "You normalise the whole series before splitting. What have you done?", a: "Leaked future information into the past. The mean and standard deviation were computed using test-period values, so every training input was scaled with knowledge of data that had not happened yet. Fit the scaler on the training segment only and apply it to the later segments." },
+  { q: "Why is 'sort the sequences by value' a nonsensical preprocessing step here?", a: "Because the temporal ordering IS the signal. Sorting rearranges the series into a monotone curve, destroying trend, seasonality and every lag relationship the model exists to learn. Shuffling the ORDER OF SEQUENCES in a batch is fine and desirable; reordering within a sequence is not." },
+  { q: "Why is gradient clipping routine rather than exceptional in time-series RNNs?", a: "Because input windows are often long, so BPTT chains many recurrent Jacobians, and time-series data frequently contains spikes that produce large loss values. Both conditions favour the exploding half of Module 9's product. Clipping costs almost nothing and removes an entire class of training failure." },
+  { q: "Could you use teacher forcing at inference to improve forecasts?", a: "No — that would require the true future values, which are precisely what you are predicting. Feeding them in would produce impressive-looking numbers that measure nothing. Teacher forcing is a training-time stabiliser only; at inference the model must consume its own outputs." },
+]} />
 
 <MultiSelectQuiz
   question="Which of these preprocessing steps are important when using an LSTM for time-series data?"

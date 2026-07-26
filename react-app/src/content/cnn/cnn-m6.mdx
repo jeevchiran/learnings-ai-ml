@@ -1,6 +1,14 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
 # Module 6: CNN Training & Backpropagation
+
+<ConceptBox title="TL;DR">
+- **Weight sharing is what makes conv backprop different**: one kernel weight is used at every position, so its gradient is the *sum* of contributions from every output position.
+- Three gradients per layer: w.r.t. the kernel (a cross-correlation), w.r.t. the input (a full convolution with the **flipped** kernel), and w.r.t. the bias (just a sum).
+- **Max pooling routes the gradient only to the argmax** — every other position in the window gets exactly zero. Average pooling splits it evenly.
+- ReLU backward is a binary mask: pass the gradient where the pre-activation was positive, zero elsewhere.
+- Batch size doesn't change the *shape* of a kernel gradient — contributions accumulate across the batch too.
+</ConceptBox>
 
 <Bridge>
 **From Foundations of Deep Learning Module 6:** backpropagation computes gradients layer-by-layer using the chain rule. For FC layers, the gradient of the loss with respect to the weight matrix is a straightforward outer product. For conv layers, the weight is *shared* across positions — every application of the kernel at every spatial location contributes to the gradient of that same kernel. This sharing makes the backward pass a *cross-correlation* operation, mirroring the forward pass.
@@ -172,6 +180,14 @@ This summation over positions is the price of weight sharing — gradients from 
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Why is a conv kernel's gradient a SUM rather than a single term?", a: "Because that same weight was applied at every spatial position during the forward pass, so it influenced every output. The chain rule requires summing the contribution from each use — mathematically identical to the RNN weight-sharing case, where one matrix accumulates gradient from every time step." },
+  { q: "Trace the gradient through a 2x2 max pool where position (0,1) held the maximum.", a: "The entire incoming gradient for that output element goes to position (0,1); the other three positions receive exactly zero. Max pooling is a routing operation in the backward pass — only the winner participated in the forward output, so only it can be blamed for the error." },
+  { q: "How does average pooling's backward pass differ?", a: "It splits the incoming gradient equally across every position in the window, each receiving 1/K^2 of it. Every input contributed equally to the average, so every input receives an equal share of the blame — no argmax bookkeeping is needed." },
+  { q: "Why is the gradient with respect to the INPUT a convolution with the flipped kernel?", a: "Because in the forward pass each input pixel contributed to several outputs, offset by the kernel's extent. Summing those contributions back reverses the offsets, which is exactly what convolving the upstream gradient with the spatially flipped kernel computes. It is the same operation run in the opposite direction." },
+  { q: "How does ReLU's backward pass work, and why is it so cheap?", a: "It is a binary mask: multiply the incoming gradient by 1 where the pre-activation was positive and 0 elsewhere. No arithmetic beyond a comparison and a multiply — which is part of why ReLU replaced sigmoid, whose derivative requires evaluating the function itself." },
+]} />
 
 <MultiSelectQuiz
   question="Which statements about backpropagation through conv layers are correct?"

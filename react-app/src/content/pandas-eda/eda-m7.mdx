@@ -1,7 +1,14 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import CorrelationScatterWidget from '../../components/widgets/pandas-eda/CorrelationScatterWidget.jsx'
 
 # Bivariate Analysis
+
+<ConceptBox title="TL;DR">
+- Scatter for numeric-vs-numeric, grouped box plot for categorical-vs-numeric, Pearson $r$ to compress a relationship to one number.
+- **$r$ measures linear association only.** $r=0$ rules out a straight-line relationship, not a relationship — a perfect U-curve scores about 0.
+- **Always plot alongside `df.corr()`.** Identical $r$ values can come from wildly different scatter shapes, and one outlier can manufacture or destroy a correlation.
+- Distance predicts fare strongly *for metered rides* — flat-rate airport trips and the $399 meter fault break the pattern, which is a hint that a third variable is lurking.
+</ConceptBox>
 
 ## What, Why, and How
 
@@ -147,6 +154,13 @@ Describe how you would use the correlation matrix to do feature selection for a 
 <Bridge>
 **What's next: moving from pairs to many variables at once.** Bivariate analysis shows you how two variables relate — but most real datasets have dozens of columns interacting simultaneously. Module 8 introduces multivariate analysis: pair plots, grouped heatmaps, and pivot tables that let you examine three or more dimensions together.
 </Bridge>
+
+<Recall items={[
+  { q: "r = 0.02 between two columns. Can you conclude they are unrelated?", a: "No — only that they have no LINEAR relationship. A perfectly deterministic U-shaped relationship gives r near zero, because the rising and falling halves cancel in the covariance sum. Plot the scatter before concluding anything; correlation is a summary of one specific kind of structure." },
+  { q: "Why can a single point change r dramatically?", a: "Because the covariance sum weights each point by its deviation from BOTH means, so a far-out point contributes an enormous product. A single meter error at $399 can create the appearance of a strong distance-fare relationship, or mask a real one, depending on where it sits. This is why you inspect the scatter and consider a robust alternative such as Spearman." },
+  { q: "Distance predicts fare well overall, but some points sit far off the line. What does that pattern suggest?", a: "That more than one regime is mixed together. Metered rides follow a distance-based rule; JFK flat-rate trips charge a fixed amount regardless of distance, so they form a horizontal band the single line cannot fit. The bivariate view has hit its limit — you need RatecodeID as a third variable to separate them." },
+  { q: "When do you reach for a grouped box plot rather than a scatter?", a: "When one variable is categorical. A scatter of payment_type against fare_amount produces meaningless vertical stripes; a box plot per payment type shows each group's median, spread and outliers side by side, which is what the comparison actually calls for." },
+]} />
 
 <QuizCard
   question="Pearson r ranges from −1 to +1. What does r = 0 indicate?"

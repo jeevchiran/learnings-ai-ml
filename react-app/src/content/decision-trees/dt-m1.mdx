@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import DecisionBoundaryWidget from '../../components/widgets/decision-trees/DecisionBoundaryWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- A tree is a learned flowchart: each internal node asks $x_j\le t$, each leaf stores an answer (majority class, or the mean for regression).
+- Prediction is one root-to-leaf traversal — $O(\text{depth})$, so inference is very fast.
+- **A tree with $K$ leaves is a piecewise-constant function over $K$ rectangular regions.** That single sentence explains both its power and its limits.
+- Structural win over linear models: XOR is unlearnable by logistic regression and trivial for a depth-2 tree.
+- Different samples use different features — a feature can be decisive on one path and never consulted on another.
+</ConceptBox>
 
 ## Why Decision Trees?
 
@@ -99,6 +107,14 @@ $$\text{MSE} = \tfrac{1}{5}[0.16 + 0.16 + 0.25 + 0.16 + 0.01] = 0.148$$
 *Part B* — add split $x \leq 4.0$ in the right subtree: left 2.5, right-left $(7.2+8.1)/2 = 7.65$, right-right 7.8.
 $$\text{MSE} = \tfrac{1}{5}[0.16 + 0.16 + 0.2025 + 0.2025 + 0] = 0.145$$
 The right-right leaf perfectly fits its single point — the start of overfitting.
+
+<Recall items={[
+  { q: "Why does logistic regression fail on XOR while a depth-2 tree solves it exactly?", a: "XOR needs class 1 when both features are high OR both low, which no single hyperplane can separate — logistic regression scores about 50%. A tree makes a decision CONDITIONAL on an earlier decision: split on x1, then split on x2 differently in each branch. Two axis-aligned cuts carve out the four quadrants exactly." },
+  { q: "State what a trained tree is, mathematically.", a: "A piecewise-constant function: the K leaves partition feature space into K disjoint axis-aligned rectangles, and the prediction is a fixed value c_k inside each. Everything about trees follows from this — the staircase boundaries, the inability to extrapolate, and the interpretability." },
+  { q: "An applicant is approved and credit_score never entered the decision. Bug?", a: "No. Once a sample routes into a subtree, only that subtree's splits apply, so the features consulted are path-dependent. Credit score may be decisive for low-income applicants and irrelevant for high-income ones — a form of automatic, locally adaptive feature selection linear models cannot express." },
+  { q: "Why is a tree's inference cost independent of the number of features?", a: "Prediction evaluates one comparison per level along a single root-to-leaf path, so the cost is O(depth) — typically O(log n) for a balanced tree. Features that appear in no split on that path are never touched, regardless of how many exist in the data." },
+  { q: "In the regression example, adding a split made one leaf fit its single point perfectly. What is that the start of?", a: "Overfitting. A leaf containing one training point has zero error on that point by construction, but its prediction is that point's noise as much as its signal. Continue and you reach one leaf per sample — a lookup table with zero training error and no generalisation." },
+]} />
 
 <QuizCard
   question="A decision tree predicts using the leaf a sample reaches during traversal. For a classification tree, what value does a leaf store?"

@@ -1,5 +1,13 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LikelihoodWidget from '../../components/widgets/math-ml/LikelihoodWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- **Likelihood is a PDF read backwards**: fix the data you saw, vary the parameter, ask "how probable would this data have been?"
+- MLE picks the parameter that maximises it. That single idea generates least squares, cross-entropy, and almost every loss you'll meet.
+- Take the **log** — products of tiny probabilities underflow, sums don't, and log is monotonic so the argmax is unchanged.
+- Minimising loss = maximising log-likelihood, sign-flipped to suit optimisers.
+- MLE has no scepticism: 1 head in 1 flip gives $\hat p = 1$. Regularisation is what supplies the missing prior.
+</ConceptBox>
 
 ## The Bridge to "Training a Model"
 
@@ -57,6 +65,13 @@ print(result.x, heads / n)   # both give ~0.70 — numerical optimization matche
 **Problem 2.** Why do ML training logs report "loss" going down instead of "likelihood" going up?
 
 **Solution:** Loss is typically the *negative* log-likelihood — minimizing negative log-likelihood is the same optimization as maximizing log-likelihood, just framed to match the "minimize a cost" convention used by optimizers.
+
+<Recall items={[
+  { q: "Probability and likelihood use the same formula. What is the difference?", a: "Which argument is held fixed. In a probability, the parameter is fixed and the data varies — it integrates to 1 over the data. In a likelihood, the data is fixed and the parameter varies — it does NOT integrate to 1 over the parameter, which is why a likelihood value alone means nothing; only its comparison across parameters does." },
+  { q: "State the three-step MLE recipe.", a: "1) Write the likelihood: the probability of all the observed data as a function of the parameter, which for independent samples is a product. 2) Take logs, turning the product into a sum. 3) Differentiate, set to zero, and solve — that argmax is the estimate." },
+  { q: "Someone reports 'negative log-likelihood loss = 0.31'. Translate it.", a: "It is the average -log P(correct label) over the data. Lower means the model assigned higher probability to what actually happened; 0.31 corresponds to roughly 73% average probability on the true class (e^-0.31). It is maximum likelihood, sign-flipped so optimisers can minimise." },
+  { q: "You observe 1 head in 1 flip. MLE says p = 1. What is wrong, and what fixes it?", a: "MLE fits the observed data perfectly and has no mechanism for doubt with tiny samples — this is overfitting in its simplest form. Adding a prior (Bayesian) or equivalently a regularisation term pulls the estimate towards a sensible default; Laplace smoothing, which adds pseudo-counts, is exactly this fix." },
+]} />
 
 <QuizCard
   question="Why is log-likelihood used instead of raw likelihood when fitting models to large datasets?"

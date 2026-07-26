@@ -1,5 +1,12 @@
-import { ConceptBox, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, QuizCard, Recall } from '../../components/learning/index.js'
 import DecompositionWidget from '../../components/widgets/time-series/DecompositionWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Time series break two tabular-ML assumptions: **order matters** and **rows aren't independent**.
+- Decompose into trend + seasonality + residual (cycle usually gets absorbed into trend).
+- **Seasonality has a fixed known period; a cycle doesn't.** That's the whole distinction.
+- Constant-size seasonal swings → additive. Swings that grow with the level → multiplicative, and a log-transform converts it to additive.
+</ConceptBox>
 
 ## What Is a Time Series?
 
@@ -64,6 +71,13 @@ A series can have zero trend and still be non-stationary (e.g. its *variance* gr
 **Problem 2.** You log-transform a multiplicative series and decompose it as additive. Why does this work?
 
 **Solution:** $\log(T \cdot S \cdot R) = \log T + \log S + \log R$ — the product becomes a sum in log-space, so additive tools apply directly; exponentiate the result to get back to the original scale.
+
+<Recall items={[
+  { q: "Seasonality vs cycle — give the one-line test.", a: "Is the period fixed and known in advance? Every 12 months or every 7 days is seasonality. Business expansions and contractions that last 'three to seven years, roughly' are a cycle. Fixed period is the whole distinction, and it matters because only seasonality can be modelled by a repeating index." },
+  { q: "You plot a series and the wiggles get visibly taller as the line climbs. What does that tell you to do?", a: "The seasonal effect is proportional to the level, so the model is multiplicative. Take logs first — log(T*S*R) = log T + log S + log R — then any additive decomposition or model applies, and you exponentiate the forecast to return to the original scale." },
+  { q: "Why can't you shuffle rows of a time series the way you would a tabular dataset?", a: "The information lives in the ordering. Adjacent values are correlated, and every feature that matters — trend, seasonality, lag relationships — is defined by position in the sequence. After a shuffle the residual is all that is left." },
+  { q: "'No visible trend' and 'stationary' are not the same. Give a counterexample.", a: "A series oscillating around a constant mean whose swings get wider each year: the mean is flat but the variance grows with time. Stationarity requires the mean, variance and autocovariance structure all to be time-invariant, so this fails on the second condition despite having no trend." },
+]} />
 
 <QuizCard
   question="A series' seasonal swings roughly double in size whenever the trend level doubles. Which model fits, and what's a common trick to handle it with additive tools?"

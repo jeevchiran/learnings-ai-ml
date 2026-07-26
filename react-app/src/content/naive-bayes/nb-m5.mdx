@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import NBVariantWidget from '../../components/widgets/naive-bayes/NBVariantWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- The decision rule never changes. **Only the assumed shape of $P(x_i\mid y)$ does** — and it should match how the feature was generated.
+- **Multinomial** for counts, **Bernoulli** for 0/1 presence, **Gaussian** for continuous measurements.
+- Multinomial vs Bernoulli on text is not cosmetic: Bernoulli explicitly scores the **absence** of every vocabulary word, Multinomial only sees what's there.
+- Gaussian NB fits one $(\mu,\sigma^2)$ per (class, feature) pair — cheap, but it assumes per-class normality.
+- Picking the wrong variant degrades accuracy **silently**; nothing errors.
+</ConceptBox>
 
 ## Same Skeleton, Different Likelihood
 
@@ -121,6 +129,14 @@ Every formula multiplies many probabilities — one per feature. With ten featur
 "pills" appears only in spam, never ham. Without smoothing ($\alpha=0$), what is $\theta_{\text{ham},\text{"pills"}}$, and why is that a problem?
 
 **Solution:** $\theta_{\text{ham},\text{"pills"}} = 0/N_{\text{ham}} = 0$. Any future ham email containing "pills" gets a ham likelihood factor of exactly zero — the whole ham product collapses to zero regardless of every other word, making that email impossible to classify as ham. This is why $\alpha=1$ is the scikit-learn default.
+
+<Recall items={[
+  { q: "What exactly is shared across all three variants, and what differs?", a: "Shared: the rule arg-max over y of P(y) times the product of P(x_i|y), the conditional independence assumption, and the counting-based training. Different: only the functional form assumed for P(x_i|y) — multinomial, Bernoulli, or normal — chosen to match the feature's data-generating process." },
+  { q: "Multinomial and Bernoulli both handle text. What does Bernoulli do that Multinomial does not?", a: "Bernoulli scores absences. Its likelihood includes a (1 - p) factor for every vocabulary word NOT in the document, so 'this email lacks every finance term' is itself evidence. Multinomial only multiplies factors for words that appear, so absence is silent. Bernoulli tends to win on short documents, Multinomial on longer ones where counts carry signal." },
+  { q: "What does Gaussian NB actually store after fitting, and what does it assume?", a: "One mean and one variance per (class, feature) pair — so a 3-class, 4-feature problem stores 24 numbers plus 3 priors. It assumes each feature is normally distributed WITHIN each class, which fails for skewed, bounded, or bimodal features; a log transform or discretisation often fixes it." },
+  { q: "Unsmoothed, 'pills' never appears in ham. What is theta for ham, and what breaks?", a: "Zero, since the count is 0. Every future ham email containing 'pills' has its entire ham score multiplied by 0, so it is classified spam no matter how ham-like the rest of the text is. This single failure mode is why alpha=1 is scikit-learn's default." },
+  { q: "You feed continuous sensor readings to MultinomialNB. What happens?", a: "It will run, and be wrong. Multinomial expects non-negative counts and treats each value as an exponent on a word probability, which is meaningless for a measurement — and negative readings raise an error outright. Nothing warns you that the likelihood family is inappropriate; accuracy just quietly drops." },
+]} />
 
 <MultiSelectQuiz
   question="Which statements about the three Naive Bayes variants are correct? (Select all that apply.)"

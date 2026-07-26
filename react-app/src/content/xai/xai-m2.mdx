@@ -1,5 +1,12 @@
-import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 import GlobalLocalWidget from '../../components/widgets/xai/GlobalLocalWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- **Scope** is axis one: *global* = how the model behaves in general; *local* = why it output this, for this input.
+- A global explanation is roughly an average of local ones — and averages lie about individuals. Anyone owed a reason needs a **local** explanation.
+- **Access** is axis two: *model-agnostic* needs only `predict()`; *model-specific* exploits internals (tree structure, gradients) for speed and exactness.
+- Those two axes place every method: LIME (local/agnostic), Kernel SHAP (local/agnostic), Tree SHAP (both/tree-specific), DeepLIFT (local/net-specific).
+</ConceptBox>
 
 ## Two Questions, Two Kinds of Answer
 
@@ -52,6 +59,13 @@ A regulator demands that each denied loan applicant receive the specific reasons
 You have a trained model exposed only through a cloud API — you can send inputs and read predictions, nothing else. Which family of methods can you use?
 
 **Solution:** **Model-agnostic** only (e.g. LIME, Kernel SHAP). Model-specific methods need internals — tree structure, gradients — which the API doesn't expose. If you can only call `predict()`, you're restricted to methods that only call `predict()`.
+
+<Recall items={[
+  { q: "Place each on both axes: LIME, Tree SHAP, DeepLIFT.", a: "LIME — local scope, model-agnostic access. Tree SHAP — local explanations that also aggregate to global, tree-specific access. DeepLIFT — local scope, neural-network-specific access. Scope tells you what question it answers; access tells you whether you are allowed to use it." },
+  { q: "Why can a global explanation be actively misleading for one individual?", a: "Because it is essentially an average over the population. If income dominates on average but this applicant's decision hinged on debt ratio, the global ranking describes a typical case that is not theirs. Telling them 'income matters most in our model' would be a false reason." },
+  { q: "You can only reach the model through a REST endpoint returning scores. What does that rule out, and why?", a: "Every model-specific method. Tree SHAP needs the tree structure and DeepLIFT needs gradients through the layers; the endpoint exposes neither. You are limited to methods built on repeated querying — LIME, Kernel SHAP, permutation importance." },
+  { q: "What do you give up by choosing a model-agnostic method when a specific one is available?", a: "Speed and exactness. Agnostic methods approximate by sampling many perturbations and calling predict repeatedly, so they cost far more compute and carry sampling variance. Tree SHAP computes exact Shapley values in polynomial time by exploiting the tree structure." },
+]} />
 
 <QuizCard
   question="A model uses 'income' as its most important feature overall, but a particular applicant was denied mainly because of their debt ratio. Which explanation type captures this?"

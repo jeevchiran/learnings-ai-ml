@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LevenshteinWidget from '../../components/widgets/nlp/LevenshteinWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- The pipeline runs shallow → deep: tokenize → normalize → morphology → syntax → semantics. Each stage assumes the one before it.
+- Whitespace tokenization breaks on punctuation, contractions, and hyphens — which is why `"fact,"` and `"fact"` become different types.
+- **Subword tokenization (BPE, WordPiece) is what modern models use**, because unknown words decompose into known pieces instead of hitting an `<UNK>`.
+- **Normalization is lossy on purpose, and the loss isn't always acceptable.** Lowercasing helps search and destroys the capitalization signal NER depends on.
+- Edit (Levenshtein) distance = minimum insertions, deletions, and substitutions to turn one string into another.
+</ConceptBox>
 
 ## NLP Pipeline — Big Picture
 
@@ -128,10 +136,17 @@ Start at $d[m][n]$. At each cell, follow the minimum predecessor to reconstruct 
 
 **Problem 2 (Medium):** Tokenize the sentence `"It's a well-known fact, isn't it?"` using (a) whitespace splitting, (b) punctuation-aware splitting. List the tokens for each approach and count them.
 
-*Solution:* (a) 5 tokens: `["It's", "a", "well-known", "fact,", "isn't", "it?"]` — 6 tokens. (b) `["It", "'s", "a", "well", "-", "known", "fact", ",", "is", "n't", "it", "?"]` — 12 tokens.
+*Solution:* (a) `["It's", "a", "well-known", "fact,", "isn't", "it?"]` — 6 tokens. (b) `["It", "'s", "a", "well", "-", "known", "fact", ",", "is", "n't", "it", "?"]` — 12 tokens.
 
 **Problem 3 (Hard):** For the sentence `"Barack Obama visited Apple's headquarters in Cupertino on Monday."`, apply the 4-step normalization pipeline. At each step state what changes and why. Explain which step would hurt a downstream NER system and why.
 
 *Solution:* Step 1 (lowercase): all chars → lowercase — hurts NER because capitalization is a key feature for entity detection. Step 2 (punctuation): remove apostrophe and period. Step 3 (numbers): no change (none present). Step 4 (stopwords): remove `on`. Case normalization at step 1 is most harmful to NER.
+
+<Recall items={[
+  { q: "Why do modern LLMs use subword tokens rather than words?", a: "Because a word vocabulary is both enormous and permanently incomplete — any unseen word becomes UNK and its meaning is lost. Subword units decompose 'unhappiness' into un + happy + ness, so a novel word is still represented by pieces the model has learned. It also bounds the vocabulary size, which bounds the embedding table." },
+  { q: "Name a normalization step that helps one task and actively breaks another.", a: "Lowercasing. It helps search and topic classification by collapsing 'Apple' and 'apple' into one type. It breaks named entity recognition, where capitalization is one of the strongest features distinguishing the company Apple from the fruit. Normalization is lossy, and which loss is acceptable depends on the downstream task." },
+  { q: "Tokenize \"It's a well-known fact, isn't it?\" by whitespace and then punctuation-aware. Why do the counts differ so much?", a: "Whitespace gives 6 tokens, leaving 'fact,' and 'it?' with punctuation glued on and contractions intact. Punctuation-aware gives 12, splitting off commas and question marks and separating 'is' from \"n't\". The second is closer to linguistic units, at the cost of a longer sequence." },
+  { q: "Define edit distance and give the distance from 'cat' to 'car'.", a: "The minimum number of single-character insertions, deletions, and substitutions needed to transform one string into the other. cat to car is 1 — substitute t for r. It is computed by dynamic programming over a table of prefix distances." },
+]} />
 
 <QuizCard question="What is the edit distance between 'cat' and 'car'?" options={['0', '1', '2', '3']} correct={1} />

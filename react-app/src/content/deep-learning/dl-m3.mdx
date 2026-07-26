@@ -1,6 +1,14 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
 # Module 3: PyTorch — Tensors & Operations
+
+<ConceptBox title="TL;DR">
+- A tensor is an N-D array that **also records the operations applied to it**, which is what makes autograd possible.
+- Shape conventions worth memorising: `[B, T, C]` for sequences, `[B, C, H, W]` for images.
+- **Trailing underscore = in-place** (`add_`, `relu_`). Saves memory and can corrupt the values autograd needs for the backward pass.
+- **Broadcasting aligns shapes from the right**, stretching size-1 dimensions — it does *not* require equal rank.
+- `.to(device)` moves data without touching your operation code; `@` is matrix multiply, `*` is elementwise.
+</ConceptBox>
 
 <Bridge>
 **From Module 2:** We have the theory of MLPs — stacked layers, weight matrices, activations. Now we need a framework to compute these operations on real hardware, efficiently and with automatic differentiation. PyTorch is the dominant framework for deep learning research and increasingly for production. Its core abstraction is the **tensor** — an N-dimensional array with GPU support and a computation graph for gradients. This module covers everything you need to write real PyTorch code.
@@ -206,6 +214,14 @@ GPUs execute thousands of such multiplications in parallel via SIMD instructions
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "What makes a PyTorch tensor more than a NumPy array?", a: "Two things: it can live on a GPU, and it records the graph of operations performed on it when requires_grad is set. That recorded graph is what autograd walks backwards to compute gradients — a NumPy array has no memory of how it was produced." },
+  { q: "State the broadcasting rule precisely.", a: "Shapes are aligned from the RIGHTMOST dimension leftwards. At each position the sizes must either match or one of them must be 1, in which case that dimension is stretched. Missing leading dimensions are treated as 1. So [4, 3] and [3] broadcast fine — equal rank is not required." },
+  { q: "What does a trailing underscore mean, and what is the hazard?", a: "The operation is in-place — x.add_(1) mutates x rather than returning a new tensor. The hazard is that autograd may need the ORIGINAL value for the backward pass, and overwriting it raises a runtime error or, worse, silently changes the gradient. Use in-place ops for memory savings only where you are sure nothing downstream needs the old value." },
+  { q: "Decode the shapes [32, 128, 512] and [32, 3, 224, 224].", a: "The first is [batch, sequence length, feature dimension] — 32 sequences of 128 tokens, each embedded in 512 dimensions. The second is [batch, channels, height, width] — 32 RGB images at 224 by 224. Channels-first is the PyTorch convention and differs from most image libraries, which is a routine source of bugs." },
+  { q: "Why does @ differ from * and when does it bite?", a: "@ is matrix multiplication, contracting the last dimension of the left operand against the second-to-last of the right; * is elementwise and broadcasts. They bite when shapes happen to be compatible under both — an elementwise multiply of [4,4] tensors runs silently where you meant a matmul, producing wrong numbers rather than an error." },
+]} />
 
 <MultiSelectQuiz
   question="Which of the following statements about PyTorch tensors are correct?"

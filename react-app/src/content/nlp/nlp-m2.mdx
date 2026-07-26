@@ -1,5 +1,14 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import NoisyChannelWidget from '../../components/widgets/nlp/NoisyChannelWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- **Inflectional** morphology marks tense/number without changing word class — almost always safe to collapse. **Derivational** morphology creates new words ("compute" → "computation") — collapsing it loses real meaning.
+- **Stemming** chops endings by rule; the output needn't be a word. **Lemmatization** uses a dictionary and POS tag; the output always is.
+- Two failure modes to name: **over-stemming** merges distinct words (hurts precision), **under-stemming** fails to merge related ones (hurts recall).
+- Stemming is fast and crude; lemmatization is slower, needs a POS tag, and is correct.
+- The **noisy channel** picks the correction maximising $P(\text{word})\times P(\text{typo}\mid\text{word})$ — prior times likelihood, i.e. Bayes.
+- It only fixes **non-word** errors. "their" → "there" is a real word, so only a context model catches it.
+</ConceptBox>
 
 <Bridge>
 Module 1 normalized text by lowercasing and removing noise. But "running", "runs", and "ran" are still three separate types — a search for "run" misses the other five. **Morphological processing** maps these variants to a single canonical form, boosting recall without losing precision.
@@ -150,6 +159,14 @@ Candidates are all dictionary words within edit distance 1 or 2 of the observed 
 <ConceptBox title="Limitation: Real-Word Errors">
 The noisy channel model only handles *non-word* errors (typos not in the dictionary). It cannot correct *real-word* errors ("their" → "there") — those require a language model that detects contextual implausibility.
 </ConceptBox>
+
+<Recall items={[
+  { q: "Stemming versus lemmatization — give the mechanism, the output guarantee, and the cost of each.", a: "Stemming applies fixed suffix-stripping rules with no vocabulary, so the output may not be a real word ('universe' becomes 'univers') but it is very fast. Lemmatization looks the word up in a dictionary and needs its POS tag, so it always returns a valid lemma ('ran' becomes 'run') but costs a lookup and a tagging step." },
+  { q: "'university' and 'universal' both stem to 'univers'. Name the error and the metric it damages.", a: "Over-stemming: two semantically distinct words collapsed to one stem. It damages precision, because a search for one now returns documents about the other. The mirror error is under-stemming — failing to merge 'ran' with 'run' — which damages recall." },
+  { q: "Why does a lemmatizer need a POS tag when a stemmer does not?", a: "Because the correct lemma depends on the word's class. 'Saw' lemmatizes to 'see' as a verb and stays 'saw' as a noun; 'better' goes to 'good' as an adjective. A stemmer has no such branch — it applies string rules blindly, which is exactly why it is faster and less correct." },
+  { q: "Write the noisy channel decision rule and name its two factors.", a: "Choose the candidate word w maximising P(w) times P(observed typo | w). P(w) is the prior — how common the word is in the language — and P(typo | w) is the channel or error model — how likely that particular keystroke slip is. It is Bayes' theorem with the evidence term dropped, since it is constant across candidates." },
+  { q: "Why can the noisy channel model never fix 'their' to 'there'?", a: "Because it detects errors by finding tokens absent from the dictionary, and both spellings are real words. The model is never triggered. Real-word errors need a language model that scores the sentence in context and notices that this word is implausible given its neighbours." },
+]} />
 
 <QuizCard
   question="A Porter stemmer produces 'univers' for both 'university' and 'universal'. What error type is this, and which metric does it harm?"

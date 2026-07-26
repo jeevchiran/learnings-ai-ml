@@ -1,7 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import MissingValueWidget from '../../components/widgets/pandas-eda/MissingValueWidget.jsx'
 
 # Missing Values
+
+<ConceptBox title="TL;DR">
+- **`NaN != NaN`**, so you can never find missing values with `== NaN`. Use `.isna()` / `.notna()`.
+- `.isna().mean()` gives the missing *rate* per column — averaging a boolean column is the fraction of `True`.
+- Summary statistics don't warn you about holes; they silently compute on what's left.
+- **The fix depends on what the column means, not on how many cells are empty.** A missing `airport_fee` probably means "no airport", not "unknown".
+- Filling before splitting leaks — statistics used to impute must come from training data only.
+</ConceptBox>
 
 ## Why This Topic?
 
@@ -119,6 +127,14 @@ For `RatecodeID` (a category, not a continuous measurement), which is the better
 <Bridge>
 **What's next: data that's there but wrong.** Nulls are one kind of missing signal — easy to spot with `isna()`. Rows where the data IS present but violates reality are another kind entirely, and they pass every `isna()` check undetected. Module 3 looks at values that pass every null check yet still violate the business rules of a taxi fare — like the negative fare Module 1 already flagged.
 </Bridge>
+
+<Recall items={[
+  { q: "Why does df[df.fare == np.nan] return an empty DataFrame even when NaNs exist?", a: "Because NaN is defined to be unequal to everything, including itself — the IEEE floating-point rule. Every comparison returns False, so the mask selects nothing. .isna() exists precisely because equality cannot be used." },
+  { q: "Explain why .isna().mean() gives a percentage.", a: "isna() produces a boolean column, and pandas treats True as 1 and False as 0 when aggregating. So the mean is the count of missing divided by the total count — the missing rate directly. Multiply by 100 for a percentage." },
+  { q: "airport_fee is missing on 6.67% of rows. Why might filling with 0 be right here and wrong for passenger_count?", a: "Because the missingness means different things. An absent airport fee most likely encodes 'this trip did not touch an airport', so 0 is the true value, not a guess. An absent passenger count is genuinely unknown — filling it with 0 would assert a trip carried nobody, inventing a fact. Read the column's meaning before choosing a fill." },
+  { q: "What is the leakage trap when imputing with a column mean?", a: "Computing that mean over the whole dataset lets the held-out rows influence the values used to fill training rows and vice versa. The imputation statistic must be learned from the training split alone and then applied to validation and test — which is exactly what putting SimpleImputer inside a Pipeline enforces." },
+  { q: "When is dropna() the right call rather than a fill?", a: "When the missing rows are few relative to the dataset AND the missingness is unrelated to the target, so removing them does not bias what remains. If a column is missing on 40% of rows, or if the rows with nulls differ systematically — for example every cancelled trip — dropping them either destroys most of your data or silently changes the population you are modelling." },
+]} />
 
 <QuizCard
   question="Which pandas method returns the fraction of missing values per column?"

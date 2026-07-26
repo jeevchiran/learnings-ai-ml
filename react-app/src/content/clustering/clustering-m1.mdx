@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import KMeansWidget from '../../components/widgets/clustering/KMeansWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- K-means alternates two steps: **assign** each point to its nearest centroid, then **move** each centroid to its group's mean. Repeat until nobody switches.
+- Neither step can raise WCSS and there are finitely many assignments — so it **always terminates**.
+- But it converges to a **local** minimum that depends on where you started. Hence `n_init`: run it several times, keep the lowest WCSS.
+- **K-means++** seeds centroids with probability proportional to $D^2$, so far-away regions get represented — and buys an $O(\log K)$ approximation guarantee random init cannot offer.
+- $K$ is a hyperparameter. The algorithm will never tell you it's wrong.
+</ConceptBox>
 
 ## Why Clustering?
 
@@ -117,6 +125,14 @@ K-means++ gives expected WCSS at most $O(\log K)$ times optimal — impossible t
 **Problem 3 — K-means++ sampling.** First centroid at $A=(2,2)$. Candidates B=(2,3), C=(8,8), D=(9,7), E=(8,9). Squared distances and probabilities?
 
 **Solution:** $D^2$: B=1, C=72, D=74, E=85; total 232. $P(B)\approx0.4\%$, $P(C)\approx31\%$, $P(D)\approx32\%$, $P(E)\approx36.6\%$. Most likely: **E**. The far cluster {C,D,E} gets ~99.5% combined vs nearby B's 0.5%, so the second centroid almost certainly lands in the far group — exactly the spread K-means++ is designed for.
+
+<Recall items={[
+  { q: "Prove K-means terminates, in three steps.", a: "First, neither step can increase WCSS: assignment only moves a point to a strictly closer centroid, and the mean is provably the minimiser of squared distance within a set. Second, there are at most K^n possible assignments — finite. Third, a non-increasing quantity over finitely many states cannot cycle forever, so it must halt." },
+  { q: "K-means always converges. Why is that weaker than it sounds?", a: "Convergence is to a LOCAL minimum of WCSS, not the global one — the optimal partitioning problem is NP-hard. Two runs from different seeds can land on genuinely different clusterings with different costs, which is why libraries run it n_init times and keep the best." },
+  { q: "Explain the exact failure that K-means++ prevents.", a: "Uniform random initialisation can drop two centroids inside the same dense blob while a real, well-separated cluster gets none. The algorithm then splits one true cluster in half and merges two others, and no amount of iteration escapes it. D^2 sampling makes far-from-everything points overwhelmingly likely to be chosen next." },
+  { q: "First centroid is at (2,2); candidates sit at (2,3) and at (8,8), (9,7), (8,9). Roughly where does the second centroid land, and why?", a: "Almost certainly in the far group. Squared distances are 1 versus 72, 74, and 85, so the near candidate gets under half a percent of the probability mass and the distant cluster gets over 99%. That is precisely the spreading behaviour K-means++ is designed for." },
+  { q: "What is the per-iteration cost, and which factor should worry you first?", a: "O(n*K*p) per iteration, with typically 10 to 100 iterations. n scales fine because the cost is linear in it; the factor to watch is p, since high dimensionality both increases the per-distance cost and degrades the meaningfulness of Euclidean distance itself." },
+]} />
 
 <QuizCard
   question="In the K-means assignment step, each point is assigned to the cluster whose centroid minimises what quantity?"

@@ -1,5 +1,12 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import ARForecastWidget from '../../components/widgets/time-series/ARForecastWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- AR(p) is linear regression of the series **on its own past**. It needs the stationarity from Module 4, since the $\phi_i$ are assumed fixed over time.
+- **Read $p$ off the PACF's cutoff**, not the ACF's — the ACF decays gradually for any AR order and can't tell you $p$.
+- The family is one idea with add-ons: AR (past values) + MA (past errors) + $d$ (differencing) + seasonal block = SARIMA.
+- **A prediction interval is not a confidence interval.** The PI includes one future point's own noise, so it is wider and it grows with the horizon.
+</ConceptBox>
 
 ## The Autoregressive Model
 
@@ -73,6 +80,13 @@ ci = pred.conf_int(alpha=0.05)            # 95% prediction interval, widens with
 **Problem 2.** Two forecasts are quoted for $y_{t+1}$: a 95% CI of [48, 52] and a 95% PI of [40, 60]. Which is which, and why the gap?
 
 **Solution:** [48, 52] is the CI (uncertainty in the estimated mean level only); [40, 60] is the PI (adds the actual noise variance of a single future draw) — the PI is always the wider one.
+
+<Recall items={[
+  { q: "ACF and PACF both exist. Which one gives you p, which gives you q, and why the asymmetry?", a: "PACF cutoff gives AR order p; ACF cutoff gives MA order q. An AR process propagates influence indirectly through intermediate lags, so its plain ACF decays gradually — only the PACF, which strips out those intermediate effects, shows a clean cutoff. An MA(q) process has genuinely zero correlation beyond lag q, so its ACF cuts off directly." },
+  { q: "Explain CI vs PI to a stakeholder in two sentences.", a: "The confidence interval says where the average level is likely to sit; the prediction interval says where next month's actual number is likely to land. The second is wider because a single real observation also carries its own random noise, not just our uncertainty about the average." },
+  { q: "Your 12-month-ahead forecast band is enormous. Is the model broken?", a: "Not necessarily — that is expected behaviour. h-step forecast variance is sigma^2 times the sum of squared psi-weights, so each extra step compounds fresh error into the band. A wide long-horizon PI is honest uncertainty; a suspiciously narrow one is the thing to distrust." },
+  { q: "What does the d in ARIMA(p,d,q) actually do, and where does it come from?", a: "It is the number of times the series was differenced to reach stationarity before AR and MA terms were fit — determined in Module 4 by differencing until ADF passes. ARIMA is just ARMA applied to that differenced series, with the forecasts integrated back up to the original scale." },
+]} />
 
 <QuizCard
   question="Why does a prediction interval for an AR forecast widen as the horizon h increases, while a confidence interval for the mean roughly does not?"

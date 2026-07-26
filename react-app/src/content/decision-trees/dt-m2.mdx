@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import ImpurityWidget from '../../components/widgets/decision-trees/ImpurityWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Impurity $I(t)$ = 0 when a node is pure, maximal when classes are evenly mixed. **Gain** = parent impurity − weighted child impurity; pick the split that maximises it.
+- **Gini** = chance two random draws differ in class; binary max **0.5**. **Entropy** = bits to encode a label; binary max **1**.
+- **Misclassification rate is not used for splitting** — it's piecewise linear, so it can report zero gain for a split that genuinely improves separation.
+- Gini and entropy nearly always pick the same split. Gini is the default because it avoids a logarithm.
+- Weighting children by size is essential — otherwise a pure 1-sample child would look like a triumph.
+</ConceptBox>
 
 ## Why a Splitting Criterion?
 
@@ -121,6 +129,14 @@ BuildTree(data, depth, maxDepth, minSamples):
 A wins — it isolates all 4 positives in a pure child.
 
 **Problem 3 — Gini max and bound.** (1) $\frac{d}{dp}[2p(1-p)] = 2 - 4p = 0 \Rightarrow p = 0.5$; second derivative $-4 < 0$ → max $G = 0.5$. (2) With $E = \min(p, 1-p)$, $G = 2p(1-p) \leq 2\min(p, 1-p) = 2E$.
+
+<Recall items={[
+  { q: "Give the probabilistic meaning of Gini, not just its formula.", a: "Draw two samples independently at random from the node; Gini is the probability their class labels differ. A pure node gives 0 because the two draws must match, and a 50/50 binary node gives 0.5 because they disagree half the time." },
+  { q: "Why is misclassification rate rejected as a splitting criterion?", a: "It is piecewise linear in the class proportions, so a split can move probability mass toward purity without changing which class is the majority in either child — giving zero measured gain despite a genuinely better partition. Gini and entropy are strictly concave, so any move toward purity registers as gain." },
+  { q: "Why must child impurities be weighted by n_L/n and n_R/n?", a: "Without weighting, a split isolating one sample into a perfectly pure child would score enormously well while telling you almost nothing. Weighting by size means impurity reduction is measured in proportion to how many samples actually benefit." },
+  { q: "Gini or entropy — does the choice matter in practice?", a: "Rarely. They agree on the chosen split the overwhelming majority of the time. Entropy is more sensitive near pure nodes so it can slightly prefer splits that isolate small pure subsets; Gini is the default mainly because it avoids computing logarithms." },
+  { q: "Parent (6+,4-) has G = 0.48. Split A gives a pure (4+,0-) child; split B gives (3+,1-) and (3+,3-). Which wins, and why by so much?", a: "A, with gain about 0.213 against B's 0.030. A extracts a completely pure child, removing all uncertainty for 40% of the samples in one step. B's larger child is an exact coin flip with impurity 0.5 — worse than the parent — so it contributes almost nothing." },
+]} />
 
 <QuizCard
   question="Which impurity measure is NOT recommended as a splitting criterion in CART because it can report zero gain even when a split clearly improves class separation?"

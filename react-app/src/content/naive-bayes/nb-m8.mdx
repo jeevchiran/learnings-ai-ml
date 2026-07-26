@@ -1,4 +1,13 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+<ConceptBox title="TL;DR">
+- NB and logistic regression are the **same functional form fitted two ways** — Gaussian NB with shared covariance yields a sigmoid-of-linear posterior.
+- Ng & Jordan: **NB converges faster to a higher error floor**; logistic regression starts worse and overtakes once data is plentiful. That one sentence decides most NB-vs-LR calls.
+- vs trees: trees learn interactions, NB cannot — but NB's assumption regularises it when data is scarce relative to features.
+- vs k-NN: NB compresses the training set to a few counts (instant prediction); k-NN keeps all of it (slow, and poor in high dimensions).
+- vs SVM: SVM has the higher accuracy ceiling but scales $O(N^2)$–$O(N^3)$ and outputs a distance, not a probability.
+- **NB is rarely the most accurate model. It is the fastest reasonable one** — and the right baseline to beat.
+</ConceptBox>
 
 ## Naive Bayes in Context
 
@@ -55,6 +64,14 @@ Naive Bayes is rarely the *most accurate* model — it is the fastest reasonable
 Fraud = "high amount AND low account age" (neither feature alone predictive). With ample data, which model class is guaranteed to beat NB, and why?
 
 **Solution:** Any model that represents interactions — decision tree, kernel SVM, or logistic regression with an amount×age term. The true rule is a conjunction of two features, which independence forbids NB from representing regardless of data volume. A structural blind spot, not a data shortage.
+
+<Recall items={[
+  { q: "Naive Bayes and logistic regression can produce the same form of decision boundary. What actually differs?", a: "What is optimised. Logistic regression is discriminative and maximises the conditional likelihood of the labels, tuning the boundary directly. Gaussian NB is generative and fits P(x|y) per class; the boundary is a by-product. Same sigmoid-of-linear form, two different fitting criteria — which is why they disagree on the same data." },
+  { q: "State the Ng & Jordan result and its practical consequence.", a: "Naive Bayes approaches its asymptotic error with far fewer examples, but that asymptote is higher because independence is wrong; logistic regression starts worse and eventually overtakes. Practically: NB is the small-data baseline, and you should re-benchmark against logistic regression once your labelled set grows." },
+  { q: "200 documents, 30,000-word vocabulary, 5 classes. NB or linear SVM first, and why?", a: "Naive Bayes. With 200 points in a 30,000-dimensional space almost any discriminative model can separate the training data perfectly and generalise badly. NB estimates only per-feature marginals from the full class sample, degrading gracefully as N shrinks relative to n. Treat it as the baseline, not the final answer." },
+  { q: "Contrast where NB and k-NN each pay their cost.", a: "NB pays upfront: it commits to a likelihood family and compresses the whole training set into counts or mean/variance pairs, so prediction is O(features) regardless of N. k-NN pays at query time: no training at all, but every prediction searches the training set, and in high dimensions the distances it depends on stop being discriminative." },
+  { q: "When should you deliberately NOT reach for Naive Bayes?", a: "When the signal lives in feature interactions, when you need trustworthy calibrated probabilities without a recalibration step, or when you have ample data and features are known to be strongly correlated — in all three cases the independence assumption is the binding constraint and a discriminative model will beat it." },
+]} />
 
 <MultiSelectQuiz
   question="Which statements accurately compare Naive Bayes to other classifiers? (Select all that apply.)"

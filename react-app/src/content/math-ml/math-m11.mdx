@@ -1,5 +1,12 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import GradientDescentWidget from '../../components/widgets/math-ml/GradientDescentWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- **Jacobian** = first derivatives of a *vector*-valued function. **Hessian** = second derivatives of a *scalar*-valued one. The Hessian is the Jacobian of the gradient.
+- The Hessian is curvature, and its **eigenvalues classify a flat point**: all positive → minimum, all negative → maximum, mixed → saddle.
+- In high dimensions all-positive is improbable, so most critical points are saddles — this, not local minima, is what stalls deep-net training.
+- Newton's method uses $H^{-1}\nabla f$ and converges faster but costs too much at network scale; Adam approximates the same information cheaply.
+</ConceptBox>
 
 ## Beyond the First Derivative
 
@@ -59,6 +66,13 @@ print(hessian)
 **Problem 2.** $f(x,y)=x^2-4y^2$. Same question.
 
 **Solution:** $H=\begin{bmatrix}2&0\\0&-8\end{bmatrix}$, eigenvalues 2 and -8 (mixed signs) → a saddle point, not a minimum.
+
+<Recall items={[
+  { q: "Jacobian or Hessian — which for a layer mapping R^512 to R^256, and which for the scalar loss?", a: "The layer is vector-to-vector, so its matrix of first partials is a Jacobian (256 x 512). The loss is vector-to-scalar, so its matrix of second partials is a Hessian (over the parameters). Backprop chains Jacobians; curvature analysis uses the Hessian." },
+  { q: "Why does the saddle problem get worse as dimensions increase?", a: "A critical point is a minimum only if EVERY Hessian eigenvalue is positive. Treating the signs as roughly independent, the chance of all n being positive falls off exponentially in n. With millions of parameters, virtually every flat point has at least one downhill direction — it is a saddle." },
+  { q: "Newton's method converges in fewer steps. Why does nobody use it to train a large network?", a: "It needs the Hessian and its inverse. For n parameters that is n^2 entries and roughly n^3 work to invert — with n in the millions, forming the matrix alone is impossible in memory, never mind inverting it each step." },
+  { q: "Write the second-order Taylor expansion of a loss and say what each term does.", a: "f(theta + d) ≈ f(theta) + grad^T d + (1/2) d^T H d. The first term is the current loss, the second is the linear slope that plain gradient descent uses, and the third is the curvature correction — it is what tells you whether a step of a given size will overshoot." },
+]} />
 
 <QuizCard
   question="What does the Hessian matrix represent that the gradient alone does not?"

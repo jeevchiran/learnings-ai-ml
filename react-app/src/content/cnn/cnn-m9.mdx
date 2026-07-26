@@ -1,7 +1,16 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import ActivationMapWidget from '../../components/widgets/cnn/ActivationMapWidget.jsx'
 
 # Module 9: Visualising & Interpreting CNN Activations
+
+<ConceptBox title="TL;DR">
+- Four uses, and debugging is the practical one: **95% accuracy from a watermark looks identical to 95% from real understanding** until you look inside.
+- **Saliency** = gradient of the class score w.r.t. input pixels ("which pixels would change the score"). Fast, noisy.
+- **Filter visualisation** runs gradient *ascent on the input* to synthesise what maximally excites a filter.
+- **CAM needs global average pooling before the output; Grad-CAM removes that constraint** and works on any architecture.
+- **Integrated Gradients** satisfies completeness — attributions sum exactly to the output change from the baseline (same axiom family as SHAP).
+- The **pointing game** scores attention objectively against ground-truth boxes, instead of "the heatmap looks right".
+</ConceptBox>
 
 <Bridge>
 **From Module 8:** transfer learning works because pretrained features generalise. But *which* features, and *where* in the image do they activate? Treating a CNN as a black box is both intellectually unsatisfying and practically risky — a model that achieves 95% accuracy by detecting a watermark instead of the actual object is worthless in deployment. This module covers the tools for looking inside.
@@ -186,6 +195,14 @@ IG satisfies the **completeness axiom**: $\sum_i \text{IG}_i = F(\mathbf{x}) - F
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "What is a saliency map computing, and what is its known weakness?", a: "The gradient of the target class score with respect to each input pixel — how much the score would move if that pixel changed slightly. Its weakness is noise: raw gradients are high-frequency and saturate, so the map is speckled and can highlight pixels that matter locally but not causally. SmoothGrad and Integrated Gradients exist to address that." },
+  { q: "How does filter visualisation differ from every other method here?", a: "It has no input image. Instead of explaining a prediction on real data, it starts from noise and runs gradient ASCENT on the input to synthesise the image that maximally activates a chosen filter. It answers 'what is this filter looking for' rather than 'why did this image get this label'." },
+  { q: "What constraint does CAM impose that Grad-CAM removes?", a: "CAM requires the architecture to end in global average pooling directly followed by the classifier, so the class weights can be mapped back onto feature maps — meaning you must sometimes modify and retrain the network. Grad-CAM instead uses gradients flowing into the last conv layer as the weights, so it works on any architecture as-is." },
+  { q: "What does the completeness axiom give Integrated Gradients?", a: "A guarantee that the attributions sum exactly to the difference between the model's output on the input and on the baseline — nothing is lost or invented. It is the same efficiency property SHAP has, and it is why IG's numbers can be reasoned about quantitatively rather than only compared in rank order." },
+  { q: "Why is the pointing game worth more than 'the heatmap looks reasonable'?", a: "Because it is objective and scalable: it checks whether the maximum of the attribution map falls inside the ground-truth bounding box, over a whole dataset. Eyeballing heatmaps is subject to confirmation bias — a plausible-looking map on a few cherry-picked images tells you nothing about the model's behaviour in general." },
+]} />
 
 <MultiSelectQuiz
   question="Which of the following are true about CNN visualisation methods?"

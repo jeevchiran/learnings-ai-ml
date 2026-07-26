@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import CVSplitWidget from '../../components/widgets/model-eval/CVSplitWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- One split gives one noisy sample of generalisation. **K-fold averages $K$ of them** — every point is validated once and trained on $K-1$ times.
+- **Report the standard deviation, not just the mean.** Equal means with different fold spread are not equally trustworthy.
+- $K$ has its own trade-off: small $K$ trains on less data (more bias, cheaper); large $K$ gives tiny noisy folds (more variance, costlier). **5 or 10 is the sweet spot.**
+- The $K$ models are scaffolding. **Deploy a single model retrained on all the data** with the validated hyperparameters.
+- Structure overrides the default: time series need `TimeSeriesSplit`, repeated-measure data needs group-aware splitting. Plain shuffled `KFold` leaks in both.
+</ConceptBox>
 
 ## Why Average Over Several Splits
 
@@ -143,6 +151,13 @@ No. K-Fold gives $K$ performance **estimates** of one *training procedure* (e.g.
   ]}
   correct={[0, 2, 3]}
 />
+
+<Recall items={[
+  { q: "State the trade-off in choosing K.", a: "Small K trains each model on less data, so every fold's model is weaker than the final one and the estimate is pessimistically biased — but folds are large and the scores are stable. Large K trains on nearly all the data (low bias) but validates on tiny folds, so individual scores are noisy and the cost is K fits. Five or ten balances both." },
+  { q: "What do you deploy after 5-fold CV — one of the five models, or something else?", a: "Something else: a single model retrained on ALL the data using the hyperparameters CV validated. The five fold-models existed only to produce an honest score; each saw less data than the final model should, and ensembling them was never the goal." },
+  { q: "Why report the fold standard deviation alongside the mean?", a: "Because two models can share a mean of 0.90 while one scores 0.89 to 0.91 and the other 0.80 to 0.99. The second is far less trustworthy — its performance depends heavily on which data it sees — and a large spread is also a warning that the folds differ structurally, for example through unbalanced classes." },
+  { q: "Name two data structures where shuffled KFold silently leaks, and the fix for each.", a: "Time series — shuffling puts future points in the training folds for past validation points, so use TimeSeriesSplit, which always trains on a prefix and validates on what follows. Repeated measures, such as several rows per patient, where the same subject lands on both sides; use GroupKFold with the subject as the group so all of a subject's rows stay together." },
+]} />
 
 <Bridge>
 Cross-validation gives an honest score for **one** hyperparameter setting. Real models have many hyperparameters, and the combinations explode. Module 4 covers searching that space efficiently: grid, random, Bayesian, and successive halving.

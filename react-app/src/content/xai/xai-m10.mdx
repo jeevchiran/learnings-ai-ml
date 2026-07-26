@@ -1,5 +1,13 @@
-import { ConceptBox, Bridge, QuizCard } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 import XAICompareWidget from '../../components/widgets/xai/XAICompareWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Four dimensions decide everything: **speed, fidelity, consistency, generality**. No method wins all four.
+- The shortcut: tree model → Tree SHAP. Neural net or images → Deep SHAP / Integrated Gradients. Sealed API → Kernel SHAP (principled) or LIME (fast).
+- **LIME vs SHAP** in one line: LIME is a fast heuristic local fit that can vary between runs; SHAP is game-theoretic, deterministic, exactly additive, and consistent.
+- Use SHAP where the explanation must be defended (audits, compliance, feature ranking); LIME for a quick gut-check.
+- **Explanations describe the model, not the world.** Cross-check with a second method and stay sceptical when features are correlated.
+</ConceptBox>
 
 ## No Single Winner
 
@@ -58,6 +66,13 @@ You must give regulators a *defensible, reproducible* per-decision reason for ea
 Name one thing LIME does *better* than SHAP, and one thing SHAP does better than LIME.
 
 **Solution:** LIME is typically **faster per instance** on arbitrary models and gives a quick, intuitive local read (especially for text). SHAP provides **exact additivity and theoretical guarantees** (efficiency, consistency) plus deterministic, aggregable-to-global values — so it's more trustworthy for audits and feature ranking.
+
+<Recall items={[
+  { q: "Run the decision shortcut on four cases: LightGBM, a torch CNN, a vendor API returning only scores, and a first-pass sanity check on text.", a: "LightGBM — Tree SHAP: exact, fast, deterministic. Torch CNN — Deep SHAP or Integrated Gradients, both exploiting gradients for speed. Vendor API — Kernel SHAP if you need principled values, LIME if you need them cheaply, since only predict() is available. Text sanity check — LIME, because word-deletion perturbation is intuitive and fast." },
+  { q: "Give one thing LIME does better than SHAP, and one thing SHAP does better.", a: "LIME is faster per instance on an arbitrary model and gives an immediately intuitive local read, especially on text. SHAP gives exact additivity, consistency, and determinism, so its values survive an audit and aggregate correctly into a global ranking." },
+  { q: "Regulators need reproducible per-decision reasons from a LightGBM model over millions of rows. Choose and justify.", a: "Tree SHAP. Exact so it is defensible, deterministic so the same application always yields the same stated reason, fast enough at that scale because it exploits tree structure, and consistent so the feature ranking cannot be gamed. LIME's randomness alone disqualifies it for reproducibility." },
+  { q: "Why is 'the explanation says the model is fair' not a valid conclusion?", a: "Every method explains the MODEL's behaviour, under assumptions — feature independence, a chosen baseline, a locality radius — that may be violated by your data. An attribution is evidence, not proof: it can look confident while describing a spurious pattern, and correlated features in particular can shift credit in misleading ways." },
+]} />
 
 <QuizCard
   question="For a trustworthy, reproducible per-decision explanation of an XGBoost model at scale, the best choice is:"

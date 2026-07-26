@@ -1,6 +1,14 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
 # Module 2: Why MLPs Struggle with Sequential Data
+
+<ConceptBox title="TL;DR">
+- **Fixed input size**: $W\in\mathbb{R}^{n\times d}$ bakes the length into the weights, so you must pad (teaching the model to ignore fake zeros) or truncate (throwing information away).
+- **No state**: an MLP has no channel to carry anything from position $t$ to position $t+1$. Each forward pass is independent.
+- **Position-specific weights**: a pattern learned at position 3 must be relearned from scratch at position 27.
+- These are *structural*, not capacity limits. A bigger MLP has exactly the same three problems.
+- An MLP can still represent nonlinear functions and can technically process text — the failure is specifically about sequence structure.
+</ConceptBox>
 
 <Bridge>
 **From Module 1:** we established that sequential data requires order sensitivity and supports variable length. Now let's be precise about exactly how MLPs fail — not hand-waving, but three concrete architectural limitations. Understanding these failures is what makes the RNN solution feel *necessary* rather than arbitrary.
@@ -101,6 +109,13 @@ In an RNN, $\mathbf{h}_t = f(\mathbf{h}_{t-1}, x_t)$ means the gradient of the l
   ]}
   correct={1}
 />
+
+<Recall items={[
+  { q: "Why are padding and truncation both unsatisfying rather than merely inconvenient?", a: "Padding injects fake zeros that the network must learn to distinguish from real zero-valued features — it wastes capacity on bookkeeping and can still leak signal. Truncation discards data outright, which is fatal when the decisive information sits at the end of a long sequence. Neither addresses the cause: length is hardcoded in the weight matrix." },
+  { q: "State the 'no state' failure precisely.", a: "An MLP's forward pass is a pure function of its current input — there is no variable that persists from one position to the next and no path by which position t's computation can influence position t+1's. Memory is not weak in an MLP; it is architecturally absent." },
+  { q: "How does the position-specific-weights problem show up in practice?", a: "The word 'not' negating what follows must be learned separately for position 3, position 27, and every other position, because each feeds a different column of the weight matrix. The model needs vastly more data, and it still fails on any position combination the training set did not cover." },
+  { q: "Would a much larger MLP fix any of this?", a: "No. All three failures are structural properties of the architecture, not limits on capacity. More parameters give more ways to memorise position-specific patterns; they do not create a state channel, do not remove the fixed input dimension, and do not share weights across positions." },
+]} />
 
 <MultiSelectQuiz
   question="Which of these limitations does a plain MLP have when applied to sequential data?"
