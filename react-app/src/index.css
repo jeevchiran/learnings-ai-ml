@@ -710,7 +710,13 @@ button { font-family: inherit; }
 .module-mdx pre code { background: none; padding: 0; }
 .module-mdx ul, .module-mdx ol { padding-left: 20px; margin: 8px 0; }
 .module-mdx li { margin: 4px 0; }
-.module-mdx table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.875rem; }
+/* Confines a wide table's horizontal scroll to the table itself. The margin
+   lives here, not on the table, so wrapping doesn't double the spacing. */
+.module-mdx .table-scroll { overflow-x: auto; margin: 16px 0; }
+
+/* width:100% fills the wrapper when the table fits; auto table-layout still
+   pushes past it at min-content width when it doesn't, which is what scrolls. */
+.module-mdx table { border-collapse: collapse; width: 100%; margin: 0; font-size: 0.875rem; }
 .module-mdx th, .module-mdx td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
 .module-mdx th { background: var(--bg-hover); font-weight: 600; }
 

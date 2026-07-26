@@ -19,6 +19,14 @@ const components = {
   QuizCard,
   MultiSelectQuiz,
   Recall,
+  // Wide tables (up to 10 cols in this content) must scroll inside themselves,
+  // otherwise the whole content column drags sideways on a phone and takes the
+  // body text with it.
+  table: (props) => (
+    <div className="table-scroll">
+      <table {...props} />
+    </div>
+  ),
   // Override <code> inside <pre> to use CodeBlock
   pre: ({ children }) => children,
   code: (props) => {
