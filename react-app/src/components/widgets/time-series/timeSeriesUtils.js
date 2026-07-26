@@ -187,6 +187,93 @@ export function acfSignificance(n) {
   return 1.96 / Math.sqrt(n);
 }
 
+// Partial autocorrelation via the Levinson-Durbin recursion on the sample ACF.
+// pacf[k] is the last coefficient of the best AR(k) fit — i.e. lag k's *direct*
+// contribution with lags 1..k-1 already accounted for. Cuts off after p for AR(p).
+export function pacf(y, maxLag) {
+  const r = acf(y, maxLag);
+  const out = [1];
+  let phi = [];
+  for (let k = 1; k <= maxLag; k++) {
+    let num = r[k], den = 1;
+    for (let j = 0; j < k - 1; j++) {
+      num -= phi[j] * r[k - 1 - j];
+      den -= phi[j] * r[j + 1];
+    }
+    const phikk = Math.abs(den) < 1e-12 ? 0 : num / den;
+    const next = [];
+    for (let j = 0; j < k - 1; j++) next.push(phi[j] - phikk * phi[k - 2 - j]);
+    next.push(phikk);
+    phi = next;
+    out.push(phikk);
+  }
+  return out;
+}
+
+// ── SARIMA simulation ──────────────────────────────────────────────────────
+// One simulator covers the whole family: AR (phi), MA (theta), ARMA (both),
+// ARIMA (+d), SARIMA (+seasonal blocks and D). The multiplicative seasonal form
+// φ(B)Φ(B^m)·w_t = θ(B)Θ(B^m)·ε_t is handled by literally multiplying out the
+// two polynomials and simulating the resulting plain ARMA, then integrating.
+function polyMul(a, b) {
+  const out = new Array(a.length + b.length - 1).fill(0);
+  for (let i = 0; i < a.length; i++) for (let j = 0; j < b.length; j++) out[i + j] += a[i] * b[j];
+  return out;
+}
+
+// Coefficients at lags m, 2m, ... ; sign is -1 for AR polynomials, +1 for MA.
+function seasonalPoly(coefs, m, sign) {
+  const out = new Array(coefs.length * m + 1).fill(0);
+  out[0] = 1;
+  coefs.forEach((c, k) => { out[(k + 1) * m] = sign * c; });
+  return out;
+}
+
+function integrate(w, start = 0) {
+  let acc = start;
+  return w.map(v => (acc += v));
+}
+
+function seasonalIntegrate(w, m) {
+  const out = [];
+  for (let i = 0; i < w.length; i++) out.push(w[i] + (out[i - m] ?? 0));
+  return out;
+}
+
+// ponytail: no stationarity/invertibility check on the coefficients — callers
+// pass slider values already restricted to sane ranges. Add a unit-root check
+// here if these ever get fed arbitrary user input.
+export function simulateSARIMA({
+  n = 200, phi = [], theta = [], sphi = [], stheta = [],
+  d = 0, D = 0, m = 12, sigma = 1, level = 0, seed = 3, burn = 120,
+} = {}) {
+  const rand = makeRng(seed);
+  const arPoly = polyMul([1, ...phi.map(v => -v)], seasonalPoly(sphi, m, -1));
+  const maPoly = polyMul([1, ...theta], seasonalPoly(stheta, m, 1));
+
+  const total = n + burn;
+  const eps = Array.from({ length: total }, () => randn(rand) * sigma);
+  const w = new Array(total).fill(0);
+  for (let t = 0; t < total; t++) {
+    let v = eps[t];
+    for (let j = 1; j < maPoly.length; j++) if (t - j >= 0) v += maPoly[j] * eps[t - j];
+    for (let j = 1; j < arPoly.length; j++) if (t - j >= 0) v -= arPoly[j] * w[t - j];
+    w[t] = v;
+  }
+
+  let y = w.slice(burn);
+  for (let k = 0; k < D; k++) y = seasonalIntegrate(y, m);
+  for (let k = 0; k < d; k++) y = integrate(y);
+
+  return {
+    t: y.map((_, i) => i),
+    y: y.map(v => v + level),
+    eps: eps.slice(burn),
+    arPoly,
+    maPoly,
+  };
+}
+
 // ── Yule-Walker AR(p) fit + multi-step forecast with growing PI ──
 function solveLinear(A, b) {
   // Gaussian elimination with partial pivoting, A is p×p, b is length p
@@ -262,5 +349,37 @@ export function forecastAR(y, model, h, z = 1.96) {
     lower: point.map((v, i) => v - halfWidth[i]),
     upper: point.map((v, i) => v + halfWidth[i]),
     halfWidth,
+  };
+}
+
+// ARIMA(p,d,0): difference d times, fit AR on the stationary series, forecast,
+// then integrate the forecast back onto the original scale. Each integration
+// step also cumulatively sums the psi-weights, which is why an ARIMA band fans
+// out far faster than a stationary AR band.
+export function forecastARIMA(y, { p = 1, d = 0, h = 12, z = 1.96 } = {}) {
+  const anchors = [];         // last value of each intermediate differenced series
+  let w = y;
+  for (let k = 0; k < d; k++) { anchors.push(w[w.length - 1]); w = difference(w, 1); }
+
+  const model = fitAR(w, p);
+  let point = forecastAR(w, model, h, z).point;
+  let psi = psiWeights(model.phi, h);
+
+  for (let k = d - 1; k >= 0; k--) {
+    let acc = anchors[k];
+    point = point.map(v => (acc += v));
+    let s = 0;
+    psi = psi.map(v => (s += v));
+  }
+
+  let cum = 0;
+  const halfWidth = psi.map(v => { cum += v * v; return z * Math.sqrt(model.sigma2 * cum); });
+
+  return {
+    point,
+    lower: point.map((v, i) => v - halfWidth[i]),
+    upper: point.map((v, i) => v + halfWidth[i]),
+    halfWidth,
+    model,
   };
 }

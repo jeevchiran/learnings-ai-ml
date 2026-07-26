@@ -1,10 +1,12 @@
 import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import ARForecastWidget from '../../components/widgets/time-series/ARForecastWidget.jsx'
+import ACFPACFWidget from '../../components/widgets/time-series/ACFPACFWidget.jsx'
+import MAProcessWidget from '../../components/widgets/time-series/MAProcessWidget.jsx'
 
 <ConceptBox title="TL;DR">
-- AR(p) is linear regression of the series **on its own past**. It needs the stationarity from Module 4, since the $\phi_i$ are assumed fixed over time.
-- **Read $p$ off the PACF's cutoff**, not the ACF's — the ACF decays gradually for any AR order and can't tell you $p$.
-- The family is one idea with add-ons: AR (past values) + MA (past errors) + $d$ (differencing) + seasonal block = SARIMA.
+- AR(p) is linear regression of the series **on its own past values**. MA(q) is a weighted sum of the last $q$ **shocks**. Both need the stationarity from Module 4, since the coefficients are assumed fixed over time.
+- **Read $p$ off the PACF's cutoff and $q$ off the ACF's cutoff.** The cutoff swaps panels depending on which family you're in — that asymmetry is the whole identification rule.
+- AR memory decays forever; MA memory stops dead after $q$ lags. That difference is *why* the cutoffs land where they do.
 - **A prediction interval is not a confidence interval.** The PI includes one future point's own noise, so it is wider and it grows with the horizon.
 </ConceptBox>
 
@@ -33,17 +35,46 @@ This is $p$ equations, $p$ unknowns — a Toeplitz linear system in $\rho_0,\dot
 </DerivationStep>
 </DerivationSteps>
 
-## The AR Family
+## The Other Half of the Family: MA(q)
 
-| Model | Adds | Use when |
-|---|---|---|
-| **AR(p)** | past *values* | ACF decays, PACF cuts off |
-| **MA(q)** | past *forecast errors* | ACF cuts off, PACF decays |
-| **ARMA(p,q)** | both | mixed decay in both ACF and PACF |
-| **ARIMA(p,d,q)** | + differencing ($d$) | same as ARMA but on a non-stationary series, differenced $d$ times first |
-| **SARIMA** | + seasonal terms | ARIMA plus a seasonal $(P,D,Q,m)$ block |
+AR looks backward at past *values*. **MA(q)** looks backward at past *shocks* — the random errors that hit the series:
 
-Everything in this family reduces to the same idea: model the *stationary* part with AR/MA terms, and let $d$ (and the seasonal $D$) handle getting there.
+$$y_t = \mu + \varepsilon_t + \theta_1\varepsilon_{t-1} + \theta_2\varepsilon_{t-2} + \cdots + \theta_q\varepsilon_{t-q}, \qquad \varepsilon_t \sim \mathcal{N}(0,\sigma^2)$$
+
+In words: today's value is the average level plus today's surprise plus a fading echo of the last $q$ surprises. The name is unfortunate — this is *not* the moving-average smoother from Module 2. Here it's a moving window over **shocks**, not over observations.
+
+<ConceptBox title="Common confusion — 'how can I regress on errors I never observe?'">
+You don't observe the $\varepsilon_t$, which is why MA models can't be fit by ordinary least squares the way AR models can. Fitting is iterative: guess $\theta$, run the series through to *infer* the implied residuals, score the likelihood, repeat. `statsmodels` does this for you with maximum likelihood — but it's the reason MA fits are slower and occasionally fail to converge, while a Yule-Walker AR fit is a one-shot linear solve.
+</ConceptBox>
+
+<ConceptBox title="Finite memory vs. infinite memory — the key contrast">
+A shock at time $t$ affects an MA(q) series at $t, t+1, \dots, t+q$ and then **exactly nothing** afterwards. In an AR(p), that same shock feeds into $y_{t+1}$, which feeds into $y_{t+2}$, and so on forever — decaying geometrically but never reaching zero.
+
+This is the mechanism behind the identification rule below. Two observations more than $q$ apart in an MA(q) share *no shocks at all*, so their correlation is genuinely zero → **the ACF cuts off at lag q**. In an AR process, every pair shares some history, so the ACF only ever tapers.
+</ConceptBox>
+
+<MAProcessWidget />
+
+**Invertibility** is MA's counterpart to stationarity: if $|\theta| < 1$ (for MA(1)), the process can be rewritten as an infinite AR, which is what lets a finite history pin down the unobserved shocks. Non-invertible parameters give a model that fits equally well but can't be estimated uniquely — `statsmodels` will quietly return the invertible twin.
+
+## Reading ACF and PACF Together
+
+This is the **Box–Jenkins identification step**, and it's the single most useful table in classical forecasting:
+
+| Pattern | ACF | PACF | Conclusion |
+|---|---|---|---|
+| **AR(p)** | decays (geometric or damped-sine) | **cuts off after lag p** | read $p$ off the PACF |
+| **MA(q)** | **cuts off after lag q** | decays | read $q$ off the ACF |
+| **ARMA(p,q)** | decays | decays | neither cuts off — pick the order by AIC |
+| **Non-stationary** | decays *very* slowly, stays high | lag-1 spike near 1 | difference first (Module 4), then re-read |
+
+Switch between the processes below and watch the cutoff jump from one panel to the other:
+
+<ACFPACFWidget />
+
+<ConceptBox title="Common confusion — 'cuts off' vs 'decays'">
+*Cuts off* means the bars fall inside the $\pm 1.96/\sqrt{n}$ band and **stay** there. *Decays* means they shrink gradually while remaining significant for several lags. On real data the distinction is rarely crisp — treat ACF/PACF as a shortlist generator (a few candidate orders), then let AIC pick the winner. Trusting the plots alone is how people end up over-fitting a spurious lag-7 spike.
+</ConceptBox>
 
 ## Confidence Interval vs. Prediction Interval
 
@@ -71,6 +102,24 @@ forecast = pred.predicted_mean
 ci = pred.conf_int(alpha=0.05)            # 95% prediction interval, widens with horizon
 ```
 
+For an MA or a mixed model, use the general `ARIMA` interface — `order=(p, d, q)` with `d=0` is exactly ARMA:
+
+```python
+import matplotlib.pyplot as plt
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from statsmodels.tsa.arima.model import ARIMA
+
+fig, ax = plt.subplots(1, 2, figsize=(11, 3))
+plot_acf(y, lags=24, ax=ax[0])            # cutoff here -> q
+plot_pacf(y, lags=24, method='ywm', ax=ax[1])   # cutoff here -> p
+
+ma = ARIMA(y, order=(0, 0, 1)).fit()      # MA(1)
+arma = ARIMA(y, order=(1, 0, 1)).fit()    # ARMA(1,1)
+print(ma.aic, arma.aic)                   # lower AIC wins
+```
+
+Adding $d$ and the seasonal block to that same `order` argument is all that separates this from ARIMA and SARIMA — which is Module 6.
+
 ## Practice
 
 **Problem 1.** PACF cuts off sharply after lag 2; ACF decays gradually. What order AR model, and why not check ACF's cutoff instead?
@@ -81,8 +130,13 @@ ci = pred.conf_int(alpha=0.05)            # 95% prediction interval, widens with
 
 **Solution:** [48, 52] is the CI (uncertainty in the estimated mean level only); [40, 60] is the PI (adds the actual noise variance of a single future draw) — the PI is always the wider one.
 
+**Problem 3.** The ACF has one big spike at lag 1 and nothing significant after it; the PACF tapers off over five or six lags. Which model, and what does that say about how long a shock survives?
+
+**Solution:** MA(1). A shock affects only today and tomorrow, then vanishes completely — which is exactly why observations two or more steps apart share no shocks and the ACF is flat beyond lag 1.
+
 <Recall items={[
   { q: "ACF and PACF both exist. Which one gives you p, which gives you q, and why the asymmetry?", a: "PACF cutoff gives AR order p; ACF cutoff gives MA order q. An AR process propagates influence indirectly through intermediate lags, so its plain ACF decays gradually — only the PACF, which strips out those intermediate effects, shows a clean cutoff. An MA(q) process has genuinely zero correlation beyond lag q, so its ACF cuts off directly." },
+  { q: "Why can an AR model be fit with a one-shot linear solve while an MA model needs iterative optimisation?", a: "AR regresses on past VALUES, which are observed, so the normal equations (Yule-Walker) are a plain linear system. MA regresses on past SHOCKS, which are never observed — the residuals depend on the very theta you are trying to estimate, so fitting has to alternate between inferring residuals and updating theta via maximum likelihood." },
   { q: "Explain CI vs PI to a stakeholder in two sentences.", a: "The confidence interval says where the average level is likely to sit; the prediction interval says where next month's actual number is likely to land. The second is wider because a single real observation also carries its own random noise, not just our uncertainty about the average." },
   { q: "Your 12-month-ahead forecast band is enormous. Is the model broken?", a: "Not necessarily — that is expected behaviour. h-step forecast variance is sigma^2 times the sum of squared psi-weights, so each extra step compounds fresh error into the band. A wide long-horizon PI is honest uncertainty; a suspiciously narrow one is the thing to distrust." },
   { q: "What does the d in ARIMA(p,d,q) actually do, and where does it come from?", a: "It is the number of times the series was differenced to reach stationarity before AR and MA terms were fit — determined in Module 4 by differencing until ADF passes. ARIMA is just ARMA applied to that differenced series, with the forecasts integrated back up to the original scale." },

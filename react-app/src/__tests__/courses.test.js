@@ -6,8 +6,8 @@ describe('courses data', () => {
     expect(courses).toHaveLength(16)
   })
 
-  it('has 146 modules total', () => {
-    expect(allModules).toHaveLength(146)
+  it('has 147 modules total', () => {
+    expect(allModules).toHaveLength(147)
   })
 
   it('every module has required fields', () => {

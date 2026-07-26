@@ -277,7 +277,7 @@ export const courses = [
   {
     id: 'time-series',
     title: 'Time Series Forecasting',
-    description: '5 interactive modules from trend/seasonality decomposition to exponential smoothing, stationarity/ADF, and autoregressive models — with a live decomposer, forecast-method comparisons, tunable Holt-Winters, ACF explorer, and an AR forecaster showing prediction intervals widen with horizon.',
+    description: '6 interactive modules from trend/seasonality decomposition to exponential smoothing, stationarity/ADF, and the full AR/MA/ARMA/ARIMA/SARIMA family — with a live decomposer, tunable Holt-Winters, an ACF/PACF identification lab, an MA shock explorer, an AR forecaster showing intervals widen with horizon, and an ARIMA/SARIMA builder.',
     color: '#0369a1',
     trackPath: 'time-series',
     modules: [
@@ -285,7 +285,8 @@ export const courses = [
       { id: 'ts-m2',   title: 'Simple Forecasting Models & RMSE',                  file: 'ts-m2.html',   description: 'Naive, mean, and moving-average baselines, RMSE, and why time-series splits must stay chronological.', readTime: 13 },
       { id: 'ts-m3',   title: 'Exponential Smoothing — SES, Holt, Holt-Winters',   file: 'ts-m3.html',   description: 'Level/trend/seasonal smoothing equations, picking the right variant, and fitting α/β/γ by minimizing error.', readTime: 16 },
       { id: 'ts-m4',   title: 'Stationarity — Tests & Autocorrelation',            file: 'ts-m4.html',   description: 'What stationarity means, the ADF test, differencing/log fixes, and reading the ACF.', readTime: 16 },
-      { id: 'ts-m5',   title: 'Autoregressive Models & Forecast Intervals',        file: 'ts-m5.html',   description: 'AR(p), the AR/MA/ARIMA family, Yule-Walker fitting, and confidence vs. prediction intervals.', readTime: 17 },
+      { id: 'ts-m5',   title: 'Autoregressive Models & Forecast Intervals',        file: 'ts-m5.html',   description: 'AR(p) and MA(q), Yule-Walker fitting, ACF/PACF identification, and confidence vs. prediction intervals.', readTime: 22 },
+      { id: 'ts-m6',   title: 'ARMA, ARIMA & SARIMA',                              file: 'ts-m6.html',   description: 'Backshift notation, folding differencing into the model, the multiplicative seasonal block, and the Box-Jenkins loop.', readTime: 22 },
       { id: 'ts-quiz', title: 'Track Quiz — Time Series Forecasting',              file: 'ts-quiz.html', description: '13 questions — decomposition, baselines/RMSE, smoothing parameters, stationarity/ADF, and AR intervals.', readTime: 20 },
     ],
   },

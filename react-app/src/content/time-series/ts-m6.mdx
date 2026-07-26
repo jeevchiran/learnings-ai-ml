@@ -1,0 +1,188 @@
+import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ARIMAIntegrationWidget from '../../components/widgets/time-series/ARIMAIntegrationWidget.jsx'
+import SARIMAWidget from '../../components/widgets/time-series/SARIMAWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- **ARMA(p,q)** = AR terms + MA terms on an already-stationary series. **ARIMA(p,d,q)** = the same model fit to the $d$-times-differenced series, with forecasts integrated back up. **SARIMA(p,d,q)(P,D,Q)$_m$** = ARIMA plus a second copy of the same machinery operating at lag $m$.
+- The backshift operator turns all four into one line: $\phi(B)\Phi(B^m)\,\nabla^d\nabla_m^D\, y_t = \theta(B)\Theta(B^m)\,\varepsilon_t$.
+- The seasonal block **multiplies** rather than adds — which is why SARIMA(1,0,0)(1,0,0)$_{12}$ secretly contains a lag-**13** term nobody typed.
+- Box–Jenkins is a loop, not a formula: identify → estimate → **diagnose the residuals** → forecast. If the residuals aren't white noise, there's signal you haven't modelled yet.
+</ConceptBox>
+
+## Why This Module Exists
+
+Module 5 left you with two ingredients (AR and MA) and one precondition (stationarity, from Module 4). Real series rarely arrive stationary and rarely have pure-AR or pure-MA structure. This module is the assembly: how differencing folds into the model instead of sitting outside it, and how the whole apparatus gets duplicated at the seasonal lag.
+
+## ARMA(p,q) — Both Halves at Once
+
+$$y_t = c + \underbrace{\phi_1 y_{t-1} + \cdots + \phi_p y_{t-p}}_{\text{AR: past values}} + \varepsilon_t + \underbrace{\theta_1 \varepsilon_{t-1} + \cdots + \theta_q \varepsilon_{t-q}}_{\text{MA: past shocks}}$$
+
+Why mix? Because a pure AR often needs a long lag list to capture what one MA term expresses cheaply, and vice versa. A tidy ARMA(1,1) frequently beats an AR(8) with the same fit and a quarter of the parameters — and every parameter you don't estimate is variance you don't pay for.
+
+<ConceptBox title="The backshift operator — notation that earns its keep">
+Define $B$ by $B y_t = y_{t-1}$ (so $B^k y_t = y_{t-k}$). Then ARMA is:
+
+$$\underbrace{(1 - \phi_1 B - \cdots - \phi_p B^p)}_{\phi(B)}\, y_t = \underbrace{(1 + \theta_1 B + \cdots + \theta_q B^q)}_{\theta(B)}\, \varepsilon_t$$
+
+This isn't decoration. Once the model is two polynomials, "difference the series" is just *multiply by another polynomial* $(1-B)$, and "add a seasonal block" is *multiply by a polynomial in $B^m$*. Everything below is that one move, repeated.
+</ConceptBox>
+
+## ARIMA(p,d,q) — Folding Differencing Into the Model
+
+The differencing operator is $\nabla y_t = y_t - y_{t-1} = (1-B)y_t$. ARIMA says: apply it $d$ times, fit ARMA to the result.
+
+$$\phi(B)\,(1-B)^d\, y_t = \theta(B)\,\varepsilon_t$$
+
+The **I** stands for *integrated* — the series you model is the differenced one, so the forecasts come out as forecasts of *changes* and have to be cumulatively summed ("integrated") back onto the original scale.
+
+<ARIMAIntegrationWidget />
+
+<ConceptBox title="Common confusion — 'why not just difference it myself and fit ARMA?'">
+You can, and you'd get the same point forecasts. What you'd lose is everything downstream: `statsmodels` integrates the forecasts back to the original units for you, and — more importantly — it propagates the prediction interval through that integration. Each integration step **cumulatively sums the $\psi$-weights**, which is why an ARIMA band fans out far faster than a stationary AR band. Hand-differencing and forgetting to re-integrate the variance is a classic way to publish an absurdly confident long-horizon forecast.
+</ConceptBox>
+
+<ConceptBox title="Models you already know, in ARIMA clothing">
+| ARIMA order | Equivalent to |
+|---|---|
+| ARIMA(0,0,0) | white noise |
+| ARIMA(0,1,0) | the random walk — i.e. Module 2's naive forecast |
+| ARIMA(0,1,1) | simple exponential smoothing (Module 3) |
+| ARIMA(0,2,2) | Holt's linear trend method |
+| ARIMA(p,0,q) | plain ARMA — no differencing needed |
+
+Exponential smoothing and ARIMA are not rival camps; a good chunk of the smoothing family sits *inside* the ARIMA family as special cases.
+</ConceptBox>
+
+## SARIMA — The Same Machinery, One Season Apart
+
+Write it $\text{SARIMA}(p,d,q)(P,D,Q)_m$. Lowercase letters act at lags $1,2,3\dots$; uppercase letters act at lags $m, 2m, 3m\dots$; $m$ is the season length (12 monthly, 4 quarterly, 7 daily-with-weekly-cycle).
+
+$$\phi(B)\,\Phi(B^m)\,(1-B)^d(1-B^m)^D\, y_t = \theta(B)\,\Theta(B^m)\,\varepsilon_t$$
+
+<DerivationSteps>
+<DerivationStep number={1} title="Take the simplest seasonal model: SARIMA(1,0,0)(1,0,0)₁₂">
+$$(1 - \phi B)(1 - \Phi B^{12})\, y_t = \varepsilon_t$$
+Two AR polynomials, one at lag 1 and one at lag 12.
+</DerivationStep>
+<DerivationStep number={2} title="Multiply the polynomials out">
+$$(1 - \phi B - \Phi B^{12} + \phi\Phi B^{13})\, y_t = \varepsilon_t$$
+The cross-term $\phi\Phi B^{13}$ appears from nowhere — it's the product of the two, not something you specified.
+</DerivationStep>
+<DerivationStep number={3} title="Read it back as an equation for y_t">
+$$y_t = \phi\, y_{t-1} + \Phi\, y_{t-12} - \phi\Phi\, y_{t-13} + \varepsilon_t$$
+Two typed parameters, **three** lags used. That lag-13 term is the multiplicative structure doing real work: "last month, adjusted for how last January compared to the December before it."
+</DerivationStep>
+</DerivationSteps>
+
+<ConceptBox title="Common confusion — the seasonal block multiplies, it doesn't add">
+People read $(P,D,Q)$ as "some extra lags bolted on" and expect SARIMA(1,0,0)(1,0,0)₁₂ to have exactly two terms. It has three, and the third is *not* free to vary — its coefficient is forced to be $-\phi\Phi$. That constraint is a feature: it encodes "the seasonal effect and the short-run effect interact" using no extra parameters. If you genuinely want an unconstrained lag-13 coefficient, you need an additive model, not a multiplicative one.
+</ConceptBox>
+
+<SARIMAWidget />
+
+<ConceptBox title="Choosing D and d — the order matters">
+Difference **seasonally first** ($D$), then check whether you still need a regular difference ($d$). Seasonal differencing often removes trend as a side effect, so doing it in this order frequently saves you a $d$. Rules of thumb that hold up in practice: $D \le 1$, $d + D \le 2$, and never both unless the series clearly still drifts after the seasonal difference. Every extra difference costs you an observation at the front and injects noise.
+</ConceptBox>
+
+## The Box–Jenkins Loop
+
+<DerivationSteps>
+<DerivationStep number={1} title="Identify — stationarity, then order">
+Plot the series. Log/Box-Cox if the variance grows. Difference (seasonally first) until ADF passes — that fixes $d$ and $D$. Then read candidate $(p,q)$ and $(P,Q)$ off the ACF/PACF of the *differenced* series (Module 5's table).
+</DerivationStep>
+<DerivationStep number={2} title="Estimate — fit the shortlist, compare by AIC">
+$$\text{AIC} = 2k - 2\ln \hat L$$
+$k$ = number of parameters, $\hat L$ = maximised likelihood. Lower is better: it rewards fit and fines complexity. **Only compare AIC across models fit to the same $d$ and $D$** — differencing changes the data, so the likelihoods aren't on the same scale. BIC ($k\ln n - 2\ln\hat L$) penalises harder and picks smaller models.
+</DerivationStep>
+<DerivationStep number={3} title="Diagnose — the residuals must be white noise">
+This is the step people skip and the one that catches real errors. Residual ACF should sit inside the band at every lag; the **Ljung–Box test** formalises it (null: "residuals are independent", so here a *high* p-value is the good news). A significant leftover spike at lag 12 means the seasonal block is misspecified — go back to step 1, don't ship it.
+</DerivationStep>
+<DerivationStep number={4} title="Forecast — with intervals, on the original scale">
+Only after diagnostics pass. Report the prediction interval, not just the point forecast, and remember it widens with horizon (Module 5).
+</DerivationStep>
+</DerivationSteps>
+
+## In Python
+
+```python
+import numpy as np
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+from statsmodels.stats.diagnostic import acorr_ljungbox
+
+# SARIMA(1,1,1)(1,1,1)_12 on monthly data
+model = SARIMAX(y, order=(1, 1, 1), seasonal_order=(1, 1, 1, 12),
+                enforce_stationarity=True, enforce_invertibility=True).fit(disp=False)
+print(model.summary())
+print('AIC', model.aic, 'BIC', model.bic)
+
+# Step 3: diagnose BEFORE trusting the forecast
+lb = acorr_ljungbox(model.resid, lags=[12, 24], return_df=True)
+print(lb)                 # want p-values > 0.05 -> residuals look like white noise
+model.plot_diagnostics(figsize=(10, 6))
+
+# Step 4: forecast on the original scale, with the interval
+fc = model.get_forecast(steps=24)
+mean, ci = fc.predicted_mean, fc.conf_int(alpha=0.05)
+```
+
+Grid-searching the orders by hand is tedious; `pmdarima.auto_arima(y, seasonal=True, m=12)` walks the AIC surface for you. Treat its answer as a strong candidate, not a verdict — it still can't run step 3 for you.
+
+## Practice
+
+**Problem 1.** Monthly sales, clearly trending, with a strong December peak. ADF fails on the raw series and still fails after one regular difference. What do you try, and in what order?
+
+**Solution:** Seasonally difference first ($D=1$, lag 12) — that usually kills the December pattern and often flattens the trend too. Re-run ADF. Only if it still fails add $d=1$ on top. Stop at $d+D \le 2$.
+
+**Problem 2.** Write out SARIMA(0,0,1)(0,0,1)₁₂ as an explicit equation in the shocks.
+
+**Solution:** $(1+\theta B)(1+\Theta B^{12})\varepsilon_t$ expands to $y_t = \varepsilon_t + \theta\varepsilon_{t-1} + \Theta\varepsilon_{t-12} + \theta\Theta\varepsilon_{t-13}$ — again a lag-13 term with a coefficient locked to the product.
+
+**Problem 3.** Model A: AIC 412, fit with $d=1$. Model B: AIC 388, fit with $d=0$. Is B better?
+
+**Solution:** You can't tell — the comparison is invalid. Different $d$ means different data underneath the likelihood. Refit both at the same differencing order, then compare.
+
+**Problem 4.** Residual Ljung–Box p-value at lag 12 is 0.002. What does it mean and what do you do?
+
+**Solution:** Reject independence — there's structure left in the residuals at the seasonal lag. The forecast intervals are too narrow and the point forecasts are biased. Go back and add or fix the seasonal terms ($P$ or $Q$), don't ship it.
+
+<Recall items={[
+  { q: "Expand SARIMA(1,0,0)(1,0,0)_12 into an explicit equation. How many lags appear, and how many parameters were typed?", a: "y_t = phi*y_{t-1} + Phi*y_{t-12} - phi*Phi*y_{t-13} + eps_t. Three lags appear from two typed parameters, because the seasonal block multiplies rather than adds — the lag-13 cross term's coefficient is forced to be minus the product." },
+  { q: "What does the I in ARIMA actually do to the prediction interval, not just the point forecast?", a: "Integrating the forecast back to the original scale cumulatively sums the psi-weights, so the forecast-error variance accumulates far faster than in a stationary ARMA. That is why an ARIMA band fans out steeply with horizon — and why hand-differencing without re-integrating the variance produces forecasts that look absurdly confident." },
+  { q: "Two SARIMA fits report AIC 340 (d=1, D=1) and AIC 295 (d=0, D=1). Which wins?", a: "Neither — the comparison is meaningless. AIC is only comparable across models fit to the same differenced data, and changing d changes the series the likelihood is computed on. Fix d and D by stationarity testing FIRST, then use AIC only to choose p, q, P, Q." },
+  { q: "Why is a HIGH Ljung-Box p-value on the residuals the good outcome?", a: "Its null hypothesis is that the residuals are independent — white noise, nothing left to model. Failing to reject means the model has extracted the structure. A low p-value says autocorrelation survives in the residuals, so there is signal you have not captured and the intervals are too narrow. Same inverted logic as ADF." },
+  { q: "Give the order in which you difference a trending seasonal series, and the reason.", a: "Seasonal difference first (D), then check whether a regular difference (d) is still needed. Seasonal differencing at lag m often removes the trend as a side effect, so doing it first frequently saves a difference — and every extra difference costs observations and adds noise." },
+]} />
+
+<QuizCard
+  question="SARIMA(1,0,0)(1,0,0)₁₂ is fit to monthly data. Which lags of y appear in the expanded equation?"
+  options={[
+    'Lags 1 and 12 only — one term per typed parameter',
+    'Lags 1, 12 and 13 — the multiplicative form generates a cross-term at lag 13',
+    'All lags from 1 to 12',
+    'Lag 12 only; the non-seasonal part applies to the residuals'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="A SARIMA model's residual Ljung–Box test returns p = 0.003 at lag 12. What is the right next step?"
+  options={[
+    'Ship it — a low p-value confirms the residuals are white noise',
+    'Increase the forecast horizon to average out the effect',
+    'Revisit the seasonal terms — autocorrelation survives in the residuals, so the model is misspecified',
+    'Switch to a confidence interval instead of a prediction interval'
+  ]}
+  correct={2}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the ARIMA/SARIMA family are correct? (Select all that apply.)"
+  options={[
+    'ARIMA(0,1,0) is the random walk, i.e. the naive forecast from Module 2',
+    'AIC may only be compared between models fit at the same d and D',
+    'The seasonal block multiplies the non-seasonal polynomials, generating cross-term lags',
+    'Seasonal differencing can remove a trend as a side effect, sometimes saving a regular difference',
+    'Once AIC picks the lowest-scoring model, residual diagnostics can be skipped'
+  ]}
+  correct={[0, 1, 2, 3]}
+/>
