@@ -1,0 +1,95 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import NegativeSamplingWidget from '../../components/widgets/recsys/NegativeSamplingWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Implicit data has positives only. **You invent the negatives**, and that invention is a modelling decision as consequential as the architecture.
+- **Uniform** negatives are easy and weak — almost every one is an obvious mismatch, so the model plateaus early.
+- **Popularity$^\beta$** ($\beta \approx 0.75$) is the reliable default: the model must learn to reject popular items for the *wrong* shopper.
+- **Hard negatives** (high-scoring non-interactions) are the most informative and the most dangerous, because many are **false negatives** — items the shopper simply never saw.
+- **In-batch** negatives are free and implicitly popularity-weighted, which is exactly why they need a **logQ correction**.
+</ConceptBox>
+
+## Why you have to make them up
+
+Aarav interacted with 4 products out of 9. That gives you 4 positive rows. To train anything discriminative you need to say what *not* to recommend — and nothing in the log says that. A non-interaction can mean "disliked", "never shown", or "bought it in a shop last week".
+
+So you sample. The distribution you sample from determines what the model learns to distinguish, and that is the whole lesson of this module.
+
+<NegativeSamplingWidget />
+
+## The four strategies
+
+### Uniform
+
+Draw any catalog item with equal probability. One line of code, and a weak training signal: with a million products, a random negative is almost always absurd. The model quickly learns "is this even in the right category?" and then stops improving, because it is never asked a hard question.
+
+There is a second problem visible in the widget: the cold ANC Headphones, with zero interactions, still absorb 11% of the negative mass. You are spending gradient budget teaching the model to reject a product nobody has ever been shown.
+
+### Popularity$^\beta$
+
+$$P(\text{sample } i \text{ as negative}) = \frac{\text{pop}(i)^\beta}{\sum_j \text{pop}(j)^\beta}$$
+
+$\beta = 0$ is uniform; $\beta = 1$ is popularity-proportional. **$\beta = 0.75$** — from word2vec, and it transferred to recommenders for the same reason — sits between them.
+
+The justification is the one thing about negative sampling worth memorising: **popular items are shown to everyone, so they are the items the model must learn to reject for the wrong shopper.** A negative that would never have been shown teaches nothing. Push $\beta$ past 1 in the widget and you sample almost nothing but the head — the tail never gets a decision boundary at all.
+
+### Hard negatives
+
+Items the *current* model scores highly but the shopper did not take. Maximum information per sample, and a live grenade:
+
+<ConceptBox title="Why hard negatives are dangerous">
+Your model ranks the Keyboard #2 for Bhavna. She did not buy it. Is that because she does not want it — or because she never scrolled past position 1?
+
+Mine hard negatives from the **catalog** and you will repeatedly punish correct recommendations, teaching the model that its best predictions are wrong. Mine them from **impressions** — items actually rendered on a page she viewed — and a non-click is real evidence.
+
+The standard compromise is a **mixture**: mostly popularity-sampled negatives plus a small fraction (5–20%) of hard ones, often with a similarity ceiling so you never sample something *too* close to the positive. Pure hard-negative training is notoriously unstable.
+</ConceptBox>
+
+### In-batch negatives
+
+Take a training batch of (user, positive-item) pairs. For each user, use the *other* users' positives as negatives. Free — no sampling, no extra lookups, and it turns one batch into a full softmax over $B$ items.
+
+The catch is subtle and important. An item appears in a batch in proportion to how often it is somebody's positive — that is, in proportion to its **popularity**. So in-batch sampling is silently $\beta=1$, and the model over-penalises popular items. The fix is the **logQ correction**: subtract $\log P(i)$ from each logit before the softmax.
+
+$$s'_{ui} = x_u^\top y_i - \log P(i)$$
+
+Every production two-tower implementation does this. Skipping it is one of the most common reasons a two-tower model underperforms ALS.
+
+## How many?
+
+| Setting | Typical ratio |
+|---|---|
+| BPR / pairwise | 1 negative per positive, resampled each epoch |
+| Pointwise ranker | 4–10 per positive |
+| Two-tower, in-batch | Batch size − 1 (so batch size *is* the negative count) |
+| Sampled softmax | 1,000–10,000 per positive |
+
+More negatives is generally better and eventually stops paying. Note that in two-tower training, **batch size stops being just a throughput knob** — it directly controls how many negatives each positive is contrasted against, so a smaller batch is a weaker model, not merely a slower one.
+
+<ConceptBox title="Common confusion — negatives are not the same as unobserved cells in ALS">
+ALS (module 8) does not *sample* negatives. It sums over every cell of the matrix and weights unobserved ones with confidence 1. The Gram trick makes that affordable.
+
+Sampling exists for models where the full sum is not affordable — anything trained by SGD over a large catalog, i.e. essentially every neural recommender. Same problem (implicit data has no negatives), two different solutions: **weight them all** or **sample a few**.
+</ConceptBox>
+
+<Bridge>
+Every strategy so far reads the interaction matrix. For an item with no interactions at all, none of them can help — the last fundamental module fixes that.
+</Bridge>
+
+<Recall items={[
+  { q: "Why is β ≈ 0.75 popularity sampling a better default than uniform?", a: "Popular items are the ones actually shown to shoppers, so they are the items the model must learn to reject for the wrong shopper — that is where the useful decision boundary lies. Uniform negatives are mostly absurd mismatches that the model separates immediately and then learns nothing more from. β=0.75 tilts toward the head without collapsing onto it the way β=1 does." },
+  { q: "In-batch negatives are free. What bias do they introduce and what is the standard fix?", a: "An item appears in a batch in proportion to how often it is someone's positive, i.e. in proportion to popularity — so in-batch sampling is implicitly β=1 and the model over-penalises popular items. The fix is the logQ correction: subtract log P(i) from each logit before the softmax." },
+  { q: "What is a false negative in this context, and why do hard negatives produce so many of them?", a: "An item the shopper would have liked but never interacted with — usually because it was never shown. Hard negatives are by construction the items the model scores highest, which are disproportionately items the shopper never saw rather than items they rejected. Mining hard negatives from impressions instead of the catalog is what makes a non-click real evidence." },
+  { q: "Why does batch size stop being 'just a throughput knob' in two-tower training?", a: "With in-batch negatives, each positive is contrasted against the other B−1 items in the batch, so batch size directly sets the number of negatives per positive. Halving the batch halves the contrastive signal — the model gets weaker, not merely slower. This is why two-tower training pushes toward very large batches." },
+]} />
+
+<QuizCard
+  question="Your team switches from uniform to purely hard negatives (top-scoring non-interactions from the catalog). Training loss drops fast but online CTR falls. What is the most likely cause?"
+  options={[
+    'The learning rate needs to be reduced to match the harder examples',
+    'Many hard negatives are false negatives — items the shopper never saw — so the model is being trained that its own correct recommendations are wrong',
+    'Hard negatives require listwise loss to work',
+    'The negative-to-positive ratio must always be exactly 1:1'
+  ]}
+  correct={1}
+/>

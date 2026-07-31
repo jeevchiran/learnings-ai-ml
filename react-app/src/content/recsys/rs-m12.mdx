@@ -1,0 +1,101 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import MultiModalWidget from '../../components/widgets/recsys/MultiModalWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- A brand-new product has an empty column, so pure collaborative filtering scores it **exactly zero** — not badly, but not at all. It can never be shown, so it never warms up.
+- **Content and image embeddings break the loop**: a product photo and title place a new item near its neighbours before anyone has clicked it.
+- Fusion happens at one of three points: **early** (concatenate features), **late** (blend scores), or **hybrid** (content initialises the ID embedding, behaviour takes over).
+- The blend weight should be a **function of how much interaction data the item has**, not a constant.
+</ConceptBox>
+
+## The cold-start loop
+
+NovaCart lists the ANC Headphones. Zero views, zero carts, zero purchases.
+
+Item-item CF computes similarity from the interaction column, which is all zeros, so every cosine numerator is 0. The item cannot enter any top-k. Not being shown means not being interacted with, which keeps the column empty.
+
+**Nothing inside the interaction data can break this.** The escape has to come from outside it — and the product page is full of signal that has nothing to do with behaviour.
+
+## What a product actually carries
+
+| Modality | Source | What it captures |
+|---|---|---|
+| **Text** | Title, description, specs | Category, brand, function, materials |
+| **Image** | Product photo | Colour, shape, style — the things buyers respond to and never write down |
+| **Structured** | Price, brand, category, attributes | Cheap, exact, already in your catalog DB |
+| **Behavioural** | The interaction matrix | Cross-category patterns nothing else can see |
+
+Encode text with a sentence transformer, images with a vision encoder (CLIP gives you both in one shared space, which is why it became the default), and you have a vector for every product on the day it is listed.
+
+<MultiModalWidget />
+
+## The three fusion points
+
+**Early fusion — concatenate.** Feed content embeddings alongside ID embeddings into one ranker: `[user_emb ‖ item_id_emb ‖ text_emb ‖ image_emb ‖ price]`. The model learns the interaction between modalities. Most expressive, most data-hungry, and it degrades gracefully when `item_id_emb` is a fresh random vector because the other blocks still carry signal.
+
+**Late fusion — blend scores.** Run CF and a content model separately, then combine:
+
+$$\text{score}(u,i) = (1-w)\cdot\text{score}_{\text{CF}}(u,i) + w\cdot\text{score}_{\text{content}}(u,i)$$
+
+This is the widget's slider. Simple, debuggable, each side improvable independently. It cannot learn *interactions* between modalities — but it lets you set $w$ per item, which is the point below.
+
+**Hybrid — content initialises, behaviour takes over.** A new item's embedding starts as a projection of its content vector; as interactions arrive, the learned ID embedding is trained and gradually dominates. Best of both, most machinery.
+
+<ConceptBox title="The blend weight is not a constant">
+Slide the widget to pure content: the ranking becomes "more of the same aisle" — safe, obvious, and blind to the cross-category patterns only behaviour reveals. No product photo says *people who buy yoga mats also buy steel bottles*.
+
+Slide to pure behaviour: every new arrival is invisible.
+
+Neither endpoint is right, and neither is any fixed midpoint. Make $w$ a decreasing function of the item's interaction count:
+
+$$w_i = \frac{m}{m + n_i}$$
+
+with $n_i$ the item's interactions and $m$ a constant around 50. A brand-new item is fully content-driven ($w=1$); an item with 500 interactions is 9% content ($w \approx 0.09$). Each product migrates across the slider on its own schedule as it warms up. This is the same shrinkage formula as target encoding in module 10, doing the same job: trust the specific evidence in proportion to how much of it you have.
+</ConceptBox>
+
+## The four cold-starts
+
+They are different problems and people conflate them constantly:
+
+| Cold | Fix |
+|---|---|
+| **New item** | Content/image embeddings — this module |
+| **New user** | Popularity, then session-based recs from their first click; item-item CF works from click #1 |
+| **New user *and* item** | Popularity within the item's category, plus business rules |
+| **Systemic** (brand-new store) | You have no interaction data at all: content similarity and hand-curated rules until traffic accumulates |
+
+Note that new-*user* cold start is much easier than new-*item*, because item-item CF starts producing recommendations after a single interaction — which is exactly why it stays in production alongside fancier models.
+
+<ConceptBox title="Common confusion — content similarity is not relevance">
+cos(ANC Headphones, Earbuds) = 0.95 from title and photo alone. That says they are the **same kind of thing**. It does not say a shopper who bought earbuds wants headphones — they may well have just solved that problem.
+
+Content models are strong at **substitutes** ("more like this") and weak at **complements** ("goes with this"). Complements are almost pure behaviour: the laptop-stand-and-USB-hub relationship is invisible in the photos and obvious in the co-purchase data. Use content to cold-start and to fill "similar items"; use behaviour for "frequently bought together". Serving the wrong one is a visibly bad page.
+</ConceptBox>
+
+## Practical notes
+
+- **Precompute.** Encoding a photo takes ~50 ms — impossible in a request. Encode on catalog ingest, store the vector, refresh when the listing changes.
+- **Reuse the retrieval index.** Content vectors go into the same ANN index as behavioural vectors (module 8), so cold items are retrievable through the existing path with no new serving component.
+- **Watch for duplicates.** A strong image encoder will rank near-identical listings as maximally similar, producing a "similar items" row of the same product nine times. Deduplicate on the content vector itself before serving — cluster at cosine > 0.98 and keep one per cluster.
+
+<Bridge>
+That completes the fundamentals. Part 2 rebuilds all of it as a working pipeline, in the order you would actually write the code.
+</Bridge>
+
+<Recall items={[
+  { q: "Why is item cold-start a loop rather than a one-off gap, and what breaks it?", a: "An empty interaction column gives similarity exactly 0, so the item cannot enter a top-k; not being shown means not being interacted with, so the column stays empty. Nothing inside the interaction data can break it. Content and image embeddings come from outside that data — a photo and title place the item near neighbours before any click exists." },
+  { q: "Why should the content/behaviour blend weight vary per item instead of being tuned once?", a: "The right weight depends on how much behavioural evidence that specific item has. A brand-new item has none, so it should be fully content-driven; an item with 500 interactions has better evidence than any content model. Setting w = m/(m + n_i) makes each item migrate from content-driven to behaviour-driven as it warms — the same shrinkage logic as smoothed target encoding." },
+  { q: "Content similarity captures substitutes well and complements poorly. Give a concrete NovaCart example of each.", a: "Substitute: ANC Headphones and Earbuds — cos 0.95 from title and photo, both audio, and content nails it. Complement: Laptop Stand and USB-C Hub, or Yoga Mat and Steel Bottle — nothing in either photo says they go together, but co-purchase behaviour does. So use content for 'similar items' and behaviour for 'frequently bought together'." },
+  { q: "New-user cold start is easier than new-item cold start. Why?", a: "Item-item CF needs only the user's current interaction to produce recommendations — after a single click you can serve that item's precomputed neighbours, so the user is warm almost immediately. A new item has no column at all and cannot be scored by any behavioural method until someone interacts with it, which requires it to be shown first." },
+]} />
+
+<QuizCard
+  question="Your image encoder is excellent, and the 'similar items' row on a product page now shows nine near-identical listings of the same product from different sellers. What is the fix?"
+  options={[
+    'Retrain the encoder with a lower learning rate',
+    'Deduplicate on the content vector before serving — cluster items above a cosine threshold (~0.98) and keep one per cluster',
+    'Switch entirely to collaborative filtering for that surface',
+    'Reduce the embedding dimension so items are less distinguishable'
+  ]}
+  correct={1}
+/>

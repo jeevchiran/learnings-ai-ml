@@ -1,0 +1,164 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import ALSFactorWidget from '../../components/widgets/recsys/ALSFactorWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Implicit ALS in ~20 lines of NumPy: build $R$, alternate two ridge solves, watch the loss fall monotonically.
+- The **Gram trick** ($Y^\top Y$ once per sweep, then a rank-$n_u$ update) is what makes the full-matrix sum affordable. It is two lines and it is the whole algorithm's viability.
+- Use `implicit` in production — it is the same math, in Cython, on sparse matrices.
+- Ship the **factors**, not the model: item vectors into an ANN index, user vectors into a key-value store.
+</ConceptBox>
+
+## Build the matrix
+
+```python
+def build_matrix(train, users=USERS, items=ITEMS):
+    R  = np.zeros((len(users), len(items)))
+    ui = {u: i for i, u in enumerate(users)}
+    ii = {t: i for i, t in enumerate(items)}
+    for r in train.itertuples():
+        R[ui[r.user_id], ii[r.item_id]] += r.weight     # sum event weights
+    return R
+
+R = build_matrix(train)          # 6 x 9, and P9's column is all zeros
+```
+
+Dense is fine at this size. At real scale use `scipy.sparse.csr_matrix` — a 10M×1M dense matrix is 80 TB, and the same matrix at 0.01% density is about 800 MB.
+
+## ALS
+
+```python
+def als(R, k=3, alpha=1.0, reg=0.1, iters=20, seed=7):
+    rng = np.random.default_rng(seed)
+    m, n = R.shape
+    X = rng.normal(0, 0.1, (m, k))
+    Y = rng.normal(0, 0.1, (n, k))
+    P = (R > 0).astype(float)          # preference
+    C = 1.0 + alpha * R                # confidence
+    losses = []
+
+    for _ in range(iters):
+        # one sweep = solve users with Y fixed, then items with X fixed
+        for F, G, Cm, Pm in ((X, Y, C, P), (Y, X, C.T, P.T)):
+            GtG = G.T @ G                                   # ← computed ONCE per half-sweep
+            for row in range(F.shape[0]):
+                c, p = Cm[row], Pm[row]
+                nz = np.flatnonzero(c > 1)                  # only interacted cells
+                Gn = G[nz]
+                A  = GtG + Gn.T @ ((c[nz] - 1)[:, None] * Gn) + reg * np.eye(k)
+                b  = Gn.T @ (c[nz] * p[nz])
+                F[row] = np.linalg.solve(A, b)
+        losses.append(float((C * (P - X @ Y.T) ** 2).sum()
+                            + reg * ((X ** 2).sum() + (Y ** 2).sum())))
+    return X, Y, losses
+
+X, Y, losses = als(R, k=3, alpha=1.0, reg=0.1, iters=20)
+assert all(losses[i] <= losses[i-1] + 1e-6 for i in range(1, len(losses))), "ALS loss must not increase"
+```
+
+The three lines that matter:
+
+```python
+GtG = G.T @ G                                    # user-independent, once per sweep
+nz  = np.flatnonzero(c > 1)                      # c = 1 exactly where r = 0
+A   = GtG + Gn.T @ ((c[nz] - 1)[:, None] * Gn)   # rank-n_u correction
+```
+
+That is the Gram trick from module 8, made concrete. `GtG` accounts for **every** item in the catalog with confidence 1; the correction term adds the extra confidence only where the shopper actually interacted. So the objective sums over all $m \times n$ cells while the code touches $O(n_u k^2)$ per user. Delete those three lines in favour of the naive `Y.T @ np.diag(c) @ Y` and the algorithm is mathematically identical and computationally dead.
+
+The `assert` on monotone loss is your correctness check. Each half-step is an exact minimiser, so a rising loss means a bug in the solve — nothing else.
+
+<ALSFactorWidget />
+
+## Rank and evaluate
+
+```python
+S = X @ Y.T                                       # 6 x 9 score matrix
+
+def als_ranker(u):
+    row = S[USERS.index(u)]
+    return [ITEMS[j] for j in np.argsort(-row)]
+
+s, per = evaluate(als_ranker, targets, k=3)
+```
+
+## Sweeping k
+
+```python
+for k in (1, 2, 3, 4):
+    Xk, Yk, lk = als(R, k=k, alpha=1.0, reg=0.1, iters=20)
+    Sk = Xk @ Yk.T
+    sk, _ = evaluate(lambda u, Sk=Sk: [ITEMS[j] for j in np.argsort(-Sk[USERS.index(u)])],
+                     targets, k=3)
+    print(f"k={k} loss={lk[-1]:6.2f} hit={sk['hit_rate']:.3f} ndcg={sk['ndcg']:.3f}")
+```
+
+```text
+k=1 loss= 19.32 hit=0.500 ndcg=0.333
+k=2 loss=  9.96 hit=0.500 ndcg=0.377
+k=3 loss=  5.32 hit=0.500 ndcg=0.377
+k=4 loss=  3.33 hit=0.667 ndcg=0.522
+```
+
+Note `Sk=Sk` in the lambda's default argument. Without it, all four lambdas close over the *same* `Sk` binding and every row of the table reports the last model — a classic late-binding bug that produces a perfectly plausible, entirely wrong table.
+
+Loss falls monotonically with $k$, as it must: more capacity always fits training data better. Test NDCG is the number that decides, and here it keeps improving through $k=4$ — because with 6 users and 9 items there is nothing to overfit *to* yet. On a real catalog this curve turns over, and where it turns is what you are looking for.
+
+## Production
+
+```python
+from implicit.als import AlternatingLeastSquares
+from scipy.sparse import csr_matrix
+
+Rs    = csr_matrix(R)
+model = AlternatingLeastSquares(factors=64, regularization=0.05,
+                                alpha=40, iterations=20, use_gpu=False)
+model.fit(Rs)                                   # rows = users, cols = items
+
+ids, scores = model.recommend(userid=0, user_items=Rs[0], N=10,
+                              filter_already_liked_items=True)
+```
+
+Same algorithm, Cython inner loops, sparse throughout. Note `alpha=40` — the library's convention scales the raw interaction count, so useful values sit far above the `alpha=1.0` used on NovaCart's already-weighted matrix. Check which convention your $R$ is in before copying a number from a blog post.
+
+<ConceptBox title="What you actually deploy">
+Not the model object. The **two factor matrices**, and they go to different places:
+
+```python
+# nightly batch
+X, Y, _ = als(R, k=64, alpha=40, reg=0.05, iters=20)
+
+index = faiss.IndexFlatIP(64)     # inner product = the ALS scoring function
+index.add(Y.astype("float32"))    # item factors
+kv.mset({u: X[i].tobytes() for i, u in enumerate(USERS)})   # user factors
+
+# request time, single-digit ms
+x_u = np.frombuffer(kv.get(user_id), dtype="float32")
+_, candidates = index.search(x_u.reshape(1, -1), 500)
+```
+
+This is exactly module 1's retrieval stage. The reason the dot-product form matters is right here: ANN indexes can search inner-product space efficiently, and they cannot search an arbitrary neural scoring function. Any model whose final step is not a dot product cannot be a retrieval model.
+
+Two operational notes. **Factors are not stable across runs** — ALS converges to a different local optimum each night, so never diff yesterday's vectors against today's; compare recommendations instead. And **users who acted since the last batch are stale**; the standard fix is folding-in, solving the single ridge step for one user against the frozen $Y$ without retraining anything.
+</ConceptBox>
+
+<Bridge>
+ALS gives you candidates from IDs alone. The ranker that orders them needs features — built next, without leaking the future.
+</Bridge>
+
+<Recall items={[
+  { q: "Point at the Gram trick in the code and say what it buys.", a: "`GtG = G.T @ G` computed once per half-sweep, plus the rank-n_u correction `Gn.T @ ((c[nz]-1)[:,None] * Gn)`. GtG accounts for every catalog item at confidence 1; the correction adds extra confidence only where the user interacted. The objective still sums over all m×n cells, but the code touches O(n_u k²) per user instead of O(n k²)." },
+  { q: "Why is `assert losses[i] <= losses[i-1]` a valid correctness check specifically for ALS?", a: "Each half-step is the exact closed-form minimiser of the objective with the other factor frozen, so neither can increase it — monotone non-increasing loss is a mathematical guarantee, not a hope. A rising loss therefore means a bug in the solve (wrong A, wrong b, wrong indexing), not a bad learning rate, since there is no learning rate." },
+  { q: "What breaks without `Sk=Sk` in the sweep lambda?", a: "All lambdas close over the same variable binding rather than its value, so after the loop finishes every one of them reads the final Sk. The table then reports the k=4 model on every row — a plausible-looking, entirely wrong result. Binding the value as a default argument freezes it per iteration." },
+  { q: "Why can't a model whose final scoring step is an arbitrary neural network serve as the retrieval stage?", a: "ANN indexes search inner-product or metric spaces; they cannot enumerate a general function over millions of items. Retrieval requires the score to factor into a user vector and an item vector combined by a dot product, so the item side can be precomputed and indexed. That constraint is why cross features are impossible in retrieval and available in ranking." },
+]} />
+
+<QuizCard
+  question="You replace the Gram-trick lines with the mathematically identical `A = Y.T @ np.diag(c) @ Y + reg*np.eye(k)`. The loss curve is unchanged. What happens at production scale?"
+  options={[
+    'Nothing — identical math means identical behaviour',
+    'Every user now costs a full pass over the catalog (O(n k²) plus an n×n diagonal), so a 1M-item catalog makes each ALS sweep intractable',
+    'The loss stops decreasing monotonically',
+    'The factors become unstable across runs'
+  ]}
+  correct={1}
+/>

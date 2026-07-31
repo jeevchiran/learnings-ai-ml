@@ -1,0 +1,96 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import EventContractWidget from '../../components/widgets/recsys/EventContractWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- An **event contract** is the written agreement about what each event means, what fields it must carry, and what happens when it is malformed. Without one, your model silently learns your logging bugs.
+- Six fields carry almost all the weight: `event_id`, `user_id`, `item_id`, `event_type`, `event_ts`, `source`.
+- **Event time ≠ arrival time.** Mobile clients queue events offline; a day-old event can arrive after a fresh one.
+- Delivery is **at-least-once**, so duplicates are normal, so every event needs an idempotency key.
+- The rules with no obviously right answer — logged-out identity, refunds, bots — are precisely the ones that must be written down rather than left in one engineer's head.
+</ConceptBox>
+
+## The bug you cannot see in the model code
+
+A NovaCart engineer ships a change: the mobile app now fires a `view` event when a product tile *scrolls into frame*, not when it is tapped. Nothing in the model repo changes. Two weeks later, homepage recommendations are noticeably worse and nobody can reproduce it.
+
+What happened is that `view` stopped meaning "chose to look at this" and started meaning "scrolled past this". Every downstream number — popularity, similarity, the implicit weights from module 2 — changed meaning at once.
+
+**This is the failure mode of the whole data layer.** It is never a stack trace. It is a definition drifting.
+
+## The minimum event schema
+
+```json
+{
+  "event_id":   "9f2c-...",              // idempotency key, client-generated
+  "user_id":    "U2",                    // null when logged out
+  "anon_id":    "device-77a1",           // always present, survives logout
+  "item_id":    "P4",
+  "event_type": "view | cart | purchase | refund",
+  "event_ts":   "2026-03-04T09:12:03Z",  // when it HAPPENED (client clock)
+  "ingest_ts":  "2026-03-04T09:16:41Z",  // when it ARRIVED (server clock)
+  "session_id": "s1",
+  "source":     "web | ios | android | crawler | ops",
+  "position":   7,                       // slot it was shown in — for position bias
+  "request_id": "r-3391",                // ties back to WHICH model served it
+  "schema_v":   3
+}
+```
+
+Two of those fields are the ones teams most often skip and most regret:
+
+- **`position` + `request_id`** — without them you cannot tell "not clicked" from "never shown", and you cannot attribute a purchase to the model version that recommended it. Log your impressions, not just your clicks.
+- **`schema_v`** — when the meaning of `view` changes, the version changes with it, and your training query can exclude or reweight the boundary.
+
+## The rules that make a contract
+
+<EventContractWidget />
+
+<ConceptBox title="Event time vs ingest time — the one that bites hardest">
+`event_ts` says when the shopper acted. `ingest_ts` says when your pipeline saw it.
+
+Sort by `ingest_ts` and a shopper's offline-queued 8:59 cart event appears *after* their 9:15 purchase. Every sequence feature you build — "last 5 items viewed", "time since last cart" — is then quietly wrong.
+
+Sort by `event_ts` and you have a different problem: **late data**. Yesterday's partition is not final, because events for yesterday can still arrive today. Production pipelines handle this with a **watermark**: hold the partition open for a bounded lateness window (say 24h), then seal it and route stragglers to a correction path.
+
+Rule of thumb: **compute features by `event_ts`, decide when a partition is safe to train on using `ingest_ts`.**
+</ConceptBox>
+
+## Identity: the decision nobody wants to make
+
+A shopper browses logged out, then signs in and buys. Two identities, one human.
+
+| Approach | Gain | Cost |
+|---|---|---|
+| Drop logged-out events | Simple, no false merges | Throws away the majority of views on most stores |
+| Stitch `anon_id` → `user_id` on login | Recovers the pre-login session | Shared devices merge two people into one profile |
+| Keep both, model on `anon_id` | Session-level recs work for everyone | No long-term profile |
+
+There is no right answer — only an answer you have written down. Most e-commerce stores stitch forward from the login event and accept the shared-device noise, because the pre-login browse session is usually the strongest intent signal they will ever get.
+
+## Refunds and other retroactive negatives
+
+A purchase on day 4 refunded on day 6 was never a success. But your label for day 4 was written on day 4.
+
+This is a **label maturity** problem, and the fix is a rule, not a model: do not finalise a purchase label until the return window has passed. If NovaCart's return window is 14 days, then training labels are only trustworthy for events older than 14 days, and your "fresh" training data is structurally two weeks stale. Teams discover this the week after they celebrate a metric win driven by unmatured labels.
+
+<Bridge>
+With a contract in place we have trustworthy events. Next: how to score a ranking of them — and how six reasonable metrics can rank your models in four different orders.
+</Bridge>
+
+<Recall items={[
+  { q: "Why log `position` and `request_id` on impressions, when the model only needs clicks?", a: "Without position you cannot distinguish 'shown and rejected' from 'never shown', so every non-click looks like a negative and the model learns to reproduce your old ranking. Without request_id you cannot attribute an outcome to the model version that produced it, which makes both offline replay and online attribution guesswork." },
+  { q: "What breaks if you build sequence features sorted by ingest_ts instead of event_ts?", a: "Offline-queued mobile events arrive out of order, so the reconstructed sequence is not the order the shopper acted in. 'Last 5 items viewed' and 'time since last cart' become fiction for exactly the mobile users you most want to model. Compute features by event_ts; use ingest_ts only to decide when a partition is complete enough to train on." },
+  { q: "Delivery is at-least-once. What single field fixes the resulting problem, and what breaks without it?", a: "A client-generated event_id used as an idempotency/dedupe key. Without it, retries after transient 500s duplicate rows, and your popularity counts get inflated in proportion to your error rate — meaning a bad deploy day permanently distorts what the model thinks is popular." },
+  { q: "NovaCart has a 14-day return window. Why does that make your freshest training data untrustworthy?", a: "A purchase can be reversed for 14 days, so purchase labels only mature after the window closes. Training on the last two weeks means training on labels that may still flip to negative — you will overestimate performance on recent data, and the correction arrives silently later." },
+]} />
+
+<QuizCard
+  question="Your popularity counts for one product jump 5x overnight. The event contract is the first place to look. Which check most likely explains it?"
+  options={[
+    'The confidence scaling α was set too high',
+    'Bot/crawler traffic was not filtered — one scraper can outweigh every real shopper',
+    'The latent dimension k of the MF model is too large',
+    'NDCG was computed at the wrong k'
+  ]}
+  correct={1}
+/>

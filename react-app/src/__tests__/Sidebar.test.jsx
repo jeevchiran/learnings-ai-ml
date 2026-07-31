@@ -12,11 +12,11 @@ const { default: App } = await import('../App.jsx')
 describe('sidebar', () => {
   beforeEach(() => { window.location.hash = ''; })
 
-  it('expands the track containing the routed module (ts-m5 is in the LAST track)', () => {
-    window.location.hash = '#/module/ts-m5'
+  it('expands the track containing the routed module (rs-m5 is in the LAST track)', () => {
+    window.location.hash = '#/module/rs-m5'
     render(<App />)
     // The module only renders in the sidebar when its track is expanded.
-    const items = screen.getAllByText('Autoregressive Models & Forecast Intervals')
+    const items = screen.getAllByText('Evaluation Splits & Leakage Prevention')
     expect(items.length).toBeGreaterThan(0)
   })
 

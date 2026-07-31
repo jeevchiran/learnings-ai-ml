@@ -1,0 +1,103 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import CFSimilarityWidget from '../../components/widgets/recsys/CFSimilarityWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Collaborative filtering uses **only the interaction matrix** — no product titles, no shopper demographics. "People like you liked this."
+- **Item-item CF** ("shoppers who viewed this also viewed…") beats user-user CF in practice: item neighbourhoods are stabler than user tastes, and the similarity matrix can be precomputed offline.
+- Similarity is cosine over columns of the matrix. Two products are similar if the **same shoppers** touched both.
+- Two structural failures: **cold-start** (a new product has an empty column, so it is similar to nothing) and **popularity bias** (popular items are similar to everything).
+</ConceptBox>
+
+## The idea in one sentence
+
+Aarav and Bhavna both looked at the Earbuds, the Keyboard and the USB-C Hub. Bhavna also looked at the Steel Bottle. **Show Aarav the Steel Bottle.**
+
+No one told the system what a keyboard *is*. The only input is the matrix of who touched what.
+
+## Two directions through the same matrix
+
+<CFSimilarityWidget />
+
+**User-user CF**: find shoppers similar to you, recommend what they liked.
+**Item-item CF**: find items similar to the ones you liked, recommend those.
+
+They read the same matrix along different axes, and in production item-item wins almost every time:
+
+| | User-user | Item-item |
+|---|---|---|
+| Neighbourhood stability | Tastes shift weekly | An item's audience is stable for months |
+| Precompute | Recompute as users act | Item×item matrix precomputes nightly |
+| Scale | Millions of users | Usually far fewer items |
+| New user | Useless until they act | Works from their **first** click |
+| Explainability | "Similar shoppers liked it" | "Because you viewed the Keyboard" — shows the actual reason |
+
+That last row matters more than it looks. "Because you viewed X" is a real explanation the shopper can verify, which is why item-item CF has survived a decade of deep-learning replacements.
+
+## The math
+
+<DerivationSteps>
+<DerivationStep number={1} title="Similarity — cosine between two item columns">
+$$\text{sim}(i,j) = \frac{\mathbf{r}_i \cdot \mathbf{r}_j}{\lVert \mathbf{r}_i \rVert \, \lVert \mathbf{r}_j \rVert}$$
+where $\mathbf{r}_i$ is item $i$'s column: one entry per shopper. Cosine ignores magnitude, so an item with many interactions is not automatically similar to everything — only to items touched by the *same* shoppers.
+</DerivationStep>
+
+<DerivationStep number={2} title="Score — weighted vote from the shopper's own history">
+$$\text{score}(u,i) = \sum_{j \in \text{history}(u)} \text{sim}(i,j) \cdot r_{uj}$$
+Every item the shopper already touched casts a vote for its neighbours, weighted by how similar they are and how strongly the shopper engaged. Take the top-k scores, filter out what they have already seen, serve.
+</DerivationStep>
+
+<DerivationStep number={3} title="Optional — normalise and truncate">
+$$\text{score}(u,i) = \frac{\sum_{j \in N_k(i)\,\cap\,\text{history}(u)} \text{sim}(i,j)\, r_{uj}}{\sum_{j \in N_k(i)\,\cap\,\text{history}(u)} |\text{sim}(i,j)|}$$
+Restricting to item $i$'s top-$k$ neighbours $N_k(i)$ cuts noise from thousands of near-zero similarities and makes the whole thing sparse enough to serve. $k$ between 20 and 100 is typical.
+</DerivationStep>
+</DerivationSteps>
+
+## Worked example
+
+Binary NovaCart training matrix. Earbuds (P1) were touched by Aarav, Bhavna, Eli. The Keyboard (P4) was touched by Aarav, Bhavna.
+
+$$\text{sim}(P1,P4) = \frac{|\{U1,U2\}|}{\sqrt{3 \cdot 2}} = \frac{2}{2.449} = 0.816$$
+
+Yoga Mat (P7) was touched by Diya and Farida; the Steel Bottle (P8) by Bhavna, Chen, Diya, Eli, Farida:
+
+$$\text{sim}(P7,P8) = \frac{|\{U4,U6\}|}{\sqrt{2 \cdot 5}} = \frac{2}{3.162} = 0.632$$
+
+The Yoga Mat / Steel Bottle pair is the one that *reads* right — two fitness products. The Earbuds / Keyboard pair scores higher and is mostly an artefact of two shoppers with broad histories. That is not a flaw in the formula; it is what 34 events buys you. **CF similarity needs support**, and the standard defence is a minimum co-occurrence threshold: discard any pair sharing fewer than, say, 20 shoppers before ranking.
+
+<ConceptBox title="Common confusion — cosine already handles popularity, mostly">
+It is often said that popular items are similar to everything. Cosine's denominator resists this: the Steel Bottle appears in 5 of 6 histories, but dividing by $\lVert \mathbf{r}_{P8} \rVert = \sqrt{5}$ pulls its similarities back down.
+
+What cosine does **not** fix is the *score* step. A popular item is in many shoppers' neighbourhoods, so it accumulates votes from many directions and rises in almost everyone's ranking. The fix lives there, not in the similarity: divide the final score by $\text{pop}(i)^\beta$ with $\beta$ around 0.5, or sample negatives by popularity (module 11).
+</ConceptBox>
+
+## Where CF structurally fails
+
+**Cold-start.** The ANC Headphones (P9) have zero interactions, so their column is all zeros, so every similarity is exactly 0. CF cannot rank them — not badly, but *at all*. Since they cannot be recommended, they cannot earn interactions, so they stay cold. Module 12 breaks this loop with content.
+
+**Sparsity.** Real e-commerce matrices are ~99.9% empty. Most item pairs share zero shoppers, so most similarities are 0 and the useful signal is concentrated in the head of the catalog.
+
+**No features.** Price, brand, "in stock", "on sale", time of day — CF sees none of it. A CF model will happily recommend an out-of-stock product to someone who bought it yesterday.
+
+Each of these has an answer in the following modules: latent factors for sparsity (module 8), features and a ranker for the third (modules 9–10), and content embeddings for cold-start (module 12).
+
+<Bridge>
+CF stores an item×item table. Next: compressing that same matrix into a few dozen latent factors, which fixes sparsity and gives you a vector you can actually serve.
+</Bridge>
+
+<Recall items={[
+  { q: "Why does item-item CF dominate user-user CF in production?", a: "Item neighbourhoods are stable over months while user tastes shift, so the item×item matrix can be precomputed nightly and served cheaply. It also works from a shopper's very first click (no profile needed), and it produces a verifiable explanation — 'because you viewed X' — that user-user cannot." },
+  { q: "In the NovaCart data, sim(Earbuds, Keyboard) = 0.816 beats sim(Yoga Mat, Bottle) = 0.632, but the second pair 'makes more sense'. What is going on and what is the fix?", a: "Two broad-history shoppers touched both Earbuds and Keyboard, and with only 34 events that coincidence dominates. The similarity is real but has almost no support behind it. The standard fix is a minimum co-occurrence threshold — discard pairs sharing fewer than N shoppers — plus shrinkage toward zero for low-support pairs." },
+  { q: "Cosine divides by the item's norm. Why does popularity bias survive anyway?", a: "Cosine controls bias in the SIMILARITY step, but a popular item sits in many items' neighbourhoods, so during the SCORE step it collects votes from many directions and rises for nearly everyone. The correction belongs in scoring — divide by pop(i)^β — or in how negatives are sampled during training." },
+  { q: "Why is cold-start a self-reinforcing loop rather than a one-time problem?", a: "A new item's column is all zeros, so every similarity is exactly 0 and it can never enter a top-k. Never being shown means never being interacted with, which means the column stays empty. Nothing in the interaction data can break this — the escape must come from outside it, i.e. content or image features." },
+]} />
+
+<QuizCard
+  question="NovaCart adds a brand-new product. Item-item CF assigns it a similarity of exactly 0 to every other product. Why?"
+  options={[
+    'Its price has not been normalised yet',
+    'Its column in the interaction matrix is all zeros, so every cosine numerator is 0 — CF has literally no signal about it',
+    'The similarity threshold is set too high',
+    'Because cosine is undefined for new items and defaults to 0'
+  ]}
+  correct={1}
+/>

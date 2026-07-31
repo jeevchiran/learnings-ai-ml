@@ -1,0 +1,110 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import FeatureWindowWidget from '../../components/widgets/recsys/FeatureWindowWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Features come in four families: **user**, **item**, **user×item cross**, and **context**. The cross features are where the ranker earns its keep — retrieval structurally cannot use them.
+- Every aggregate must be **point-in-time correct**: computed only from events strictly *before* the row's timestamp. This is the single most common production recsys bug.
+- Multi-window aggregates (1d / 7d / 30d) beat a single window, because their *ratio* encodes trend.
+- High-cardinality IDs need target encoding or embeddings, both of which leak unless the encoding is itself computed out-of-fold and as-of.
+</ConceptBox>
+
+## The four families
+
+| Family | Examples | Changes |
+|---|---|---|
+| **User** | 30d purchase count, average order value, category affinity vector, days since first order | Daily |
+| **Item** | 7d sales rank, price, discount %, return rate, days since listing, stock level | Hourly |
+| **User × item** | Times this shopper viewed *this* item, did they cart it, affinity between their category vector and this item's category | Per request |
+| **Context** | Hour of day, device, referrer, current session length, item currently being viewed | Per request |
+
+The cross family matters most and is most often skipped. Retrieval **cannot** use it: two-tower and MF architectures compute user and item vectors independently so the item index can be precomputed. Only after retrieval, with a few hundred candidates in hand, can you afford to compute something that depends on both sides. **A ranker without cross features is a re-implementation of retrieval.**
+
+## Point-in-time correctness
+
+<FeatureWindowWidget />
+
+The rule is one character wide:
+
+```sql
+-- WRONG: reads the whole log, including the future
+SELECT user_id, COUNT(*) AS views_30d
+FROM events GROUP BY user_id
+
+-- RIGHT: strictly before this row's timestamp, bounded window
+SELECT l.user_id, l.event_ts,
+       COUNT(e.event_id) AS views_30d
+FROM labels l
+LEFT JOIN events e
+  ON  e.user_id = l.user_id
+  AND e.event_ts <  l.event_ts                        -- strict: no ties
+  AND e.event_ts >= l.event_ts - INTERVAL '30' DAY
+GROUP BY l.user_id, l.event_ts
+```
+
+Two details that look pedantic and are not:
+
+- **`<` not `<=`.** With second-granularity timestamps, the click you are predicting can share a timestamp with the label. `<=` puts the answer in the feature.
+- **Bounded below.** Without the lower bound the "window" is all history, which makes the feature drift as the dataset ages and makes it non-reproducible.
+
+<ConceptBox title="Common confusion — 'my split is temporal, so my features are safe'">
+No. They are independent bugs.
+
+A clean temporal split guarantees no **event** from the test period appears in training. It says nothing about the **features** attached to training rows. If `user_30d_purchases` was computed with one `GROUP BY` over the full table, every training row carries a value that already knows about the test period.
+
+The symptom is distinctive: offline AUC is excellent, feature importance is dominated by one aggregate, and the online lift is zero. The bug is not in the model code at all — it is in the SQL, which is why it survives code review.
+</ConceptBox>
+
+## Multi-window aggregates
+
+One window is a level. Two windows are a **trend**, and trend is usually the stronger signal:
+
+```python
+feats["views_1d"]     = window(events, days=1)
+feats["views_7d"]     = window(events, days=7)
+feats["views_30d"]    = window(events, days=30)
+feats["burst_ratio"]  = feats["views_1d"] / (feats["views_7d"] / 7 + 1)   # +1 guards /0
+```
+
+`burst_ratio` fires when an item is trending *right now* relative to its own baseline — which is exactly what a "trending" row needs and what a raw 30d count can never express. The same trick on the user side separates "browsing hard today" from "steady long-term customer".
+
+## Encoding high-cardinality IDs
+
+`item_id` has a million values. One-hot is impossible; label encoding invents a false ordering. Three real options:
+
+**Target encoding** — replace the ID with the mean label for that ID. Powerful and leaky by default: the row's own label is in its own encoding. Compute it **out-of-fold and as-of** (only from earlier data), and smooth toward the global mean for rare IDs:
+
+$$\text{enc}(i) = \frac{n_i \bar{y}_i + m \bar{y}}{n_i + m}$$
+
+where $n_i$ is the ID's count so far, $\bar{y}$ the global mean, and $m$ a smoothing constant around 20. An item seen twice gets pulled almost entirely to the global mean; an item seen 10,000 times keeps its own.
+
+**Embeddings** — learn a dense vector per ID inside a neural ranker. Handles cardinality natively, needs a lot of data per ID, and gives a new ID nothing.
+
+**Frequency / count encoding** — replace the ID with how often it appears. Cheap, no leakage, surprisingly effective as a popularity proxy.
+
+## Features you must not build
+
+- **Anything derived from the label.** "Did this session end in a purchase" as a feature for predicting purchase. Obvious in prose, easy to slip in through a joined table.
+- **Post-event state.** `item.total_sales` read from today's catalog snapshot, attached to a row from three months ago. The catalog table has no history unless you built it one — which is what a slowly-changing-dimension table is for.
+- **Features you cannot compute at serving time.** If `views_30d` takes a 40-second Spark job, it cannot be in a 50 ms request path. Every offline feature needs an online counterpart producing the *same value*, or you get **training/serving skew**: the model learns on one distribution and is served another.
+
+<Bridge>
+Features and a loss give you a trainable ranker. But a ranker needs negatives, and which negatives you pick changes the model more than most architecture choices.
+</Bridge>
+
+<Recall items={[
+  { q: "Why can retrieval not use user×item cross features, and what does that imply for the ranker?", a: "Retrieval precomputes item vectors independently of the user so it can be indexed for ANN search — a feature depending on both sides cannot be baked into either vector. The ranker sees only a few hundred candidates and can afford per-pair computation, so cross features are its unique advantage. A ranker without them is just re-scoring what retrieval already knew." },
+  { q: "Explain why `<=` instead of `<` in the feature join is a leak, given second-granularity timestamps.", a: "The event you are predicting can share a timestamp with the label row. With `<=`, that event is included in its own feature window, so a feature like 'views in last 30d' contains the very interaction being predicted. The model learns to read the answer, offline metrics soar, and production does nothing." },
+  { q: "You have a clean temporal split and offline AUC is 0.94, but the A/B test is flat. Where do you look first?", a: "Feature computation, not the split. A clean event split says no test-period EVENT is in training; it says nothing about whether the aggregate features attached to training rows were computed over the whole log. Check whether any aggregate was built with a single GROUP BY rather than an as-of join, and look for one feature dominating importance." },
+  { q: "Why is views_1d / (views_7d / 7) more useful than views_30d alone?", a: "The raw count is a level; the ratio is a trend — it says whether the item is being viewed more than its own recent baseline. That separates 'popular and stable' from 'spiking right now', which are different recommendations, and it normalises away the item's inherent popularity so small items can trend too." },
+]} />
+
+<QuizCard
+  question="A feature `item_return_rate` is computed once from the current catalog table and joined onto training rows spanning the last year. What is wrong?"
+  options={[
+    'Nothing — return rate is an item property, so it is stable',
+    'It attaches today\'s value to year-old rows, so every historical row knows returns that had not happened yet; you need an as-of join against a historical snapshot of the item table',
+    'Return rate should be one-hot encoded first',
+    'The feature should be dropped because it is not a cross feature'
+  ]}
+  correct={1}
+/>

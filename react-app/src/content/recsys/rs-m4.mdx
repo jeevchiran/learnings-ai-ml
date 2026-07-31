@@ -1,0 +1,105 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import RankingMetricsWidget from '../../components/widgets/recsys/RankingMetricsWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Ranking metrics differ in **what they are indifferent to**. Pick the one whose blind spot you can live with.
+- **Precision@k** — of the slots you spent, what fraction paid off. **Recall@k** — of what they wanted, what fraction you found.
+- **MRR** cares only about the *first* hit. **MAP** averages precision at every hit. **NDCG** is the only common one that discounts by *position* and normalises by the best possible order.
+- Always report a **beyond-accuracy** metric too — coverage or intra-list diversity — or you will ship a model that recommends the same five products to everyone and scores well doing it.
+</ConceptBox>
+
+## One slate, six numbers
+
+NovaCart's ranker returns eight products for a shopper. Three of them are things the shopper actually went on to buy. Every metric below reads that same slate and reports something different.
+
+<RankingMetricsWidget />
+
+## The formulas
+
+Let $R$ be the set of relevant items and $\text{rel}(i)=1$ if the item at rank $i$ is in $R$.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Precision@k and Recall@k">
+$$P@k = \frac{|\text{top-}k \cap R|}{k}, \qquad R@k = \frac{|\text{top-}k \cap R|}{|R|}$$
+Same numerator, different denominator. Precision divides by what you *spent*; recall divides by what was *available*. Precision@k generally falls as k grows, recall@k can only rise.
+</DerivationStep>
+
+<DerivationStep number={2} title="MRR — reciprocal rank of the first hit">
+$$MRR = \frac{1}{|U|}\sum_{u} \frac{1}{\text{rank of }u\text{'s first relevant item}}$$
+Rank 1 scores 1.0, rank 2 scores 0.5, rank 4 scores 0.25. **Everything after the first hit is invisible to MRR.** Correct for "did they find the one thing they came for", wrong for a browsing surface.
+</DerivationStep>
+
+<DerivationStep number={3} title="MAP — precision averaged at the hit positions">
+$$AP@k = \frac{1}{\min(k,|R|)}\sum_{i=1}^{k} P@i \cdot \text{rel}(i)$$
+Compute precision at every position where you got a hit, average those. MAP is the mean of $AP$ over users. It rewards putting *all* the relevant items early, not just one.
+</DerivationStep>
+
+<DerivationStep number={4} title="NDCG — position-discounted gain, normalised">
+$$DCG@k = \sum_{i=1}^{k} \frac{\text{rel}(i)}{\log_2(i+1)}, \qquad NDCG@k = \frac{DCG@k}{IDCG@k}$$
+The $\log_2(i+1)$ discount says a hit at rank 1 is worth 1.00, rank 2 is worth 0.63, rank 3 is worth 0.50. $IDCG@k$ is the DCG of the perfect ordering (all relevant items stacked at the top), so NDCG lands in $[0,1]$ and is comparable across users with different numbers of relevant items.
+</DerivationStep>
+</DerivationSteps>
+
+## Worked example — the same slate, four answers
+
+Slate: `Steel Bottle, Earbuds, Phone Case, USB-C Hub, Laptop Stand, Yoga Mat, Keyboard, Grinder`
+Relevant: `Earbuds (rank 2), USB-C Hub (rank 4), Yoga Mat (rank 6)`
+
+At $k=3$ there is exactly one hit, at rank 2:
+
+$$P@3 = \tfrac{1}{3} = 0.333, \qquad R@3 = \tfrac{1}{3} = 0.333, \qquad RR = \tfrac{1}{2} = 0.500$$
+
+$$AP@3 = \frac{P@2 \cdot 1}{\min(3,3)} = \frac{0.5}{3} = 0.167$$
+
+$$DCG@3 = \frac{1}{\log_2 3} = 0.631, \quad IDCG@3 = 1 + \tfrac{1}{\log_2 3} + \tfrac{1}{\log_2 4} = 2.131$$
+
+$$NDCG@3 = \frac{0.631}{2.131} = 0.296$$
+
+Now move to $k=5$ — a second hit enters at rank 4:
+
+$$P@5 = \tfrac{2}{5} = 0.400 \;(\text{up}), \qquad R@5 = \tfrac{2}{3} = 0.667 \;(\text{up}), \qquad RR = 0.500 \;(\text{unchanged})$$
+
+Precision went **up** while k grew, which is the opposite of the usual story — because the extra slot happened to contain a hit. Recall rose. MRR did not move at all: it stopped paying attention after rank 2. Three metrics, three different verdicts on the same change.
+
+<ConceptBox title="Common confusion — NDCG@k with a single relevant item">
+Most e-commerce evaluations hold out **one** next purchase per shopper. With $|R|=1$, $IDCG@k = 1$ always, so
+
+$$NDCG@k = \frac{1}{\log_2(\text{rank}+1)} \quad\text{if the item is in the top }k,\ \text{else } 0$$
+
+which is just a smoothed version of MRR. In that setup NDCG and MRR rank your models almost identically, and reporting both looks like two pieces of evidence when it is one. NDCG earns its keep when there are several relevant items, or when relevance is graded (purchase = 3, cart = 2, view = 1) rather than binary.
+</ConceptBox>
+
+## Accuracy is not enough
+
+A model that recommends the five best-selling products to every shopper can post a respectable HitRate. It is also useless — it sells nothing that would not have sold anyway, and it starves the catalog.
+
+| Metric | Question | Failure it catches |
+|---|---|---|
+| **Catalog coverage** | What fraction of products appear in *anyone's* top-k? | The model shows everyone the same slate |
+| **Intra-list diversity** | How dissimilar are the items within one slate? | Nine variants of the same product |
+| **Novelty** | How popular, on average, are the items shown? | The model only ever recommends the head |
+| **Serendipity** | Are hits ones the shopper would *not* have found alone? | The model recommends what they already bought |
+
+Report at least one of these alongside NDCG. In the next module's baseline table you will see the popularity model post a real HitRate with **33% coverage** — three products out of nine ever shown. The accuracy number alone would not have told you.
+
+<Bridge>
+Every metric here assumed you had a trustworthy held-out set. Producing one is harder than it looks — next.
+</Bridge>
+
+<Recall items={[
+  { q: "Precision@k and Recall@k share a numerator. Why can they move in opposite directions as k grows?", a: "The denominators differ. Recall divides by |R|, which is fixed, so adding slots can only keep or increase it. Precision divides by k, which grows, so unless each new slot is a hit, precision falls. They only agree when k equals |R|." },
+  { q: "You hold out exactly one purchase per shopper. Why is reporting both MRR and NDCG@10 nearly redundant?", a: "With |R|=1, IDCG@k = 1, so NDCG@k reduces to 1/log2(rank+1) — a monotone transform of the same rank MRR reads. They will order your models almost identically. NDCG only adds information with multiple or graded relevance." },
+  { q: "Your model's NDCG@10 improves 4% and catalog coverage drops from 40% to 12%. What most likely happened?", a: "The model shifted toward recommending popular head items to everyone. Popular items are likely to be the held-out purchase by base rate, so accuracy rises, while the slate becomes near-identical across shoppers. This is the classic popularity collapse — the accuracy metric alone reports it as a win." },
+  { q: "When is MRR the RIGHT metric rather than a lazy one?", a: "When the surface's job is to surface one specific thing and the session ends on finding it — search for a known item, 'resume where you left off', a support-article recommender. Its indifference to everything past the first hit is a correct model of the task there, and a bug on a browsing surface." },
+]} />
+
+<QuizCard
+  question="Model A puts the shopper's purchase at rank 1. Model B puts it at rank 3 but also surfaces two other items they later bought, at ranks 2 and 4. Which metric most favours A, and which most favours B?"
+  options={[
+    'Both favour A, since rank 1 dominates every metric',
+    'MRR most favours A (it only sees the first hit); MAP and NDCG favour B, which finds more relevant items early',
+    'Coverage favours A; precision favours B',
+    'They are mathematically identical whenever k ≥ 4'
+  ]}
+  correct={1}
+/>

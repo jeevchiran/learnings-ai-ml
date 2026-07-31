@@ -1,0 +1,90 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import FunnelWidget from '../../components/widgets/recsys/FunnelWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- A recommender **ranks a huge catalog into a few slots**. It is not "predict a rating" — that framing died with the Netflix Prize.
+- Every production system is a **funnel**: retrieval (millions → hundreds, must be fast, scored on *recall*) then ranking (hundreds → ten, may be expensive, scored on *precision*).
+- The catalog is enormous, the feedback is implicit, and **the model's own output becomes tomorrow's training data**. Those three facts cause every hard problem in the field.
+- Pick the problem type from the **surface** you are building for. "Similar items" on a product page and "for you" on the homepage are different problems wearing the same clothes.
+</ConceptBox>
+
+## The store we will build
+
+Meet **NovaCart** — an online store with a catalog, shoppers who browse far more than they buy, and ten slots on the homepage. Every module in this track uses the same tiny NovaCart dataset: 6 shoppers, 9 products, 30 days of events. Small enough to check every number by hand, big enough that popularity, recency and collaborative filtering all give different answers.
+
+The business question is always the same: **which ten products, for this shopper, right now?**
+
+## Why this is not just classification
+
+You could frame it as "predict P(purchase | user, item)" and train a classifier. People do. But three things make it its own field:
+
+| Fact | Consequence |
+|---|---|
+| The candidate set is the whole catalog | Scoring 1M items per request in 50 ms is impossible. You need a cheap first stage. |
+| Feedback is **implicit** and one-sided | A click is weak evidence of interest. A non-click is *not* evidence of dislike — they may never have seen it. |
+| Your output becomes your next training set | Recommend only popular items and you generate data proving popular items are what people want. |
+
+That last one has a name — the **feedback loop** — and it is the reason offline metrics and online results diverge so often.
+
+## The funnel
+
+Nobody scores a million products with a good model. They score a million with a cheap model, then a few hundred with an expensive one.
+
+<FunnelWidget />
+
+<ConceptBox title="The asymmetry that matters">
+Retrieval and ranking are graded on **different metrics because they can make different mistakes**.
+
+Retrieval's only failure is *dropping* a good item — once it is gone, no downstream stage can recover it. So retrieval is tuned for **recall**: get the good stuff into the candidate set, junk is tolerable.
+
+Ranking's failure is *ordering* — the good item is present but sits at position 40. So ranking is tuned for **precision at the top**: NDCG@10, not recall@500.
+
+Optimising retrieval for precision is the classic beginner mistake. It makes the candidate set look great and quietly caps how good your ranker can ever be.
+</ConceptBox>
+
+## Problem types
+
+"Recommender system" is a family, not one task. Choose by what the surface has to do:
+
+| Type | The question | NovaCart surface | Typical model |
+|---|---|---|---|
+| **Rating prediction** | How many stars would they give? | (rare in e-commerce) | Explicit MF |
+| **Top-N retrieval** | Which N items from the whole catalog? | Homepage "for you" | Two-tower, ALS, item-kNN |
+| **Item-to-item** | Given *this* item, what else? | "Similar products" on a product page | Co-visitation, content embeddings |
+| **Sequential / next-item** | What comes next in this session? | "Continue where you left off" | GRU4Rec, SASRec, transformers |
+| **Basket completion** | What goes *with* what is already in the cart? | "Frequently bought together" | Association rules, co-purchase |
+| **Re-ranking** | Given a candidate list, order it | Search results, category pages | Gradient-boosted ranker (LTR) |
+| **Cold-start** | Brand new item or shopper | New-arrivals row | Content / multi-modal |
+
+The mistakes here are expensive and common. Serving a "similar items" model on the homepage produces a page of nine variants of the last thing viewed. Serving a "for you" model on a product page ignores the strongest signal available — the product being looked at right now.
+
+## Position bias, the tax on every log
+
+Items at the top get clicked more **because they are at the top**, not only because they are better. Your training log records the outcome of your own layout as if it were shopper preference.
+
+Two consequences you will meet repeatedly:
+
+- A "non-click" on position 30 is nearly meaningless — the shopper probably never scrolled that far. Treating it as a negative teaches the model your old ranking was correct.
+- Offline improvement on logged data can be pure **position-bias exploitation**. This is why the last word always belongs to an online A/B test.
+
+<Bridge>
+Next: what NovaCart actually records when someone browses, and how to turn a stream of clicks into a number a model can consume.
+</Bridge>
+
+<Recall items={[
+  { q: "Why is retrieval scored on recall and ranking on precision?", a: "They fail differently. Retrieval's only mistake is dropping a good item, and nothing downstream can recover it — so it must not miss (recall). Ranking has all the survivors in hand and can only mis-order them, and the shopper sees maybe ten, so what matters is precision at the top." },
+  { q: "A shopper does not click item X. Name two reasons that is NOT evidence they dislike X.", a: "They may never have seen it — it was at position 30, or below the fold, or on a page they bounced from. And they may already own it, or have bought it elsewhere. Implicit feedback is positive-only: interactions are weak evidence of interest, absences are mostly evidence of nothing." },
+  { q: "What is the feedback loop, in one sentence about NovaCart?", a: "The homepage only shows what the model picks, so shoppers can only interact with what the model picked, so tomorrow's training data confirms today's model — popularity concentrates and the long tail starves regardless of whether shoppers would have liked it." },
+  { q: "Same model, two surfaces: homepage 'for you' and product-page 'similar items'. Why does one model rarely serve both?", a: "They condition on different things. 'Similar items' conditions on the item being viewed and should return substitutes/complements for it; 'for you' conditions on the whole user history and should span categories. Using the similar-items model on the homepage yields nine variants of the last thing viewed." },
+]} />
+
+<QuizCard
+  question="Your retrieval stage returns 500 candidates. You change it so that the 500 are much more precise — fewer junk items — but recall@500 drops from 0.82 to 0.74. What happens end-to-end?"
+  options={[
+    'End-to-end metrics improve, because the ranker now sees cleaner candidates',
+    'End-to-end metrics get worse: 8% of the items the shopper would have wanted are now unreachable, and no ranker can recover them',
+    'Nothing changes — the ranker re-scores everything anyway',
+    'It depends only on whether the ranker is pointwise or pairwise'
+  ]}
+  correct={1}
+/>

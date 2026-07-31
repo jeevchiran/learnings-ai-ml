@@ -1,0 +1,166 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import RankingMetricsWidget from '../../components/widgets/recsys/RankingMetricsWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- The harness is one function: **give it a `rank_fn(user) -> [item_ids]`, get back a dict of metrics.** Every model in this track plugs into that one interface.
+- Unit-test the metrics against hand-computed values *before* trusting them on a model. A broken NDCG produces confident nonsense forever.
+- Report accuracy **and** coverage together, always.
+</ConceptBox>
+
+## The interface that makes everything else swappable
+
+Every recommender — popularity, ALS, a gradient-boosted ranker — reduces to the same signature:
+
+```python
+rank_fn(user_id: str) -> list[str]   # item_ids, best first
+```
+
+Commit to that and the harness never changes again. Baselines, models and ablations all become one-liners.
+
+## The metrics
+
+```python
+import numpy as np, pandas as pd
+
+def precision_at_k(ranked, relevant, k):
+    return len(set(ranked[:k]) & set(relevant)) / k
+
+def recall_at_k(ranked, relevant, k):
+    return len(set(ranked[:k]) & set(relevant)) / len(relevant) if relevant else 0.0
+
+def hit_at_k(ranked, relevant, k):
+    return float(bool(set(ranked[:k]) & set(relevant)))
+
+def reciprocal_rank(ranked, relevant, k):
+    for i, item in enumerate(ranked[:k], start=1):
+        if item in relevant:
+            return 1.0 / i
+    return 0.0
+
+def average_precision_at_k(ranked, relevant, k):
+    if not relevant:
+        return 0.0
+    hits, total = 0, 0.0
+    for i, item in enumerate(ranked[:k], start=1):
+        if item in relevant:
+            hits += 1
+            total += hits / i
+    return total / min(k, len(relevant))
+
+def ndcg_at_k(ranked, relevant, k):
+    dcg  = sum(1 / np.log2(i + 1) for i, it in enumerate(ranked[:k], start=1) if it in relevant)
+    idcg = sum(1 / np.log2(i + 1) for i in range(1, min(k, len(relevant)) + 1))
+    return dcg / idcg if idcg else 0.0
+```
+
+Three details that are bugs if you get them wrong:
+
+- **`enumerate(..., start=1)`** — ranks are 1-based, so the discount is $\log_2(i+1)$. Start at 0 and rank 1 divides by $\log_2(1)=0$.
+- **`min(k, len(relevant))`** in both AP and IDCG. Without it, a user with 1 relevant item and $k=10$ has their score divided by the IDCG of 10 items and can never reach 1.0.
+- **The `if idcg else 0.0` guard.** A user with no relevant items must return 0, not `NaN`. One `NaN` silently poisons the mean over all users.
+
+## The runner
+
+```python
+def evaluate(rank_fn, targets, k=3, catalog=ITEMS):
+    rows, shown = [], set()
+    for user, target in targets.items():
+        ranked = rank_fn(user)
+        shown |= set(ranked[:k])
+        relevant = {target}
+        rows.append(dict(
+            user_id = user,
+            hit     = hit_at_k(ranked, relevant, k),
+            mrr     = reciprocal_rank(ranked, relevant, k),
+            ndcg    = ndcg_at_k(ranked, relevant, k),
+            ap      = average_precision_at_k(ranked, relevant, k),
+            rank    = (ranked.index(target) + 1) if target in ranked else None,
+        ))
+    per = pd.DataFrame(rows)
+    summary = dict(
+        hit_rate = per.hit.mean(),
+        mrr      = per.mrr.mean(),
+        ndcg     = per.ndcg.mean(),
+        map      = per.ap.mean(),
+        coverage = len(shown) / len(catalog),
+    )
+    return summary, per
+```
+
+Returning `per` alongside the summary is not optional. The mean tells you *whether* something changed; the per-user frame tells you *who* changed, which is the only way to debug a regression.
+
+## Test the harness before you trust it
+
+```python
+ranked   = ["P8", "P1", "P2", "P5", "P3", "P7", "P4", "P6"]
+relevant = {"P1", "P5", "P7"}            # hits at ranks 2, 4, 6
+
+assert abs(precision_at_k(ranked, relevant, 3) - 1/3)    < 1e-9
+assert abs(recall_at_k(ranked, relevant, 5)    - 2/3)    < 1e-9
+assert abs(reciprocal_rank(ranked, relevant, 8) - 0.5)   < 1e-9
+assert abs(average_precision_at_k(ranked, relevant, 5) - 1/3) < 1e-9
+assert abs(ndcg_at_k(ranked, relevant, 3) - 0.29614)     < 1e-4
+assert ndcg_at_k(ranked, set(), 3) == 0.0                # no NaN
+assert abs(ndcg_at_k(["P1","P5","P7"], relevant, 3) - 1.0) < 1e-9   # perfect = 1.0
+```
+
+Every one of those values was derived by hand in module 4. **A metric harness with no tests is the single highest-leverage place for a silent bug**, because its output is a number that looks plausible no matter what it does.
+
+<RankingMetricsWidget />
+
+## Reporting
+
+```python
+def report(name, rank_fn, targets, ks=(1, 3, 5, 10)):
+    out = {}
+    for k in ks:
+        s, _ = evaluate(rank_fn, targets, k=k)
+        out[f"ndcg@{k}"]     = round(s["ndcg"], 4)
+        out[f"hit@{k}"]      = round(s["hit_rate"], 4)
+        out[f"coverage@{k}"] = round(s["coverage"], 4)
+    return pd.Series(out, name=name)
+
+pd.concat([report("popular", pop_fn, targets),
+           report("recency", rec_fn, targets)], axis=1)
+```
+
+Several $k$ values, always with coverage. A model that wins at $k=1$ and loses at $k=10$ is telling you something real about where it puts its confidence — and the single-$k$ report hides it.
+
+<ConceptBox title="Common confusion — confidence intervals on six users">
+NovaCart has 6 test users. A metric over 6 users has an enormous standard error: one user changing rank moves HitRate@3 by 0.167. Every number in this track is an illustration, not evidence.
+
+For real reporting, bootstrap over users:
+
+```python
+def bootstrap_ndcg(rank_fn, targets, k=10, n=1000, seed=0):
+    rng = np.random.default_rng(seed)
+    _, per = evaluate(rank_fn, targets, k=k)
+    vals = per.ndcg.to_numpy()
+    boots = [rng.choice(vals, size=len(vals), replace=True).mean() for _ in range(n)]
+    return np.mean(vals), np.percentile(boots, [2.5, 97.5])
+```
+
+Resample **users**, not rows — users are the independent unit. If two models' intervals overlap, you do not have a result, and shipping on the point estimate is how teams accumulate a portfolio of changes that each "won" offline and did nothing in aggregate.
+</ConceptBox>
+
+<Bridge>
+The scoreboard exists. Now put something on it — the baselines any model must beat.
+</Bridge>
+
+<Recall items={[
+  { q: "Why must every model expose the same `rank_fn(user) -> [item_ids]` interface?", a: "It makes the harness a fixed point. Baselines, ALS, and a GBM ranker all plug into one `evaluate` call, so comparisons are apples-to-apples and adding a model costs one function. Without it, each model grows its own evaluation code and the numbers stop being comparable." },
+  { q: "Name the three off-by-one/edge-case bugs the metric code guards against.", a: "1-based ranks in the log2(i+1) discount (rank 1 would otherwise divide by log2(1)=0); min(k, |relevant|) in AP and IDCG so a user with one relevant item can still reach 1.0; and returning 0.0 rather than NaN when a user has no relevant items, since one NaN poisons the mean across all users." },
+  { q: "Why return the per-user frame as well as the summary?", a: "The mean says whether something changed; only the per-user rows say who changed. Debugging a regression means finding which users got worse and what they have in common — cold users, long histories, one category. That is impossible from an aggregate." },
+  { q: "When bootstrapping a confidence interval on NDCG, why resample users rather than (user, item) rows?", a: "Users are the independent sampling unit; rows within a user are correlated because they share a history and a model state. Resampling rows understates variance and produces intervals that are too narrow, which is exactly the error that makes noise look like a result." },
+]} />
+
+<QuizCard
+  question="Your `ndcg_at_k` divides by the IDCG of k items rather than min(k, |relevant|). A user with 1 relevant item, evaluated at k=10, has that item at rank 1. What score do they get?"
+  options={[
+    '1.0, as they should — the item is at rank 1',
+    'About 0.22 — the denominator assumes 10 relevant items existed, so a perfect ranking looks poor and every model is understated',
+    '0.0, because the guard clause triggers',
+    'NaN, because IDCG is undefined'
+  ]}
+  correct={1}
+/>

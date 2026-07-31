@@ -1,0 +1,103 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import ALSFactorWidget from '../../components/widgets/recsys/ALSFactorWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Replace the huge sparse matrix $R$ with two thin dense ones: $R \approx X Y^\top$, where each shopper and each product become a $k$-dimensional vector.
+- The **implicit** variant (Hu, Koren & Volinsky 2008) trains on **every cell**, weighting each by confidence $c_{ui}=1+\alpha r_{ui}$. Not just the observed ones.
+- **ALS** alternates: fix $Y$, solve for $X$ in closed form; fix $X$, solve for $Y$. Each half-step is a ridge regression, so it is exact, parallel, and needs no learning rate.
+- The Gram-matrix trick makes the full-matrix sum cost the same as summing over observed entries only. That trick is why the algorithm is practical.
+</ConceptBox>
+
+## From a table to two vectors
+
+Item-item CF stores an item×item similarity table. With a million products that table has $10^{12}$ entries, and it still cannot say anything about a product with an empty column.
+
+Matrix factorization takes a different route: assume the matrix is **low-rank**. Every shopper is a point in a $k$-dimensional taste space; every product is a point in the same space; the score is their dot product.
+
+$$r_{ui} \approx x_u^\top y_i, \qquad x_u, y_i \in \mathbb{R}^k$$
+
+For NovaCart: 6 shoppers + 9 products at $k=3$ is 45 numbers instead of 54 matrix cells — a poor trade at this scale, but for 10M shoppers and 1M products at $k=64$ it is 704M numbers instead of $10^{13}$. And the compression is the *point*: forcing everything through $k$ dimensions means the model must find shared structure rather than memorise.
+
+<ALSFactorWidget />
+
+## The implicit objective
+
+The explicit-feedback objective sums over observed entries only. That is wrong here — every observed entry is a positive (module 2). So sum over **all** of them, weighted:
+
+$$\min_{X,Y} \sum_{u=1}^{m}\sum_{i=1}^{n} c_{ui}\,\bigl(p_{ui} - x_u^\top y_i\bigr)^2 \;+\; \lambda\bigl(\lVert X\rVert_F^2 + \lVert Y\rVert_F^2\bigr)$$
+
+with $p_{ui} = 1$ if $r_{ui}>0$ else $0$, and $c_{ui} = 1 + \alpha r_{ui}$.
+
+Read it as: *try to output 1 where they interacted and 0 where they did not, but care about the "did" cells $c_{ui}$ times as much.*
+
+## Why ALS, and how
+
+The objective is not convex in $(X, Y)$ jointly — but with $Y$ held fixed it is a plain weighted least-squares problem in $X$, which has a closed-form solution. So alternate.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Fix Y, solve each user independently">
+$$x_u = \bigl(Y^\top C^u Y + \lambda I\bigr)^{-1} Y^\top C^u p(u)$$
+$C^u$ is the diagonal matrix of that user's confidences. This is ridge regression of the user's preference vector on the item factors. Every user solves independently — embarrassingly parallel.
+</DerivationStep>
+
+<DerivationStep number={2} title="The Gram trick that makes it cheap">
+$Y^\top C^u Y$ naively costs $O(nk^2)$ per user — a full pass over the catalog. Split the confidence:
+$$Y^\top C^u Y = \underbrace{Y^\top Y}_{\text{once, for all users}} + \; Y^\top (C^u - I) Y$$
+$C^u - I$ is zero everywhere the user did **not** interact, so the second term only touches their handful of actual items. Precompute $Y^\top Y$ once per sweep and each user costs $O(n_u k^2)$ where $n_u$ is their history length.
+</DerivationStep>
+
+<DerivationStep number={3} title="Fix X, solve each item the same way">
+$$y_i = \bigl(X^\top C^i X + \lambda I\bigr)^{-1} X^\top C^i p(i)$$
+Symmetric. One user sweep plus one item sweep is one ALS iteration; 10–20 iterations is normally plenty.
+</DerivationStep>
+
+<DerivationStep number={4} title="Why the loss can only go down">
+Each half-step is the exact minimiser of the objective with the other factor frozen, so neither can increase it. The loss is bounded below by 0, so ALS converges — to a local optimum, not the global one. Different seeds give different factorizations with similar loss.
+</DerivationStep>
+</DerivationSteps>
+
+## The three knobs
+
+| Knob | What it does | Symptom when wrong |
+|---|---|---|
+| $k$ (latent dim) | Capacity | Too low: everything collapses toward popularity. Too high: memorisation, and the tail overfits |
+| $\alpha$ (confidence) | How much observed cells outweigh empty ones | $\alpha=0$: all cells equal, model predicts ≈0 everywhere. Huge $\alpha$: memorises history, no generalisation |
+| $\lambda$ (regularisation) | Shrinks factors toward 0 | Too low: rare items get wild vectors from one interaction. Too high: everything collapses to the mean |
+
+Set $\alpha$ to 0 in the widget: the loss curve flattens uselessly, because with every cell weighted equally the best constant prediction is ≈0. **$\alpha$ is the entire difference between implicit and explicit MF.** Push $k$ to 5 and the loss keeps dropping while the 2-D map becomes unreadable — with 34 events and 75 parameters, you are memorising.
+
+<ConceptBox title="Common confusion — MF vs a two-tower neural network">
+They are closer than they look. Both learn a user vector and an item vector and score with a dot product; both serve via approximate nearest neighbour over the item vectors.
+
+The difference is **what produces the vector**. MF learns a free embedding per ID — nothing else can feed it, so an unseen ID has no vector at all. A two-tower network learns a *function* from features (item text, image, category, price; user history, device, context) to a vector, so it handles new items and cold users, at the cost of being far more expensive to train.
+
+If your catalog is stable and ID-based, ALS is often within a few percent of the neural model for a fraction of the effort. Start here.
+</ConceptBox>
+
+## What you actually ship
+
+Not the model — the **vectors**. Nightly: fit ALS, write $Y$ (item factors) into an ANN index like FAISS or ScaNN, write $X$ (user factors) into a key-value store. At request time, look up $x_u$, query the index for its nearest item vectors, and you have a few hundred candidates in single-digit milliseconds.
+
+That is exactly the retrieval stage from module 1, and it is why the dot-product form matters: it is the only scoring function ANN indexes can search efficiently.
+
+<Bridge>
+Retrieval now returns a few hundred candidates. Ordering them precisely is a different problem with a different loss — learning to rank.
+</Bridge>
+
+<Recall items={[
+  { q: "Why does implicit ALS sum over every cell of the matrix when explicit MF sums only over observed ones?", a: "In implicit data every observed cell is a positive, so a model trained only on those could output 1 everywhere at zero loss. The unobserved cells must participate as weak negatives. Confidence weighting c = 1 + αr is what keeps them weak — they get weight 1 while a heavily-interacted cell gets much more." },
+  { q: "State the Gram trick and why it is necessary.", a: "Y^T C^u Y is rewritten as Y^T Y + Y^T (C^u − I) Y. The first term is user-independent and computed once per sweep; the second is zero except at the user's own items, so it costs O(n_u k²) instead of O(n k²). Without it, every user would need a full pass over the catalog and full-matrix ALS would be intractable." },
+  { q: "ALS loss never increases. Does that mean it finds the global optimum?", a: "No. Each half-step is the exact minimiser given the other factor fixed, so the loss is monotone non-increasing and converges — but the joint objective is non-convex, so it converges to a local optimum. Different random seeds yield different factorisations with comparable loss, which is why factor dimensions are not individually interpretable." },
+  { q: "What breaks if you set α = 0, and why does that identify α as the core of the implicit method?", a: "All cells get confidence 1, observed and unobserved alike. Since the matrix is overwhelmingly zeros, the loss-minimising solution is to predict ≈0 everywhere, and the model learns nothing. α is what encodes 'a cell with evidence matters more than an empty one' — remove it and implicit MF degenerates." },
+]} />
+
+<QuizCard
+  question="You increase k from 32 to 256 and the training loss drops sharply, but NDCG@10 on the temporal test split gets worse. What is happening?"
+  options={[
+    'ALS has stopped converging — the loss should rise, not fall',
+    'The model now has enough capacity to memorise individual interactions rather than learn shared structure; the compression through k dimensions was doing the generalising',
+    'k must always be a power of 2 minus 1',
+    'Confidence α needs to be reduced proportionally to k to keep the loss comparable'
+  ]}
+  correct={1}
+/>

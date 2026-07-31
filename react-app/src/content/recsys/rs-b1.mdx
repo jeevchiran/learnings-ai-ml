@@ -1,0 +1,132 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import SplitLeakageWidget from '../../components/widgets/recsys/SplitLeakageWidget.jsx'
+
+<ConceptBox title="TL;DR — Part 2 starts here">
+Part 1 explained the ideas. Part 2 builds the pipeline, in the order you would actually write it:
+**data → metrics → baselines → model → features → ranker.**
+
+Build the *scoreboard* before the model. A model you cannot score is a model you cannot improve, and every hour spent on architecture before the harness exists is an hour you cannot audit.
+
+This module: load the events, split them by time, and write the assertions that stop a leak from ever reaching the model.
+</ConceptBox>
+
+## Step 1 — the event frame
+
+One tidy DataFrame. Everything downstream reads this shape and nothing else.
+
+```python
+import numpy as np, pandas as pd
+
+EVENT_WEIGHT = {"view": 1, "cart": 3, "purchase": 10}
+CUTOFF = pd.Timestamp("2026-03-24")
+
+events = pd.read_parquet("novacart_events.parquet")   # user_id, item_id, event_type, event_ts
+events["weight"] = events["event_type"].map(EVENT_WEIGHT)
+
+ITEMS = sorted(catalog.item_id.unique())     # the FULL catalog, not just interacted items
+USERS = sorted(events.user_id.unique())
+```
+
+`ITEMS` comes from the **catalog**, not from `events`. Derive it from the event log and you silently delete every cold item — including the ones your cold-start work in module 12 exists to serve. This one line decides whether your evaluation can even see the problem.
+
+## Step 2 — split by time, and prove it
+
+```python
+def temporal_split(events, cutoff):
+    train = events[events.event_ts <  cutoff].copy()
+    test  = events[events.event_ts >= cutoff].copy()
+    return train, test
+
+train, test = temporal_split(events, CUTOFF)
+
+# The assertion that makes the split trustworthy. Run it every time.
+assert train.event_ts.max() < test.event_ts.min(), "temporal split leaks"
+```
+
+That `assert` is three seconds of runtime and it is the highest-value line in the pipeline. It fails loudly the day someone "just adds a few more events" to training.
+
+<SplitLeakageWidget />
+
+## Step 3 — build the held-out targets
+
+```python
+targets = (test.sort_values("event_ts")
+               .groupby("user_id")["item_id"]
+               .last()
+               .to_dict())
+# {'U1':'P1', 'U2':'P4', 'U3':'P8', 'U4':'P7', 'U5':'P5', 'U6':'P1'}
+```
+
+One held-out item per shopper — their next purchase after the cut-off. This makes $|R|=1$ per user, which (module 4) means NDCG collapses to a smoothed MRR. Fine for a first harness, and worth knowing so you do not later report both as if they were independent evidence.
+
+## Step 4 — a validation window, so the test set stays clean
+
+You will tune $k$, $\alpha$, $\lambda$ and the negative-sampling rate. Tune them on the test set fifty times and the test set is a training set.
+
+```python
+TRAIN_END = pd.Timestamp("2026-03-21")   # train:  days 1–20
+VALID_END = pd.Timestamp("2026-03-24")   # valid:  days 21–23   ← tune here
+                                         # test:   days 24+     ← touch once
+
+tr    = events[events.event_ts <  TRAIN_END]
+valid = events[(events.event_ts >= TRAIN_END) & (events.event_ts < VALID_END)]
+test  = events[events.event_ts >= VALID_END]
+```
+
+Three windows, chronological, no overlap. Tune on `valid`, report on `test`, and report on `test` **once** — at the end.
+
+Run this on NovaCart and `valid` comes back **empty** — days 21–23 happen to contain no events, so the split is 34 / 0 / 6. That is a property of a 40-event teaching set, and it is worth seeing: a validation window is only useful if enough traffic falls inside it. On a real store, size the window by *volume* (enough users to make the metric stable), not by a round number of days, and assert it is non-empty before you tune against it.
+
+## Step 5 — the sanity checks worth writing down
+
+```python
+def audit(train, test, targets, items):
+    print(f"train {len(train):>6}  test {len(test):>6}")
+    print(f"users train {train.user_id.nunique()}  test {test.user_id.nunique()}")
+    print(f"catalog {len(items)}  cold items {len(set(items) - set(train.item_id))}")
+    print(f"cold users {len(set(test.user_id) - set(train.user_id))}")
+    print(f"density {len(train.drop_duplicates(['user_id','item_id'])) / (train.user_id.nunique()*len(items)):.4f}")
+    assert train.event_ts.max() < test.event_ts.min()
+    assert set(targets) <= set(test.user_id)
+    assert not train.duplicated(["user_id","item_id","event_type","event_ts"]).any()
+
+audit(train, test, targets, ITEMS)
+# train     34  test      6
+# catalog 9  cold items 1        ← P9 has zero training interactions
+# cold users 0
+# density 0.4259
+```
+
+Each line answers a question you will otherwise ask at 2am:
+
+- **Cold items** — how much of the catalog no behavioural model can rank at all.
+- **Cold users** — the fraction of test traffic that needs a fallback path. If you silently drop them, your metric describes a population you do not serve.
+- **Density** — NovaCart's 0.43 is absurdly high because it is a teaching set. Real e-commerce runs 0.0001 to 0.001, and that is the number that decides whether CF has anything to work with.
+
+<ConceptBox title="Common confusion — 'the split is chronological, so I am done'">
+The split governs **events**. It says nothing about **features**, which get computed later and are the more common leak (module 10, and b5 next). It also says nothing about anything you fit before splitting — scalers, encoders, popularity tables, item embeddings.
+
+A useful habit: treat the cut-off as a wall the pipeline may never look over, and audit each artefact separately for whether it does. The split assert covers events. You will need a different assert for features.
+</ConceptBox>
+
+<Bridge>
+The data is trustworthy. Next: the harness that turns a ranking into a number.
+</Bridge>
+
+<Recall items={[
+  { q: "Why derive ITEMS from the catalog table rather than from the event log?", a: "Items with zero interactions do not appear in the event log, so deriving the catalog from events silently deletes exactly the cold items. Your coverage metric then has a shrunken denominator and your evaluation cannot see the cold-start problem at all — the thing several later modules exist to solve." },
+  { q: "What does `assert train.event_ts.max() < test.event_ts.min()` actually protect against?", a: "Any future change that widens the training window past the cut-off — usually someone adding 'a bit more data'. It is cheap, runs every time, and converts a silent metric inflation into a loud failure. It does not protect against feature leakage, which needs a separate check." },
+  { q: "Why carve out a validation window instead of tuning on the test set?", a: "Each tuning decision made against the test set transfers a little test information into the model. Over dozens of trials the test score becomes an optimistic training score. A chronologically earlier validation window lets you tune freely and keeps the test window for a single final measurement." },
+  { q: "NovaCart's density is 0.43 and real stores run 0.001 or lower. What does that change in practice?", a: "At real densities most item pairs share zero users, so most CF similarities are exactly 0 and the usable signal concentrates in the head of the catalog. It is why low-rank factorisation (which shares statistical strength across items) beats raw neighbourhood counts at scale, and why minimum-support thresholds matter." },
+]} />
+
+<QuizCard
+  question="Your audit prints `cold users 0` on the NovaCart data. Why should you NOT expect that number in production?"
+  options={[
+    'It is a bug — cold users are impossible by construction',
+    'Real traffic always contains shoppers with no training history; a harness reporting zero cold users is measuring an easier population than the one you serve',
+    'Cold users only exist if the catalog is also cold',
+    'It means the temporal split was done incorrectly'
+  ]}
+  correct={1}
+/>

@@ -1,0 +1,103 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import LTRLossWidget from '../../components/widgets/recsys/LTRLossWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Learning to rank optimises **order**, not per-item probability. Three families: **pointwise**, **pairwise**, **listwise**.
+- **Pointwise** scores each item alone against a 0/1 label. Simple, fast, calibrated — and only ranks correctly as a side effect.
+- **Pairwise** (RankNet, BPR, LambdaRank) trains on (positive, negative) pairs and depends only on score *differences*.
+- **Listwise** (ListNet, LambdaMART, softmax cross-entropy) scores the whole slate at once.
+- The tell: **add a constant to every score.** Pointwise loss changes; pairwise and listwise do not. Only two of the three are actually about ranking.
+
+</ConceptBox>
+
+## Where ranking sits
+
+Retrieval handed you 500 candidates. Now order them, with a budget of tens of milliseconds and access to every feature you have — user features, item features, and crucially **user×item cross features** that retrieval could not use because it had to precompute embeddings independently.
+
+The label is what the shopper did: purchased = 1, ignored = 0 (or graded: purchase 3, cart 2, click 1, ignored 0).
+
+<LTRLossWidget />
+
+## The three families
+
+<DerivationSteps>
+<DerivationStep number={1} title="Pointwise — each item judged alone">
+$$\mathcal{L} = \frac{1}{n}\sum_{i} -\bigl[y_i \log \sigma(s_i) + (1-y_i)\log(1-\sigma(s_i))\bigr]$$
+Ordinary binary log loss on $(user, item)$ rows. It never compares two items. What it gives you in exchange is a **calibrated probability** — essential if the score feeds an expected-value calculation like $P(\text{purchase}) \times \text{margin}$ for ad or promo ranking.
+</DerivationStep>
+
+<DerivationStep number={2} title="Pairwise — only order matters">
+$$\mathcal{L} = \sum_{(i,j)\,:\,y_i > y_j} -\log \sigma(s_i - s_j)$$
+For every positive/negative pair, push the positive's score above the negative's. Note the loss depends on $s_i - s_j$ only, so absolute score values are free. **BPR** (Bayesian Personalised Ranking) is exactly this loss with one negative sampled per positive, and it is the standard implicit-feedback ranking objective.
+</DerivationStep>
+
+<DerivationStep number={3} title="Listwise — the whole slate at once">
+$$\mathcal{L} = -\sum_{i\,:\,y_i=1} \log \frac{e^{s_i}}{\sum_{j} e^{s_j}}$$
+Softmax cross-entropy over the slate. Raising one item's score necessarily lowers everyone else's probability, so the model learns *relative* placement across the full list. This is also what in-batch-negative two-tower training optimises (module 11).
+</DerivationStep>
+
+<DerivationStep number={4} title="LambdaRank — putting the metric in the gradient">
+NDCG is flat almost everywhere and discontinuous at swaps, so you cannot descend it directly. LambdaRank multiplies each pairwise gradient by $|\Delta NDCG_{ij}|$ — how much NDCG would change if $i$ and $j$ swapped:
+$$\lambda_{ij} = \frac{-1}{1+e^{s_i - s_j}}\cdot\bigl|\Delta NDCG_{ij}\bigr|$$
+A swap between ranks 1 and 2 moves NDCG a lot and gets a big gradient; a swap between 200 and 201 gets almost none. **LambdaMART** = LambdaRank gradients inside gradient-boosted trees, and it remains the default production ranker.
+</DerivationStep>
+</DerivationSteps>
+
+## The experiment that separates them
+
+Move only the **shift** slider in the widget. Every score rises by the same constant. The order does not change. NDCG does not change.
+
+$$\text{pointwise loss: } 0.597 \rightarrow 0.838 \rightarrow 1.212 \qquad \text{pairwise: } 0.420 \rightarrow 0.420 \rightarrow 0.420$$
+
+Pointwise loss nearly doubles while the ranking is **identical**. It is measuring calibration, not order. Pairwise and listwise do not move at all, because they only ever see score differences.
+
+This is not an argument that pointwise is wrong — it is an argument about what you are asking for. If you need $P(\text{purchase})$ to multiply by margin, you need calibration and pointwise is correct. If you need the best ten in the best order, pointwise is solving a harder problem than you asked and spending capacity on it.
+
+## Choosing
+
+| | Train cost | Ranks well | Calibrated | Use when |
+|---|---|---|---|---|
+| Pointwise | Lowest | Indirectly | **Yes** | First ranker; score feeds an expected-value formula |
+| Pairwise | Medium ($O(n^2)$ pairs, sampled) | **Yes** | No | Top-of-list order is what pays |
+| Listwise | Highest | **Yes**, best | No | Whole slate judged together; you have full slates logged |
+
+<ConceptBox title="Common confusion — 'listwise is strictly better'">
+On paper, yes. In practice pointwise still wins a lot of production bake-offs, for reasons that have nothing to do with the loss function.
+
+Pointwise rows are independent, so training parallelises trivially and you can throw a year of data at it. Pairwise needs sampled pairs (and your sampling scheme becomes a hyperparameter — module 11). Listwise needs **complete logged slates** with impressions, which many teams simply do not log (module 3).
+
+The honest ordering is: pointwise with good features beats listwise with bad features, every time. Fix features first, loss second.
+</ConceptBox>
+
+## Position bias, again
+
+Your training labels came from a ranked page, so an item at position 1 got clicked partly *because* it was at position 1. Train naively and the model learns your old ranking.
+
+Two standard corrections:
+
+- **Position as a feature at training time, held constant at inference.** Include `position` while training so the model can attribute some of the click to placement; at serving, set it to a fixed value (say 1) for every candidate, so the ranking reflects relevance only.
+- **Inverse propensity weighting.** Weight each training example by $1/P(\text{examined at that position})$, estimated from a small randomised-ranking experiment. Unbiased, higher variance, and it requires you to be willing to randomise some traffic.
+
+Neither works without `position` in the log. This is where module 3's event contract pays off.
+
+<Bridge>
+Every loss here consumes features. Building them without leaking the future is next.
+</Bridge>
+
+<Recall items={[
+  { q: "Adding a constant to every score leaves pairwise and listwise loss unchanged but moves pointwise loss a lot. What does that reveal about each?", a: "Pairwise and listwise depend only on score differences, so they measure order — exactly what a ranker is for. Pointwise depends on absolute values because it targets a calibrated probability, so it measures order only indirectly. If your score feeds an expected-value calculation you want that calibration; if you only need order, pointwise is solving a harder problem than you asked." },
+  { q: "Why can't you just do gradient descent on NDCG directly?", a: "NDCG depends on the ranking, which is a discrete ordering. It is piecewise-constant in the scores — flat almost everywhere with jumps at swap points — so its gradient is zero or undefined. LambdaRank sidesteps this by scaling each pairwise gradient by |ΔNDCG| for that swap, injecting the metric's sensitivity without differentiating it." },
+  { q: "Your team logs only clicks, never impressions. Which LTR family is effectively unavailable, and why?", a: "Listwise. It needs the complete slate that was shown — including the items that were not clicked — to compute a softmax over the candidate list. Without impression logs you cannot reconstruct the slate. It also cripples position-bias correction, since you have no position field to condition on." },
+  { q: "How do you use position as a feature without the model learning to just recommend whatever was at the top before?", a: "Include position during training so the model can attribute part of each click to placement rather than relevance, then hold it fixed (e.g. position=1) for every candidate at inference. The bias is absorbed into the position coefficient during training and neutralised at serving, leaving the relevance signal to drive the ranking." },
+]} />
+
+<QuizCard
+  question="You switch from pointwise log loss to a pairwise (BPR) objective. Offline NDCG@10 improves, but a downstream promo system that multiplies your score by item margin starts making bad choices. Why?"
+  options={[
+    'BPR trains too slowly to converge on promo data',
+    'Pairwise losses only constrain score differences, so the scores are no longer calibrated probabilities — multiplying an uncalibrated score by margin is meaningless',
+    'NDCG@10 is the wrong metric for pairwise models',
+    'The promo system needs listwise scores specifically'
+  ]}
+  correct={1}
+/>

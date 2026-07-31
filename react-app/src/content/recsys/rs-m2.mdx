@@ -1,0 +1,97 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import SignalWeightWidget from '../../components/widgets/recsys/SignalWeightWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- **Explicit** feedback (a 5-star review) is honest, rare, and biased toward extremes. **Implicit** feedback (views, carts, purchases) is abundant, noisy, and *positive-only*.
+- Implicit means: an interaction is weak evidence of interest; a non-interaction is mostly evidence of **nothing**. Missing ≠ negative.
+- The standard move is to collapse events into one number $r_{ui}$ with per-event weights, then split it into **preference** $p_{ui}\in\{0,1\}$ and **confidence** $c_{ui}$.
+- Signal strength runs opposite to signal volume: purchases are what you want and what you barely have.
+</ConceptBox>
+
+## What NovaCart actually records
+
+A shopper never tells NovaCart "I rate this 4 stars". They leave a trail:
+
+| Signal | Volume | Strength | Catch |
+|---|---|---|---|
+| Impression (item was rendered) | Enormous | Almost none | Needed for position bias, rarely logged properly |
+| Click / product view | Large | Weak | Curiosity, mis-clicks, price-checking |
+| Add to cart | Medium | Good | Carts get abandoned constantly |
+| Purchase | Small | Strong | Gifts, one-offs, returns |
+| Return / refund | Tiny | Strongly **negative** | Arrives days later — see module 3 |
+| Review / rating | Tiny | Strong but biased | Only the delighted and the furious write them |
+
+<ConceptBox title="Explicit vs implicit — the difference that changes the math">
+**Explicit**: you observe a value, and *missing means unobserved*. A 5-star matrix is mostly empty, and you train only on the filled cells. This is classic matrix factorization.
+
+**Implicit**: you observe an action, and *missing means "no action, cause unknown"*. You cannot train only on the filled cells — they are all positive, and a model that predicts 1 everywhere would score perfectly. You must treat the zeros as **weak, uncertain negatives**, which is why implicit MF trains on every cell of the matrix instead of the observed ones.
+
+That one distinction is why ALS-for-implicit exists as a separate algorithm (module 8).
+</ConceptBox>
+
+## Collapsing events into a number
+
+Almost every model wants a single interaction strength per (shopper, product) pair. The standard construction:
+
+$$r_{ui} = \sum_{e \in \text{events}(u,i)} w_{\text{type}(e)}$$
+
+Plain English: add up a weight for every event this shopper had with this product. NovaCart uses $w_{\text{view}}=1$, $w_{\text{cart}}=3$, $w_{\text{purchase}}=10$.
+
+<SignalWeightWidget />
+
+Those weights are a **choice, not a measurement**. There is no ground truth telling you a purchase is worth ten views. What you can do is defend them: pick weights, ship, and let the offline metric and the A/B test tell you whether they were sane.
+
+## Preference and confidence
+
+The trick that makes implicit feedback tractable is to stop pretending $r_{ui}$ is a rating and split it in two:
+
+<DerivationSteps>
+<DerivationStep number={1} title="Preference — the binary thing you actually believe">
+$$p_{ui} = \begin{cases} 1 & r_{ui} > 0 \\ 0 & r_{ui} = 0 \end{cases}$$
+Did they interact at all? This is what the model predicts. Note that $p_{ui}=0$ is a *guess*, not an observation.
+</DerivationStep>
+<DerivationStep number={2} title="Confidence — how much you trust that belief">
+$$c_{ui} = 1 + \alpha \, r_{ui}$$
+How strongly do we hold it? A cell with 14 points of evidence gets high confidence. An empty cell gets confidence 1 — the floor, not zero: we still believe $p=0$ a little, because most products really are irrelevant to most people.
+</DerivationStep>
+<DerivationStep number={3} title="Train on every cell, weighted by confidence">
+$$\min \sum_{u,i} c_{ui}\,(p_{ui} - x_u^\top y_i)^2 + \lambda(\lVert X \rVert^2 + \lVert Y \rVert^2)$$
+The sum runs over the **full** user×item matrix, not just observed entries. Unobserved cells pull predictions toward 0 but only with weight 1, so a few strong positives can overcome many weak zeros.
+</DerivationStep>
+</DerivationSteps>
+
+## Worked example
+
+Chen (U3) viewed the Laptop Stand on day 6, added it to the cart on day 9, and bought it on day 10.
+
+$$r_{\text{U3},\text{P3}} = 1 + 3 + 10 = 14, \qquad p = 1, \qquad c = 1 + \alpha(14)$$
+
+At $\alpha=1$ that cell carries confidence 15 — fifteen times the pull of an empty cell. Chen never touched the Coffee Grinder, so $r=0$, $p=0$, $c=1$: the model is nudged to predict 0 there, but gently, because "Chen has never seen the Coffee Grinder" and "Chen dislikes the Coffee Grinder" are indistinguishable in this data.
+
+<ConceptBox title="Common confusion — a purchase is not 'ten views'">
+The weights make $r$ a convenient scalar; they do **not** claim the events are interchangeable. Ten views means a shopper who keeps coming back and not buying — which in a conversion model is arguably a *negative*. One purchase means done.
+
+If that distinction matters for your surface, do not flatten it. Keep event types as separate features (module 10), or train separate models per objective and blend the scores. Flattening to one $r$ is the right *first* move, not the right final one.
+</ConceptBox>
+
+<Bridge>
+So far we have assumed the event log is clean. It is not. Next: the contract that decides which rows are even allowed into $r_{ui}$.
+</Bridge>
+
+<Recall items={[
+  { q: "Why can't you train an implicit model only on the observed (non-zero) cells, the way explicit MF does?", a: "Every observed cell is a positive. A model that outputs 1 for everything would have zero loss and be useless. Implicit training must include the zeros as weak negatives, which is why the objective sums over the full user×item matrix with confidence weights rather than over observed entries only." },
+  { q: "What does confidence c = 1 + αr buy you that just using r as the target does not?", a: "It separates WHAT you believe from HOW MUCH you believe it. The target stays binary (interacted or not), so the model isn't asked to reproduce the arbitrary scale of your event weights; the weights only control how hard each cell pulls. It also gives unobserved cells a non-zero floor, so they contribute gently instead of either dominating or vanishing." },
+  { q: "In the widget, why does setting the view weight to 0 nearly empty the matrix?", a: "Views are the overwhelming majority of events (most of the log). Purchases and carts are rare. This is the central tension of implicit feedback: the strongest signal is the scarcest, so a model trained only on purchases has almost no data, and a model trained on views optimises for browsing." },
+  { q: "A colleague sets purchase weight to 100 to 'make purchases matter more'. What breaks?", a: "Confidence c = 1 + αr becomes ~100x for purchased cells, so ALS fits those few cells almost exactly and effectively ignores everything else — the model collapses toward memorising past purchases, which is both non-personalised for new behaviour and useless for discovery. Weight ratios control the effective sample weighting; extreme ratios discard data." },
+]} />
+
+<QuizCard
+  question="NovaCart's matrix has r=0 for (Diya, Coffee Grinder). What does the implicit-feedback framing say this cell means?"
+  options={[
+    'Diya dislikes the Coffee Grinder — treat it as a confident negative',
+    'The cell is missing and should be excluded from training, like explicit MF',
+    'Diya has not interacted with it, for unknown reasons — treat it as a low-confidence negative (p=0, c=1)',
+    'Nothing can be said, so the model should skip Diya entirely'
+  ]}
+  correct={2}
+/>

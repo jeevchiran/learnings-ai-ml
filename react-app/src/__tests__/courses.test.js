@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { courses, moduleById, allModules, getPrevNext } from '../data/courses.js'
 
 describe('courses data', () => {
-  it('has 16 tracks', () => {
-    expect(courses).toHaveLength(16)
+  it('has 17 tracks', () => {
+    expect(courses).toHaveLength(17)
   })
 
-  it('has 147 modules total', () => {
-    expect(allModules).toHaveLength(147)
+  it('has 166 modules total', () => {
+    expect(allModules).toHaveLength(166)
   })
 
   it('every module has required fields', () => {
@@ -33,7 +33,8 @@ describe('courses data', () => {
     const { prev } = getPrevNext('etl-pyspark-m1')
     expect(prev).toBeNull()
 
-    const { next } = getPrevNext('etl-pyspark-m10')
+    // last module of the track is the quiz, not m10
+    const { next } = getPrevNext('etl-quiz')
     expect(next).toBeNull()
   })
 

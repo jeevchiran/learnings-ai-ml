@@ -1,0 +1,121 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import BaselineCompareWidget from '../../components/widgets/recsys/BaselineCompareWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Four baselines, each a closure returning `rank_fn`, each under ten lines.
+- On NovaCart, **recency wins**: NDCG@3 0.438 with 89% coverage, against popularity's 0.377 with 33%.
+- **Random ties popularity here.** With six users that is not a surprising result, it is a warning about your sample size — and worth internalising before you read any other number in this track as evidence.
+</ConceptBox>
+
+## All four, in one screen
+
+Every one returns the same `rank_fn(user) -> [item_ids]` the harness expects.
+
+```python
+def random_ranker(catalog=ITEMS, seed=3):
+    order = list(np.random.default_rng(seed).permutation(catalog))
+    return lambda u: order
+
+def popularity_ranker(train, catalog=ITEMS):
+    pop = train.groupby("item_id")["user_id"].nunique()          # DISTINCT users
+    order = sorted(catalog, key=lambda i: (-pop.get(i, 0), i))   # stable tie-break
+    return lambda u: order
+
+def recency_ranker(train):
+    last = train.groupby(["user_id", "item_id"])["event_ts"].max().reset_index()
+    by_user = {u: g.sort_values("event_ts", ascending=False).item_id.tolist()
+               for u, g in last.groupby("user_id")}
+    return lambda u: by_user.get(u, [])                          # empty for cold users
+
+def covisit_ranker(train, catalog=ITEMS):
+    pairs = train[["user_id", "item_id"]].drop_duplicates()
+    co = (pairs.merge(pairs, on="user_id")
+               .query("item_id_x != item_id_y")
+               .groupby(["item_id_x", "item_id_y"]).size().rename("n").reset_index())
+    hist = train.groupby("user_id")["item_id"].apply(set).to_dict()
+    def rank(u):
+        sub = co[co.item_id_x.isin(hist.get(u, set()))]
+        sc  = sub.groupby("item_id_y")["n"].sum().sort_values(ascending=False)
+        return sc.index.tolist() + [i for i in catalog if i not in sc.index]
+    return rank
+```
+
+Four things in that code carry real weight:
+
+- **`nunique()` not `size()`** — count distinct shoppers so one bot cannot define your homepage.
+- **The `(-pop, i)` tie-break** — without a deterministic second key, ties resolve by dict order and your baseline changes between runs.
+- **`by_user.get(u, [])`** — a cold user gets an empty list, and the harness scores it 0. That is correct. Falling back to popularity here hides how much traffic has no history.
+- **The tail append in `covisit`** — always return the *full* catalog. A short list silently caps recall@k and makes coverage incomparable across models.
+
+## Running them
+
+```python
+rankers = {
+    "random":   random_ranker(),
+    "popular":  popularity_ranker(train),
+    "recency":  recency_ranker(train),
+    "covisit":  covisit_ranker(train),
+}
+for name, fn in rankers.items():
+    s, _ = evaluate(fn, targets, k=3)
+    print(f"{name:<9} hit={s['hit_rate']:.3f} mrr={s['mrr']:.3f} "
+          f"ndcg={s['ndcg']:.3f} cov={s['coverage']:.3f}")
+```
+
+```text
+random    hit=0.500 mrr=0.333 ndcg=0.377 cov=0.333
+popular   hit=0.500 mrr=0.333 ndcg=0.377 cov=0.333
+recency   hit=0.667 mrr=0.361 ndcg=0.438 cov=0.889
+covisit   hit=0.500 mrr=0.222 ndcg=0.294 cov=0.556
+```
+
+<BaselineCompareWidget />
+
+## Reading the output honestly
+
+**Random ties popularity.** Its expected HitRate@3 on a 9-item catalog is $3/9 = 0.333$; it scored 0.500. That is one lucky permutation over six users, and it is the most useful line in the table — **a metric computed on six users cannot distinguish a model from a coin flip.** Nothing else in this track is evidence either; it is all illustration. Bootstrap over users (module b2) before believing any comparison on real data.
+
+**Recency wins on both axes.** NDCG@3 0.438 and coverage 0.889, from a `GROUP BY` with no model. That is the line every subsequent model must clear.
+
+**Co-visitation underperforms here** and would not at real scale. It needs many baskets to estimate pair counts, and NovaCart has 34 events total. On a real store it is typically the strongest cheap baseline on basket-completion surfaces.
+
+<ConceptBox title="The filtered-vs-unfiltered decision, in code">
+Recency recommends things the shopper has already seen. Whether that counts depends entirely on the surface, so make it an explicit flag rather than an accident:
+
+```python
+def filter_seen(rank_fn, train):
+    seen = train.groupby("user_id")["item_id"].apply(set).to_dict()
+    def wrapped(u):
+        s = seen.get(u, set())
+        return [i for i in rank_fn(u) if i not in s]
+    return wrapped
+
+s_disc, _ = evaluate(filter_seen(rankers["recency"], train), targets, k=3)
+```
+
+Filtered, recency scores **0** on NovaCart — every one of its recommendations was something the shopper had already touched. That number is not a bug; it is the precise statement that recency is memory, not discovery.
+
+Report both. "Unfiltered" is right for cart and re-order surfaces; "filtered" is right for discovery carousels, and it is the only number that tells you whether your model adds anything a database query could not.
+</ConceptBox>
+
+<Bridge>
+Baselines are on the board. Time for the first real model.
+</Bridge>
+
+<Recall items={[
+  { q: "Why use `nunique()` rather than `size()` for the popularity baseline, and why the explicit tie-break?", a: "nunique counts distinct shoppers, capping each shopper's contribution at 1, so one bot or one obsessive user cannot define the ranking. The (-pop, item_id) tie-break makes the order deterministic — without a second sort key, ties resolve by dict insertion order and the 'same' baseline changes between runs, making comparisons meaningless." },
+  { q: "Random tied popularity on NovaCart. What is the correct conclusion?", a: "That six users is far too small a sample to distinguish models. Random's expected HitRate@3 on a 9-item catalog is 0.333 and it scored 0.500 on one lucky permutation. The lesson is about the harness, not the baselines: bootstrap over users and check whether intervals overlap before treating any comparison as a result." },
+  { q: "Why should a baseline return the full catalog rather than a short list?", a: "Metrics at k > list length silently cap recall, and coverage becomes incomparable across models that return different-length lists. Returning the full catalog (relevant items first, the rest appended) keeps every metric well-defined and every model comparable at any k." },
+  { q: "Filtered for already-seen items, recency scores 0 on NovaCart. What does that number mean?", a: "That every recommendation recency makes is something the shopper already touched — it is pure memory with zero discovery. That is not a defect of the baseline but a precise measurement of what it does, and it is the right way to separate reminder value from recommendation value on a discovery surface." },
+]} />
+
+<QuizCard
+  question="Your recency baseline returns an empty list for cold users, and the harness scores them 0. A teammate proposes falling back to popularity for those users. What is the tradeoff?"
+  options={[
+    'No tradeoff — the fallback is strictly better and should always be added',
+    'The fallback improves the served experience but hides how much traffic has no history; keep it in production and report the cold-user share separately so the harness stays honest',
+    'The fallback introduces temporal leakage',
+    'Cold users should be dropped from the evaluation entirely'
+  ]}
+  correct={1}
+/>

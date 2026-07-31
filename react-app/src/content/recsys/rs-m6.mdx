@@ -1,0 +1,105 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import BaselineCompareWidget from '../../components/widgets/recsys/BaselineCompareWidget.jsx'
+
+<ConceptBox title="TL;DR">
+- Four baselines, in ascending difficulty: **random → most popular → recently viewed → co-visitation**.
+- **Most popular** is the bar, not the goal. It beats random comfortably and shows every shopper the identical slate.
+- **Recently viewed is the baseline that actually hurts.** It is not personalisation, just memory, and in e-commerce it is brutally hard to beat because shoppers return to finish what they started.
+- If your neural model cannot beat "recently viewed", you have not built a recommender — you have built an expensive way to lose to a database query.
+</ConceptBox>
+
+## Why baselines come before models
+
+A number with nothing to compare it against is not information. NDCG@3 = 0.44 is meaningless until you know that random scores 0.19 and recently-viewed scores 0.44 — at which point the same number means *you have built nothing*.
+
+Baselines also fail fast and cheap. If popularity beats your model, the bug is almost always in the data, not the architecture.
+
+<BaselineCompareWidget />
+
+## The four baselines
+
+### 1. Random — the floor
+
+Shuffle the catalog. Its only job is to confirm your evaluation harness is not broken. If random scores 0, your relevance labels are wrong. If random scores well, your catalog is too small for the metric to mean anything.
+
+### 2. Most popular — the bar
+
+Rank every product by how many distinct shoppers touched it, show the same top-k to everyone.
+
+```python
+pop = train.groupby("item_id")["user_id"].nunique().sort_values(ascending=False)
+top_k = pop.index[:k].tolist()          # identical for every shopper
+```
+
+Count **distinct users**, not events — otherwise one bot or one obsessive shopper defines your homepage (module 3). On NovaCart the Steel Bottle leads with 5 of 6 shoppers.
+
+Popularity is deceptively strong for one structural reason: **popular items are popular in the test set too**. Guessing the base rate is a real strategy. Its weakness is equally structural — coverage of 33%, meaning three products out of nine are ever shown to anyone.
+
+### 3. Recently viewed — the one that hurts
+
+Rank each shopper's own history by most recent interaction.
+
+```python
+recent = (train.sort_values("event_ts")
+               .groupby(["user_id", "item_id"])["event_ts"].max()
+               .reset_index()
+               .sort_values("event_ts", ascending=False))
+```
+
+No model. No training. Just a `GROUP BY` — and on NovaCart it beats popularity on every metric, with 89% coverage.
+
+<ConceptBox title="Why this baseline is so strong in e-commerce, specifically">
+Shopping is a **multi-session task**. A shopper researches a keyboard on Monday, compares on Wednesday, buys on Saturday. Every one of those sessions makes "the thing they were just looking at" the single best prediction of what they will buy next.
+
+This is why "Recently viewed" and "Continue shopping" carousels earn their homepage slot on almost every store. It also means that a large share of what looks like recommender revenue is really *reminder* revenue.
+
+The practical consequence for evaluation: if your offline harness does not filter already-seen items, your model gets rewarded for the same memory effect, and you cannot tell discovery from recall. Report both — filtered and unfiltered — and know which surface you are building for.
+</ConceptBox>
+
+### 4. Co-visitation — the last cheap one
+
+Count how often two items appear in the same session or basket, then recommend the top co-occurring items for whatever the shopper just touched.
+
+```python
+pairs = (train.merge(train, on="session_id")
+              .query("item_id_x != item_id_y")
+              .groupby(["item_id_x", "item_id_y"]).size())
+```
+
+This is association rule mining under another name, and it powers "Frequently bought together" on essentially every store. It needs no model, updates incrementally, and is often the strongest thing in the building on basket-completion surfaces.
+
+## Reading the comparison table
+
+Two results in the widget matter more than the exact numbers (six shoppers is far too few for the numbers themselves to be trustworthy):
+
+**Popularity's coverage is stuck at 33%.** Identical slate for everyone. Whatever it scores, it cannot grow the catalog.
+
+**Recently-viewed misses exactly the shoppers who discovered something new.** Eli bought a USB-C Hub they had never touched; Farida bought Earbuds she had never touched. Memory cannot predict discovery — and discovery is precisely the value a real recommender adds over a `GROUP BY`. That gap, not the total score, is your model's actual job.
+
+<ConceptBox title="Common confusion — 'we beat the baseline by 30%!'">
+Check what the baseline was. Beating random by 30% is noise. Beating popularity by 30% is a start. Beating recently-viewed by 30% on **items the shopper has never seen** is a real result worth shipping.
+
+State the baseline and the filter every time you state a lift. A lift without both is unfalsifiable.
+</ConceptBox>
+
+<Bridge>
+Baselines use counts. The first real model uses the structure hiding in *who touched what* — collaborative filtering.
+</Bridge>
+
+<Recall items={[
+  { q: "Why count distinct users rather than events when building a popularity baseline?", a: "Event counts let a single heavy user or an unfiltered crawler define the ranking — one scraper with 4,000 views outranks a genuinely popular product. Distinct-user counts cap each shopper's contribution at 1, which is both more robust and closer to what 'popular' means." },
+  { q: "'Recently viewed' involves no learning. Why is it the baseline that matters most in e-commerce?", a: "Shopping spans multiple sessions — research, compare, buy — so the item a shopper last looked at is the strongest available predictor of their next purchase. Any model must beat that, not random, to be worth its serving cost. It also has high coverage, so it is not beatable via the popularity-collapse shortcut." },
+  { q: "Popularity scores respectably but has 33% coverage. Why is that disqualifying even if NDCG looks fine?", a: "Only three of nine products are ever shown to anyone, so the model cannot sell anything outside the head and cannot generate interaction data for the rest of the catalog — the feedback loop tightens. High accuracy achieved by guessing the base rate adds no incremental value over not having a recommender at all." },
+  { q: "In the NovaCart results, recently-viewed misses exactly two shoppers. What do those two cases represent?", a: "Eli and Farida each bought something they had never interacted with. Memory-based baselines are structurally incapable of predicting discovery. That subset is the only place a real recommender can beat the baseline, so it is where the model should be evaluated and where its business case lives." },
+]} />
+
+<QuizCard
+  question="Your new model beats 'most popular' on NDCG@10 but loses to 'recently viewed'. What is the correct read?"
+  options={[
+    'Ship it — beating popularity is the standard bar in the literature',
+    'The model has learned something, but not enough to justify serving cost: a GROUP BY on the event log still outperforms it, so the model is not yet earning its place',
+    'The evaluation is broken, since a trained model cannot lose to a heuristic',
+    'Switch to MRR, which will rank the model higher'
+  ]}
+  correct={1}
+/>

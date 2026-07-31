@@ -19,11 +19,16 @@ function useMDXContent(mod) {
     setChecked(false)
     if (!mod) { setChecked(true); return }
     const key = `../content/${mod.coursePath}/${mod.id}.mdx`
-    if (mdxModules[key]) {
-      mdxModules[key]().then(m => { setContent(() => m.default); setChecked(true) })
-    } else {
+    if (!mdxModules[key]) { setChecked(true); return }
+    // Navigating away before the chunk lands would otherwise drop the previous
+    // module's content into the new module's page (or setState after unmount).
+    let cancelled = false
+    mdxModules[key]().then(m => {
+      if (cancelled) return
+      setContent(() => m.default)
       setChecked(true)
-    }
+    })
+    return () => { cancelled = true }
   }, [mod?.id, mod?.coursePath])
 
   return { Content, checked }
