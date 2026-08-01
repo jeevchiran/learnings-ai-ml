@@ -468,6 +468,12 @@ export function contentNeighbours(itemId, n = 3) {
 
 /* ── negative sampling ────────────────────────────────────────────────── */
 
+/** Day each product went live. P9 is a late arrival — before day 22 it did not
+ *  exist, so it cannot legitimately be anyone's negative. */
+export const LISTED_DAY = {
+  P1: 0, P2: 0, P3: 0, P4: 0, P5: 0, P6: 0, P7: 0, P8: 0, P9: 22,
+}
+
 /** Sampling weight ∝ popularity^beta. beta=0 uniform, 1 = popularity-proportional. */
 export function negativeSamplingWeights(events, beta = 0.75) {
   const pop = itemPopularity(events)
@@ -477,6 +483,31 @@ export function negativeSamplingWeights(events, beta = 0.75) {
   for (const id of ITEM_IDS) w[id] = z === 0 ? 0 : w[id] / z
   return w
 }
+
+/**
+ * Time-aware negatives: sample from the catalog **as it stood** at asOfDay,
+ * using popularity measured in a trailing window rather than over all time.
+ * Two corrections in one: items not yet listed get zero mass, and popularity
+ * is the popularity of that moment, not of today.
+ * `smooth` is additive so a listed-but-unseen item keeps a sampling floor.
+ */
+export function timeAwareSamplingWeights(events, asOfDay, { beta = 0.75, window = 14, smooth = 1 } = {}) {
+  const inWin = events.filter(e => e.day < asOfDay && e.day >= asOfDay - window)
+  const users = {}
+  for (const e of inWin) (users[e.p] ??= new Set()).add(e.u)
+  const w = {}
+  let z = 0
+  for (const id of ITEM_IDS) {
+    if ((LISTED_DAY[id] ?? 0) >= asOfDay) { w[id] = 0; continue }  // did not exist yet
+    w[id] = Math.pow((users[id]?.size ?? 0) + smooth, beta)
+    z += w[id]
+  }
+  for (const id of ITEM_IDS) w[id] = z === 0 ? 0 : w[id] / z
+  return w
+}
+
+/** Items live at a given day — the denominator time-aware sampling draws from. */
+export const listedBy = day => ITEM_IDS.filter(id => (LISTED_DAY[id] ?? 0) < day)
 
 /* ── learning-to-rank losses, for the LTR module ──────────────────────── */
 

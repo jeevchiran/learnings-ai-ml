@@ -1,12 +1,14 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import NegativeSamplingWidget from '../../components/widgets/recsys/NegativeSamplingWidget.jsx'
 
 <ConceptBox title="TL;DR">
 - Implicit data has positives only. **You invent the negatives**, and that invention is a modelling decision as consequential as the architecture.
-- **Uniform** negatives are easy and weak — almost every one is an obvious mismatch, so the model plateaus early.
+- **Uniform/random** negatives are easy and weak — almost every one is an obvious mismatch, so the model plateaus early.
 - **Popularity$^\beta$** ($\beta \approx 0.75$) is the reliable default: the model must learn to reject popular items for the *wrong* shopper.
-- **Hard negatives** (high-scoring non-interactions) are the most informative and the most dangerous, because many are **false negatives** — items the shopper simply never saw.
-- **In-batch** negatives are free and implicitly popularity-weighted, which is exactly why they need a **logQ correction**.
+- **Time-aware** sampling draws from the catalog *as it stood* at the positive's timestamp — no items from the future, and popularity from a trailing window rather than all time.
+- **Hard negatives** are the most informative and the most dangerous, because many are **false negatives**.
+- **In-batch** negatives are free and implicitly popularity-weighted, which is why they need a **logQ correction**.
+- Two biases come free with the choice: **random sampling bias** (your sampled loss is not the loss you meant to minimise) and **exposure bias** (you never observed what was never shown). Both have standard corrections.
 </ConceptBox>
 
 ## Why you have to make them up
@@ -17,9 +19,9 @@ So you sample. The distribution you sample from determines what the model learns
 
 <NegativeSamplingWidget />
 
-## The four strategies
+## The five strategies
 
-### Uniform
+### Uniform (random)
 
 Draw any catalog item with equal probability. One line of code, and a weak training signal: with a million products, a random negative is almost always absurd. The model quickly learns "is this even in the right category?" and then stops improving, because it is never asked a hard question.
 
@@ -32,6 +34,24 @@ $$P(\text{sample } i \text{ as negative}) = \frac{\text{pop}(i)^\beta}{\sum_j \t
 $\beta = 0$ is uniform; $\beta = 1$ is popularity-proportional. **$\beta = 0.75$** — from word2vec, and it transferred to recommenders for the same reason — sits between them.
 
 The justification is the one thing about negative sampling worth memorising: **popular items are shown to everyone, so they are the items the model must learn to reject for the wrong shopper.** A negative that would never have been shown teaches nothing. Push $\beta$ past 1 in the widget and you sample almost nothing but the head — the tail never gets a decision boundary at all.
+
+### Time-aware
+
+Everything above samples from **today's** catalog using **all-time** popularity. Both are quietly wrong for a positive that happened three weeks ago.
+
+$$P_t(i) = \frac{\bigl(\text{pop}_{[t-w,\,t)}(i) + s\bigr)^\beta \cdot \mathbb{1}[\text{listed}(i) < t]}{\sum_j (\cdot)}$$
+
+Two corrections in one formula. The indicator zeroes out anything **not yet listed**; the windowed popularity replaces all-time counts with counts from the $w$ days before $t$. The smoothing constant $s$ keeps a floor so a newly-listed item is still occasionally sampled.
+
+<ConceptBox title="Two leaks, one fix">
+**Negatives from the future.** ANC Headphones list on day 22. Set the widget to a positive on day 10 and every non-time-aware strategy still hands them sampling mass — you are training the model to reject a product that *did not exist*. It cannot have been a real negative, because the shopper could not have been shown it.
+
+**Popularity drift.** All-time popularity$^{0.75}$ gives Wireless Earbuds 13.0% of the negative mass. But in the 14 days before day 24, nobody touched the Earbuds at all, so time-aware sampling gives them **6.5%**. Using the all-time number means the sampling distribution for a day-10 training row was computed partly from days 11–24 — the future. Compare each bar to its red mark in the widget; that gap is the drift.
+
+This is the same point-in-time discipline as module 10, applied to a place people rarely think to look. Your *features* have an as-of join, and your *negative sampler* usually does not.
+</ConceptBox>
+
+Time-aware sampling costs a popularity table per time bucket (daily is normally enough) rather than one global table. That is the whole implementation.
 
 ### Hard negatives
 
@@ -66,6 +86,82 @@ Every production two-tower implementation does this. Skipping it is one of the m
 
 More negatives is generally better and eventually stops paying. Note that in two-tower training, **batch size stops being just a throughput knob** — it directly controls how many negatives each positive is contrasted against, so a smaller batch is a weaker model, not merely a slower one.
 
+## The two biases you just introduced
+
+Sampling negatives buys tractability and costs correctness. Two distinct biases arrive, and confusing them wastes a lot of time because **they have different cures**:
+
+| | Random sampling bias | Exposure bias |
+|---|---|---|
+| Where it lives | In your **estimator** — how you draw negatives | In your **data** — what was ever shown |
+| Cause | The sampled loss ≠ the full loss you meant to minimise | Feedback exists only for exposed items |
+| Under your control? | Yes, entirely — you chose $Q$ | No — the old ranking policy chose it |
+| Fixable analytically? | **Yes**, by importance weighting | **No** — needs propensities or randomisation |
+
+### Random sampling bias
+
+You wanted the full softmax over the whole catalog $N$. You could not afford it, so you sampled $M$ negatives from a distribution $Q$. **The sampled loss is a biased estimate of the full one**, and the bias is not subtle: items with large $Q(i)$ appear as negatives more often and get pushed down harder, purely because you sampled them more.
+
+<DerivationSteps>
+<DerivationStep number={1} title="What you wanted">
+$$\mathcal{L}_{\text{full}} = -\log \frac{e^{s_{ui}}}{\sum_{j \in N} e^{s_{uj}}}$$
+The denominator runs over the entire catalog. With $N = 10^6$ this is unaffordable per step.
+</DerivationStep>
+
+<DerivationStep number={2} title="What you computed">
+$$\mathcal{L}_{\text{sampled}} = -\log \frac{e^{s_{ui}}}{e^{s_{ui}} + \sum_{j \in M} e^{s_{uj}}}, \qquad j \sim Q$$
+Cheap — and it now measures "beat these $M$ items drawn from $Q$", which is a different question.
+</DerivationStep>
+
+<DerivationStep number={3} title="The correction — importance weighting in the logit">
+$$s'_{uj} = s_{uj} - \log\bigl(M \cdot Q(j)\bigr)$$
+Subtracting $\log Q$ cancels the over-representation exactly: an item sampled twice as often has its logit reduced by $\log 2$, so in expectation the sampled softmax matches the full one. This is the **logQ correction** (sampled softmax, Bengio & Senécal 2003), and it is the same correction in-batch negatives need — there $Q(j)$ *is* item popularity.
+</DerivationStep>
+</DerivationSteps>
+
+<ConceptBox title="Random sampling bias also corrupts your METRICS">
+The bias is not confined to training. It is common — especially in papers — to *evaluate* by ranking the held-out positive against 100 randomly sampled negatives instead of the full catalog, because full ranking is expensive.
+
+This does not merely add noise. **Sampled metrics can order your models differently from full metrics** (Krichene & Rendle, 2020): a model that wins on 100 sampled negatives can lose on the true catalog, because sampling flattens exactly the head-vs-tail distinctions that make ranking hard. The distortion is worst for the metrics that are most top-heavy — NDCG and MRR.
+
+The mitigation is blunt: **evaluate against the full catalog.** It is $O(N)$ per user, which is trivial offline for anything under a few million items. If you genuinely cannot, use the corrected estimators from that paper — but never compare a sampled number against a published full-catalog number.
+</ConceptBox>
+
+### Exposure bias
+
+Your log records what shoppers did with what your **previous ranker chose to show them**. Everything else is silence — and silence is not rejection.
+
+Decompose an observed interaction into two events:
+
+$$P(\text{interact}_{ui}) = \underbrace{P(\text{exposed}_{ui})}_{\text{your old policy}} \times \underbrace{P(\text{relevant}_{ui} \mid \text{exposed})}_{\text{what you actually want}}$$
+
+You only ever observe the product. Train naively and the model happily fits the first term — it learns to reproduce the old ranking, because that is the strongest pattern in the data. That is the feedback loop from module 1, seen from the loss function.
+
+Three concrete symptoms:
+
+- **Popularity concentrates.** Head items get exposed, get interactions, look relevant, get exposed more. The tail never gets a chance to prove itself.
+- **Position bias contaminates hard negatives.** A "hard negative" at position 40 was probably never seen. You are labelling a good recommendation as bad (module 9).
+- **Offline gains do not transfer.** You improved at predicting the old policy's outcomes, which is not the same as making better recommendations.
+
+<ConceptBox title="Mitigating exposure bias — four options, ascending cost">
+**1. Impression-based negatives.** Sample negatives from items that were actually *rendered* and not clicked, rather than from the catalog. This is the cheapest real fix and it converts a guess into an observation — but it needs the `position` and `request_id` fields from module 3, which is why that module comes first.
+
+**2. Inverse propensity scoring (IPS).** Weight each example by the inverse of its exposure probability:
+$$\hat{\mathcal{L}}_{\text{IPS}} = \sum_{(u,i) \in \text{obs}} \frac{\ell(u,i)}{\hat{p}_{ui}}, \qquad \hat{p}_{ui} = P(\text{exposed})$$
+Rarely-exposed items count for more, which removes the bias in expectation. The cost is **variance**: a propensity of 0.01 gives that row a weight of 100, and one such row can dominate a batch. Always clip: $\max(\hat{p}, \tau)$ with $\tau$ around 0.01–0.05. Estimate $\hat{p}$ from a position-based model, or from a randomised traffic slice.
+
+**3. Randomised exploration.** Reserve a small share of traffic — 1–5%, or one slot in the carousel — for uniformly random items. This is the only way to collect **genuinely unbiased** data, and it doubles as a clean propensity estimator and an unbiased offline-evaluation set. It costs a little revenue on purpose, and it is the single highest-value thing most teams are not doing.
+
+**4. Explicit exposure modelling.** Treat exposure as a latent variable and infer it jointly with relevance (ExpoMF, Liang et al. 2016), or combine a propensity model with a direct outcome model in a **doubly robust** estimator — which stays unbiased if *either* component is right. Most principled, most machinery, and it still cannot invent information about items nobody ever saw.
+</ConceptBox>
+
+<ConceptBox title="Common confusion — these two are not the same bias">
+Both make your model over-favour popular items, so they get blurred together. They are not the same, and the giveaway is what fixes them.
+
+**Random sampling bias is arithmetic.** You know $Q$ because you wrote it. Subtract $\log Q$ and the bias is gone exactly, no new data required.
+
+**Exposure bias is missing data** — specifically, missing *not at random*. No reweighting of your existing log can recover what a shopper would have done with an item they were never shown. You need either an assumption (a propensity model) or new data (randomised traffic). Applying a logQ correction and declaring exposure bias handled is a common and expensive mistake.
+</ConceptBox>
+
 <ConceptBox title="Common confusion — negatives are not the same as unobserved cells in ALS">
 ALS (module 8) does not *sample* negatives. It sums over every cell of the matrix and weights unobserved ones with confidence 1. The Gram trick makes that affordable.
 
@@ -78,8 +174,12 @@ Every strategy so far reads the interaction matrix. For an item with no interact
 
 <Recall items={[
   { q: "Why is β ≈ 0.75 popularity sampling a better default than uniform?", a: "Popular items are the ones actually shown to shoppers, so they are the items the model must learn to reject for the wrong shopper — that is where the useful decision boundary lies. Uniform negatives are mostly absurd mismatches that the model separates immediately and then learns nothing more from. β=0.75 tilts toward the head without collapsing onto it the way β=1 does." },
-  { q: "In-batch negatives are free. What bias do they introduce and what is the standard fix?", a: "An item appears in a batch in proportion to how often it is someone's positive, i.e. in proportion to popularity — so in-batch sampling is implicitly β=1 and the model over-penalises popular items. The fix is the logQ correction: subtract log P(i) from each logit before the softmax." },
-  { q: "What is a false negative in this context, and why do hard negatives produce so many of them?", a: "An item the shopper would have liked but never interacted with — usually because it was never shown. Hard negatives are by construction the items the model scores highest, which are disproportionately items the shopper never saw rather than items they rejected. Mining hard negatives from impressions instead of the catalog is what makes a non-click real evidence." },
+  { q: "Name the two separate leaks that time-aware negative sampling fixes.", a: "Negatives from the future — items not yet listed at the positive's timestamp get sampling mass, so the model is trained to reject products that did not exist and could not have been shown. And popularity drift — using all-time popularity to build the sampling distribution for an old row means that distribution was computed partly from events after that row. Fix both by sampling from the catalog as of t, with popularity from a trailing window." },
+  { q: "State random sampling bias and its exact fix.", a: "You wanted a softmax over the full catalog but sampled M negatives from Q, so items with large Q(i) are pushed down more often purely because they were sampled more — the sampled loss is a biased estimate of the full one. The fix is importance weighting inside the logit: s' = s − log(M·Q(j)), the logQ correction. It is exact and needs no new data, because you chose Q yourself." },
+  { q: "Why can't a logQ correction fix exposure bias too?", a: "Random sampling bias is an estimator problem with a known Q, so reweighting cancels it exactly. Exposure bias is missing-not-at-random data: no reweighting of the existing log can recover how a shopper would have responded to an item they were never shown. It needs either an assumption (a propensity model) or new data (randomised traffic)." },
+  { q: "Why does evaluating against 100 sampled negatives instead of the full catalog risk a wrong conclusion, not just a noisy one?", a: "Sampled metrics can order models differently from full-catalog metrics (Krichene & Rendle 2020) — sampling flattens exactly the head-versus-tail distinctions that make ranking hard, and the distortion is worst for top-heavy metrics like NDCG and MRR. So a model that wins on sampled negatives can lose on the real catalog. Evaluate against the full catalog, and never compare a sampled number to a published full-catalog one." },
+  { q: "Give the exposure decomposition and say why fitting it naively reproduces the old ranker.", a: "P(interact) = P(exposed) × P(relevant | exposed). Only the product is observed. P(exposed) was chosen by the previous policy and is the strongest, most learnable pattern in the log, so an uncorrected model fits it and reproduces the old ranking — improving at predicting the old policy's outcomes rather than at making better recommendations." },
+  { q: "IPS removes exposure bias in expectation. What does it cost, and what is the standard guard?", a: "Variance. Weighting by 1/p̂ means a propensity of 0.01 gives one row a weight of 100, so a handful of rarely-exposed rows can dominate a batch and destabilise training. The standard guard is clipping — use max(p̂, τ) with τ around 0.01–0.05 — trading a little residual bias for a large variance reduction." },
   { q: "Why does batch size stop being 'just a throughput knob' in two-tower training?", a: "With in-batch negatives, each positive is contrasted against the other B−1 items in the batch, so batch size directly sets the number of negatives per positive. Halving the batch halves the contrastive signal — the model gets weaker, not merely slower. This is why two-tower training pushes toward very large batches." },
 ]} />
 
@@ -90,6 +190,28 @@ Every strategy so far reads the interaction matrix. For an item with no interact
     'Many hard negatives are false negatives — items the shopper never saw — so the model is being trained that its own correct recommendations are wrong',
     'Hard negatives require listwise loss to work',
     'The negative-to-positive ratio must always be exactly 1:1'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="You apply the logQ correction to your sampled softmax and confirm the sampled loss now matches the full softmax in expectation. Has exposure bias been addressed?"
+  options={[
+    'Yes — logQ removes the popularity skew, which is what exposure bias is',
+    'No. logQ fixes how you DRAW negatives, a known-Q estimator problem. Exposure bias is missing-not-at-random data about items never shown, which no reweighting of the existing log can recover',
+    'Yes, provided β is also set to 0.75',
+    'Only if negatives are sampled uniformly'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="A positive event occurred on day 10. The ANC Headphones were first listed on day 22. What is wrong with letting them be sampled as a negative for that row?"
+  options={[
+    'Nothing — a never-interacted item is the ideal negative',
+    'The shopper could not possibly have been shown a product that did not exist yet, so it is not evidence of rejection; it teaches the model to reject an item using information from the future',
+    'It is fine as long as the logQ correction is applied',
+    'It only matters if the item later becomes popular'
   ]}
   correct={1}
 />

@@ -8,7 +8,7 @@ import {
   averagePrecisionAtK, dcgAtK, idcgAtK, ndcgAtK, catalogCoverage,
   trainALS, alsScores, rankScores, solve, dot,
   pointwiseLoss, pairwiseLoss, listwiseLoss,
-  negativeSamplingWeights, contentNeighbours,
+  negativeSamplingWeights, timeAwareSamplingWeights, listedBy, LISTED_DAY, contentNeighbours,
 } from '../components/widgets/recsys/recsysUtils.js'
 
 const near = (a, b, d = 4) => expect(a).toBeCloseTo(b, d)
@@ -169,6 +169,50 @@ describe('negative sampling', () => {
     const tilt = negativeSamplingWeights(train, 0.75)
     expect(tilt.P8).toBeGreaterThan(tilt.P4)   // P8 is the most popular item
     near(Object.values(tilt).reduce((a, b) => a + b, 0), 1)
+  })
+
+  it('all-time sampling starves the cold item entirely (0^β = 0)', () => {
+    expect(negativeSamplingWeights(splitByTime().train, 0.75).P9).toBe(0)
+  })
+})
+
+describe('time-aware negative sampling', () => {
+  const { train } = splitByTime()
+
+  it('gives zero mass to items not yet listed', () => {
+    // P9 lists on day 22, so it cannot be a negative for a day-10 positive.
+    expect(LISTED_DAY.P9).toBe(22)
+    expect(timeAwareSamplingWeights(train, 10).P9).toBe(0)
+    expect(listedBy(10)).toHaveLength(ITEM_IDS.length - 1)
+    expect(listedBy(24)).toHaveLength(ITEM_IDS.length)
+  })
+
+  it('keeps a smoothing floor for a listed-but-untouched item', () => {
+    // Once live, P9 still has zero interactions — additive smoothing keeps it
+    // sampleable rather than starving it the way plain popularity^β does.
+    const w = timeAwareSamplingWeights(train, 24, { beta: 0.75, window: 14 })
+    expect(w.P9).toBeGreaterThan(0)
+    near(Object.values(w).reduce((a, b) => a + b, 0), 1)
+  })
+
+  it('tracks popularity drift rather than all-time counts', () => {
+    // P1's last training event is day 9, so by day 24 it is stale in a 14d
+    // window — time-aware must give it LESS mass than all-time popularity does.
+    const allTime = negativeSamplingWeights(train, 0.75)
+    const timed = timeAwareSamplingWeights(train, 24, { beta: 0.75, window: 14 })
+    expect(timed.P1).toBeLessThan(allTime.P1)
+  })
+
+  it('is sensitive to the as-of day', () => {
+    const early = timeAwareSamplingWeights(train, 10, { beta: 0.75, window: 14 })
+    const late = timeAwareSamplingWeights(train, 24, { beta: 0.75, window: 14 })
+    expect(early.P1).not.toBeCloseTo(late.P1, 3)
+  })
+
+  it('normalises to 1 at every as-of day it is used at', () => {
+    for (let d = 4; d <= 30; d++) {
+      near(Object.values(timeAwareSamplingWeights(train, d)).reduce((a, b) => a + b, 0), 1)
+    }
   })
 })
 

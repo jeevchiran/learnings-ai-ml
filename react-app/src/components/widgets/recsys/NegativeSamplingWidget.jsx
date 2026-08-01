@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import {
-  splitByTime, itemPopularity, negativeSamplingWeights, ITEM_IDS,
-  productName, itemItemSim, buildMatrix, binarize,
+  splitByTime, itemPopularity, negativeSamplingWeights, timeAwareSamplingWeights,
+  listedBy, LISTED_DAY, ITEM_IDS, productName, itemItemSim, buildMatrix, binarize,
 } from './recsysUtils.js'
 
 const TRACK = '#65a30d'
@@ -14,6 +14,10 @@ const STRATEGY = {
   popularity: {
     name: 'Popularity^β',
     blurb: 'Sample negatives in proportion to popularity raised to β. Popular items get shown to everyone, so they are the ones the model must learn to reject for the wrong shopper. β≈0.75 is the word2vec default and a solid starting point.',
+  },
+  timeaware: {
+    name: 'Time-aware',
+    blurb: 'Sample from the catalog as it stood at the positive\'s timestamp, using popularity from a trailing window rather than all-time. Fixes two leaks at once: items not yet listed get zero mass, and popularity is the popularity of that moment.',
   },
   hard: {
     name: 'Hard negatives',
@@ -31,6 +35,7 @@ export default function NegativeSamplingWidget() {
   const [strategy, setStrategy] = useState('popularity')
   const [beta, setBeta] = useState(0.75)
   const [anchor, setAnchor] = useState('P1')
+  const [asOf, setAsOf] = useState(24)
 
   const { train } = splitByTime()
   const pop = useMemo(() => itemPopularity(train), [])          // eslint-disable-line
@@ -40,6 +45,7 @@ export default function NegativeSamplingWidget() {
     if (strategy === 'uniform') return negativeSamplingWeights(train, 0)
     if (strategy === 'popularity') return negativeSamplingWeights(train, beta)
     if (strategy === 'inbatch') return negativeSamplingWeights(train, 1)
+    if (strategy === 'timeaware') return timeAwareSamplingWeights(train, asOf, { beta, window: 14 })
     // hard: proportional to similarity with the anchor positive, excluding it
     const raw = {}
     let z = 0
@@ -49,10 +55,13 @@ export default function NegativeSamplingWidget() {
     }
     for (const id of ITEM_IDS) raw[id] = z === 0 ? 0 : raw[id] / z
     return raw
-  }, [strategy, beta, anchor, S])          // eslint-disable-line
+  }, [strategy, beta, anchor, asOf, S])          // eslint-disable-line
 
+  // What all-time popularity sampling WOULD have given — the drift reference.
+  const allTime = useMemo(() => negativeSamplingWeights(train, beta), [beta])   // eslint-disable-line
   const maxW = Math.max(...Object.values(weights), 1e-9)
   const nonzero = ITEM_IDS.filter(id => weights[id] > 1e-9).length
+  const nLive = listedBy(asOf).length
 
   return (
     <div style={{ fontFamily: 'inherit' }}>
@@ -67,13 +76,23 @@ export default function NegativeSamplingWidget() {
         ))}
       </div>
 
-      {strategy === 'popularity' && (
+      {(strategy === 'popularity' || strategy === 'timeaware') && (
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.83rem', marginBottom: '0.5rem' }}>
           β
           <input type="range" min="0" max="2" step="0.05" value={beta} onChange={e => setBeta(+e.target.value)} />
           <strong>{beta.toFixed(2)}</strong>
           <span style={{ opacity: 0.65, fontSize: '0.78rem' }}>
             {beta < 0.1 ? '→ uniform' : beta > 1.4 ? '→ almost always the head' : ''}
+          </span>
+        </label>
+      )}
+      {strategy === 'timeaware' && (
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.83rem', marginBottom: '0.5rem' }}>
+          positive occurred on day
+          <input type="range" min="4" max="30" step="1" value={asOf} onChange={e => setAsOf(+e.target.value)} />
+          <strong>d{asOf}</strong>
+          <span style={{ opacity: 0.65, fontSize: '0.78rem' }}>
+            · {nLive}/{ITEM_IDS.length} products live · 14-day popularity window
           </span>
         </label>
       )}
@@ -87,19 +106,31 @@ export default function NegativeSamplingWidget() {
       )}
 
       <div>
-        {ITEM_IDS.map(id => (
-          <div key={id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 3, fontSize: '0.78rem' }}>
-            <span style={{ width: 108 }}>{productName(id)}</span>
-            <span style={{ width: 22, textAlign: 'right', opacity: 0.55 }}>{pop[id]}u</span>
-            <div style={{ flex: 1, height: 12, background: 'var(--bg-hover, #eee)', borderRadius: 3, overflow: 'hidden' }}>
-              <div style={{ width: `${(weights[id] / maxW) * 100}%`, height: '100%', background: TRACK, transition: 'width .15s' }} />
+        {ITEM_IDS.map(id => {
+          const unlisted = strategy === 'timeaware' && (LISTED_DAY[id] ?? 0) >= asOf
+          return (
+            <div key={id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 3, fontSize: '0.78rem', opacity: unlisted ? 0.45 : 1 }}>
+              <span style={{ width: 108 }}>{productName(id)}{unlisted && ' ⏳'}</span>
+              <span style={{ width: 22, textAlign: 'right', opacity: 0.55 }}>{pop[id]}u</span>
+              <div style={{ flex: 1, height: 12, background: 'var(--bg-hover, #eee)', borderRadius: 3, overflow: 'hidden', position: 'relative' }}>
+                <div style={{ width: `${(weights[id] / maxW) * 100}%`, height: '100%', background: TRACK, transition: 'width .15s' }} />
+                {strategy === 'timeaware' && (
+                  // where all-time popularity sampling would have put this item
+                  <span title={`all-time popularity^β would give ${(allTime[id] * 100).toFixed(1)}%`}
+                    style={{
+                      position: 'absolute', left: `${Math.min(100, (allTime[id] / maxW) * 100)}%`, top: -1, bottom: -1,
+                      width: 2, background: '#dc2626', transform: 'translateX(-1px)',
+                    }} />
+                )}
+              </div>
+              <span style={{ width: 46, textAlign: 'right', fontFamily: 'monospace' }}>{(weights[id] * 100).toFixed(1)}%</span>
             </div>
-            <span style={{ width: 46, textAlign: 'right', fontFamily: 'monospace' }}>{(weights[id] * 100).toFixed(1)}%</span>
-          </div>
-        ))}
+          )
+        })}
       </div>
       <p style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '0.25rem' }}>
         “{pop.P8}u” = distinct shoppers who touched the item in training. Bar = chance of being drawn as a negative.
+        {strategy === 'timeaware' && <> <span style={{ color: '#dc2626' }}>│</span> = where all-time popularity sampling would have put it. ⏳ = not listed yet.</>}
       </p>
 
       <p style={{ fontSize: '0.84rem', opacity: 0.85, marginTop: '0.6rem' }}>{STRATEGY[strategy].blurb}</p>
@@ -121,6 +152,18 @@ export default function NegativeSamplingWidget() {
         {strategy === 'inbatch' && <>Equivalent to β=1: the distribution is exactly item popularity, because
           popular items appear as someone's positive more often. That built-in bias is real and correctable —
           subtract log P(item) from the logits (the “logQ correction”).</>}
+        {strategy === 'timeaware' && <>
+          For a positive on day {asOf}, only <strong>{nLive} of {ITEM_IDS.length}</strong> products existed.
+          {asOf <= 22
+            ? <> ANC Headphones list on day 22, so every other strategy is quietly asking the model to reject
+              a product that <em>did not exist yet</em> — a negative from the future.</>
+            : <> ANC Headphones are live now and draw {(weights.P9 * 100).toFixed(1)}% from the smoothing floor
+              alone, since nobody has touched them.</>}
+          {' '}Compare each bar to its <span style={{ color: '#dc2626' }}>red mark</span>: that gap is{' '}
+          <strong>popularity drift</strong>. All-time popularity gives Wireless Earbuds{' '}
+          {(allTime.P1 * 100).toFixed(1)}%, but in the 14 days before day {asOf} they draw{' '}
+          {(weights.P1 * 100).toFixed(1)}% — using the all-time number would leak what happened after day {asOf}.
+        </>}
       </div>
     </div>
   )

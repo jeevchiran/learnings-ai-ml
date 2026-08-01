@@ -82,6 +82,23 @@ describe('recsys widgets respond to input', () => {
     }
   })
 
+  it('NegativeSamplingWidget zeroes the not-yet-listed item under time-aware sampling', () => {
+    const { container } = render(<NegativeSamplingWidget />)
+    const pctFor = name => {
+      const row = [...container.querySelectorAll('div')]
+        .find(d => d.children.length >= 3 && d.firstChild?.textContent?.startsWith(name))
+      return row?.lastChild?.textContent
+    }
+    fireEvent.click(screen.getByText('Uniform'))
+    expect(pctFor('ANC Headphones')).toBe('11.1%')     // random gives a future item mass
+
+    fireEvent.click(screen.getByText('Time-aware'))
+    const asOf = [...container.querySelectorAll('input[type="range"]')].at(-1)
+    fireEvent.change(asOf, { target: { value: '10' } })  // before P9 lists on day 22
+    expect(pctFor('ANC Headphones ⏳')).toBe('0.0%')
+    expect(screen.getByText(/8\/9/)).toBeTruthy()        // 8 of 9 products live
+  })
+
   it('MultiModalWidget moves the cold item off the bottom when content weight is applied', () => {
     const { container } = render(<MultiModalWidget />)
     // P9 is marked with a star; it must be listed somewhere above last place at w=0.5
