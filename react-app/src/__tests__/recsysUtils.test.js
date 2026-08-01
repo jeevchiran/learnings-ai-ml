@@ -9,6 +9,8 @@ import {
   trainALS, alsScores, rankScores, solve, dot,
   pointwiseLoss, pairwiseLoss, listwiseLoss,
   negativeSamplingWeights, timeAwareSamplingWeights, listedBy, LISTED_DAY, contentNeighbours,
+  decayFactor, decayedAffinity, rawAffinity, popularityFeatures,
+  sessionFeatures, sessionPairFeatures, SESSION_LOG,
 } from '../components/widgets/recsys/recsysUtils.js'
 
 const near = (a, b, d = 4) => expect(a).toBeCloseTo(b, d)
@@ -213,6 +215,110 @@ describe('time-aware negative sampling', () => {
     for (let d = 4; d <= 30; d++) {
       near(Object.values(timeAwareSamplingWeights(train, d)).reduce((a, b) => a + b, 0), 1)
     }
+  })
+})
+
+describe('time decay', () => {
+  const { train } = splitByTime()
+
+  it('halves the weight at exactly one half-life', () => {
+    near(decayFactor(0, 7), 1)
+    near(decayFactor(7, 7), 0.5)
+    near(decayFactor(14, 7), 0.25)
+    near(decayFactor(21, 7), 0.125)
+  })
+
+  it('breaks a raw-count tie using recency', () => {
+    // Bhavna: Keyboard raw 4 (cart d8), Steel Bottle raw 4 (cart d14). Tied.
+    const raw = rawAffinity(train, 'U2', 24)
+    expect(raw.P4).toBe(raw.P8)
+    const dec = decayedAffinity(train, 'U2', 24, 7)
+    near(dec.P8, 1.22, 2)
+    near(dec.P4, 0.80, 2)
+    expect(dec.P8).toBeGreaterThan(dec.P4)   // the more recent one wins
+  })
+
+  it('approaches the raw count as half-life grows and collapses as it shrinks', () => {
+    const raw = rawAffinity(train, 'U1', 24)
+    const long = decayedAffinity(train, 'U1', 24, 100000)
+    const short = decayedAffinity(train, 'U1', 24, 0.5)
+    for (const id of ITEM_IDS) near(long[id], raw[id], 2)
+    expect(Object.values(short).reduce((a, b) => a + b, 0)).toBeLessThan(0.01)
+  })
+
+  it('ignores events at or after the as-of day', () => {
+    // U1's purchase of P1 is day 26 — invisible at as-of 24, counted at as-of 27.
+    expect(decayedAffinity(EVENTS, 'U1', 24, 7).P1).toBeLessThan(decayedAffinity(EVENTS, 'U1', 27, 7).P1)
+  })
+})
+
+describe('popularity features', () => {
+  const { train } = splitByTime()
+
+  it('is point-in-time: counts grow as the as-of day advances', () => {
+    expect(popularityFeatures(train, 6).P8.pop_all).toBeLessThan(popularityFeatures(train, 24).P8.pop_all)
+  })
+
+  it('counts distinct users, not events', () => {
+    // U2 and U4 each touched P8 twice; pop_all must be 5 users, not 7 events.
+    expect(popularityFeatures(train, 24).P8.pop_all).toBe(5)
+  })
+
+  it('flags a rising item with pop_trend > 1', () => {
+    // P5 is viewed on day 12 after a quiet stretch — short rate beats long rate.
+    expect(popularityFeatures(train, 12).P5.pop_trend).toBeGreaterThan(1)
+    expect(popularityFeatures(train, 12).P8.pop_trend).toBeLessThan(1)
+  })
+
+  it('gives category share and a rank percentile in [0,1]', () => {
+    const f = popularityFeatures(train, 24)
+    for (const id of ITEM_IDS) {
+      expect(f[id].pop_cat_share).toBeGreaterThanOrEqual(0)
+      expect(f[id].pop_cat_share).toBeLessThanOrEqual(1)
+      expect(f[id].pop_rank_pct).toBeGreaterThanOrEqual(0)
+      expect(f[id].pop_rank_pct).toBeLessThanOrEqual(1)
+    }
+  })
+})
+
+describe('session features', () => {
+  it('separates a bounce from real interest via dwell, not view count', () => {
+    const f = sessionFeatures()
+    const hub = sessionPairFeatures('P5')
+    const bottle = sessionPairFeatures('P8')
+    expect(hub.s_views / bottle.s_views).toBe(3)          // views: only 3x
+    expect(hub.s_dwell / bottle.s_dwell).toBeGreaterThan(30)  // dwell: 37x
+    near(hub.s_dwell_share, 0.81, 2)
+    expect(f.bounces).toBe(1)                             // the 8s look at P1
+    expect(f.last_item).toBe('P5')
+    expect(f.repeat_views).toBe(3)
+  })
+
+  it('is computed as-of a point in the session', () => {
+    const early = sessionFeatures(SESSION_LOG, 100)
+    const late = sessionFeatures(SESSION_LOG, 600)
+    expect(early.n_events).toBeLessThan(late.n_events)
+    expect(early.dwell_total).toBeLessThan(late.dwell_total)
+    expect(sessionFeatures(SESSION_LOG, 1).n_events).toBe(1)   // the t=0 event qualifies
+    expect(sessionFeatures(SESSION_LOG, 0).n_events).toBe(0)   // strict <, so nothing
+    expect(sessionFeatures(SESSION_LOG, 0).last_item).toBeNull()
+  })
+
+  it('returns last_n most-recent-first and de-duplicated', () => {
+    // events before 250s: P8@0, P3@14, P5@65, P4@202, P5@245
+    expect(sessionFeatures(SESSION_LOG, 250).last_n).toEqual(['P5', 'P4', 'P3'])
+  })
+
+  it('reports the dominant category by dwell', () => {
+    const f = sessionFeatures()
+    expect(f.top_category).toBe('desk')
+    expect(f.cat_share).toBeGreaterThan(0.9)
+  })
+
+  it('gives an unseen candidate a sentinel recency, not a crash', () => {
+    const p = sessionPairFeatures('P7')       // never touched in this session
+    expect(p.s_views).toBe(0)
+    expect(p.s_seconds_since).toBe(9999)
   })
 })
 

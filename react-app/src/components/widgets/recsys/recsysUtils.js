@@ -440,6 +440,159 @@ export function alsScores(X, Y, userId, { excludeSeen = false, R = null } = {}) 
   return scores
 }
 
+/* ── recency with time decay ──────────────────────────────────────────── */
+
+/** Exponential decay factor. lambda = ln2 / halfLife, so an event exactly one
+ *  half-life old counts exactly half. */
+export const decayFactor = (ageDays, halfLife) =>
+  halfLife <= 0 ? (ageDays === 0 ? 1 : 0) : Math.pow(2, -ageDays / halfLife)
+
+/**
+ * Decayed affinity a(u,i) = Σ_e w(type) · 2^(-Δt / halfLife), over events
+ * strictly before asOfDay. One number that answers "how much, how recently".
+ */
+export function decayedAffinity(events, userId, asOfDay, halfLife = 7) {
+  const out = {}
+  for (const id of ITEM_IDS) out[id] = 0
+  for (const e of events) {
+    if (e.u !== userId || e.day >= asOfDay) continue
+    out[e.p] += EVENT_WEIGHT[e.type] * decayFactor(asOfDay - e.day, halfLife)
+  }
+  return out
+}
+
+/** Raw (undecayed) affinity — the thing decay is meant to improve on. */
+export function rawAffinity(events, userId, asOfDay) {
+  const out = {}
+  for (const id of ITEM_IDS) out[id] = 0
+  for (const e of events) {
+    if (e.u !== userId || e.day >= asOfDay) continue
+    out[e.p] += EVENT_WEIGHT[e.type]
+  }
+  return out
+}
+
+/* ── popularity features ──────────────────────────────────────────────── */
+
+/**
+ * The popularity family, all point-in-time. Global counts, a category-relative
+ * share, a trend ratio, and a rank percentile so the scale is model-friendly.
+ */
+export function popularityFeatures(events, asOfDay, { shortW = 3, longW = 14 } = {}) {
+  const distinct = (lo, hi) => {
+    const m = {}
+    for (const e of events) {
+      if (e.day >= hi || e.day < lo) continue
+      ;(m[e.p] ??= new Set()).add(e.u)
+    }
+    return Object.fromEntries(ITEM_IDS.map(id => [id, m[id]?.size ?? 0]))
+  }
+  const allTime = distinct(-Infinity, asOfDay)
+  const short = distinct(asOfDay - shortW, asOfDay)
+  const long = distinct(asOfDay - longW, asOfDay)
+
+  // category totals, so a niche item can still be a big fish in its own pond
+  const catTotal = {}
+  for (const p of PRODUCTS) catTotal[p.cat] = (catTotal[p.cat] ?? 0) + long[p.id]
+
+  const sortedLong = [...ITEM_IDS].sort((a, b) => long[a] - long[b])
+  const out = {}
+  for (const id of ITEM_IDS) {
+    const cat = PRODUCTS.find(p => p.id === id).cat
+    out[id] = {
+      pop_all: allTime[id],
+      pop_short: short[id],
+      pop_long: long[id],
+      // trend: recent rate vs the longer baseline rate. >1 means heating up.
+      pop_trend: (short[id] / shortW) / (long[id] / longW + 0.01),
+      // share of its own category — normalises away category size
+      pop_cat_share: catTotal[cat] ? long[id] / catTotal[cat] : 0,
+      // rank percentile in [0,1]; scale-free, robust to catalog growth
+      pop_rank_pct: sortedLong.indexOf(id) / (ITEM_IDS.length - 1),
+    }
+  }
+  return out
+}
+
+/* ── session log: a zoom-in on one shopper's browsing session ─────────── */
+/* The main EVENT log is daily. Session features live at second granularity, so
+ * this is Bhavna's day-12 visit: `t` and `dwell` are both seconds, and the
+ * whole visit lasts 9.5 minutes. `pos` is the slot the item was shown in
+ * (module 3's position field). */
+export const SESSION_USER = 'U2'
+export const SESSION_DAY = 12
+export const SESSION_LOG = [
+  { t:   0, p: 'P8', type: 'view', dwell:  12, pos: 1 },
+  { t:  14, p: 'P3', type: 'view', dwell:  45, pos: 4 },
+  { t:  65, p: 'P5', type: 'view', dwell: 133, pos: 2 },
+  { t: 202, p: 'P4', type: 'view', dwell:  38, pos: 7 },
+  { t: 245, p: 'P5', type: 'view', dwell:  96, pos: 2 },
+  { t: 345, p: 'P1', type: 'view', dwell:   8, pos: 3 },
+  { t: 358, p: 'P5', type: 'view', dwell: 210, pos: 2 },
+  { t: 570, p: 'P5', type: 'cart', dwell:   0, pos: 2 },
+]
+
+/** Bounce = a view abandoned almost immediately. Standard threshold ~10s. */
+export const BOUNCE_SECONDS = 10
+
+/**
+ * Short-term session features, computed from events strictly before `upTo`
+ * (seconds into the session). These are the highest-signal, shortest-lived
+ * features in the whole system.
+ */
+export function sessionFeatures(log = SESSION_LOG, upTo = Infinity, { lastN = 3 } = {}) {
+  const seen = log.filter(e => e.t < upTo)
+  if (!seen.length) {
+    return { n_events: 0, last_item: null, last_n: [], dwell_total: 0, top_item_dwell: 0,
+             session_seconds: 0, bounces: 0, distinct_items: 0, top_category: null,
+             cat_share: 0, repeat_views: 0, dwell_by_item: {} }
+  }
+  const dwellByItem = {}
+  const viewsByItem = {}
+  const dwellByCat = {}
+  for (const e of seen) {
+    dwellByItem[e.p] = (dwellByItem[e.p] ?? 0) + e.dwell
+    if (e.type === 'view') viewsByItem[e.p] = (viewsByItem[e.p] ?? 0) + 1
+    const cat = PRODUCTS.find(p => p.id === e.p).cat
+    dwellByCat[cat] = (dwellByCat[cat] ?? 0) + e.dwell
+  }
+  const totalDwell = Object.values(dwellByItem).reduce((a, b) => a + b, 0)
+  const cats = Object.entries(dwellByCat).sort((a, b) => b[1] - a[1])
+  const views = seen.filter(e => e.type === 'view')
+  return {
+    n_events: seen.length,
+    last_item: seen.at(-1).p,
+    // most recent first, de-duplicated — "the last N distinct items viewed"
+    last_n: [...new Set([...seen].reverse().map(e => e.p))].slice(0, lastN),
+    dwell_total: totalDwell,
+    top_item_dwell: Math.max(...Object.values(dwellByItem)),   // best ITEM total, not one view
+    session_seconds: seen.at(-1).t - seen[0].t,
+    bounces: views.filter(e => e.dwell < BOUNCE_SECONDS).length,
+    distinct_items: new Set(seen.map(e => e.p)).size,
+    top_category: cats[0]?.[0] ?? null,
+    cat_share: totalDwell ? (cats[0]?.[1] ?? 0) / totalDwell : 0,
+    repeat_views: Math.max(0, ...Object.values(viewsByItem)),
+    dwell_by_item: dwellByItem,
+  }
+}
+
+/** Per-candidate session cross features — the ones that actually rank. */
+export function sessionPairFeatures(itemId, log = SESSION_LOG, upTo = Infinity) {
+  const f = sessionFeatures(log, upTo)
+  const seen = log.filter(e => e.t < upTo)
+  const mine = seen.filter(e => e.p === itemId)
+  const cat = PRODUCTS.find(p => p.id === itemId).cat
+  return {
+    s_views: mine.filter(e => e.type === 'view').length,
+    s_dwell: mine.reduce((a, e) => a + e.dwell, 0),
+    s_dwell_share: f.dwell_total ? mine.reduce((a, e) => a + e.dwell, 0) / f.dwell_total : 0,
+    s_is_last: f.last_item === itemId ? 1 : 0,
+    s_in_last_n: f.last_n.includes(itemId) ? 1 : 0,
+    s_seconds_since: mine.length ? (seen.at(-1).t - mine.at(-1).t) : 9999,
+    s_same_category: cat === f.top_category ? 1 : 0,
+  }
+}
+
 /* ── content vectors, for the cold-start / multi-modal module ─────────── */
 /* Hand-set "embeddings" over [audio, desk, fitness, kitchen, mobile, premium].
  * Stands in for what a text/image encoder would produce from title + photo. */

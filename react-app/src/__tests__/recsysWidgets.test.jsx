@@ -18,6 +18,8 @@ const { default: LTRLossWidget }          = await import('../components/widgets/
 const { default: FeatureWindowWidget }    = await import('../components/widgets/recsys/FeatureWindowWidget.jsx')
 const { default: NegativeSamplingWidget } = await import('../components/widgets/recsys/NegativeSamplingWidget.jsx')
 const { default: MultiModalWidget }       = await import('../components/widgets/recsys/MultiModalWidget.jsx')
+const { default: TimeDecayWidget }        = await import('../components/widgets/recsys/TimeDecayWidget.jsx')
+const { default: SessionFeatureWidget }   = await import('../components/widgets/recsys/SessionFeatureWidget.jsx')
 
 const ALL = [
   ['FunnelWidget', FunnelWidget],
@@ -32,6 +34,8 @@ const ALL = [
   ['FeatureWindowWidget', FeatureWindowWidget],
   ['NegativeSamplingWidget', NegativeSamplingWidget],
   ['MultiModalWidget', MultiModalWidget],
+  ['TimeDecayWidget', TimeDecayWidget],
+  ['SessionFeatureWidget', SessionFeatureWidget],
 ]
 
 describe('recsys widgets mount', () => {
@@ -97,6 +101,26 @@ describe('recsys widgets respond to input', () => {
     fireEvent.change(asOf, { target: { value: '10' } })  // before P9 lists on day 22
     expect(pctFor('ANC Headphones ⏳')).toBe('0.0%')
     expect(screen.getByText(/8\/9/)).toBeTruthy()        // 8 of 9 products live
+  })
+
+  it('TimeDecayWidget reports the recency tie-break for Bhavna', () => {
+    const { container } = render(<TimeDecayWidget />)
+    // defaults: U2, half-life 7, as-of d24 — raw ties P4/P8, decay picks the Bottle
+    expect(screen.getByText(/decay broke the tie/)).toBeTruthy()
+    expect(container.textContent).toMatch(/1\.22/)   // decayed Steel Bottle
+    expect(container.textContent).toMatch(/0\.80/)   // decayed Keyboard
+  })
+
+  it('SessionFeatureWidget accumulates features as the session is scrubbed', () => {
+    const { container } = render(<SessionFeatureWidget />)
+    const slider = container.querySelector('input[type="range"]')
+    fireEvent.change(slider, { target: { value: '100' } })
+    const early = container.textContent
+    fireEvent.change(slider, { target: { value: '571' } })
+    const late = container.textContent
+    expect(early).toMatch(/3 events so far/)
+    expect(late).toMatch(/8 events so far/)
+    expect(late).toMatch(/542s/)        // full-session dwell total
   })
 
   it('MultiModalWidget moves the cold item off the bottom when content weight is applied', () => {

@@ -1,11 +1,15 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import FeatureWindowWidget from '../../components/widgets/recsys/FeatureWindowWidget.jsx'
+import TimeDecayWidget from '../../components/widgets/recsys/TimeDecayWidget.jsx'
+import SessionFeatureWidget from '../../components/widgets/recsys/SessionFeatureWidget.jsx'
 
 <ConceptBox title="TL;DR">
 - Features come in four families: **user**, **item**, **user×item cross**, and **context**. The cross features are where the ranker earns its keep — retrieval structurally cannot use them.
 - Every aggregate must be **point-in-time correct**: computed only from events strictly *before* the row's timestamp. This is the single most common production recsys bug.
-- Multi-window aggregates (1d / 7d / 30d) beat a single window, because their *ratio* encodes trend.
-- High-cardinality IDs need target encoding or embeddings, both of which leak unless the encoding is itself computed out-of-fold and as-of.
+- **Time decay** replaces a count with $\sum w \cdot 2^{-\Delta t / t_{1/2}}$, so *when* stops being thrown away. Half-life is the knob.
+- **Popularity** is a family, not one number: global, windowed, category-relative, trend ratio, rank percentile.
+- **Session features** are the shortest-lived and highest-signal of all — last item, last N, dwell time, category share. Dwell is what separates real interest from a bounce.
+- **MF scores are features.** Feeding the ALS score into the ranker is how retrieval and ranking actually compose: it supplies collaborative structure the ranker cannot learn from few labels.
 </ConceptBox>
 
 ## The four families
@@ -67,6 +71,154 @@ feats["burst_ratio"]  = feats["views_1d"] / (feats["views_7d"] / 7 + 1)   # +1 g
 
 `burst_ratio` fires when an item is trending *right now* relative to its own baseline — which is exactly what a "trending" row needs and what a raw 30d count can never express. The same trick on the user side separates "browsing hard today" from "steady long-term customer".
 
+But windows are still a blunt instrument: inside a 30-day window, an event from yesterday and one from four weeks ago count the same, and one day later the old event drops off a cliff. Decay fixes both.
+
+## Recency with time decay
+
+A count throws away *when*. Decay keeps it:
+
+$$a_{ui}(t) = \sum_{e \,\in\, \text{events}(u,i),\; t_e < t} w_{\text{type}(e)} \cdot 2^{-(t - t_e)/t_{1/2}}$$
+
+Plain English: add up the event weights, but shrink each one by half for every half-life that has passed since it happened.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Why base 2 and a half-life">
+$2^{-\Delta t / t_{1/2}}$ and $e^{-\lambda \Delta t}$ are the same curve — $\lambda = \ln 2 / t_{1/2}$. Use the half-life form because the parameter is directly interpretable: "$t_{1/2} = 7$" means *an event one week old counts half as much*. Nobody can reason about $\lambda = 0.099$.
+</DerivationStep>
+
+<DerivationStep number={2} title="It degenerates to the things you already know">
+As $t_{1/2} \to \infty$ the weights all approach 1 and you are back to a raw lifetime count. As $t_{1/2} \to 0$ only today survives. **Windowed counts are the crude special case**: a hard 0/1 weight with the cliff at the window edge. Decay is a smooth window with no cliff.
+</DerivationStep>
+
+<DerivationStep number={3} title="It is incrementally updatable">
+$$a(t_2) = a(t_1) \cdot 2^{-(t_2-t_1)/t_{1/2}} + \text{(new events)}$$
+Decay past state, add what arrived. You never re-scan history, so this is cheap in a streaming feature store — unlike a sliding window, which must remember every event in order to expire it.
+</DerivationStep>
+</DerivationSteps>
+
+<TimeDecayWidget />
+
+**Worked example.** Bhavna's raw affinities as of day 24: Keyboard = 4, Steel Bottle = 4. A dead tie, and the count cannot break it. Her Keyboard cart was day 8; her Bottle cart was day 14. With $t_{1/2}=7$:
+
+$$a_{\text{Bottle}} = 1 \cdot 2^{-23/7} + 3 \cdot 2^{-10/7} = 1.22, \qquad a_{\text{Keyboard}} = 1 \cdot 2^{-17/7} + 3 \cdot 2^{-16/7} = 0.80$$
+
+The tie breaks toward the Bottle, on recency alone. Whether that is *right* is an empirical question — Bhavna in fact buys the Keyboard on day 27 — and that is the honest lesson: **decay is a hypothesis about how fast interest fades, and the half-life is what you tune.** Groceries and laptops are not the same problem, and the same store often needs different half-lives per category.
+
+```python
+def decayed_affinity(events, user, as_of, half_life=7.0):
+    h = events[(events.user_id == user) & (events.event_ts < as_of)]   # strict <
+    age = (as_of - h.event_ts).dt.total_seconds() / 86400
+    return (h.weight * np.power(2.0, -age / half_life)).groupby(h.item_id).sum()
+```
+
+Ship two or three half-lives (say 1d, 7d, 30d) as separate features rather than agonising over one. The model will learn which timescale matters, and their ratios encode trend for free.
+
+## Popularity features
+
+"Popularity" is not one number. Each variant answers a different question, and shipping only the first is the common mistake:
+
+| Feature | Question | Failure it avoids |
+|---|---|---|
+| `pop_all` | Total distinct users, all time | — (the naive one) |
+| `pop_short` / `pop_long` | Distinct users in 3d / 14d | All-time counts never forget a dead hit |
+| `pop_trend` | short rate ÷ long rate | Distinguishes *rising* from *big* |
+| `pop_cat_share` | Share of its own category | Lets a niche item be a big fish in a small pond |
+| `pop_rank_pct` | Rank percentile in [0,1] | Scale-free; survives catalog growth and seasonality |
+
+```python
+def popularity_features(events, as_of, short=3, long=14):
+    before = events[events.event_ts < as_of]                       # point-in-time
+    win = lambda d: (before[before.event_ts >= as_of - pd.Timedelta(days=d)]
+                       .groupby("item_id")["user_id"].nunique())
+    s, l = win(short), win(long)
+    out = pd.DataFrame({"pop_all": before.groupby("item_id")["user_id"].nunique(),
+                        "pop_short": s, "pop_long": l}).reindex(ITEMS).fillna(0)
+    out["pop_trend"]     = (out.pop_short / short) / (out.pop_long / long + 0.01)
+    out["pop_rank_pct"]  = out.pop_long.rank(pct=True)
+    out["pop_cat_share"] = out.pop_long / out.join(catalog.cat).groupby("cat").pop_long.transform("sum")
+    return out
+```
+
+<ConceptBox title="Three traps in popularity features">
+**Count distinct users, not events.** One crawler or one obsessive shopper otherwise defines the feature (module 3). This is the same rule as the popularity baseline in module 6, and it is violated just as often here.
+
+**Popularity is the most leak-prone feature you will build.** It is an aggregate over *other users*, so the temptation to compute it once with a global `GROUP BY` is overwhelming — and that single table then contains the test period for every training row. Popularity needs the same as-of treatment as everything else, bucketed by day.
+
+**Raw counts do not transfer across time.** A `pop_long` of 500 means something different in December than in February. `pop_rank_pct` is unitless and stable, which is why it usually outperforms the raw count despite carrying strictly less information.
+</ConceptBox>
+
+## Session features
+
+Everything so far is measured in days. A shopper's *current visit* is measured in seconds, and it is the strongest signal you have about what they want **right now**.
+
+<SessionFeatureWidget />
+
+| Feature | Why |
+|---|---|
+| `last_item` | The single most predictive feature on most e-commerce surfaces |
+| `last_n_items` | Intent is a trajectory, not a point |
+| `dwell_total`, `s_dwell`, `s_dwell_share` | Attention, not clicks |
+| `session_seconds`, `n_events` | Browsing vs. hunting |
+| `bounces` | A sub-10s view is a rejection, not interest |
+| `repeat_views` | Returning to an item three times is near-purchase intent |
+| `top_category`, `cat_share` | The aisle they are standing in |
+
+<ConceptBox title="Dwell time is the point">
+Run the widget to the end of Bhavna's session. By **view count** the USB-C Hub beats the Steel Bottle 3 to 1 — a 3× signal. By **dwell** it beats it 439s to 12s, a **37×** signal, taking 81% of the session's total attention.
+
+The Bottle was a 12-second bounce. Counting it as one "view", exactly equal to a 210-second read of the Hub, discards nearly everything the session told you. Views are cheap and near-random; attention is expensive and deliberate.
+
+Two cautions. **Cap dwell** — an abandoned tab reports 4 hours, so clip at something like the 95th percentile (120–300s) or the session will be defined by one person who went to lunch. And **dwell needs a page-exit event** to measure at all, which is a client instrumentation decision, not a modelling one. It belongs in the event contract (module 3).
+</ConceptBox>
+
+Two structural properties make session features different from everything else in this module:
+
+- **They work for logged-out and brand-new users.** No profile, no history, no problem — which makes them the standard cold-*user* fix from module 12.
+- **They decay in minutes, not days.** Bhavna's session screamed USB-C Hub on day 12; she bought a Keyboard on day 27. Session intent is for *this visit* and the next hour, not for a fortnight out. Serve them on session-scoped surfaces and let long-term features own the homepage.
+
+## Latent features — MF scores as ranker inputs
+
+The ALS model from module 8 produces a score for every (user, item) pair. **That score is a feature.** This is how the two stages actually compose, and it is the fastest way to fix a ranker that has plateaued.
+
+```python
+X, Y, _ = als(build_matrix(train), k=64)              # module b4, nightly batch
+cand["als_score"] = [float(X[u_ix[u]] @ Y[i_ix[i]])   # one dot product per candidate
+                     for u, i in zip(cand.user_id, cand.item_id)]
+
+# the factors themselves are also usable, at a cost
+cand["als_user_norm"] = np.linalg.norm(X[cand.user_id.map(u_ix)], axis=1)
+for d in range(8):                                     # a few dims, not all 64
+    cand[f"als_item_f{d}"] = Y[cand.item_id.map(i_ix)][:, d]
+```
+
+Feed the **score**, not the raw factors, as your first move. The score is one well-conditioned column that already encodes the interaction; 128 raw factor columns are noisy, individually meaningless (module 8: the axes are arbitrary), and will bury your handful of genuinely informative features in a tree model.
+
+<ConceptBox title="Why this is composition, not double-counting">
+The two models know different things and neither can learn the other's part.
+
+**ALS sees the whole interaction matrix** — every user, every item, all collaborative structure. It cannot see price, stock, device, time of day, or anything about the current session.
+
+**The ranker sees rich context** on a few hundred candidates. It cannot rediscover collaborative structure, because it only has a few thousand labelled rows.
+
+On NovaCart the effect is measurable. Adding decay, the popularity family and `als_score` to the base feature set:
+
+| Model | NDCG@3 | Top feature |
+|---|---|---|
+| Base features | 0.250 | `ui_days_since` (0.70) |
+| + decay / popularity / ALS | **0.377** | `ui_days_since` (0.35), `als_score` (0.24) |
+| Recency baseline | 0.438 | — |
+
+The ranker's dependence on `ui_days_since` halves, and `als_score` becomes the second-strongest feature — it stopped being a worse copy of the recency baseline. It still loses to that baseline on 11 positives, which remains a data problem, not a feature problem.
+
+Note also that `ui_decay` scores only 0.017 importance here: it is nearly collinear with `ui_days_since`, and the tree picks one. Redundant features are not free — they split importance and make the model harder to read — so ship the family, then prune it.
+</ConceptBox>
+
+<ConceptBox title="Common confusion — a leak hiding inside a good idea">
+`als_score` is trained on the interaction matrix. **If ALS was fitted on all data including the test period, every training row's `als_score` contains the future.** This is the module's central bug wearing a different hat, and it is easy to miss because the leak lives one model upstream.
+
+The rule: the ALS model attached to a row dated $t$ must have been trained only on events before $t$. In practice that means refitting per training period (weekly is usually enough) and joining as-of, exactly like any other feature. Teams that get every SQL aggregate right still routinely leak here.
+</ConceptBox>
+
 ## Encoding high-cardinality IDs
 
 `item_id` has a million values. One-hot is impossible; label encoding invents a false ordering. Three real options:
@@ -96,6 +248,14 @@ Features and a loss give you a trainable ranker. But a ranker needs negatives, a
   { q: "Explain why `<=` instead of `<` in the feature join is a leak, given second-granularity timestamps.", a: "The event you are predicting can share a timestamp with the label row. With `<=`, that event is included in its own feature window, so a feature like 'views in last 30d' contains the very interaction being predicted. The model learns to read the answer, offline metrics soar, and production does nothing." },
   { q: "You have a clean temporal split and offline AUC is 0.94, but the A/B test is flat. Where do you look first?", a: "Feature computation, not the split. A clean event split says no test-period EVENT is in training; it says nothing about whether the aggregate features attached to training rows were computed over the whole log. Check whether any aggregate was built with a single GROUP BY rather than an as-of join, and look for one feature dominating importance." },
   { q: "Why is views_1d / (views_7d / 7) more useful than views_30d alone?", a: "The raw count is a level; the ratio is a trend — it says whether the item is being viewed more than its own recent baseline. That separates 'popular and stable' from 'spiking right now', which are different recommendations, and it normalises away the item's inherent popularity so small items can trend too." },
+  { q: "Why parameterise decay by half-life rather than by the rate λ, given they are the same curve?", a: "Interpretability. 'Half-life 7 days' states directly that a week-old event counts half as much, so a product manager can argue about it and you can set it per category. λ = 0.099 says the same thing and nobody can reason about it. Same math, and the parameterisation is what makes it tunable in practice." },
+  { q: "In what sense is a windowed count a crude special case of time decay?", a: "A window applies a hard 0/1 weight: full credit inside, zero outside, with a cliff at the edge where a still-relevant event abruptly vanishes overnight. Decay applies a smooth weight that falls off continuously, so nothing drops off a cliff and an event from yesterday outranks one from four weeks ago instead of tying with it." },
+  { q: "Why does decay update incrementally while a sliding window does not?", a: "a(t2) = a(t1)·2^(−Δt/half-life) + new events — you decay the stored value and add arrivals, never re-scanning history. A sliding window must retain every individual event so it knows what to expire at the boundary, which is far more state in a streaming feature store." },
+  { q: "Give three popularity features beyond a raw count and the failure each avoids.", a: "pop_trend (short rate ÷ long rate) separates rising from merely big. pop_cat_share normalises by category so a niche item can rank within its own pond instead of being crushed by a big category. pop_rank_pct is scale-free, so it stays meaningful across seasonality and catalog growth where a raw count of 500 means different things in December and February." },
+  { q: "Why is dwell time a stronger session signal than view count?", a: "Views are cheap and near-random — a 12-second bounce and a 210-second read both register as one view. Dwell measures attention, which is deliberate. In Bhavna's session, views rank the USB-C Hub over the Steel Bottle 3:1, but dwell ranks it 439s:12s — 37:1 — and gives it 81% of total session attention. Cap dwell, though, or one abandoned tab defines the feature." },
+  { q: "Session features are the strongest signal you have. Why not use them everywhere?", a: "They decay in minutes. Bhavna's session pointed hard at the USB-C Hub on day 12 and she bought a Keyboard on day 27. Session intent describes this visit and roughly the next hour, so it belongs on session-scoped surfaces while long-term features own the homepage. Their compensating strength is working for logged-out and brand-new users with no profile at all." },
+  { q: "Why feed the ALS score into the ranker rather than the raw latent factors?", a: "The score is one well-conditioned column that already encodes the user–item interaction. The raw factors are individually meaningless — ALS axes are arbitrary and differ per run — so 128 noisy columns bury the handful of genuinely informative features in a tree model. Start with the score; add a few factor dims only if it measurably helps." },
+  { q: "What is the leak hiding inside 'add als_score as a feature', and how do you avoid it?", a: "If ALS was fitted on all data including the test period, then every training row's als_score encodes the future — the leak sits one model upstream of the SQL people actually audit. The fix is the same as any other feature: the ALS model attached to a row dated t must be trained only on events before t, which means refitting per period (weekly is usually enough) and joining as-of." },
 ]} />
 
 <QuizCard
@@ -105,6 +265,28 @@ Features and a loss give you a trainable ranker. But a ranker needs negatives, a
     'It attaches today\'s value to year-old rows, so every historical row knows returns that had not happened yet; you need an as-of join against a historical snapshot of the item table',
     'Return rate should be one-hot encoded first',
     'The feature should be dropped because it is not a cross feature'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="Two of Bhavna's items tie at a raw affinity of 4. With a 7-day half-life the Steel Bottle scores 1.22 and the Keyboard 0.80. What produced the difference?"
+  options={[
+    'The Bottle has more events in total',
+    'Only the timing: her Bottle cart was day 14 and her Keyboard cart was day 8, so the Bottle\'s events have decayed less by day 24',
+    'The Bottle has a higher event weight because carts outrank views',
+    'Decay normalises by item popularity, and the Bottle is more popular'
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="You add `als_score` to your ranker. Offline NDCG jumps sharply and `als_score` dominates feature importance. Before celebrating, what must you check?"
+  options={[
+    'That the ALS latent dimension k matches the number of ranker features',
+    'That the ALS model producing each row\'s score was trained only on events before that row\'s timestamp — otherwise the score encodes the future and the leak sits one model upstream',
+    'That als_score has been one-hot encoded',
+    'That the ranker uses a pairwise rather than pointwise loss'
   ]}
   correct={1}
 />
