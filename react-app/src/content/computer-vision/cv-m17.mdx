@@ -1,0 +1,184 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import YoloLabelWidget from '../../components/widgets/cv/YoloLabelWidget.jsx'
+
+# Module 17: Training YOLO on Your Own Data
+
+<ConceptBox title="TL;DR">
+- The dataset is **a folder convention plus one YAML**. Labels are `class cx cy w h`, all normalised to $[0,1]$, one `.txt` per image.
+- The loader finds labels by replacing `/images/` with `/labels/` in the path. Break that and you get a silent all-background dataset.
+- **Split by scene, not by frame.** Consecutive video frames in train and val is the most common cause of a beautiful val mAP and a useless model.
+- Start from COCO weights, freeze nothing, train `yolov8s` for ~100 epochs. Fine-tuning beats training from scratch by a wide margin on small datasets.
+- Read the **confusion matrix and the PR curve**, not the mAP number. mAP tells you *that* it failed, those tell you *where*.
+</ConceptBox>
+
+<Bridge>
+Module 16 ran a pretrained model. This module replaces its classes with yours, which is 90% data engineering and 10% training — in that ratio, and the modules order the material accordingly.
+</Bridge>
+
+## The layout
+
+```
+weld-defects/
+├── data.yaml
+├── images/
+│   ├── train/  img_0001.jpg  img_0002.jpg  …
+│   └── val/    img_0500.jpg  …
+└── labels/
+    ├── train/  img_0001.txt  img_0002.txt  …
+    └── val/    img_0500.txt  …
+```
+
+The paths must mirror exactly: `images/train/img_0001.jpg` ↔ `labels/train/img_0001.txt`. An image with **no** `.txt` is treated as having no objects — a valid, useful background sample, and also exactly what a broken path looks like.
+
+```yaml
+# data.yaml
+path: ../datasets/weld-defects     # root, relative to the ultralytics settings dir
+train: images/train
+val:   images/val
+names:
+  0: crack
+  1: rust
+  2: dent
+```
+
+## The label format
+
+<YoloLabelWidget />
+
+One line per object, five space-separated numbers:
+
+$$\texttt{class\_id} \quad \frac{c_x}{W} \quad \frac{c_y}{H} \quad \frac{w}{W} \quad \frac{h}{H}$$
+
+<ConceptBox title="The four label bugs, in order of frequency">
+1. **Pixels instead of fractions.** Values above 1. The loss goes to nonsense immediately; at least this one is visible.
+2. **Corner instead of centre.** Every box lands up and to the left of its object. Trains fine, mAP caps at something mediocre, and nothing looks broken.
+3. **Class ids off by one.** Someone starts at 1 because that is what COCO JSON does. YOLO is 0-indexed; the last class silently never trains.
+4. **Wrong image dimensions in the converter.** Normalising by the *resized* dimensions when the labels were drawn on the original. Boxes are systematically scaled.
+
+All four are caught in thirty seconds by drawing ten random labels back onto their images before you train. Do that. Every time.
+</ConceptBox>
+
+## Converting from COCO JSON
+
+```python
+import json, os
+from pathlib import Path
+
+coco = json.load(open('annotations.json'))
+imgs = {im['id']: im for im in coco['images']}
+# COCO category ids are arbitrary integers; YOLO needs contiguous 0-based ones
+cat2idx = {c['id']: i for i, c in enumerate(sorted(coco['categories'], key=lambda c: c['id']))}
+
+lines = {}
+for a in coco['annotations']:
+    if a.get('iscrowd'):                       # crowd regions have no usable box
+        continue
+    im = imgs[a['image_id']]
+    W, H = im['width'], im['height']
+    x, y, w, h = a['bbox']                     # COCO is xywh, top-left, absolute pixels
+    cx, cy = x + w / 2, y + h / 2              # → centre
+    lines.setdefault(im['file_name'], []).append(
+        f"{cat2idx[a['category_id']]} {cx/W:.6f} {cy/H:.6f} {w/W:.6f} {h/H:.6f}")
+
+Path('labels/train').mkdir(parents=True, exist_ok=True)
+for fname, ls in lines.items():
+    Path('labels/train', Path(fname).with_suffix('.txt').name).write_text('\n'.join(ls))
+```
+
+Three conversions happen in that loop, and each is a bug if skipped: **xywh → cxcywh**, **absolute → normalised**, and **arbitrary category id → contiguous index**.
+
+## Splitting — the part that decides whether your metric is real
+
+Random splitting is wrong whenever samples are correlated. From worst to best:
+
+| Split | Problem |
+|---|---|
+| Random over video frames | frame 100 in train, frame 101 in val — near-duplicates. Val mAP is meaningless. |
+| Random over augmented copies | the same photo appears on both sides |
+| Random over photos of the same object | the model memorises that object, not the class |
+| **By scene / session / capture day** | ✓ what you want |
+
+If your data came from video, split by **clip**. If it came from a factory, split by **shift or line**. The rule: whatever varies between your training set and deployment should also vary between train and val.
+
+## Training
+
+```python
+from ultralytics import YOLO
+
+model = YOLO('yolov8s.pt')        # start from COCO weights, not yolov8s.yaml
+model.train(
+    data='data.yaml',
+    epochs=100,
+    imgsz=640,
+    batch=16,                     # or batch=-1 for auto-sizing to your GPU
+    patience=25,                  # early stop after 25 epochs without improvement
+    hsv_h=0.015, hsv_s=0.7, hsv_v=0.4,     # colour jitter (Module 7's domain shift)
+    fliplr=0.5, degrees=0.0,      # horizontal flip yes; rotation off — Module 4 explains why
+    mosaic=1.0, close_mosaic=10,  # mosaic on, disabled for the final 10 epochs
+    project='runs', name='weld_v1',
+)
+
+metrics = model.val()
+print(metrics.box.map, metrics.box.map50)      # mAP@50-95, mAP@50
+```
+
+Two of those defaults are worth understanding:
+
+- **`degrees=0.0`.** Rotation inflates axis-aligned boxes — Module 4 computed a 98% area increase at 30°. Every rotated box then teaches the model that a chunk of background is object. Leave rotation off unless your objects genuinely appear at arbitrary angles.
+- **`close_mosaic=10`.** Mosaic stitches four images into one, which is excellent for teaching scale and context but produces boxes clipped at seams. Turning it off for the last epochs lets the model finish on clean, realistic images.
+
+## Reading the results
+
+`runs/weld_v1/` contains more than the number:
+
+| File | What it tells you |
+|---|---|
+| `results.png` | loss curves. Box loss flat from epoch 1 → your labels are wrong. |
+| `confusion_matrix.png` | **which** classes are confused, and how much goes to `background` |
+| `PR_curve.png` | per-class AP — the mean is hiding something |
+| `val_batch0_pred.jpg` | predictions on real val images, next to the labels |
+
+The `background` column of the confusion matrix is the one to read first. Heavy leakage into it means missed detections (low recall); heavy leakage *from* it means false positives. Those two failures need opposite fixes — more positive examples versus more hard negative backgrounds — and the mAP number alone cannot distinguish them.
+
+## Export
+
+```python
+model.export(format='onnx', imgsz=640, simplify=True, opset=12)
+# also: 'engine' (TensorRT), 'coreml', 'tflite', 'openvino'
+```
+
+Exported graphs usually stop **before** NMS, so you are back to the raw `(1, 84, 8400)` tensor from Module 16 and must reimplement decode + NMS + un-letterbox in the target runtime. Verify by running one image through both paths and comparing boxes — a 1-pixel difference is rounding, a 100-pixel difference is your letterbox maths.
+
+---
+
+<Recall items={[
+  { q: "How does the YOLO data loader find the label for an image, and what breaks silently if it cannot?", a: "By string substitution: it replaces /images/ with /labels/ in the image path and swaps the extension for .txt. If the resulting file does not exist, the image is treated as a valid background sample with zero objects — no warning. So a renamed folder or an images/ path that appears twice yields a dataset where everything is background, and training completes normally with 0 mAP." },
+  { q: "Why is randomly splitting video frames into train and val a mistake?", a: "Because consecutive frames are near-duplicates. Frame 100 in train and frame 101 in val means the model is evaluated on data it effectively memorised, so val mAP is high and deployment performance is not. Split by clip, session or capture day — the rule is that whatever varies between training and deployment must also vary between train and val." },
+  { q: "Name the three conversions needed to turn a COCO annotation into a YOLO label line.", a: "First xywh to cxcywh — COCO stores the top-left corner, YOLO wants the centre. Second absolute pixels to fractions of the image width and height. Third, COCO's arbitrary category ids to contiguous zero-based indices. Skipping any one of them produces labels that load without error and train to nothing useful." },
+  { q: "The confusion matrix shows most of one class leaking into the 'background' column. What does that mean and what does it not mean?", a: "It means those objects are being missed entirely — low recall for that class — not that they are being confused with another class. The fix is more positive examples, or a lower confidence threshold, or checking that class is actually labelled consistently. Leakage in the other direction, background predicted as the class, is the opposite failure and needs hard negative images instead." },
+  { q: "Why is rotation augmentation off by default for detection?", a: "Because bounding boxes are stored axis-aligned. Rotating the image forces the box to be re-stored as the axis-aligned hull of the rotated corners, which is strictly larger — about 98% larger for a 100x60 box at 30 degrees. Every rotated sample then teaches the model that a large chunk of surrounding background belongs to the object." },
+]} />
+
+<QuizCard
+  question="An object at pixel box (x=40, y=90, w=120, h=60) in a 640×480 image. What is its YOLO label line for class 2?"
+  options={[
+    "2 0.062500 0.187500 0.187500 0.125000",
+    "2 0.156250 0.250000 0.187500 0.125000",
+    "2 0.250000 0.312500 0.187500 0.125000",
+    "2 0.156250 0.250000 0.375000 0.250000"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of these are correct about preparing a YOLO dataset?"
+  options={[
+    "Label coordinates are normalised to [0, 1] by the image width and height",
+    "An image with no .txt label file is treated as containing no objects",
+    "Class ids must start at 1, matching COCO's convention",
+    "The label file gives the box centre, not its top-left corner",
+    "Splitting video frames at random inflates validation mAP",
+    "Exported ONNX graphs normally include NMS, so no post-processing is needed"
+  ]}
+  correct={[0, 1, 3, 4]}
+/>

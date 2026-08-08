@@ -1,0 +1,135 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import AffineWidget from '../../components/widgets/cv/AffineWidget.jsx'
+
+# Module 4: Image Transformations
+
+<ConceptBox title="TL;DR">
+- Geometric transforms move **where** a pixel is, not what value it holds. All of them are one $3\times3$ matrix in homogeneous coordinates.
+- **Affine** (6 DoF, bottom row `[0 0 1]`) keeps parallel lines parallel. **Projective / homography** (8 DoF) does not — that is what a camera does.
+- $|\det M|$ **is** the area scale factor. Rotation and translation have $\det = 1$.
+- Warping runs **backwards**: for each output pixel, apply $M^{-1}$ to find where to sample. Forward mapping leaves holes.
+- Output coordinates are fractional, so you must **interpolate** — nearest for masks and labels, bilinear for images.
+</ConceptBox>
+
+<Bridge>
+Filtering changed pixel values in place. Transformations move the pixels themselves — the operation behind resizing, rotation augmentation, image stitching, and the RoI-align step you will meet in Module 13.
+</Bridge>
+
+## One matrix for everything
+
+Append a 1 to each point and every transform becomes a matrix product:
+
+$$\begin{bmatrix} x' \\ y' \\ w' \end{bmatrix} = \begin{bmatrix} a & b & t_x \\ c & d & t_y \\ p_0 & p_1 & 1 \end{bmatrix}\begin{bmatrix} x \\ y \\ 1 \end{bmatrix}, \qquad \text{then } (x'/w',\; y'/w')$$
+
+The homogeneous coordinate is what lets **translation** — which is not linear in $(x,y)$ — be written as a matrix at all, so transforms compose by multiplication.
+
+| Transform | DoF | Preserves | Bottom row |
+|---|---|---|---|
+| Translation | 2 | everything but position | `[0 0 1]` |
+| Euclidean (rotate + translate) | 3 | lengths, angles, area | `[0 0 1]` |
+| Similarity (+ uniform scale) | 4 | angles, ratios | `[0 0 1]` |
+| **Affine** (+ shear, non-uniform scale) | 6 | parallelism, midpoints | `[0 0 1]` |
+| **Projective** (homography) | 8 | straight lines only | free |
+
+## Interactive: build the matrix
+
+<AffineWidget />
+
+## Forward versus inverse warping
+
+Naively, for each *input* pixel compute its destination. This fails: scaling up by 2 writes to every other output pixel and leaves a lattice of holes; scaling down has several inputs fight for one output.
+
+So every real implementation inverts it:
+
+```
+for each output pixel (x', y'):
+    (x, y) = M⁻¹ · (x', y')      # where did this come from?
+    out[y', x'] = interpolate(src, x, y)
+```
+
+Every output pixel is written exactly once. The cost is that $(x,y)$ is fractional, which forces the interpolation choice.
+
+| Interpolation | Cost | Use for |
+|---|---|---|
+| `INTER_NEAREST` | 1 lookup | **masks, label maps** — must not invent new class ids |
+| `INTER_LINEAR` | 4 lookups | default for images |
+| `INTER_CUBIC` | 16 lookups | upscaling where sharpness matters |
+| `INTER_AREA` | window average | **downscaling** — avoids aliasing |
+
+<ConceptBox title="The two mistakes this table prevents">
+**Bilinear on a segmentation mask.** Averaging class id 3 and class id 5 gives 4 — a class that was never there. Always `INTER_NEAREST` for label data.
+
+**Bilinear when shrinking.** Downscaling 4× with `INTER_LINEAR` samples only 4 of every 16 source pixels, so thin structures alias into moiré. `INTER_AREA` averages the whole footprint. This is a real accuracy bug in detection pipelines that resize 1080p down to 640.
+</ConceptBox>
+
+## Worked example — rotate a box, and why detection cares
+
+Rotate the point $(100, 50)$ by $30°$ about the origin:
+
+$$\begin{bmatrix}\cos 30° & -\sin 30° \\ \sin 30° & \cos 30°\end{bmatrix}\begin{bmatrix}100\\50\end{bmatrix} = \begin{bmatrix}0.866(100) - 0.5(50)\\ 0.5(100) + 0.866(50)\end{bmatrix} = \begin{bmatrix}61.6\\ 93.3\end{bmatrix}$$
+
+Now rotate a whole **axis-aligned bounding box**. Its four corners land off-axis, and to store the result as an axis-aligned box again you must take the min/max of the rotated corners — which is strictly larger than the object. Rotating a 100×60 box by 30° yields an axis-aligned hull of:
+
+$$w' = 100|\cos 30°| + 60|\sin 30°| = 86.6 + 30 = 116.6$$
+$$h' = 100|\sin 30°| + 60|\cos 30°| = 50 + 52 = 102$$
+
+Area grows from 6,000 to $116.6 \times 102 \approx 11{,}889$ — **98% inflation**. This is why rotation augmentation is used cautiously in detection and why oriented-box detectors exist for aerial and text imagery.
+
+```python
+import cv2, numpy as np
+
+M = cv2.getRotationMatrix2D(center=(w/2, h/2), angle=30, scale=1.0)   # 2×3
+rot = cv2.warpAffine(img, M, (w, h), flags=cv2.INTER_LINEAR)
+
+# a homography needs 4 point correspondences — 8 unknowns, 2 equations each
+H, _ = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+flat = cv2.warpPerspective(img, H, (W, H_out))
+```
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Why a homography needs exactly four point pairs">
+
+$H$ has 9 entries but is defined only up to scale (multiplying by $\lambda$ gives the same mapping after the divide by $w'$), so **8 unknowns**.
+
+Each correspondence $(x,y) \leftrightarrow (x',y')$ gives two equations:
+
+$$x' = \frac{h_{11}x + h_{12}y + h_{13}}{h_{31}x + h_{32}y + 1}, \qquad y' = \frac{h_{21}x + h_{22}y + h_{23}}{h_{31}x + h_{32}y + 1}$$
+
+Cross-multiplying makes both linear in the $h$ entries. Four points → 8 equations → exactly determined. Fewer is underdetermined; more is a least-squares fit, which is what `findHomography` with RANSAC does after discarding outlier matches.
+
+Affine needs only **three** pairs, because its 6 unknowns need 6 equations.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Bilinear interpolation, in full">
+
+Sampling at fractional $(x, y)$ with $x_0 = \lfloor x \rfloor$, $f_x = x - x_0$ (and likewise for $y$):
+
+$$I(x,y) = (1-f_x)(1-f_y)I_{00} + f_x(1-f_y)I_{01} + (1-f_x)f_y I_{10} + f_x f_y I_{11}$$
+
+The four weights sum to 1, so brightness is preserved and the result is a convex combination — it can never exceed the range of the four corner values. That last property is exactly why it is wrong for label maps: for a *continuous* signal a convex combination is a sensible guess, for a *categorical* one it is meaningless.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+<Recall items={[
+  { q: "What does the bottom row of the 3x3 matrix tell you about a transform?", a: "If it is [0 0 1] the transform is affine: the homogeneous divide is by 1, so the map is linear-plus-translation and parallel lines stay parallel. If the first two entries are non-zero the divide depends on position, the transform is projective, and parallel lines can converge — which is exactly what perspective does to railway tracks." },
+  { q: "Why do warping implementations iterate over output pixels and apply the inverse matrix?", a: "Because forward-mapping input pixels does not cover the output evenly. Under magnification some output pixels are never written (holes) and under minification several inputs collide on one output. Iterating over the output guarantees every destination pixel is written exactly once; the price is a fractional source coordinate, hence interpolation." },
+  { q: "You resize a segmentation mask from 512x512 to 256x256 with bilinear interpolation. What goes wrong?", a: "Interpolation averages neighbouring class ids, so a boundary between class 3 and class 5 produces a value of 4 — a class that was never annotated. Label maps must use nearest-neighbour, which only ever copies an existing id." },
+  { q: "Rotating an axis-aligned bounding box by 30 degrees inflates it. Why, and by how much for a 100x60 box?", a: "Because the rotated box is no longer axis-aligned, and re-storing it in that format means taking the axis-aligned hull of the four rotated corners. For 100x60 at 30 degrees the hull is 116.6 x 102 = 11,893 px against the original 6,000 — a 98% inflation. The label now claims a lot of background as object, which is why rotation augmentation is used sparingly in detection." },
+]} />
+
+<QuizCard
+  question="How many point correspondences are needed to solve for a homography, and why?"
+  options={[
+    "3, because there are 6 unknowns",
+    "4, because there are 8 unknowns and each pair gives 2 equations",
+    "9, one per matrix entry",
+    "2, because a homography is a rotation plus a translation"
+  ]}
+  correct={1}
+/>

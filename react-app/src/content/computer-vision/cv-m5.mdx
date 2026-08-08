@@ -1,0 +1,156 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import FeatureDetectWidget from '../../components/widgets/cv/FeatureDetectWidget.jsx'
+
+# Module 5: Image Features
+
+<ConceptBox title="TL;DR">
+- A **feature** is a location you can find again in another image. Edges are not features — they slide along themselves (the *aperture problem*).
+- **Corners are**, because intensity changes in *both* directions. Harris measures this with the structure tensor $M$ and the score $R = \det M - k\,(\text{tr}\,M)^2$.
+- A **detector** finds where; a **descriptor** summarises the neighbourhood so it can be matched. SIFT and ORB are both.
+- **HOG** is a dense descriptor: gradient-orientation histograms per cell, block-normalised. It powered detection for a decade before CNNs.
+- CNNs did not replace this pipeline — they **learned** it. Layer 1 filters look like Gabor edges every time.
+</ConceptBox>
+
+<Bridge>
+Module 3 produced gradients. A gradient at one pixel says "something changes here" but nothing about *what*. Features are the step from a per-pixel response to a repeatable, describable, matchable location — the last hand-designed layer before CNNs took over.
+</Bridge>
+
+## What makes a good feature
+
+Move a small window one pixel in every direction and watch how much the content changes:
+
+| Region | Change when shifted | Usable? |
+|---|---|---|
+| **Flat** | nothing changes in any direction | no information |
+| **Edge** | changes across, not along | ambiguous — 1 DoF free |
+| **Corner** | changes in every direction | pinned in 2-D ✓ |
+
+Formally, the change under a shift $(u,v)$ weighted by a window $w$:
+
+$$E(u,v) = \sum_{x,y} w(x,y)\,[\,I(x+u, y+v) - I(x,y)\,]^2$$
+
+A first-order Taylor expansion turns this into a quadratic form, which is where the structure tensor comes from — see the derivation below.
+
+## Interactive: corner, edge, or flat
+
+<FeatureDetectWidget />
+
+## Harris in one screen
+
+$$M = \sum_{\text{window}} w \begin{bmatrix} I_x^2 & I_x I_y \\ I_x I_y & I_y^2\end{bmatrix}, \qquad R = \det M - k\,(\operatorname{tr} M)^2$$
+
+with $k \in [0.04, 0.06]$. The eigenvalues $\lambda_1, \lambda_2$ of $M$ say everything:
+
+| $\lambda_1$, $\lambda_2$ | Region | $R$ |
+|---|---|---|
+| both small | flat | $\approx 0$ |
+| one large | edge | large **negative** |
+| both large | corner | large **positive** |
+
+$R$ exists so you never have to compute eigenvalues: $\det M = \lambda_1\lambda_2$ and $\operatorname{tr} M = \lambda_1 + \lambda_2$ come free from the four sums.
+
+## Detector versus descriptor
+
+Finding a corner is not enough — you must recognise the *same* corner in another photo taken from elsewhere.
+
+| | Detector | Descriptor | Invariance | Speed |
+|---|---|---|---|---|
+| **Harris** | ✓ | ✗ | rotation | very fast |
+| **SIFT** | ✓ (DoG) | ✓ (128-D) | scale + rotation + illumination | slow |
+| **ORB** | ✓ (FAST) | ✓ (256-bit binary) | rotation, partial scale | very fast |
+| **HOG** | ✗ (dense) | ✓ | none built in | fast |
+
+SIFT achieves **scale** invariance by searching a difference-of-Gaussian pyramid — the same idea as the image pyramid in Module 11 — and **rotation** invariance by rotating the descriptor window to the dominant gradient orientation before sampling it.
+
+## HOG — the last pre-CNN detector
+
+Dalal and Triggs, 2005, for pedestrians:
+
+1. Gradients per pixel (Module 3).
+2. **Cells** of 8×8 pixels; each votes into a 9-bin histogram of orientation, weighted by magnitude.
+3. **Blocks** of 2×2 cells, L2-normalised — this is what buys illumination invariance.
+4. Concatenate over a sliding window; classify with a linear SVM.
+
+For a 64×128 detection window: $\frac{64}{8}\times\frac{128}{8} = 8 \times 16$ cells, so $7 \times 15 = 105$ overlapping blocks, each contributing $2 \times 2 \times 9 = 36$ numbers:
+
+$$105 \times 36 = 3{,}780 \text{ dimensions per window}$$
+
+That vector, plus a linear SVM, plus a sliding window over an image pyramid, *is* pre-2012 object detection. Module 11 costs out the sliding window; Module 12 replaces the descriptor with a CNN.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="From shifted-window error to the structure tensor">
+
+Start from the sum-of-squared-differences under a shift:
+
+$$E(u,v) = \sum w(x,y)\,[I(x+u,y+v) - I(x,y)]^2$$
+
+First-order Taylor for small shifts: $I(x+u, y+v) \approx I + uI_x + vI_y$, so the bracket becomes $uI_x + vI_y$. Squaring:
+
+$$E(u,v) \approx \sum w\,(u I_x + v I_y)^2 = \sum w\,(u^2 I_x^2 + 2uv I_x I_y + v^2 I_y^2)$$
+
+Which is a quadratic form:
+
+$$E(u,v) \approx \begin{bmatrix}u & v\end{bmatrix} \underbrace{\sum w\begin{bmatrix}I_x^2 & I_xI_y \\ I_xI_y & I_y^2\end{bmatrix}}_{M} \begin{bmatrix}u \\ v\end{bmatrix}$$
+
+$E$ is an ellipse whose axes are the eigenvectors of $M$ and whose extents go as $1/\sqrt{\lambda}$. **A corner is where that ellipse is small in every direction** — both eigenvalues large.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Why R, and not the eigenvalues themselves">
+
+The honest test is $\min(\lambda_1, \lambda_2) > \tau$ (that is Shi–Tomasi, and it works). Harris's $R$ avoids the square root in the eigenvalue formula:
+
+$$R = \lambda_1\lambda_2 - k(\lambda_1 + \lambda_2)^2 = \det M - k\,(\operatorname{tr} M)^2$$
+
+Check the three cases with $k = 0.04$:
+- Flat, $\lambda_1 = \lambda_2 = 0.01$: $R = 10^{-4} - 0.04(0.02)^2 = 8.4\times10^{-5}$ — near zero.
+- Edge, $\lambda_1 = 1, \lambda_2 = 0$: $R = 0 - 0.04(1)^2 = -0.04$ — negative.
+- Corner, $\lambda_1 = \lambda_2 = 1$: $R = 1 - 0.04(4) = 0.84$ — strongly positive.
+
+$k$ controls how "sharp" a corner must be: raising it makes $R$ negative for a wider range of eigenvalue ratios, so fewer points survive.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Harris is rotation invariant, and not scale invariant">
+
+Rotating the image by $\theta$ rotates the gradient vector, so $M \mapsto R_\theta M R_\theta^\top$ — a similarity transform. Similarity transforms **preserve eigenvalues**, so $\det M$, $\operatorname{tr} M$ and hence $R$ are unchanged. The corner is found at the same place.
+
+Scale is different. Zoom in by $2\times$ and a corner that fit inside the 3×3 window now spans 6 pixels — the window sees only a smooth edge, and $R$ collapses. There is no fix within a single window size, which is exactly why SIFT searches **over scales** and takes extrema in $(x, y, \sigma)$ jointly.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+<Recall items={[
+  { q: "Why is a point on a long straight edge a bad feature?", a: "Because you cannot localise it along the edge. Sliding the window parallel to the edge produces an identical patch, so any position along it matches equally well — the aperture problem. One degree of freedom is unconstrained, so the match is ambiguous. A corner constrains both." },
+  { q: "State the Harris response and what each sign means.", a: "R = det(M) - k*trace(M)^2, where M is the windowed structure tensor of the image gradients. R near zero means flat (both eigenvalues small), R large and negative means edge (one eigenvalue dominates), R large and positive means corner (both eigenvalues large). Using det and trace avoids ever computing the eigenvalues." },
+  { q: "Harris is invariant to rotation but not to scale. Why the asymmetry?", a: "Rotation conjugates the structure tensor by a rotation matrix, which preserves its eigenvalues, so R is unchanged. Scale changes the relationship between the fixed window size and the image structure: zoom in far enough and a corner no longer fits in the window, so it reads as a smooth edge. Fixing that requires searching over scales, which is what SIFT's difference-of-Gaussian pyramid does." },
+  { q: "What is the difference between a detector and a descriptor, and which is HOG?", a: "A detector answers 'where are the interesting points'; a descriptor answers 'what does the neighbourhood of this point look like, in a form I can compare'. HOG is a descriptor only — it is computed densely on a fixed grid rather than at detected keypoints, which is why it pairs with a sliding window rather than with matching." },
+]} />
+
+<QuizCard
+  question="A 3×3 window has structure-tensor eigenvalues λ₁ = 0.9 and λ₂ = 0.02. With k = 0.04, what does Harris report?"
+  options={[
+    "A corner — R is large and positive",
+    "An edge — R ≈ 0.018 − 0.034 = −0.016, negative",
+    "A flat region — both eigenvalues are below 1",
+    "Undefined — R needs both eigenvalues to be equal"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about classical features are correct?"
+  options={[
+    "Harris uses the eigenvalues of the structure tensor to distinguish corner from edge",
+    "SIFT achieves scale invariance by searching a difference-of-Gaussian pyramid",
+    "HOG normalises over overlapping blocks to gain illumination invariance",
+    "ORB produces a binary descriptor, so matching can use Hamming distance",
+    "A flat region gives a large positive Harris response",
+    "The first conv layer of a trained CNN typically learns edge- and blob-like filters"
+  ]}
+  correct={[0, 1, 2, 3, 5]}
+/>

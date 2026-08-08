@@ -1,0 +1,149 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import YOLOGridWidget from '../../components/widgets/cv/YOLOGridWidget.jsx'
+
+# Module 15: YOLO — Introduction and How It Works
+
+<ConceptBox title="TL;DR">
+- **You Only Look Once**: detection as a single regression from image pixels to a grid of boxes and class probabilities. No proposals, no second stage.
+- The image is divided into an $S \times S$ grid. The cell containing an object's **centre** is responsible for detecting it.
+- Output is one tensor: $S \times S \times (B \cdot 5 + C)$. For v1, $7 \times 7 \times 30 = 1{,}470$ numbers.
+- Each box carries $(x, y, w, h, \text{confidence})$ where confidence is trained toward $\Pr(\text{object}) \times \text{IoU}$ — it predicts its own correctness.
+- v1 was **45 fps at 63.4 mAP** — faster than anything, less accurate than Faster R-CNN, and structurally unable to detect more than one class per cell.
+</ConceptBox>
+
+<Bridge>
+Module 14 identified the per-region head as the last redundancy in two-stage detection. YOLO's answer is not to make the head cheaper but to delete the concept of a region entirely: one forward pass produces every box for the whole image at once.
+</Bridge>
+
+## The reframing
+
+Faster R-CNN asks "which regions might contain objects, and what is in each?" YOLO asks a single question of the whole image and answers it in one tensor. Three consequences fall straight out:
+
+- **It sees global context.** The whole image is in every prediction's receptive field, so YOLO makes roughly half as many background false positives as Fast R-CNN — a patch of texture that looks like a dog in isolation does not, in context.
+- **It generalises across domains.** Trained on natural images and tested on artwork, YOLO degrades far less than R-CNN, because it is not relying on a proposal algorithm tuned to photographic statistics.
+- **Localisation is weaker.** One shot at the box, from a coarse grid, and no refinement stage. In the v1 error analysis, localisation is the dominant error type.
+
+## The output tensor
+
+<YOLOGridWidget />
+
+Each cell predicts:
+
+- $B$ boxes, each $(x, y, w, h, \text{conf})$ — 5 numbers,
+- $C$ class probabilities, **shared across the cell's boxes**.
+
+$$\text{output} = S \times S \times (B \cdot 5 + C)$$
+
+YOLO v1: $S=7$, $B=2$, $C=20$ → $7 \times 7 \times 30 = 1{,}470$ numbers, and **98 boxes** total ($7 \times 7 \times 2$). Compare SSD300's 8,732 in Module 19.
+
+**Coordinate conventions matter here:**
+
+| Field | Range | Meaning |
+|---|---|---|
+| $x, y$ | $[0, 1)$ | offset **inside the responsible cell** |
+| $w, h$ | $[0, 1]$ | fraction of the **whole image** |
+| conf | $[0, 1]$ | $\Pr(\text{object}) \times \text{IoU}^{\text{truth}}_{\text{pred}}$ |
+
+Two different normalisations on purpose: $x,y$ relative to the cell keeps the target near the middle of the sigmoid's useful range and makes the prediction translation-equivariant; $w,h$ relative to the image because a box may be much larger than a cell.
+
+The class-specific score used at test time multiplies the two:
+
+$$\Pr(\text{class}_i \mid \text{object}) \times \Pr(\text{object}) \times \text{IoU} = \Pr(\text{class}_i) \times \text{IoU}$$
+
+so a box that is confidently a dog but poorly localised scores low — the ranking that NMS then consumes already accounts for localisation quality.
+
+## Responsibility, and the loss
+
+Exactly one cell is responsible for each object: the one containing its centre. Within that cell, the one of $B$ predictors with the **highest current IoU** against the ground truth is responsible. This is a form of specialisation — over training, one predictor drifts toward tall boxes and the other toward wide ones.
+
+$$
+\begin{aligned}
+L =\;& \lambda_{\text{coord}} \sum_{i=0}^{S^2}\sum_{j=0}^{B} \mathbb{1}^{\text{obj}}_{ij}\Big[(x_i - \hat x_i)^2 + (y_i - \hat y_i)^2\Big] \\
++\;& \lambda_{\text{coord}} \sum_{i=0}^{S^2}\sum_{j=0}^{B} \mathbb{1}^{\text{obj}}_{ij}\Big[(\sqrt{w_i} - \sqrt{\hat w_i})^2 + (\sqrt{h_i} - \sqrt{\hat h_i})^2\Big] \\
++\;& \sum_{i=0}^{S^2}\sum_{j=0}^{B} \mathbb{1}^{\text{obj}}_{ij}(C_i - \hat C_i)^2 \;+\; \lambda_{\text{noobj}} \sum_{i=0}^{S^2}\sum_{j=0}^{B} \mathbb{1}^{\text{noobj}}_{ij}(C_i - \hat C_i)^2 \\
++\;& \sum_{i=0}^{S^2} \mathbb{1}^{\text{obj}}_{i} \sum_{c \in \text{classes}} (p_i(c) - \hat p_i(c))^2
+\end{aligned}
+$$
+
+with $\lambda_{\text{coord}} = 5$ and $\lambda_{\text{noobj}} = 0.5$. Three things in there are load-bearing:
+
+- The **indicators** are Module 9's masking, applied per cell and per predictor.
+- $\lambda_{\text{noobj}} = 0.5$ because most of the 49 cells are empty; without the damping, their confidence gradients overwhelm everything else. This is the class-imbalance problem from Module 14, handled crudely.
+- The **square roots on $w$ and $h$**: see the derivation.
+
+## Limitations, stated plainly
+
+| Limitation | Cause | Fixed in |
+|---|---|---|
+| Max one class per cell | $C$ probabilities are per *cell*, not per box | v2 (per-box classes) |
+| Struggles with flocks/crowds | 2 boxes per cell, one class | v2/v3 (more anchors) |
+| Coarse localisation | $S = 7$, single scale, no refinement | v2 (anchors), v3 (3 scales) |
+| Poor on unusual aspect ratios | boxes regressed from scratch | v2 (anchor priors, Module 18) |
+
+Drag both objects into the same cell in the widget — one of them is simply unrepresentable. That is not a training failure, it is an architectural ceiling, and removing it is what the v2 rewrite is about.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Why the loss uses √w and √h">
+
+Squared error on raw width treats absolute deviations equally: 10 pixels of error costs the same on a 20-pixel box (catastrophic) and a 400-pixel box (irrelevant). But IoU, the thing you are judged on, is a *relative* measure.
+
+Taking the square root compresses the large values and stretches the small ones. The derivative of the penalty with respect to a width error is
+
+$$\frac{\partial}{\partial \hat w}(\sqrt{w} - \sqrt{\hat w})^2 = -\frac{\sqrt{w} - \sqrt{\hat w}}{\sqrt{\hat w}}$$
+
+which grows as $\hat w \to 0$: small boxes get proportionally larger gradients for the same absolute error. Concretely, a 5-unit error on $w = 25$ costs $(\sqrt{25} - \sqrt{30})^2 = 0.228$, while the same 5-unit error on $w = 200$ costs $(\sqrt{200} - \sqrt{205})^2 = 0.031$ — about **7× less**. That is the intended asymmetry.
+
+v2 onward replaces this with the $\log$ parameterisation from Module 13, which achieves the same scale-freeness more cleanly and is symmetric under doubling and halving.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="What the confidence score is actually trained to be">
+
+The target for a responsible predictor is not 1 — it is
+
+$$\hat C = \Pr(\text{object}) \times \text{IoU}^{\text{truth}}_{\text{pred}}$$
+
+computed against the ground truth **at that moment in training**. So the network is asked to predict *how good its own box is*, not merely whether something is there.
+
+Why this matters: at test time the ranking fed to NMS is $\Pr(\text{class}) \times \text{IoU}$. A box that is certainly a dog but badly placed gets a low score and loses NMS to a better-placed one. Confidence and localisation quality are entangled deliberately, so the greedy suppression in Module 10 selects for both instead of for class certainty alone.
+
+The cost is a moving target — the label depends on the current prediction — which makes early training unstable. v2's use of anchors gives the IoU a sensible starting value and largely removes the instability.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+<Recall items={[
+  { q: "Give the YOLO output tensor shape and explain each term for v1.", a: "S x S x (B*5 + C). For v1, S=7 grid cells per side, B=2 boxes per cell each contributing x, y, w, h and a confidence — that is 5 numbers — and C=20 class probabilities shared across the cell. So 7 x 7 x 30 = 1,470 numbers, encoding 98 candidate boxes, all from one forward pass." },
+  { q: "Which cell is responsible for an object, and which of its B predictors?", a: "The cell containing the object's centre, regardless of how far the box extends beyond it. Within that cell, the predictor whose current box has the highest IoU with the ground truth takes responsibility, which over training makes the B predictors specialise in different shapes." },
+  { q: "Why is x,y normalised to the cell but w,h normalised to the whole image?", a: "Because x,y are an offset inside the responsible cell, so they naturally lie in [0,1) and can be squashed by a sigmoid — that keeps the prediction translation-equivariant across cells. Width and height, though, can easily exceed one cell, so they are expressed as a fraction of the image; using the cell as the unit would put the target far outside a convenient range." },
+  { q: "Why does the v1 loss regress the square roots of width and height?", a: "To make the penalty relative rather than absolute. Plain squared error charges the same for a 5-unit width error on a 25-unit box and on a 200-unit box, but the first ruins the IoU and the second is invisible. Under the square root those cost 0.21 and 0.031 — about a 7x difference — so small boxes get proportionally larger gradients. Later versions get the same effect more cleanly with a log parameterisation." },
+  { q: "Two objects fall inside the same grid cell in YOLO v1. What happens and why?", a: "One of them is lost. The cell holds only one set of class probabilities and can commit to a single object, so the second is simply not representable — an architectural ceiling, not a training shortfall. It is the reason v1 struggles with flocks and crowds, and why v2 attached predictions to anchors with their own per-box class scores." },
+]} />
+
+<QuizCard
+  question="A YOLO variant uses S = 13, B = 5, C = 80. How many numbers are in its output tensor?"
+  options={[
+    "16,900",
+    "17,745",
+    "14,365",
+    "10,985"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about YOLO v1 are correct?"
+  options={[
+    "Detection is framed as a single regression over a fixed-size grid",
+    "The cell containing an object's centre is responsible for detecting it",
+    "The confidence target is Pr(object) × IoU, not simply 1",
+    "Each cell can predict objects of several different classes",
+    "λ_noobj = 0.5 damps the gradient from the many empty cells",
+    "YOLO v1 makes more background false positives than Fast R-CNN"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

@@ -1,0 +1,97 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import ROIWidget from '../../components/widgets/cv/ROIWidget.jsx'
+
+# Module 6: Regions of Interest
+
+<ConceptBox title="TL;DR">
+- An ROI is **an array slice**: `img[y1:y2, x1:x2]`. Row range first. It is a *view*, not a copy — writing to it writes through to the original.
+- **Crop** changes the shape; **mask** preserves it and zeroes the outside. Rectangles want crops, irregular shapes want masks.
+- Three box formats — `xywh`, `xyxy`, `cxcywh` — and mixing them is the quietest bug in detection, because nothing errors.
+- **Contours + connected components** are how you get boxes without a neural network, and they still beat one when the object is a colour blob.
+- Every region-based detector in this track (R-CNN through Faster R-CNN) is this module plus a CNN.
+</ConceptBox>
+
+<Bridge>
+Modules 1–5 processed whole images. Detection needs to talk about *parts* of an image — this module is the vocabulary for that, and the box formats introduced here are used unchanged for the rest of the track.
+</Bridge>
+
+## The slice
+
+```python
+roi = img[y1:y2, x1:x2]        # (y2-y1, x2-x1) or (…, …, 3)
+```
+
+Two things about this line surprise people:
+
+**It is a view.** `roi[:] = 0` blacks out that rectangle *in `img`*. Use `.copy()` when you need independence.
+
+**It is silently clipped.** `img[0:5000, 0:5000]` on a 480×640 image does not raise — you get a 480×640 result. A box that ran off the edge produces a smaller ROI than you asked for, and downstream shape assumptions break far from the cause.
+
+## Interactive: crop, mask, and the three formats
+
+<ROIWidget />
+
+## Box formats
+
+| Format | Fields | Used by |
+|---|---|---|
+| `xywh` | top-left + size | OpenCV, COCO annotations |
+| `xyxy` | top-left + bottom-right | torchvision, IoU math, NMS |
+| `cxcywh` | centre + size, often **normalised** | YOLO labels, most one-stage heads |
+
+$$\text{xywh} \to \text{xyxy}: (x,\,y,\,x{+}w,\,y{+}h) \qquad \text{xyxy} \to \text{cxcywh}: \left(\tfrac{x_1+x_2}{2},\, \tfrac{y_1+y_2}{2},\, x_2{-}x_1,\, y_2{-}y_1\right)$$
+
+<ConceptBox title="Why this bug is so hard to see">
+Feed `xywh` into code expecting `xyxy` and nothing crashes — the numbers are all plausible. The box simply lands in the wrong place, IoU with the ground truth comes out low, and the model trains to a mediocre mAP that looks like an architecture problem. **Always visualise a handful of boxes on their images before training.** Ten minutes there saves a week of tuning.
+</ConceptBox>
+
+## Getting regions without a network
+
+For a controlled scene — a conveyor belt, a document, a colour-coded part — classical segmentation gives you boxes directly:
+
+```python
+import cv2, numpy as np
+
+hsv  = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+mask = cv2.inRange(hsv, (35, 80, 60), (85, 255, 255))          # green range (Module 1)
+
+# clean the mask: opening kills specks, closing fills pinholes
+k    = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  k)
+mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k)
+
+contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+boxes = [cv2.boundingRect(c) for c in contours if cv2.contourArea(c) > 200]   # (x, y, w, h)
+```
+
+`RETR_EXTERNAL` keeps only outermost contours — otherwise a ring gives you two. The area filter is the poor relation of a confidence threshold.
+
+**Morphology, in one line each:** *erosion* shrinks white regions, *dilation* grows them; *opening* (erode then dilate) removes small white specks; *closing* (dilate then erode) fills small black holes.
+
+## Worked example — clipping a box to the image
+
+A detector predicts `xyxy = (-12, 40, 655, 500)` on a 480×640 image. Clip before slicing:
+
+$$x_1 = \max(0, -12) = 0, \quad x_2 = \min(640, 655) = 640, \quad y_2 = \min(480, 500) = 480$$
+
+Width went from $655 - (-12) = 667$ to $640$ and height from 460 to 440, so the area drops from $306{,}820$ to $281{,}600$ — an **8.2% loss** the model never sees unless you clip explicitly. Predicted boxes routinely extend past the frame because the regressor has no notion of image bounds; clipping is a required post-processing step, not an optional one.
+
+---
+
+<Recall items={[
+  { q: "img[100:200, 50:150] = 0 — what did that change?", a: "It zeroed a 100x100 rectangle in the original image, not in a copy. Basic NumPy slicing returns a view sharing the same buffer, so writing through the slice writes through to the parent array. If you need an independent region, take .copy()." },
+  { q: "When do you crop and when do you mask?", a: "Crop when the region is rectangular and you want a smaller array — feeding a fixed-size classifier, for instance. Mask when the region is irregular or when downstream code needs the original geometry: the mask keeps the shape and zeroes the outside, so coordinates still mean what they meant." },
+  { q: "Name the three bounding-box formats and one consumer of each.", a: "xywh (top-left plus size) — OpenCV and COCO annotations. xyxy (both corners) — torchvision, and all the IoU and NMS math. cxcywh (centre plus size, usually normalised to 0-1) — YOLO label files and most single-stage heads. Converting between them wrongly does not raise an error; the boxes just land in the wrong place." },
+  { q: "Why must predicted boxes be clipped to the image before use?", a: "Because the box regressor has no constraint keeping it inside the frame — it can and does predict negative coordinates or coordinates past the width. NumPy slicing silently clips, so the crop comes back a different size than the box claimed, and any shape assumption downstream breaks somewhere far from the cause." },
+]} />
+
+<QuizCard
+  question="A COCO annotation gives bbox = [120, 80, 60, 90] in xywh. What is the same box in cxcywh?"
+  options={[
+    "[150, 125, 60, 90]",
+    "[180, 170, 60, 90]",
+    "[120, 80, 180, 170]",
+    "[90, 85, 60, 90]"
+  ]}
+  correct={0}
+/>

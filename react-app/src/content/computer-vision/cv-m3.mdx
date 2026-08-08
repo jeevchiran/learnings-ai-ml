@@ -1,0 +1,155 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import FilterBankWidget from '../../components/widgets/cv/FilterBankWidget.jsx'
+
+# Module 3: Image Filters
+
+<ConceptBox title="TL;DR">
+- A filter replaces each pixel with a **function of its neighbourhood**. Linear filters use a weighted sum — a kernel.
+- **Kernel sum tells you the filter's job**: sum 1 preserves brightness (smoothing), sum 0 is a derivative (edges), sum > 1 brightens.
+- Gaussian is **separable**: a $k \times k$ blur costs $2k$ multiplies per pixel instead of $k^2$. At $k=15$ that is 30 versus 225.
+- **Median is not linear** and that is the point — it deletes salt-and-pepper noise that any weighted average only smears.
+- Canny is not one filter: blur → gradient → non-max suppression → hysteresis. Three of those four ideas reappear in object detection.
+</ConceptBox>
+
+<Bridge>
+Module 2's operations could not see past a single pixel, so they could not detect an edge — an edge is by definition a *relationship between neighbours*. Filtering is that step, and it is literally the convolution the CNN track already covered, with hand-designed weights instead of learned ones.
+</Bridge>
+
+## The operation
+
+$$g(x,y) = \sum_{i=-a}^{a}\sum_{j=-a}^{a} K(i,j)\, f(x+i,\, y+j)$$
+
+Slide the kernel over every position, multiply, sum. Written with a `+` it is **cross-correlation**; true convolution flips the kernel first. Every deep learning framework calls this "convolution" while computing correlation — harmless, because learned weights just learn flipped, but it matters when you hand-write a kernel.
+
+<ConceptBox title="Reading a kernel without running it">
+Sum the weights.
+- $\sum K = 1$ → weighted average → **smoothing**. Mean brightness survives.
+- $\sum K = 0$ → **derivative**. A flat region maps to 0, so only change survives; the output is signed and needs an offset to display.
+- $\sum K > 1$ → the image gets brighter overall (sharpening kernels usually sum to exactly 1 to avoid this).
+</ConceptBox>
+
+## Interactive: the filter bank
+
+<FilterBankWidget />
+
+## The four families
+
+| Family | Kernel | What it does | Cost |
+|---|---|---|---|
+| **Box blur** | all $1/k^2$ | unweighted average | separable, $2k$ |
+| **Gaussian** | $\propto e^{-(i^2+j^2)/2\sigma^2}$ | distance-weighted average | separable, $2k$ |
+| **Median** | none — a rank | takes the middle of the sorted window | $O(k^2 \log k)$, not separable |
+| **Derivative** (Sobel, Laplacian) | sums to 0 | responds to change | separable for Sobel |
+
+Sobel gives you gradients in both directions; combine them for magnitude and orientation:
+
+$$\|\nabla I\| = \sqrt{G_x^2 + G_y^2}, \qquad \theta = \arctan\!\left(\frac{G_y}{G_x}\right)$$
+
+Those two quantities are the raw material for the Harris detector and for HOG in Module 5.
+
+## Worked example — separability pays
+
+A $15 \times 15$ Gaussian on a 1920×1080 image.
+
+**Naive 2-D:** $15^2 = 225$ multiply-adds per pixel.
+
+$$1920 \times 1080 \times 225 = 466{,}560{,}000 \text{ MACs}$$
+
+**Separable (1×15 then 15×1):** $15 + 15 = 30$ per pixel.
+
+$$1920 \times 1080 \times 30 = 62{,}208{,}000 \text{ MACs}$$
+
+A **7.5× saving**, exactly $225/30$, from the fact that a 2-D Gaussian is an outer product of two 1-D Gaussians. This is the same rank-1 argument that motivates depthwise-separable convolutions in MobileNet.
+
+## Borders
+
+The kernel hangs off the edge at every boundary pixel. Four answers, all of them wrong in some way:
+
+| Mode | Behaviour | Failure |
+|---|---|---|
+| `zero` | pad with 0 | dark frame around the output |
+| `replicate` | repeat the edge pixel | smears the edge outward |
+| `reflect` | mirror the interior | invents symmetric structure |
+| `valid` | do not compute those pixels | output shrinks by $k-1$ |
+
+Toggle border mode in the widget with **zero** and you can see the artefact appear. In a deep network this matters more than it looks: stacked padded convolutions build a border-artefact ring that grows with depth.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Why the Gaussian separates">
+
+The 2-D isotropic Gaussian factorises because the exponent is a sum:
+
+$$G(i,j) = \frac{1}{2\pi\sigma^2}e^{-\frac{i^2+j^2}{2\sigma^2}} = \underbrace{\frac{1}{\sqrt{2\pi}\sigma}e^{-\frac{i^2}{2\sigma^2}}}_{g(i)} \cdot \underbrace{\frac{1}{\sqrt{2\pi}\sigma}e^{-\frac{j^2}{2\sigma^2}}}_{g(j)}$$
+
+So the kernel matrix is the outer product $\mathbf{g}\mathbf{g}^\top$ — a **rank-1 matrix**. Convolution is associative, so
+
+$$f * (\mathbf{g}\mathbf{g}^\top) = (f * \mathbf{g}) * \mathbf{g}^\top$$
+
+Any rank-1 kernel separates. The box blur does too (it is $\mathbf{1}\mathbf{1}^\top / k^2$). A median filter has no matrix at all, so the question does not arise — and it cannot be sped up this way.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Sharpening = identity + Laplacian">
+
+The unsharp mask subtracts a blurred copy and adds the difference back:
+
+$$g = f + \lambda(f - f_{\text{blur}})$$
+
+With the blur written as a convolution and $\lambda = 1$:
+
+$$g = 2f - f * B = f * (2\delta - B)$$
+
+Take $B$ to be the 4-neighbour average and the kernel becomes exactly
+
+$$\begin{bmatrix} 0 & -1 & 0 \\ -1 & 5 & -1 \\ 0 & -1 & 0 \end{bmatrix}$$
+
+which sums to 1 — brightness preserved — and is the "Sharpen" entry in the widget. Sharpening amplifies whatever the blur removed, **including noise**, which is why you never sharpen before denoising.
+
+</DerivationStep>
+
+<DerivationStep number={3} title="Canny, as four ideas you will meet again">
+
+1. **Gaussian blur** — derivatives amplify noise, so smooth first. (Scale selection.)
+2. **Sobel gradients** — magnitude and orientation per pixel.
+3. **Non-maximum suppression** — keep a pixel only if it is the local maximum *along the gradient direction*. This thins fat edges to one pixel.
+4. **Hysteresis thresholding** — two thresholds; strong edges are kept, weak ones only if connected to a strong one.
+
+Step 3 is the same greedy "keep the local winner, delete its neighbours" logic that Module 10 applies to bounding boxes, and step 4 is the same two-threshold trick detectors use to keep a low-confidence box that overlaps a high-confidence one.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+<Recall items={[
+  { q: "A kernel's weights sum to 0. What kind of filter is it, and what does its output look like on a flat wall?", a: "It is a derivative filter — an edge detector. On a flat region every neighbour is equal, so the weighted sum is (constant) times (sum of weights) = 0. The output is exactly zero there, which is why derivative outputs are displayed with 128 as the zero point: the responses are signed." },
+  { q: "Why does a median filter beat a Gaussian on salt-and-pepper noise?", a: "Because a 0 or a 255 impulse is an extreme value, and the median of nine values can never be an extreme unless most of the window is corrupted. The Gaussian averages the impulse in, so it survives as a dimmer, wider smudge — and the averaging blurs the real edges at the same time. Median is a rank statistic, not a weighted sum, so it is non-linear and cannot be expressed as a kernel." },
+  { q: "How many multiply-adds per pixel does a separable 11x11 Gaussian need, versus the naive version?", a: "22 versus 121 — two 1-D passes of 11 taps each instead of one 2-D pass of 121 taps, a 5.5x saving. It works because the 2-D Gaussian matrix is rank 1, the outer product of a 1-D Gaussian with itself, and convolution is associative." },
+  { q: "Name the step in Canny that reappears almost unchanged in object detection.", a: "Non-maximum suppression. Canny keeps a pixel only if it is the maximum along the gradient direction, thinning a thick edge to a single line. Detectors keep a box only if it is the highest-scoring one among heavily overlapping candidates, collapsing a cluster of detections to one. Same greedy local-winner rule, different neighbourhood definition." },
+]} />
+
+<QuizCard
+  question="Applying a 9×9 Gaussian blur to a 640×480 image: how many multiply-adds per pixel does the separable implementation save compared to the naive 2-D one?"
+  options={[
+    "63 (81 → 18)",
+    "72 (81 → 9)",
+    "45 (81 → 36)",
+    "None — separability saves memory, not compute"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which of these are true about linear filtering?"
+  options={[
+    "A kernel whose weights sum to 1 preserves the image's mean brightness",
+    "The median filter can be written as a convolution with a suitable kernel",
+    "Deep learning frameworks compute cross-correlation but call it convolution",
+    "Sobel produces a signed output, so it needs an offset or normalisation to display",
+    "Zero-padding at the border can create a dark frame in the output",
+    "Sharpening should be applied before denoising for best results"
+  ]}
+  correct={[0, 2, 3, 4]}
+/>

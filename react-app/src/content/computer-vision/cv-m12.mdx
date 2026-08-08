@@ -1,0 +1,109 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import RCNNPipelineWidget from '../../components/widgets/cv/RCNNPipelineWidget.jsx'
+
+# Module 12: Region-Based CNNs — R-CNN
+
+<ConceptBox title="TL;DR">
+- R-CNN's idea: don't search everywhere. Let a cheap **region proposal** algorithm nominate ~2,000 candidates, then run a CNN on each.
+- **Selective search** groups superpixels by colour, texture, size and fill, bottom-up, producing proposals at every scale. No learning involved.
+- It worked — **VOC07 mAP 66.0** against ~34 for the best HOG-based systems — and proved CNN features transfer to detection.
+- It was also **47 seconds per image** and trained in four disconnected stages, with features cached to hundreds of gigabytes of disk.
+- Every one of those flaws has one root cause: **the CNN is run 2,000 times on overlapping crops of the same image**.
+</ConceptBox>
+
+<Bridge>
+Module 11 showed sliding windows are unaffordable and that a window is a poor prior anyway. R-CNN attacks the second problem first: replace the exhaustive scan with a small, content-aware set of candidates — and pays for it with the first.
+</Bridge>
+
+## The pipeline
+
+1. **Region proposals** — selective search returns ~2,000 boxes per image (recall over 98% at IoU 0.5, and only 2,000 of the ~$10^6$ possible windows).
+2. **Warp** — each proposal is cropped and resized to a fixed $227\times227$, *ignoring aspect ratio*.
+3. **CNN features** — AlexNet (later VGG16) forward pass per crop → a 4096-D vector.
+4. **Classify** — one linear SVM per class on those 4096-D vectors.
+5. **Refine** — a class-specific ridge regressor adjusts the box.
+6. **NMS** per class.
+
+<RCNNPipelineWidget />
+
+## Selective search, briefly
+
+Start from Felzenszwalb superpixels, then greedily merge the most similar adjacent pair, recording every intermediate region as a proposal. Similarity is a weighted sum of four cheap cues:
+
+$$s(r_i, r_j) = a_1 s_{\text{colour}} + a_2 s_{\text{texture}} + a_3 s_{\text{size}} + a_4 s_{\text{fill}}$$
+
+The size term deliberately favours merging *small* regions first, so proposals appear at every scale rather than all at the end. Running the whole thing under several colour spaces and thresholds diversifies the output.
+
+It is entirely hand-designed, runs on the CPU, and takes about **2 seconds per image**. That 2 seconds survives into Fast R-CNN and is what finally motivates the RPN.
+
+## Why four training stages
+
+R-CNN could not be trained end to end, and the reasons are worth naming because Fast R-CNN removes each one:
+
+| Stage | Trained on | Why separate |
+|---|---|---|
+| 1. CNN pre-training | ImageNet classification | detection data was too small |
+| 2. CNN fine-tuning | warped proposals, softmax | positives = IoU ≥ 0.5 with a GT |
+| 3. SVMs | cached 4096-D features | hinge loss beat softmax on this data |
+| 4. Box regressors | cached features, per class | a separate ridge regression |
+
+Stages 3 and 4 read **cached features from disk**. For VOC07 trainval that cache is hundreds of gigabytes, because every one of the ~5,000 images contributes 2,000 vectors of 4,096 floats:
+
+$$5{,}000 \times 2{,}000 \times 4{,}096 \times 4\text{ bytes} \approx 164 \text{ GB}$$
+
+Nothing after stage 2 sends gradients back into the CNN, so the features can never adapt to the detection objective.
+
+## The limitations, named
+
+<ConceptBox title="R-CNN's five problems, and who fixed each">
+1. **Test time 47 s/image** — 2,000 CNN passes on overlapping crops. → *Fast R-CNN: share one pass, RoI-pool the regions.*
+2. **Training is multi-stage and disjoint** — no end-to-end gradient. → *Fast R-CNN: one multi-task loss.*
+3. **Feature caching to disk** — hundreds of GB. → *Fast R-CNN: nothing is cached.*
+4. **Proposals cost 2 s and are not learned** — a fixed algorithmic prior the detector cannot improve. → *Faster R-CNN: the RPN.*
+5. **Warping destroys aspect ratio** — a lamp post and a bench become the same shape. → *RoI pooling preserves the region's geometry.*
+</ConceptBox>
+
+Problem 1 is the interesting one, because the redundancy is enormous and obvious in hindsight: two proposals overlapping by 90% have their shared pixels convolved twice, independently, with the same weights. Module 11 already showed how to avoid that — compute the feature map once. All Fast R-CNN adds is a way to *pool* an arbitrary region out of that shared map, which is Module 13.
+
+## Worked example — where the 47 seconds goes
+
+| Stage | Time | Share |
+|---|---|---|
+| Selective search (CPU) | 2.0 s | 4% |
+| 2,000 × CNN forward (VGG16, GPU) | 44.0 s | 94% |
+| SVM + box regression | 1.0 s | 2% |
+
+At ~22 ms per VGG16 forward pass, $2{,}000 \times 0.022 = 44$ s. Cutting that to **one** pass is a 2,000× reduction in backbone work — and since the proposals cover maybe 30% of the image area on average, most of those 44 seconds were recomputing the exact same features.
+
+---
+
+<Recall items={[
+  { q: "What does selective search contribute that a sliding window cannot?", a: "A small, content-aware candidate set. It merges superpixels bottom-up by colour, texture, size and fill, so its ~2,000 boxes actually align with object boundaries at many scales — over 98% recall at IoU 0.5. A sliding window would need hundreds of thousands of positions to cover the same shapes, and would still be blind to object structure. The trade is 2 seconds of CPU per image and nothing learned." },
+  { q: "Why could R-CNN not be trained end to end?", a: "Because its classifier and box regressor are not part of the network. The CNN is fine-tuned with a softmax, then frozen; per-class SVMs and ridge regressors are fitted afterwards on cached feature vectors. No gradient flows from the SVM hinge loss back into the convolutions, so the features can never adapt to the detection objective — and the cache itself runs to hundreds of gigabytes." },
+  { q: "R-CNN takes 47 s per image. Where does the time go, and what is redundant about it?", a: "About 44 s is 2,000 separate CNN forward passes over warped proposals; 2 s is selective search; 1 s is the SVMs and regressors. The redundancy is that proposals overlap heavily, so the same image pixels are convolved with the same weights many times over. Computing the feature map once and pooling regions out of it removes the redundancy entirely." },
+  { q: "What does warping a proposal to a fixed 227x227 destroy, and why did R-CNN do it anyway?", a: "It destroys aspect ratio — a tall thin lamp post and a wide bench are both squashed into the same square. R-CNN did it because the downstream layers were dense layers, which demand a fixed input size. RoI pooling removes the need: it maps any region onto a fixed grid of bins, so geometry is preserved and no resampling of the raw pixels is required." },
+]} />
+
+<QuizCard
+  question="What is the single change that removes ~94% of R-CNN's test-time cost?"
+  options={[
+    "Replacing the SVMs with a softmax classifier",
+    "Running one CNN pass over the whole image and pooling features per region",
+    "Reducing the number of selective-search proposals from 2000 to 300",
+    "Caching the 4096-D feature vectors to disk"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of these are genuine limitations of R-CNN?"
+  options={[
+    "The CNN runs once per proposal, so overlapping proposals recompute the same features",
+    "Training happens in several disconnected stages with no end-to-end gradient",
+    "Selective search is learned jointly with the detector",
+    "Warping each proposal to a fixed square destroys its aspect ratio",
+    "Feature vectors must be cached to disk, occupying hundreds of gigabytes",
+    "Its accuracy was worse than the HOG-based systems it replaced"
+  ]}
+  correct={[0, 1, 3, 4]}
+/>

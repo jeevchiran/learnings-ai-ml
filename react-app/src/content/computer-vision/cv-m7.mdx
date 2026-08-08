@@ -1,0 +1,128 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import HistogramWidget from '../../components/widgets/cv/HistogramWidget.jsx'
+
+# Module 7: Image Distributions
+
+<ConceptBox title="TL;DR">
+- A **histogram** throws away all spatial structure and keeps only "how many pixels of each intensity". Two completely different images can share one.
+- **Equalisation** remaps intensities by the normalised CDF, spreading them across the full range. It is *per image*, so it is data-dependent — use it for viewing, not blindly for training.
+- **CLAHE** is the practical version: equalise in tiles, clip the histogram first, so it does not amplify noise in flat regions.
+- Training pipelines normalise with **fixed dataset statistics** so that "0.4" means the same thing in every batch.
+- The gap between your training histogram and your deployment histogram is **domain shift** — the single most common reason a good model fails in the field.
+</ConceptBox>
+
+<Bridge>
+Every module so far worked pixel-by-pixel or window-by-window. A histogram is the first *global* view: it summarises the whole image as a distribution, which is what both contrast enhancement and training-time normalisation operate on.
+</Bridge>
+
+## The histogram
+
+$$h(k) = \#\{(x,y) : I(x,y) = k\}, \qquad p(k) = \frac{h(k)}{HW}$$
+
+Read it as a fingerprint of exposure:
+
+| Shape | Diagnosis |
+|---|---|
+| Bunched left | underexposed |
+| Bunched right | overexposed |
+| Narrow spike anywhere | low contrast — few distinct values in use |
+| Two separated humps | bimodal — thresholding will work well (this is what Otsu exploits) |
+
+**What it cannot tell you:** anything about *where*. Shuffle the pixels of a photograph at random and the histogram is unchanged. That is exactly why histogram-based methods were never enough for recognition.
+
+## Interactive: distributions and what moves them
+
+<HistogramWidget />
+
+## Equalisation
+
+Let $c(k) = \sum_{j \le k} p(j)$ be the cumulative distribution. The transform is
+
+$$T(k) = \text{round}\!\left(255 \cdot \frac{c(k) - c_{\min}}{1 - c_{\min}}\right)$$
+
+Applying a random variable's own CDF to itself yields a **uniform** distribution — that is the entire idea. On a discrete histogram it is only approximately uniform, because whole bins move together and cannot be split.
+
+<ConceptBox title="Equalisation's two failure modes">
+**It amplifies noise.** A near-flat region has a tall narrow histogram spike; equalisation stretches those few levels across a wide range, so invisible sensor noise becomes visible mottling.
+
+**It is global.** One bright window in a dark room dominates the CDF, and the rest of the image is barely touched. `cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))` fixes both: equalise per tile, cap any histogram bin before building the CDF, then bilinearly blend tile boundaries.
+</ConceptBox>
+
+## Normalisation for training — a different job
+
+Contrast enhancement makes an image *look* better. Normalisation makes optimisation *behave* better, and the two want opposite properties.
+
+$$x_{\text{norm}} = \frac{x/255 - \mu}{\sigma}$$
+
+with $\mu, \sigma$ **fixed constants computed once over the training set**. The ImageNet values everyone reuses:
+
+```python
+transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                     std =[0.229, 0.224, 0.225])
+```
+
+Why fixed and not per image? Because a per-image transform is a *different function on every sample*. Two photos of the same object under different light would be mapped to the same normalised values, destroying a real cue; worse, the mapping at inference would differ from training. Equalisation is exactly such a transform — which is why it is a **preprocessing choice you commit to for the whole dataset**, applied identically at train and test time, or not at all.
+
+## Worked example — computing dataset statistics
+
+Never load the whole dataset. Accumulate sums:
+
+$$\mu = \frac{\sum x}{N}, \qquad \sigma = \sqrt{\frac{\sum x^2}{N} - \mu^2}$$
+
+```python
+import numpy as np
+
+n = 0; s = np.zeros(3); s2 = np.zeros(3)
+for img in loader:                          # img: (B, 3, H, W) float in [0,1]
+    x = img.numpy().transpose(1, 0, 2, 3).reshape(3, -1)
+    n  += x.shape[1]
+    s  += x.sum(axis=1)
+    s2 += (x ** 2).sum(axis=1)
+
+mean = s / n
+std  = np.sqrt(s2 / n - mean ** 2)
+print(mean.round(4), std.round(4))
+```
+
+One pass, constant memory. The `s2/n - mean²` identity is numerically shaky for large $N$ with float32 — accumulate in float64, as above.
+
+## Domain shift, in histogram terms
+
+Train on daytime photos, deploy on a dusk camera: the input histogram slides left and narrows. Every filter in the first conv layer now sees inputs outside the range it was calibrated on, and accuracy falls without a single error message. Three defences, in order of how much they actually help:
+
+1. **Collect deployment-like data.** Nothing else comes close.
+2. **Augment aggressively** over brightness, contrast, gamma and colour jitter, so the model has already seen the shift.
+3. **Monitor the input histogram in production** and alert on drift — cheap, and it tells you *before* the accuracy report does.
+
+---
+
+<Recall items={[
+  { q: "Two different photographs have identical histograms. Is that possible, and what does it tell you?", a: "Yes — a histogram counts intensities and discards position entirely, so any permutation of an image's pixels has the same histogram. It tells you histograms describe exposure and contrast, never content or structure, which is why they are a diagnostic tool rather than a recognition feature." },
+  { q: "Why does applying a distribution's own CDF to it produce a uniform distribution?", a: "Because the CDF maps each value to the fraction of the data below it, and that fraction is by construction uniformly distributed on [0,1] — the probability-integral transform. For a discrete 8-bit histogram it is only approximate, since all pixels sharing a value must move together and a bin cannot be split." },
+  { q: "Why do training pipelines use fixed dataset statistics rather than normalising each image by its own mean and std?", a: "Because per-image normalisation applies a different function to each sample. Two images that differ only in brightness would map to identical tensors, erasing a genuine cue, and the transform at inference would differ from any seen at training. Fixed constants make normalisation a single, reproducible affine map." },
+  { q: "Your model's accuracy quietly drops after a camera is replaced. What do you check first, and why is it cheap?", a: "The input histogram, compared against the training distribution. A new sensor shifts exposure, white balance and noise characteristics, moving the input distribution away from what the first layer was calibrated on. Comparing histograms needs no labels and no inference — it is a few sums over incoming frames, so it can run continuously in production." },
+]} />
+
+<QuizCard
+  question="An 8-bit image uses only intensities 90–130. What does histogram equalisation do to its standard deviation?"
+  options={[
+    "Leaves it unchanged — equalisation only shifts the mean",
+    "Increases it substantially, because the values are spread over the full 0–255 range",
+    "Reduces it, because the histogram becomes flat",
+    "Sets it to exactly 1.0"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about image distributions are correct?"
+  options={[
+    "A histogram discards all spatial information",
+    "CLAHE limits contrast amplification and works on tiles rather than globally",
+    "Per-image equalisation is a safe default for a training pipeline",
+    "Dataset mean/std should be computed on the training split only",
+    "A bimodal histogram suggests global thresholding will separate foreground from background",
+    "Monitoring input histograms in production can reveal domain shift without labels"
+  ]}
+  correct={[0, 1, 3, 4, 5]}
+/>

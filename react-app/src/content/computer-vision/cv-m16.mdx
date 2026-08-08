@@ -1,0 +1,139 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+
+# Module 16: YOLO in Code — Inference and Reading the Output
+
+<ConceptBox title="TL;DR">
+- Modern YOLO is three lines to run and one line to understand: `model(img)` returns a `Results` object holding `boxes.xyxy`, `boxes.conf`, `boxes.cls`.
+- `conf` and `iou` are **post-processing** arguments, not model weights — you can retune them without retraining.
+- The raw head output is $(1, 4 + C, N)$ **before NMS**; `Results` is what survives it. Knowing which you are holding prevents most confusions.
+- **Letterboxing**: the image is resized preserving aspect ratio and padded to a square. Boxes are mapped back for you — but not if you call the raw model.
+- Always audit predictions with a **confidence histogram** and a **per-class count**, not by eyeballing three images.
+</ConceptBox>
+
+<Bridge>
+Module 15 gave the output tensor and the loss. This module runs one, reads its output, and inspects the two things you actually control at inference: the score threshold and the NMS threshold.
+</Bridge>
+
+## Running it
+
+```python
+# pip install ultralytics
+from ultralytics import YOLO
+
+model = YOLO('yolov8n.pt')                       # nano: ~3.2M params, COCO-pretrained
+results = model('street.jpg', conf=0.25, iou=0.45, imgsz=640)
+
+r = results[0]
+print(r.boxes.xyxy)      # (N, 4) float32, absolute pixels in the ORIGINAL image
+print(r.boxes.conf)      # (N,)   final score = objectness × class probability
+print(r.boxes.cls)       # (N,)   class indices, floats — cast before using as ints
+print(r.names)           # {0: 'person', 1: 'bicycle', ...}
+```
+
+Two arguments do all the work:
+
+| Argument | Default | Effect of raising it |
+|---|---|---|
+| `conf` | 0.25 | fewer, more certain detections — precision ↑, recall ↓ |
+| `iou` | 0.45 | *less* suppression — more overlapping boxes survive |
+
+Note the direction on `iou`: it is the NMS threshold from Module 10, so a higher value means "boxes must overlap more before one is deleted".
+
+## What the output actually is
+
+```python
+import numpy as np
+
+boxes = r.boxes.xyxy.cpu().numpy()
+conf  = r.boxes.conf.cpu().numpy()
+cls   = r.boxes.cls.cpu().numpy().astype(int)
+
+for (x1, y1, x2, y2), c, k in zip(boxes, conf, cls):
+    w, h = x2 - x1, y2 - y1
+    print(f'{r.names[k]:12s} conf={c:.3f}  xywh=({x1:.0f},{y1:.0f},{w:.0f},{h:.0f})  area={w*h:.0f}')
+```
+
+`xyxy` in **absolute pixels of the original image** — the library has already undone the letterbox transform. Also available: `.xywh`, `.xyxyn`, `.xywhn` (the `n` suffix = normalised to 0–1, the format from Module 6).
+
+<ConceptBox title="Raw head output vs Results">
+Call the underlying `torch` module directly and you get a tensor of shape `(1, 4 + C, N)` — for YOLOv8 on COCO at 640px, `(1, 84, 8400)`: 4 box coordinates plus 80 class scores, for 8,400 anchor points across three scales.
+
+That tensor is **pre-NMS and in letterboxed coordinates**. Anyone exporting to ONNX or TensorRT has to reimplement: transpose, threshold on max class score, convert cxcywh → xyxy, run NMS, then undo the letterbox scale and pad. Getting the last step wrong is the classic "my ONNX boxes are shifted" bug.
+</ConceptBox>
+
+## Letterboxing, and why boxes shift when you get it wrong
+
+A 1280×720 image at `imgsz=640` is scaled by $r = \min(640/1280,\, 640/720) = 0.5$, giving 640×360, then padded top and bottom by $(640 - 360)/2 = 140$ pixels.
+
+To map a predicted box back:
+
+$$x_{\text{orig}} = \frac{x_{\text{letterbox}} - \text{pad}_x}{r}, \qquad y_{\text{orig}} = \frac{y_{\text{letterbox}} - \text{pad}_y}{r}$$
+
+Forget the padding subtraction and every box is 140 px too low. Forget the divide and every box is half size. Both are silent.
+
+## Auditing a run properly
+
+Three images tell you nothing. Run over a few hundred and look at distributions:
+
+```python
+from collections import Counter
+import numpy as np
+
+confs, counts, per_img = [], Counter(), []
+for res in model.predict('val_images/', stream=True, conf=0.05):   # low conf to see the tail
+    c = res.boxes.conf.cpu().numpy()
+    confs.append(c)
+    per_img.append(len(c))
+    counts.update(res.names[int(k)] for k in res.boxes.cls.cpu().numpy())
+
+confs = np.concatenate(confs)
+print('detections/image: mean %.1f  max %d' % (np.mean(per_img), max(per_img)))
+print('conf quantiles:', np.percentile(confs, [50, 75, 90, 99]).round(3))
+print('top classes:', counts.most_common(8))
+```
+
+What each output tells you:
+
+- **A conf histogram piled up near your threshold** — the threshold is doing the deciding, not the model. Symptom of a domain gap.
+- **Detections per image far above the plausible object count** — `iou` too high, or duplicate detections that NMS is not merging.
+- **One class dominating implausibly** — usually a label-mapping error between your `data.yaml` and the checkpoint's class list.
+
+## Video, and the one thing that matters for it
+
+```python
+for res in model.predict('clip.mp4', stream=True, vid_stride=1):   # stream=True: generator, O(1) memory
+    frame = res.plot()                                             # BGR ndarray with boxes drawn
+```
+
+`stream=True` is not an optimisation detail — without it, a long video's `Results` objects are all held in a list and the process runs out of memory. Detection is also **per frame and stateless**: identities are not tracked, and a flickering box is normal. Add a tracker (`model.track(..., tracker='bytetrack.yaml')`) when you need stable IDs.
+
+## Model size, chosen honestly
+
+| Model | Params | COCO mAP@50-95 | Use when |
+|---|---|---|---|
+| `yolov8n` | 3.2 M | 37.3 | edge, CPU, high fps |
+| `yolov8s` | 11.2 M | 44.9 | the usual default |
+| `yolov8m` | 25.9 M | 50.2 | server GPU |
+| `yolov8l` / `x` | 43.7 / 68.2 M | 52.9 / 53.9 | accuracy is the only constraint |
+
+Start with `n` or `s`. If it fails on your data, the fix is almost always **more or better-labelled data**, not a larger checkpoint — which is Module 17.
+
+---
+
+<Recall items={[
+  { q: "You raise the iou argument from 0.45 to 0.75. What happens to the number of boxes returned, and why?", a: "It goes up. That argument is the NMS IoU threshold: a candidate is only suppressed when it overlaps a kept box by more than the threshold, so raising it makes suppression less aggressive and more overlapping boxes survive. Useful for crowded scenes, and a source of duplicate detections if pushed too far." },
+  { q: "What is the difference between the raw head output and a Results object?", a: "The raw output is a tensor of shape (1, 4+C, N) — for YOLOv8 on COCO at 640px, (1, 84, 8400) — containing every anchor point's box and class scores, pre-NMS and in letterboxed coordinates. Results holds what survived thresholding and NMS, already mapped back to the original image's pixel coordinates. Exporting to ONNX means reimplementing that gap yourself." },
+  { q: "A 1280x720 image is letterboxed to 640. What are the scale and the padding, and what breaks if you skip the padding when mapping boxes back?", a: "The scale is min(640/1280, 640/720) = 0.5, giving 640x360, and the vertical padding is (640-360)/2 = 140 pixels top and bottom. Skipping the padding subtraction shifts every box down by 140 pixels in letterbox space — 280 after dividing by the scale — and nothing errors, so it presents as a model that mysteriously predicts too low." },
+  { q: "Your confidence histogram piles up just above the threshold. What does that indicate?", a: "That the threshold, not the model, is deciding what counts as a detection — the model is not confident about anything. It usually means a domain gap between training and deployment data: different camera, lighting, or object appearance. Raising the threshold will just trade recall away; the real fix is data that matches deployment." },
+]} />
+
+<QuizCard
+  question="A YOLOv8 model is called on an 800×600 image with imgsz=640. What are the letterbox scale factor and the vertical padding on each side?"
+  options={[
+    "r = 0.800, pad = 80 px each side",
+    "r = 0.800, pad = 160 px each side",
+    "r = 1.067, pad = 0 px",
+    "r = 0.640, pad = 56 px each side"
+  ]}
+  correct={0}
+/>

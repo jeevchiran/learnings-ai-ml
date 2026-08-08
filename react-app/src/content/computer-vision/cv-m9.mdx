@@ -1,0 +1,128 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import LocalizationHeadWidget from '../../components/widgets/cv/LocalizationHeadWidget.jsx'
+import BoxLossWidget from '../../components/widgets/cv/BoxLossWidget.jsx'
+
+# Module 9: Object Localization and Its Loss
+
+<ConceptBox title="TL;DR">
+- Localisation = classification head **plus** a 4-number regression head on the same backbone. Two losses, one network, one optimiser.
+- The output vector is $y = [p_{\text{obj}},\, b_x, b_y, b_w, b_h,\, c_1 \dots c_C]$ and the loss is $L = L_{\text{obj}} + \mathbb{1}[\text{obj}]\,(\lambda L_{\text{box}} + L_{\text{cls}})$.
+- That **indicator is the key idea**: background regions have no correct box, so the box and class terms must be masked out, not trained toward zero.
+- Boxes are regressed as **normalised offsets**, never raw pixels, so the two loss terms stay commensurable and the model stays resolution-independent.
+- **Smooth L1** is used over L2 because it caps the gradient at 1, so one badly-labelled box cannot dominate a batch.
+</ConceptBox>
+
+<Bridge>
+Module 8 defined the task and IoU. This module builds the smallest thing that solves it — single-object localisation — because every detector head in the rest of the track is this head, replicated over cells or anchors.
+</Bridge>
+
+## The head
+
+Take any classification backbone, cut off the final layer, attach two:
+
+```python
+import torch.nn as nn, torchvision
+
+class Localizer(nn.Module):
+    def __init__(self, n_classes):
+        super().__init__()
+        backbone = torchvision.models.resnet18(weights='DEFAULT')
+        self.features = nn.Sequential(*list(backbone.children())[:-1])   # → (B, 512, 1, 1)
+        self.cls_head = nn.Linear(512, n_classes)
+        self.box_head = nn.Sequential(nn.Linear(512, 4), nn.Sigmoid())   # cx, cy, w, h in [0,1]
+
+    def forward(self, x):
+        f = self.features(x).flatten(1)
+        return self.cls_head(f), self.box_head(f)
+```
+
+The `Sigmoid` is not decoration: it hard-constrains the box to the image, so the network cannot waste early training predicting coordinates of −4000.
+
+## Interactive: the output vector and its masked loss
+
+<LocalizationHeadWidget />
+
+## The composite loss
+
+$$L = \underbrace{L_{\text{obj}}(\hat p, p)}_{\text{always}} + \mathbb{1}[p = 1]\Big(\lambda_{\text{coord}} \underbrace{L_{\text{box}}(\hat b, b)}_{\text{smooth L1 or IoU}} + \underbrace{L_{\text{cls}}(\hat c, c)}_{\text{cross-entropy}}\Big)$$
+
+<ConceptBox title="Why the indicator must be there">
+For a background region there is no ground-truth box. Training the box head toward zeros would teach the network that "background ⇒ predict a degenerate box at the origin" — a signal that competes with the real regression task and, because background regions vastly outnumber objects, wins. Masking removes the term entirely: for those samples the box head receives **no gradient at all**.
+</ConceptBox>
+
+## Why normalised offsets
+
+Regress raw pixels and you inherit three problems:
+
+1. **Scale coupling.** An error of 40 px is huge at 224×224 and small at 4K, so $\lambda_{\text{coord}}$ would need retuning per resolution.
+2. **Loss imbalance.** Cross-entropy lives around 0–5; a squared pixel error is in the thousands. The class head stops learning.
+3. **No shift invariance.** A convolutional feature at one grid position should mean the same thing at another, which it cannot if the target is an absolute coordinate.
+
+So all coordinates are fractions of the image (or, from Module 18, offsets from an anchor):
+
+$$b_x, b_y, b_w, b_h \in [0, 1]$$
+
+Both loss terms are then $O(1)$ and $\lambda_{\text{coord}}$ is a genuine balance knob rather than a unit conversion.
+
+## Interactive: which regression loss
+
+<BoxLossWidget />
+
+## Worked example — how much one outlier costs
+
+Four coordinate errors: $0.02, 0.03, 0.01$, and one mislabelled box giving $5.0$.
+
+**L2** ($\tfrac12 x^2$): $0.0002 + 0.00045 + 0.00005 + 12.5 = 12.5007$ — the outlier is **99.99%** of the loss.
+
+**Smooth L1** ($\beta = 1$): $0.0002 + 0.00045 + 0.00005 + 4.5 = 4.5007$ — still dominant, but its *gradient* is capped at 1 instead of being 5, so it moves the weights five times less. That cap is what stops one bad annotation from wrecking a batch update.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Smooth L1, and why β sits where it does">
+
+$$L_\beta(x) = \begin{cases} \dfrac{x^2}{2\beta} & |x| < \beta \\[4pt] |x| - \dfrac{\beta}{2} & \text{otherwise}\end{cases}$$
+
+Check continuity at $x = \beta$: the quadratic gives $\beta^2/2\beta = \beta/2$; the linear gives $\beta - \beta/2 = \beta/2$. Equal. ✓
+
+Check the derivative: quadratic side $x/\beta \to 1$; linear side $\text{sign}(x) = 1$. Equal, so the function is $C^1$ — no kink for the optimiser to catch on. ✓
+
+The gradient magnitude is $\min(|x|/\beta,\, 1)$: proportional near zero (fine positioning) and **saturated at 1** far away (outlier resistance). Pure L1 has gradient 1 everywhere including at the optimum, so the box jitters and never settles; pure L2 has unbounded gradient. Smooth L1 takes the good half of each.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Why IoU losses eventually replaced smooth L1">
+
+Smooth L1 treats the four coordinates as **independent** scalars. They are not — the quantity you are actually judged on is IoU, and equal coordinate error can mean very different IoU:
+
+- A 20×20 box off by 5 px in $x$: intersection $15 \times 20 = 300$, union $500$, IoU $= 0.600$.
+- A 200×200 box off by 5 px in $x$: intersection $39{,}000$, union $41{,}000$, IoU $= 0.951$.
+
+Same $L_{\text{box}}$, wildly different quality. So optimise the metric directly:
+
+$$L_{\text{IoU}} = 1 - \text{IoU}, \qquad L_{\text{GIoU}} = 1 - \text{IoU} + \frac{|C \setminus (A \cup B)|}{|C|}$$
+
+where $C$ is the smallest box enclosing both. The extra term is what gives a gradient when the boxes are disjoint and plain IoU is stuck at 0 — the failure you can trigger in the Module 8 widget. CIoU adds centre-distance and aspect-ratio terms on top and is the default in modern YOLO.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+<Recall items={[
+  { q: "Write the localisation output vector and say what the indicator in the loss is for.", a: "y = [p_obj, bx, by, bw, bh, c1..cC]. The loss is L_obj + 1[object present] times (lambda*L_box + L_cls). The indicator masks the box and class terms for background regions, because there is no correct box for background — training toward zeros would teach a degenerate answer that, given how much background there is, would swamp the real regression signal." },
+  { q: "Why are box coordinates regressed as fractions of the image rather than pixels?", a: "Three reasons. Pixel errors scale with resolution, so the balance weight would need retuning for every input size. A squared pixel error is orders of magnitude larger than a cross-entropy value, so the class head would stop learning. And an absolute coordinate breaks the shift invariance that makes a convolutional feature mean the same thing at every position." },
+  { q: "What does smooth L1 buy over plain L2, in terms of gradients?", a: "Its gradient magnitude is min(|x|/beta, 1) — proportional to the error near zero, capped at 1 beyond beta. L2's gradient grows without bound, so a single mislabelled box with a large error contributes a proportionally large update and can dominate the batch. Smooth L1 keeps that outlier's influence bounded while still giving fine-grained gradients near the optimum." },
+  { q: "Two predictions have the same smooth-L1 box loss but very different IoU. How is that possible, and what fixes it?", a: "Because smooth L1 scores four coordinates independently and does not know the boxes' sizes. Five pixels of error is most of a 20-pixel box and nothing on a 200-pixel one. IoU-family losses (IoU, GIoU, DIoU, CIoU) optimise the evaluation metric directly, so equal loss means equal overlap quality." },
+]} />
+
+<QuizCard
+  question="With λ_coord = 5 and an indicator-masked loss, what gradient does the box head receive from a pure-background training region?"
+  options={[
+    "5 × the smooth-L1 gradient toward a zero box",
+    "Exactly zero — the box term is masked out",
+    "The same as for an object region, but scaled by p_obj",
+    "A gradient pushing the box toward the image centre"
+  ]}
+  correct={1}
+/>

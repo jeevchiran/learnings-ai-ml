@@ -1,0 +1,159 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import RCNNPipelineWidget from '../../components/widgets/cv/RCNNPipelineWidget.jsx'
+
+# Module 13: Fast R-CNN and Faster R-CNN
+
+<ConceptBox title="TL;DR">
+- **Fast R-CNN**: one CNN pass over the whole image; each proposal becomes an **RoI pooling** of the shared feature map. 47 s → 2.3 s, mAP 66.0 → 70.0.
+- RoI pooling maps *any* region to a fixed $7\times7$ grid, so a dense head can follow without warping the pixels.
+- Classification and box regression become **two heads with one multi-task loss** — end-to-end at last, and the SVMs and the disk cache both disappear.
+- **Faster R-CNN**: the 2-second selective search is replaced by a **Region Proposal Network** sliding over the same feature map. 10 ms, and it is learned.
+- The RPN introduces **anchors**: $k$ reference boxes per position, each with an objectness score and a 4-number refinement. Everything after this uses them.
+</ConceptBox>
+
+<Bridge>
+Module 12 diagnosed R-CNN: the CNN runs 2,000 times, training is disjoint, and proposals are a slow hand-designed prior. This module removes those three problems in the order they were removed historically, and the second removal invents the mechanism the whole rest of the track depends on.
+</Bridge>
+
+<RCNNPipelineWidget />
+
+## Fast R-CNN — RoI pooling
+
+The move is simple once Module 11 is in hand. Run the backbone **once**. A proposal in image coordinates maps onto the feature map by dividing by the output stride:
+
+$$(x, y, w, h)_{\text{feat}} = \left(\frac{x}{s},\, \frac{y}{s},\, \frac{w}{s},\, \frac{h}{s}\right), \qquad s = 16 \text{ for VGG16}$$
+
+**RoI pooling** then divides that region into a fixed $H \times W$ grid (7×7) and max-pools inside each bin. Any region size in, always $7 \times 7 \times C$ out — which is exactly what the following dense layers need.
+
+<ConceptBox title="RoI Pool vs RoI Align">
+RoI pooling **quantises twice**: once when dividing the box coordinates by the stride, once when snapping bin boundaries to integers. On a 16-stride map a half-pixel of feature error is 8 pixels in the image — invisible for classification, harmful for precise boxes and fatal for masks.
+
+**RoI Align** (Mask R-CNN, 2017) removes both roundings: it keeps fractional coordinates and samples with bilinear interpolation (Module 4). Worth about +1 mAP on boxes and far more on masks.
+</ConceptBox>
+
+## One loss, two heads
+
+$$L = L_{\text{cls}}(p, u) + \lambda\, \mathbb{1}[u \ge 1]\, L_{\text{loc}}(t^u, v)$$
+
+where $u = 0$ is background. This is exactly the masked composite loss from Module 9, now applied per RoI — and $L_{\text{loc}}$ is where **smooth L1** was introduced, precisely to stop mislabelled proposals from exploding the gradient.
+
+The box targets are **parameterised relative to the proposal**, not absolute:
+
+$$t_x = \frac{x - x_p}{w_p}, \quad t_y = \frac{y - y_p}{h_p}, \quad t_w = \log\frac{w}{w_p}, \quad t_h = \log\frac{h}{h_p}$$
+
+Two design choices worth understanding. Dividing by $w_p$ makes the target **scale-invariant** — the same relative offset means the same thing on a small and a large proposal. The $\log$ on width and height makes the target **symmetric**: halving and doubling are $\pm\log 2$, equally penalised, and the exponential inverse can never produce a negative width.
+
+## Faster R-CNN — the Region Proposal Network
+
+After Fast R-CNN the profile is embarrassing: 2.0 s of selective search wrapped around 0.32 s of network. The RPN deletes it.
+
+Slide a small $3\times3$ conv over the shared feature map. At each of the $H \times W$ positions, predict for each of $k$ **anchors**:
+
+- **2 objectness scores** (object / not), and
+- **4 box refinements** $(t_x, t_y, t_w, t_h)$ relative to that anchor.
+
+With $k = 9$ (3 scales × 3 aspect ratios) on a $60\times40$ map:
+
+$$60 \times 40 \times 9 = 21{,}600 \text{ anchors per image}$$
+
+Sort by objectness, take the top ~6,000, NMS at 0.7, keep **300** — and those 300 replace selective search's 2,000, at 10 ms instead of 2,000 ms, with *better* recall because they are learned.
+
+<ConceptBox title="Why anchors, rather than regressing boxes from nothing">
+A conv feature at one position has no way to output "there are three objects here of different shapes" — it emits a fixed-length vector. Anchors turn that into a well-posed problem: each of the $k$ slots is **pre-assigned a shape**, and only has to predict a small correction to it. Training targets become unambiguous (each ground-truth box is assigned to the anchor it overlaps most), and the regression is better conditioned because the answer is near zero. Module 18 goes into how the anchor shapes themselves are chosen.
+</ConceptBox>
+
+**Anchor labelling during RPN training:** positive if IoU > 0.7 with any ground truth *or* if it is the highest-IoU anchor for some ground truth (so no object goes unassigned); negative if IoU < 0.3 with everything; ignored in between. A mini-batch samples 256 anchors at roughly 1:1 positive:negative — the imbalance fix that Module 19 revisits.
+
+## The scoreboard
+
+| | Proposals | Test time | VOC07 mAP | Trained |
+|---|---|---|---|---|
+| R-CNN | selective search, 2 s | 47 s | 66.0 | 4 stages |
+| Fast R-CNN | selective search, 2 s | 2.3 s | 70.0 | 1 stage |
+| **Faster R-CNN** | **RPN, 10 ms** | **0.2 s** | **73.2** | end to end |
+
+Each generation is faster *and* more accurate. That is unusual, and it happens because the wins are not approximations — removing redundant computation and learning the proposals both add information rather than trading it away.
+
+## In code
+
+```python
+import torchvision
+from torchvision.models.detection import fasterrcnn_resnet50_fpn
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+
+model = fasterrcnn_resnet50_fpn(weights='DEFAULT')
+
+# swap the classifier head for your own class count (+1 for background)
+in_feats = model.roi_heads.box_predictor.cls_score.in_features
+model.roi_heads.box_predictor = FastRCNNPredictor(in_feats, num_classes=4)
+
+# targets: list of dicts with 'boxes' (xyxy, absolute pixels) and 'labels' (1..C, 0 = background)
+losses = model(images, targets)      # train mode → dict of 4 losses
+model.eval()
+preds = model(images)                # eval mode → boxes, labels, scores, already NMS'd
+```
+
+Note `boxes` here are **xyxy in absolute pixels** — torchvision's convention, and different from the normalised `cxcywh` YOLO wants in Module 17. Module 6's warning applies.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Why box targets use log for width and height">
+
+Predict width directly and two failures follow. First, nothing stops the output being negative, and a negative width is meaningless. Second, the error is asymmetric: predicting 200 for a true 100 costs $|100|$, while predicting 50 costs $|50|$ — the network is rewarded for systematically under-predicting.
+
+With $t_w = \log(w / w_p)$ and the inverse $w = w_p e^{\hat t_w}$:
+
+- The exponential is positive for every real $\hat t_w$, so width is **structurally** valid.
+- Doubling is $+\log 2$ and halving is $-\log 2$ — **symmetric** penalty, no bias.
+- The target is a *ratio*, so it is scale-free: doubling a small box and doubling a large one give the same number.
+
+The same argument, made once, explains the parameterisation in Fast R-CNN, Faster R-CNN, YOLOv2 onward, and SSD. They all use it.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Counting anchors, and why 300 proposals is enough">
+
+A $600\times1000$ image through a stride-16 VGG16 backbone gives roughly a $38\times63$ feature map. With $k=9$:
+
+$$38 \times 63 \times 9 \approx 21{,}500 \text{ anchors}$$
+
+Cross-boundary anchors are dropped during training (about 6,000 remain for a typical image), leaving a manageable set. At inference all are scored, the top 6,000 by objectness are kept, NMS at IoU 0.7 reduces them to ~2,000, and the top **300** go to the head.
+
+Why does 300 beat selective search's 2,000? Because they are ranked by a *learned* objectness score rather than by a hand-designed grouping heuristic. The paper reports recall holding essentially flat as proposals drop from 2,000 to 300 for the RPN, while selective search's recall falls steeply over the same range. Fewer, better candidates — and the per-region head cost drops by the same factor.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+<Recall items={[
+  { q: "What does RoI pooling do, and what problem does it solve that warping did not?", a: "It projects a proposal onto the shared feature map by dividing by the output stride, splits that region into a fixed grid (7x7), and max-pools within each bin — so any region size produces the same output shape. Unlike R-CNN's warping it operates on features computed once for the whole image, so overlapping proposals share computation, and it preserves the region's geometry instead of squashing the raw pixels into a square." },
+  { q: "Why is box width regressed as log(w / w_proposal) rather than as w?", a: "Three reasons at once. The exponential inverse is always positive, so a negative width is structurally impossible. The log makes doubling and halving symmetric penalties, removing a bias toward under-prediction. And because it is a ratio, the target is scale-invariant — the same number means the same relative change on a small box and a large one." },
+  { q: "What does the RPN replace, and what does it introduce?", a: "It replaces selective search: instead of 2 seconds of CPU superpixel merging, a small conv slides over the already-computed feature map and emits objectness plus a box refinement for k anchors at every position, in about 10 ms, learned jointly with the detector. What it introduces is the anchor — a fixed reference box per slot that the network only has to correct, which makes the target assignment unambiguous and the regression well conditioned." },
+  { q: "Faster R-CNN scores over 20,000 anchors but sends 300 proposals to the head. Why is 300 enough when selective search needed 2,000?", a: "Because the 300 are ranked by a learned objectness score rather than a hand-designed grouping heuristic, so recall holds nearly flat as the count drops — whereas selective search's recall falls steeply below about 2,000. Better ranking means fewer candidates carry the same coverage, and the per-region head cost falls proportionally." },
+]} />
+
+<QuizCard
+  question="A proposal at (160, 320, 128, 96) in xywh image pixels is projected onto a VGG16 feature map with output stride 16. What region of the feature map does RoI pooling operate on?"
+  options={[
+    "(10, 20, 8, 6)",
+    "(160, 320, 128, 96)",
+    "(2560, 5120, 2048, 1536)",
+    "(10, 20, 128, 96)"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about Fast R-CNN and Faster R-CNN are correct?"
+  options={[
+    "Fast R-CNN runs the backbone once per image instead of once per proposal",
+    "Fast R-CNN still depends on an external proposal algorithm",
+    "The RPN shares its convolutional features with the detection head",
+    "RoI pooling quantises coordinates twice, which RoI Align removes",
+    "Faster R-CNN regresses absolute box coordinates rather than offsets from anchors",
+    "Anchors give each output slot a fixed prior shape so it only predicts a correction"
+  ]}
+  correct={[0, 1, 2, 3, 5]}
+/>

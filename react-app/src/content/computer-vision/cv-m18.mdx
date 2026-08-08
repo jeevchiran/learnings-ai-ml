@@ -1,0 +1,165 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import AnchorBoxWidget from '../../components/widgets/cv/AnchorBoxWidget.jsx'
+
+# Module 18: Anchor Boxes
+
+<ConceptBox title="TL;DR">
+- An anchor is a **fixed reference box** attached to a feature-map position. The network predicts a small correction to it, not a box from nothing.
+- Anchors make target assignment well-posed: each ground truth is matched to the anchor it overlaps most, so every output slot has an unambiguous job.
+- They also lift the one-object-per-cell ceiling — $k$ anchors per cell means $k$ objects of different shapes can coexist there.
+- Shapes are chosen by **k-means on the training boxes with $d = 1 - \text{IoU}$**, not Euclidean distance, so large boxes do not dominate.
+- YOLOv2's constrained parameterisation ($\sigma$ on the centre offsets, $\exp$ on the sizes) is what made anchors trainable from a random init.
+</ConceptBox>
+
+<Bridge>
+The RPN in Module 13 introduced anchors and Module 15 showed what YOLO v1 lost by not having them. This module is the mechanism itself: where the shapes come from, how targets are assigned, and how the offsets are parameterised.
+</Bridge>
+
+## The problem anchors solve
+
+A convolutional feature at one position produces a fixed-length vector. Ask it to emit "a box" and two things are ill-posed:
+
+- **Which box?** If two objects overlap this position, which one is the target? Without a rule, the same output slot receives contradictory gradients on different images and learns the average of a tall box and a wide one — a useless square.
+- **From what starting point?** Regressing $(w, h)$ from scratch means the network must learn the whole size distribution in its final layer, and early in training its outputs are noise.
+
+Anchors answer both. Pre-assign $k$ shapes per position; match each ground truth to its best-overlapping anchor; predict a *correction*.
+
+$$\text{prediction} = \text{anchor} + \text{learned offset}$$
+
+The target is now near zero, well conditioned, and unambiguous.
+
+## Choosing the shapes
+
+<AnchorBoxWidget />
+
+Hand-picked anchors (Faster R-CNN used 3 scales × 3 ratios = 9) work, but the shapes in your data are not the shapes in COCO. YOLOv2 ran **k-means on the training set's box dimensions**, with a critical modification:
+
+$$d(\text{box}, \text{centroid}) = 1 - \text{IoU}(\text{box}, \text{centroid})$$
+
+<ConceptBox title="Why not Euclidean k-means">
+Euclidean distance on $(w, h)$ makes the error from a 400×300 box roughly 100× the error from a 40×30 box of the same *relative* misfit. Clustering would spend all its centroids on large boxes and leave small ones sharing one bad anchor — exactly backwards, since small objects are the hard case.
+
+$1 - \text{IoU}$ is scale-free: a 2× shape mismatch costs the same whether the boxes are 20 px or 200 px. The objective being clustered is then the thing you actually care about — how well the best anchor covers a typical ground truth.
+</ConceptBox>
+
+The elbow in the mean-IoU curve is the real answer to "how many anchors". YOLOv2 chose **5** as the accuracy/cost knee; v3 uses **9**, split three per scale across three feature maps.
+
+## Assignment during training
+
+For every anchor at every position:
+
+| Condition | Label |
+|---|---|
+| Highest IoU with some ground truth (even if low) | **positive** — guarantees no object is unassigned |
+| IoU > 0.7 (RPN) / > 0.5 (SSD) with any ground truth | **positive** |
+| IoU < 0.3 (RPN) / < 0.4 (SSD) with all ground truths | **negative** |
+| In between | **ignored** — contributes no gradient at all |
+
+The ignore band matters. An anchor at IoU 0.5 is neither clearly right nor clearly wrong; training it as a negative teaches the network to suppress a nearly-correct box, and as a positive it teaches sloppiness. Excluding it is cleaner than guessing.
+
+## The parameterisation, and the bug it fixed
+
+Faster R-CNN's offsets are unbounded:
+
+$$x = x_a + t_x w_a, \qquad w = w_a e^{t_w}$$
+
+$t_x = 1$ shifts the box a full anchor-width right. Nothing stops a randomly-initialised network from predicting $t_x = 30$ and putting the box on the other side of the image — and YOLOv2's authors report exactly that: the model was unstable for the first iterations, with most of the instability coming from the unconstrained centre coordinates.
+
+Their fix ties the centre to the cell it was predicted in:
+
+$$b_x = \sigma(t_x) + c_x, \qquad b_y = \sigma(t_y) + c_y, \qquad b_w = p_w e^{t_w}, \qquad b_h = p_h e^{t_h}$$
+
+$\sigma$ bounds the centre offset to $[0,1)$, so **a prediction can never leave its own cell**, while $\exp$ keeps sizes positive and symmetric under doubling/halving (Module 13's derivation). Size stays unbounded because an object legitimately can be much larger than its anchor; position does not, because the responsible cell is a fact.
+
+## Worked example — decode one prediction
+
+Cell $(c_x, c_y) = (4, 6)$ on a $13\times13$ grid, anchor $(p_w, p_h) = (1.87, 3.34)$ in **grid units**. Raw outputs $t_x = 0.4$, $t_y = -1.2$, $t_w = 0.25$, $t_h = -0.1$:
+
+$$b_x = \sigma(0.4) + 4 = 0.599 + 4 = 4.599$$
+$$b_y = \sigma(-1.2) + 6 = 0.231 + 6 = 6.231$$
+$$b_w = 1.87\,e^{0.25} = 1.87 \times 1.284 = 2.401$$
+$$b_h = 3.34\,e^{-0.1} = 3.34 \times 0.905 = 3.022$$
+
+Divide by 13 for image fractions: centre $(0.354,\, 0.479)$, size $(0.185,\, 0.232)$. Note $t_y = -1.2$ did **not** move the box up out of the cell — the sigmoid clamped it to an offset of 0.231. That is the constraint doing its job.
+
+## Anchor-free, and why the idea keeps returning
+
+Anchors are hyperparameters: how many, what shapes, which IoU cut-offs, per dataset. FCOS and CenterNet remove them:
+
+| Method | Predicts | Advantage |
+|---|---|---|
+| **FCOS** | per pixel, the 4 distances to the box sides + a centreness score | no anchor tuning, no IoU thresholds |
+| **CenterNet** | a heatmap peak per object + size at the peak | **no NMS** — peaks are already sparse |
+| **YOLOv8** | anchor-free, with task-aligned assignment | fewer knobs, same accuracy |
+
+Modern YOLO is anchor-free, so do not read Module 15–18 as describing current code. Read them as describing the *problem* anchors solved — target assignment and conditioning — because anchor-free methods still have to solve it, they just do it with a different rule.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Why 1 − IoU is the right k-means distance">
+
+Standard k-means minimises $\sum_i \|x_i - \mu_{c(i)}\|^2$. On box dimensions that objective is **scale-dependent**: for boxes $(20, 30)$ and $(200, 300)$, a 10% shape error contributes $\approx 13$ and $\approx 1300$ respectively. The centroids chase the large boxes.
+
+What you actually want to maximise is how well the assigned anchor covers a typical ground truth — mean IoU. So define
+
+$$d(b, \mu) = 1 - \text{IoU}(b, \mu) = 1 - \frac{\min(w_b, w_\mu)\min(h_b, h_\mu)}{w_b h_b + w_\mu h_\mu - \min(w_b, w_\mu)\min(h_b, h_\mu)}$$
+
+evaluating IoU with both boxes centred at the origin, since only *shape* is being clustered. This is invariant under scaling both boxes by the same factor, so a 2× mismatch costs the same at every size.
+
+The algorithm is otherwise unchanged: assign each box to its nearest centroid under $d$, then recompute centroids as the mean of their members. Convergence is not guaranteed the way it is for Euclidean k-means (the mean does not minimise $d$ exactly), but in practice it settles in a few dozen iterations.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Counting anchors, and the imbalance they create">
+
+YOLOv3 at $416\times416$ predicts on three feature maps with strides 32, 16 and 8:
+
+$$13^2 + 26^2 + 52^2 = 169 + 676 + 2704 = 3{,}549 \text{ positions}$$
+
+At 3 anchors per position: $3{,}549 \times 3 = \mathbf{10{,}647}$ boxes per image.
+
+A typical COCO image has ~7 objects. Even generously counting 3 positive anchors each, that is ~21 positives against ~10,626 negatives — a ratio of about **1 : 500**. Summed naively, the background gradient dominates by two orders of magnitude and the model converges to "predict nothing", which scores well on the loss and 0 on mAP.
+
+Three fixes, in historical order: YOLO's $\lambda_{\text{noobj}} = 0.5$ (a blunt constant), SSD's hard negative mining at 3:1 (Module 19), and RetinaNet's focal loss
+
+$$FL(p_t) = -(1 - p_t)^\gamma \log p_t$$
+
+which at $\gamma = 2$ scales an easy negative's contribution ($p_t = 0.99$) down by $10^{-4}$ while leaving a hard example ($p_t = 0.5$) at a quarter weight. **More anchors always means more imbalance** — the two problems are inseparable.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+<Recall items={[
+  { q: "What two ill-posed problems do anchors fix?", a: "Target assignment and conditioning. Without anchors, a single output slot can receive a tall box on one image and a wide box on the next, so it learns their meaningless average; anchors let each ground truth be matched to the slot whose prior shape it overlaps most, making every slot's job consistent. And because the network predicts a correction to a reasonable prior rather than a box from scratch, the regression target is near zero and far better conditioned." },
+  { q: "Why does anchor k-means use 1 − IoU rather than Euclidean distance on (w, h)?", a: "Because Euclidean distance is scale-dependent: the same relative shape mismatch costs a hundred times more on a 400-pixel box than on a 40-pixel one, so the centroids all migrate toward large boxes and small objects share one poor anchor. 1 − IoU is scale-free, and it is also the quantity you actually care about — how well the assigned anchor covers a typical ground truth." },
+  { q: "Why does YOLOv2 put a sigmoid on the centre offsets but an exponential on the sizes?", a: "Because the constraints differ. The responsible cell is a fact, so a centre offset should never leave it — the sigmoid bounds it to [0,1) and removes the early-training instability where an unconstrained offset threw boxes across the image. Size has no such bound: an object can legitimately be several times its anchor, so the exponential keeps it positive and symmetric under doubling and halving without capping it." },
+  { q: "What is the 'ignore band' in anchor assignment for?", a: "It excludes anchors whose IoU with a ground truth is neither clearly high nor clearly low — say between 0.3 and 0.7 for the RPN. Calling such an anchor negative would train the network to suppress a nearly-correct box; calling it positive would reward sloppy localisation. Giving it no gradient at all is cleaner than guessing which." },
+  { q: "YOLOv3 at 416px produces 10,647 boxes for an image with about 7 objects. What problem does that create and name two fixes.", a: "Extreme class imbalance — roughly 1 positive to 500 negatives, so the summed background gradient swamps the positives and the model converges toward predicting nothing. YOLO damps it with lambda_noobj = 0.5, SSD uses hard negative mining capped at 3 negatives per positive, and RetinaNet's focal loss down-weights easy examples continuously by (1-p)^gamma." },
+]} />
+
+<QuizCard
+  question="A YOLOv2 cell at (cx, cy) = (3, 5) with anchor (pw, ph) = (2.0, 4.0) outputs tx = 0, ty = 2.0, tw = 0, th = 0. Where is the decoded box centre?"
+  options={[
+    "(3.0, 7.0) — ty shifts the centre two cells down",
+    "(3.5, 5.881) — σ(0) = 0.5 and σ(2) = 0.881, both confined to the cell",
+    "(3.0, 5.0) — zero offsets mean the anchor centre",
+    "(3.5, 5.5) — the sigmoid always returns 0.5"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about anchor boxes are correct?"
+  options={[
+    "An anchor is a reference box the network predicts a correction to",
+    "Anchor shapes are best chosen by k-means with an IoU-based distance",
+    "More anchors per position worsens the positive/negative imbalance",
+    "The sigmoid on tx, ty prevents a prediction from leaving its own grid cell",
+    "Anchors are still required by all modern detectors",
+    "An anchor with IoU between the negative and positive thresholds is typically ignored"
+  ]}
+  correct={[0, 1, 2, 3, 5]}
+/>

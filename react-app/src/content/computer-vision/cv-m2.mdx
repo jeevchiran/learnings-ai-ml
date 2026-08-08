@@ -1,0 +1,99 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import ImageMathWidget from '../../components/widgets/cv/ImageMathWidget.jsx'
+
+# Module 2: Math Operations on Images
+
+<ConceptBox title="TL;DR">
+- **Point operations** apply the same scalar function to every pixel independently — no neighbours involved. Cheap, parallel, and the whole of this module.
+- `uint8` arithmetic **saturates** in OpenCV (`250 + 10 = 255`) but **wraps** in raw NumPy (`250 + 10 = 4`). This is a real, silent bug source.
+- Brightness/contrast is affine: $g = \alpha f + \beta$. Gamma is not: $g = 255(f/255)^\gamma$ — it changes midtones without clipping the ends.
+- **Thresholding** turns intensity into a binary mask; masks then drive `bitwise_and` to isolate regions.
+- Frame differencing (`absdiff`) is motion detection in one line, and it is still the first thing you try.
+</ConceptBox>
+
+<Bridge>
+Module 1 established that an image is an array. Point operations are the first thing you can do to that array: one input pixel, one output pixel, no context. Module 3 relaxes that and lets a pixel see its neighbours, which is where filtering begins.
+</Bridge>
+
+## The taxonomy in one line
+
+| Class | Output pixel depends on | Examples |
+|---|---|---|
+| **Point** | one input pixel | add, threshold, gamma, invert |
+| **Local (neighbourhood)** | a small window | blur, Sobel, median → Module 3 |
+| **Global** | the whole image | histogram equalisation → Module 7, FFT |
+
+## Interactive: every operation, one pixel at a time
+
+<ImageMathWidget />
+
+## The operations that matter
+
+**Blending** — a weighted average, used for image compositing and for the Mixup augmentation:
+
+$$g(x,y) = \alpha \cdot f_1(x,y) + (1-\alpha) \cdot f_2(x,y)$$
+
+**Brightness and contrast** — an affine map on intensity:
+
+$$g = \alpha f + \beta \qquad \alpha > 1 \text{ stretches contrast}, \; \beta \text{ shifts brightness}$$
+
+**Gamma** — the non-linear alternative, because $\alpha f + \beta$ clips whatever it pushes past 255:
+
+$$g = 255 \left(\frac{f}{255}\right)^{\gamma}$$
+
+$\gamma < 1$ brightens shadows and leaves highlights alone; $\gamma > 1$ darkens. Gamma is monotone and bounded, so nothing ever clips.
+
+**Thresholding** — the bridge from continuous intensity to a discrete mask:
+
+$$g = \begin{cases} 255 & f > T \\ 0 & \text{otherwise}\end{cases}$$
+
+## Worked example — the saturation trap
+
+A pixel holds 250. Add 10.
+
+```python
+import numpy as np, cv2
+
+a = np.uint8([[250]])
+b = np.uint8([[10]])
+
+print(a + b)             # [[4]]    ← NumPy wraps modulo 256
+print(cv2.add(a, b))     # [[255]]  ← OpenCV saturates
+```
+
+$250 + 10 = 260$, and $260 \bmod 256 = 4$. Every bright pixel in your image just became nearly black. Use `cv2.add`, or promote to `int16` before doing the arithmetic and clip afterwards.
+
+```python
+# safe manual version
+out = np.clip(a.astype(np.int16) + b.astype(np.int16), 0, 255).astype(np.uint8)
+```
+
+## Frame differencing — motion in three lines
+
+```python
+diff = cv2.absdiff(frame_t, frame_prev)          # per-pixel |difference|
+grey = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+_, motion = cv2.threshold(grey, 25, 255, cv2.THRESH_BINARY)
+```
+
+The threshold of 25 is doing the real work: it decides what counts as change versus sensor noise. Too low and every frame is "motion"; too high and a slow-moving object disappears. There is no correct value — only a value tuned to your camera and lighting, which is exactly the fragility that pushed detection toward learned models.
+
+---
+
+<Recall items={[
+  { q: "Why does adding 10 to a uint8 pixel of value 250 sometimes give 4 and sometimes 255?", a: "Because two different libraries make different choices. Raw NumPy arithmetic on uint8 wraps around modulo 256, so 260 becomes 4. cv2.add saturates, clamping to 255. Neither warns you. The fix is to use cv2.add or to cast up to int16, do the arithmetic, clip, and cast back." },
+  { q: "When would you reach for gamma correction rather than a brightness offset?", a: "When you want to lift shadow detail without blowing out highlights. Adding beta shifts every pixel equally, so anything already near 255 clips and detail is destroyed. Gamma with a value below 1 raises dark pixels a lot and bright pixels barely at all, and because it is a bounded monotone map, nothing ever clips." },
+  { q: "What does bitwise_and with a binary mask actually compute?", a: "It keeps the original pixel wherever the mask is 255 and forces 0 wherever the mask is 0 — a per-pixel select. The output keeps the input's shape, unlike a crop, which is why masking is the right tool for irregular regions and cropping is the right tool for rectangles." },
+  { q: "Frame differencing flags an entire wall as 'motion'. What are the two likely causes?", a: "Either the threshold is below the sensor's noise floor, so ordinary shot noise crosses it, or the camera itself moved between frames, in which case every edge in the scene differs. The first is fixed by raising the threshold or blurring first; the second needs alignment (a homography from Module 4), not a bigger threshold." },
+]} />
+
+<QuizCard
+  question="You apply g = 1.5f + 40 to a pixel with value 200 using cv2.convertScaleAbs. What is the result?"
+  options={[
+    "340",
+    "255",
+    "84",
+    "300"
+  ]}
+  correct={1}
+/>

@@ -1,0 +1,112 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import IoUWidget from '../../components/widgets/cv/IoUWidget.jsx'
+
+# Module 8: From Classification to Detection
+
+<ConceptBox title="TL;DR">
+- Four tasks, increasing difficulty: **classification** (what) → **localisation** (what + where, one object) → **detection** (what + where, unknown count) → **segmentation** (per-pixel).
+- The hard part of detection is not the box — it is that the **number of outputs is not known in advance**. A fixed-size output layer cannot express "3 objects" and "17 objects".
+- **IoU** is the whole vocabulary of correctness: $\text{IoU} = \frac{|A \cap B|}{|A \cup B|} \in [0,1]$.
+- IoU is **scale-free** — a 5-pixel error is fatal on a small object and irrelevant on a large one, and IoU already knows that.
+- A prediction is a TP or an FP depending only on the threshold you report at. VOC used 0.5; COCO averages 0.50 to 0.95.
+</ConceptBox>
+
+<Bridge>
+The CNN track ended with a network that maps an image to one class label. Detection asks the same network for a variable-length list of (class, box, score) triples. This module defines the task and the one metric that everything after it is built on.
+</Bridge>
+
+## The task ladder
+
+| Task | Output | Output size | Loss |
+|---|---|---|---|
+| Classification | one label | fixed, $C$ | cross-entropy |
+| **Localisation** | one label + one box | fixed, $C + 4$ | CE + box regression |
+| **Detection** | $N$ labels + $N$ boxes + $N$ scores | **variable** | CE + box + objectness |
+| Instance segmentation | $N$ masks | variable, per-pixel | + mask loss |
+
+Localisation is a straightforward extension — bolt four extra outputs onto the classifier and regress them (Module 9). Detection is a genuinely different problem, and the entire history in Modules 11–19 is different answers to one question: **how do you produce a variable number of outputs from a fixed-size network?**
+
+Three answers, and every detector is one of them:
+
+1. **Propose then classify** — generate candidate regions, score each. *(R-CNN family, Modules 12–13.)*
+2. **Predict densely, then filter** — emit a fixed, large grid of candidate boxes and suppress the losers. *(YOLO, SSD, Modules 15–19.)*
+3. **Set prediction** — emit a fixed number of slots and match them to ground truth with a bipartite assignment. *(DETR, mentioned in Module 14.)*
+
+## Intersection over Union
+
+$$\text{IoU}(A, B) = \frac{\text{area}(A \cap B)}{\text{area}(A \cup B)} = \frac{|A \cap B|}{|A| + |B| - |A \cap B|}$$
+
+<IoUWidget />
+
+## Worked example — compute it by hand
+
+Ground truth $A = (50, 40, 100, 120)$ in `xywh`, prediction $B = (90, 70, 100, 120)$.
+
+Convert to corners: $A = [50, 40, 150, 160]$, $B = [90, 70, 190, 190]$.
+
+**Intersection:**
+
+$$x_1 = \max(50, 90) = 90 \qquad x_2 = \min(150, 190) = 150$$
+$$y_1 = \max(40, 70) = 70 \qquad y_2 = \min(160, 190) = 160$$
+$$|A \cap B| = (150-90)\times(160-70) = 60 \times 90 = 5{,}400$$
+
+**Union:**
+
+$$|A \cup B| = 12{,}000 + 12{,}000 - 5{,}400 = 18{,}600$$
+
+$$\text{IoU} = \frac{5{,}400}{18{,}600} = 0.2903$$
+
+At the standard threshold of 0.5 this is a **false positive** — a box that visually "nearly" covers the object still fails. Take the intersection width as $\max(0, x_2 - x_1)$: without that clamp, disjoint boxes produce a *negative* width and a nonsense positive IoU. It is the most common bug in a hand-rolled IoU.
+
+## Why IoU and not pixel distance
+
+A 10-pixel corner error on a 500×500 object costs almost nothing; the same error on a 20×20 object destroys the match. IoU handles both with one number because it normalises by the boxes' own size — no threshold retuning per object scale.
+
+<ConceptBox title="Where IoU is blind">
+**It saturates at 0.** Two boxes that do not touch score 0 whether they are 5 or 500 pixels apart, so IoU used *as a loss* has zero gradient exactly where you most need one. GIoU adds a penalty for the empty space in the smallest enclosing box, restoring a signal — drag to "miss" in the widget and watch GIoU keep falling while IoU flatlines.
+
+**It ignores aspect ratio and centre offset separately.** Two very different errors can produce the same IoU. DIoU and CIoU add explicit centre-distance and aspect-ratio terms for that reason.
+</ConceptBox>
+
+## The datasets that fixed the conventions
+
+| Dataset | Images | Classes | Metric convention |
+|---|---|---|---|
+| **PASCAL VOC 2007/12** | ~10k / ~23k | 20 | mAP @ IoU 0.5 |
+| **COCO** | ~123k | 80 | mAP averaged over IoU 0.50:0.05:0.95 |
+| **Open Images** | ~1.9M | 600 | mAP @ 0.5, hierarchical labels |
+
+COCO's stricter metric is why numbers dropped when the field moved to it — a detector reporting "45 mAP" on COCO and "73 mAP" on VOC may be the same model. Always state the dataset *and* the IoU convention.
+
+---
+
+<Recall items={[
+  { q: "Why is detection structurally harder than classification, beyond just being a bigger output?", a: "Because the number of outputs is not fixed. A classifier's output layer has one slot per class and always emits the same shape; a detector must emit a list whose length depends on the image content. Every detector architecture is an answer to that: propose-then-classify, dense-predict-then-suppress, or fixed-slot set prediction with bipartite matching." },
+  { q: "Write the IoU of a (50,40,100,120) ground truth and a (90,70,100,120) prediction, both xywh.", a: "The intersection spans x from 90 to 150 and y from 70 to 160, so 60 x 90 = 5,400. Each box is 12,000, so the union is 12,000 + 12,000 - 5,400 = 18,600. IoU = 5,400 / 18,600 = 0.2903 — a false positive at the usual 0.5 threshold despite looking like a near miss." },
+  { q: "What breaks in a hand-written IoU that forgets max(0, ...) on the intersection dimensions?", a: "Disjoint boxes produce negative width and negative height, whose product is positive, so the function reports a spurious positive overlap for boxes that do not touch at all. Worse, it is sign-correct often enough to pass casual testing and only shows up as inflated mAP." },
+  { q: "Why is IoU preferred over the sum of corner distances as a matching criterion?", a: "Because IoU is scale-free. A 10-pixel corner error is negligible on a 500-pixel object and catastrophic on a 20-pixel one; a distance metric would need a per-scale threshold, while IoU normalises by the boxes' own areas and gives one threshold that works across scales." },
+]} />
+
+<QuizCard
+  question="Two boxes each of area 1,000 overlap in a region of area 400. What is their IoU?"
+  options={[
+    "0.400",
+    "0.250",
+    "0.200",
+    "0.667"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the detection task and IoU are correct?"
+  options={[
+    "The same prediction can be a true positive at IoU 0.5 and a false positive at IoU 0.75",
+    "IoU is undefined when two boxes do not overlap",
+    "COCO's headline mAP averages over ten IoU thresholds from 0.50 to 0.95",
+    "GIoU can be negative, which gives it a gradient where IoU has none",
+    "Detection differs from localisation mainly in that the number of objects is unknown",
+    "A VOC mAP and a COCO mAP for the same model are directly comparable"
+  ]}
+  correct={[0, 2, 3, 4]}
+/>

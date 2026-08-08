@@ -1,0 +1,104 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import PixelInspectorWidget from '../../components/widgets/cv/PixelInspectorWidget.jsx'
+import ColorSpaceWidget from '../../components/widgets/cv/ColorSpaceWidget.jsx'
+
+# Module 1: Understanding Digital Images
+
+<ConceptBox title="TL;DR">
+- An image is a **2-D (or 3-D) array of integers**. Everything else in this track is arithmetic on that array.
+- Shape is `(H, W)` greyscale or `(H, W, 3)` colour. NumPy indexes `img[y, x]` — **row first**, the opposite of the `(x, y)` order drawing functions take.
+- **Sampling** decides how many pixels; **quantisation** decides how many values each pixel may hold. Both are lossy, both happen before your model sees anything.
+- Greyscale is not the channel average: $0.299R + 0.587G + 0.114B$, because the eye weights green most.
+- **HSV** separates colour from brightness; RGB does not. That is why colour thresholding works in HSV and fails in RGB.
+</ConceptBox>
+
+<Bridge>
+The CNN track treated an image as a tensor and went straight to convolution. This track backs up one step and asks what that tensor actually contains, because every detection bug you will meet later — boxes in the wrong place, a model that trains to nothing, colours that invert — is a misunderstanding at this level.
+</Bridge>
+
+## An image is an array
+
+A greyscale image of height $H$ and width $W$ is a function sampled on a grid:
+
+$$I : \{0,\dots,H-1\} \times \{0,\dots,W-1\} \rightarrow \{0,\dots,255\}$$
+
+Two independent discretisations produced it:
+
+| Step | What it discretises | Controlled by | Artefact when too coarse |
+|---|---|---|---|
+| **Sampling** | position | sensor resolution | aliasing, jagged edges |
+| **Quantisation** | intensity | bit depth | banding, posterisation |
+
+A 1920×1080 RGB frame at 8 bits is $1920 \times 1080 \times 3 = 6{,}220{,}800$ bytes — just under 6 MB, uncompressed, for one frame.
+
+## Interactive: the array behind the picture
+
+<PixelInspectorWidget />
+
+## Colour is three arrays stacked
+
+An RGB image is $(H, W, 3)$: three greyscale planes read together. Nothing about that layout says the channels are the *right* three numbers — it is a storage convention, and other conventions are better for other jobs.
+
+<ColorSpaceWidget />
+
+<ConceptBox title="Two conventions that bite">
+**BGR, not RGB.** OpenCV's `imread` returns channels in **B, G, R** order for historical reasons. Matplotlib expects RGB. Displaying an OpenCV image directly with `plt.imshow` swaps red and blue — the classic "why is the sky orange" bug. Fix: `img[:, :, ::-1]` or `cv2.cvtColor(img, cv2.COLOR_BGR2RGB)`.
+
+**Row-major indexing.** `img[y, x]` in NumPy, `cv2.rectangle(img, (x, y), ...)` in OpenCV drawing calls. Same library, opposite order.
+</ConceptBox>
+
+## Worked example — memory and dtype
+
+A 4000×3000 photo, 3 channels:
+
+$$4000 \times 3000 \times 3 \times 1\text{ byte} = 36{,}000{,}000 \text{ bytes} \approx 34.3 \text{ MiB}$$
+
+Convert it to `float32` for a model and it becomes $4\times$ that — **137 MiB per image**. A batch of 32 is 4.4 GiB before a single layer runs. This is why data pipelines resize *before* converting to float, not after.
+
+```python
+import cv2, numpy as np
+
+img = cv2.imread('photo.jpg')          # (3000, 4000, 3), dtype=uint8, BGR
+print(img.shape, img.dtype, img.nbytes / 1e6, 'MB')
+
+grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)   # (3000, 4000) — channel axis gone
+hsv  = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)    # H in [0,179] for uint8, not [0,359]
+
+print(img[100, 200])        # [B G R] at row 100, column 200
+print(grey.min(), grey.max(), grey.mean().round(1))
+```
+
+Note the OpenCV quirk in that last comment: hue is halved to fit 0–255 in a `uint8`, so "red" is near 0 **or** near 179, not 359.
+
+---
+
+<Recall items={[
+  { q: "An image has shape (480, 640, 3). What is its width, and what does img[10, 20] return?", a: "Width is 640 — shape is (H, W, C), so 480 is the height. img[10, 20] returns a 3-element array: the pixel in row 10, column 20. Row index comes first; the point 'x=10, y=20' would be img[20, 10]." },
+  { q: "Why is greyscale not simply (R + G + B) / 3?", a: "Because perceived brightness is not distributed evenly across wavelengths. The human eye is most sensitive to green, so the standard luma weights are 0.299R + 0.587G + 0.114B. Averaging makes a pure green patch and a pure blue patch equally bright, which does not match what you see." },
+  { q: "You drop an image from 8-bit to 4-bit. What changes, and what does not?", a: "The number of distinct intensity values drops from 256 to 16 — that is quantisation. The shape, the number of pixels and the sampling grid are untouched. The visible artefact is banding: smooth gradients become visible steps." },
+  { q: "Why does colour-based segmentation usually convert to HSV first?", a: "Because HSV puts colour identity in one channel (hue) and brightness in another (value). Under changing illumination an object's RGB triple moves along all three axes, but its hue barely moves — so a hue range is a stable rule where an RGB box is not." },
+]} />
+
+<QuizCard
+  question="A 1024×768 RGB image is loaded as uint8 and then cast to float32. How much memory does the float32 copy occupy?"
+  options={[
+    "2.36 MB",
+    "9.44 MB",
+    "0.79 MB",
+    "3.15 MB"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about digital images are correct?"
+  options={[
+    "NumPy indexes an image as img[row, column], i.e. img[y, x]",
+    "cv2.imread returns channels in RGB order",
+    "Quantisation controls how many intensity levels a pixel can take",
+    "Converting to greyscale removes the channel axis from the array shape",
+    "Hue in an 8-bit OpenCV HSV image ranges over 0–179, not 0–359",
+    "Sampling and quantisation are the same operation applied to different axes"
+  ]}
+  correct={[0, 2, 3, 4]}
+/>
