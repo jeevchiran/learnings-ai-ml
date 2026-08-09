@@ -1,6 +1,16 @@
 import { ConceptBox, QuizCard, Recall } from '../../components/learning/index.js'
 import DecompositionWidget from '../../components/widgets/time-series/DecompositionWidget.jsx'
 
+<ConceptBox title="Run the code">
+Every code block in this track is collected into one runnable notebook:
+**[Open the Time Series lab in Google Colab](https://colab.research.google.com/github/jeevchiran/learnings-ai-ml/blob/main/time-series/notebooks/time-series-lab.ipynb)**.
+
+It runs on the **same series these widgets draw** — the generator is a port of
+the site's, PRNG included — so the numbers match to six decimals. Everything is
+built twice: by hand in NumPy so the mechanism is visible, then the statsmodels
+call you would actually ship.
+</ConceptBox>
+
 <ConceptBox title="TL;DR">
 - Time series break two tabular-ML assumptions: **order matters** and **rows aren't independent**.
 - Decompose into trend + seasonality + residual (cycle usually gets absorbed into trend).
