@@ -4,6 +4,16 @@ import ColorSpaceWidget from '../../components/widgets/cv/ColorSpaceWidget.jsx'
 
 # Module 1: Understanding Digital Images
 
+<ConceptBox title="Run the code">
+Every code block in this track is collected into one runnable notebook:
+**[Open the Computer Vision lab in Google Colab](https://colab.research.google.com/github/jeevchiran/learnings-ai-ml/blob/main/computer-vision/notebooks/computer-vision-lab.ipynb)**.
+
+It runs top to bottom on a fresh runtime — image processing on CPU, then IoU/NMS/mAP
+from scratch in NumPy, then Faster R-CNN and YOLO inference and a real YOLO training
+run on a synthetic dataset. Numbers quoted in these modules are re-derived there and
+checked with `assert`.
+</ConceptBox>
+
 <ConceptBox title="TL;DR">
 - An image is a **2-D (or 3-D) array of integers**. Everything else in this track is arithmetic on that array.
 - Shape is `(H, W)` greyscale or `(H, W, 3)` colour. NumPy indexes `img[y, x]` — **row first**, the opposite of the `(x, y)` order drawing functions take.
