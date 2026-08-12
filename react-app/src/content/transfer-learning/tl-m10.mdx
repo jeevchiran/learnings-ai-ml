@@ -1,0 +1,123 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import UNetWidget from '../../components/widgets/transfer-learning/UNetWidget.jsx'
+
+# Module 10: U-Net
+
+<ConceptBox title="TL;DR">
+- U-Net is an encoder-decoder with **long concatenative skips at every level**. That is the entire innovation, and it is why boundaries stay sharp.
+- The original (Ronneberger et al., 2015) uses **unpadded** 3×3 convs, so 572² in becomes **388² out**, and each skip must be **centre-cropped** before concatenation.
+- Channels double on the way down (64→1024) and halve on the way up. **31,030,658 parameters** at base 64.
+- It was designed for **biomedical images with very few labels**, and the augmentation strategy (elastic deformation) was as important as the architecture.
+- Modern variants: pad the convs (no cropping), swap the encoder for a pretrained backbone, add BatchNorm. The U stays.
+</ConceptBox>
+
+<Bridge>
+Module 6 gave the encoder-decoder skeleton and its blurry-boundary problem. Modules 7–9 supplied the three parts of the fix: upsampling, learned upsampling, and skip connections. U-Net is those parts assembled — and once you have seen them separately there is nothing left to explain about it.
+</Bridge>
+
+## The architecture
+
+<UNetWidget />
+
+**Contracting path** (4 levels, repeated):
+1. 3×3 conv → ReLU
+2. 3×3 conv → ReLU
+3. 2×2 max-pool, stride 2 — halves size, and channels double at the next level
+
+**Bottleneck**: two 3×3 convs at 1024 channels.
+
+**Expanding path** (4 levels, repeated):
+1. 2×2 up-conv — doubles size, halves channels
+2. **concatenate** the cropped encoder map from the same level
+3. 3×3 conv → ReLU
+4. 3×3 conv → ReLU
+
+**Head**: 1×1 conv mapping 64 channels to the number of classes.
+
+## Why the output is smaller than the input
+
+Every unpadded 3×3 conv removes a one-pixel border, so each level loses 4 pixels (two convs, two pixels each side). Compounded through the depth:
+
+$$572 \xrightarrow{\text{2 convs}} 568 \xrightarrow{\text{pool}} 284 \xrightarrow{\text{2 convs}} 280 \xrightarrow{\text{pool}} 140 \to 136 \to 68 \to 64 \to 32 \to 28$$
+
+then back up, ending at **388**. The widget shows every one of these numbers.
+
+<ConceptBox title="Overlap-tile: what the shrinkage is actually for">
+It looks like a defect. It was a deliberate choice for large microscopy images that do not fit in memory.
+
+To segment a big image you feed **overlapping 572² tiles** and keep only the valid 388² centre of each output. Every predicted pixel therefore had its full receptive field available inside the tile — no tile ever has to guess at its own border. Padding, by contrast, fabricates context at every tile edge, and those fabrications show up as seams.
+
+The cost is that the border region must come from *somewhere*: the paper mirrors the image at the true boundary. Modern implementations mostly pad and accept slightly worse edges, because whole images now fit in memory.
+</ConceptBox>
+
+## The two variants you will actually meet
+
+**Padded U-Net.** Set `padding=1` on every 3×3 conv. Output size equals input size, skips need no cropping, and the code is far simpler. This is what almost every library ships.
+
+**Pretrained-encoder U-Net.** Replace the contracting path with a ResNet/EfficientNet backbone and take skips from its intermediate stages. This is the single highest-value change for small datasets — it is Module 2's argument applied to segmentation:
+
+```python
+# segmentation_models_pytorch makes this a one-liner
+import segmentation_models_pytorch as smp
+
+model = smp.Unet(
+    encoder_name='resnet34',        # contracting path = pretrained ResNet-34
+    encoder_weights='imagenet',     # ← the transfer learning from Modules 1-3
+    in_channels=3,
+    classes=1,                      # binary segmentation
+)
+```
+
+## Data efficiency, and the augmentation that mattered
+
+U-Net won the 2015 ISBI cell-tracking challenge trained on **30 images**. The architecture is only half of that story; the other half is **elastic deformation** — randomly warping the image with a smooth displacement field.
+
+That choice is domain reasoning, not a generic trick: cells and tissue genuinely deform, so a warped training image is still a *realistic* image, and the network learns invariance to exactly the variation the domain contains. The general lesson is that the best augmentation encodes a true symmetry of your data — which is also why rotation is right for microscopy and wrong for street scenes.
+
+## Worked example — where the parameters are
+
+Base 64, depth 4, 2 classes:
+
+| Part | Params |
+|---|---|
+| Contracting path | ~4.7M |
+| Bottleneck (512→1024→1024) | ~14.2M |
+| Expanding path | ~12.1M |
+| 1×1 head (64→2) | 130 |
+| **Total** | **31,030,658** |
+
+Nearly half sits in the bottleneck, because parameters scale with $C_{in} \times C_{out}$ and that is where both are largest. Halving `base` to 32 divides the total by roughly **4** — the first knob to reach for when a U-Net overfits, and usually more effective than adding dropout.
+
+---
+
+<Recall items={[
+  { q: "What is the one architectural idea that distinguishes U-Net from a plain encoder-decoder?", a: "Long concatenative skip connections at every resolution level, joining each encoder stage to the decoder stage of the same size. They hand the decoder full-resolution feature maps that never passed through the bottleneck, so boundary information destroyed by pooling is available again when the output is produced. Everything else is a standard encoder-decoder." },
+  { q: "Why does the original U-Net output 388x388 from a 572x572 input, and why was that deliberate?", a: "Every unpadded 3x3 conv strips a one-pixel border, so each level loses 4 pixels and the losses compound through the depth. It was deliberate for overlap-tile inference on large microscopy images: you feed overlapping tiles and keep only the valid centre of each, so every predicted pixel had its complete receptive field inside the tile and no tile has to invent context at its own border." },
+  { q: "Where do most of U-Net's 31 million parameters sit, and what is the first thing to change if it overfits?", a: "Nearly half are in the bottleneck, because parameter count scales with the product of input and output channels and both peak there at 512 and 1024. The first knob is the base channel width: halving base from 64 to 32 cuts the total roughly fourfold, since capacity scales with the square of the width. That usually helps more than adding dropout." },
+  { q: "What is the highest-value modification to U-Net for a small dataset?", a: "Replacing the contracting path with an ImageNet-pretrained backbone such as ResNet-34, taking skips from its intermediate stages. It applies the transfer-learning argument from the earlier modules to segmentation: the encoder no longer has to learn edge and texture detectors from your handful of labelled masks. Libraries like segmentation_models_pytorch make it a one-line change." },
+  { q: "Why was elastic deformation the right augmentation for U-Net's original task?", a: "Because cells and tissue genuinely deform, so a smoothly warped microscopy image is still a realistic image of the same content. The augmentation encodes a true symmetry of the domain, which is what makes it teach invariance rather than noise. The same reasoning explains why rotation suits microscopy and not street scenes, where up is a real and stable cue." },
+]} />
+
+<QuizCard
+  question="In a padded U-Net with base=64, the decoder at level 1 upsamples to 128 channels and concatenates a 128-channel skip. What does the following 3×3 conv see, and how many parameters does it have (mapping to 128 channels)?"
+  options={[
+    "128 channels; 147,584 parameters",
+    "256 channels; 295,040 parameters",
+    "256 channels; 294,912 parameters",
+    "128 channels; 73,856 parameters"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about U-Net are correct?"
+  options={[
+    "Skips are concatenated on the channel axis, not added",
+    "The original uses unpadded convolutions, so encoder maps must be cropped before concatenation",
+    "Channel count doubles going down and halves going up",
+    "The output of the original architecture is the same size as its input",
+    "Replacing the encoder with a pretrained backbone is a common and effective modification",
+    "Roughly half the parameters are in the bottleneck"
+  ]}
+  correct={[0, 1, 2, 4, 5]}
+/>

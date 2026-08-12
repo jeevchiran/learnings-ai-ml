@@ -12,11 +12,11 @@ const { default: App } = await import('../App.jsx')
 describe('sidebar', () => {
   beforeEach(() => { window.location.hash = ''; })
 
-  it('expands the track containing the routed module (cv-m5 is in the LAST track)', () => {
-    window.location.hash = '#/module/cv-m5'
+  it('expands the track containing the routed module (tl-m7 is in the LAST track)', () => {
+    window.location.hash = '#/module/tl-m7'
     render(<App />)
     // The module only renders in the sidebar when its track is expanded.
-    const items = screen.getAllByText('Image Features')
+    const items = screen.getAllByText('Upsampling')
     expect(items.length).toBeGreaterThan(0)
   })
 

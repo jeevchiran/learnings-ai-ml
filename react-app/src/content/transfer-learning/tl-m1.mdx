@@ -1,0 +1,134 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import TransferabilityWidget from '../../components/widgets/transfer-learning/TransferabilityWidget.jsx'
+
+# Module 1: Why Transfer Learning Works — and When It Fails
+
+<ConceptBox title="Run the code">
+Every code block in this track is collected into one runnable notebook:
+**[Open the Transfer Learning & U-Net lab in Google Colab](https://colab.research.google.com/github/jeevchiran/learnings-ai-ml/blob/main/transfer-learning/notebooks/transfer-learning-lab.ipynb)**.
+
+Fine-tuning a real backbone, embeddings and retrieval, transposed convolutions,
+a U-Net built and trained from scratch, and the Dice/IoU relation — all executable.
+</ConceptBox>
+
+<ConceptBox title="TL;DR">
+- Transfer learning works because the **early layers of a vision model are nearly task-independent**. An edge detector is an edge detector whatever you photograph.
+- Transferability **decays with depth**, and it decays faster the further your domain sits from ImageNet. So the question is never "transfer or not" — it is *how deep do I keep*.
+- The single biggest predictor of success is **domain distance**, not dataset size. 5,000 pet photos transfer better than 50,000 histology slides.
+- **Negative transfer is real**: on a distant domain a frozen deep backbone can be *worse* than training a small model from scratch.
+- Reuse the **pretraining normalisation statistics**, or every frozen filter sees inputs off the distribution it was calibrated on.
+</ConceptBox>
+
+<Bridge>
+The CNN track's Module 8 introduced transfer learning as a recipe: freeze the backbone, replace the head, fine-tune with a low learning rate. This module asks the question that recipe skips — *why* does borrowing weights from a completely different task work at all, and what exactly determines how much of the backbone is worth borrowing? The answer sets up everything else in this track: embeddings are the frozen features, and U-Net's encoder is a pretrained backbone.
+</Bridge>
+
+## The feature hierarchy is the whole mechanism
+
+A CNN trained on ImageNet does not learn "cat". It learns a **stack of increasingly specific detectors**, and the classifier on top is a thin layer that reads the last one:
+
+| Depth | What it responds to | How ImageNet-specific |
+|---|---|---|
+| conv1 | oriented edges, colour blobs | almost none — this is Gabor filters, rediscovered |
+| conv2 | corners, textures, simple patterns | very little |
+| conv3 | motifs, repeated structure | some |
+| conv4 | object parts — wheels, eyes, fur | substantial |
+| conv5 | whole-object configurations | high |
+| fc | the 1,000 ImageNet classes | total |
+
+The first layer of essentially every trained vision model looks the same, whether it was trained on photographs, X-rays, or satellite tiles. That is not a coincidence — it is a statement about **natural image statistics**, which are dominated by edges at all scales regardless of subject.
+
+## Interactive: how far down the stack is worth keeping
+
+<TransferabilityWidget />
+
+## Domain distance beats dataset size
+
+The instinct is that transfer learning is "for small datasets". It is more precisely for **datasets close to the source domain**, and the two get confused because most small datasets people try are ordinary photographs.
+
+$$\text{usable depth} \approx f(\text{domain distance}), \quad \text{not } f(\text{n samples})$$
+
+| Target | Distance | What actually happens |
+|---|---|---|
+| Pet breeds, food, retail products | very close | freeze almost everything; a linear head on frozen features often beats fine-tuning |
+| Aerial / satellite | moderate | freeze the first half, fine-tune the rest |
+| Chest X-ray, histology | far | freeze only the first block or two; expect to fine-tune most of the network |
+| Radar, spectrograms, seismic | very far | transfer buys little; a smaller architecture trained from scratch may win |
+
+<ConceptBox title="Negative transfer — the failure nobody warns you about">
+On a sufficiently distant domain, initialising from ImageNet can be **worse than random initialisation**. The pretrained deep layers encode strong priors about object-like structure; on a domain where that prior is wrong, the optimiser has to *unlearn* it before it can learn anything, and it may settle in a worse basin than a fresh start would have.
+
+The signal to watch for: fine-tuning converges quickly to a mediocre plateau and refuses to improve, while a from-scratch baseline is still climbing. Always run the from-scratch baseline. It is cheap and it is the only way to know transfer helped.
+</ConceptBox>
+
+## The two things that quietly break transfer
+
+**1. Normalisation mismatch.** The frozen weights were calibrated on inputs standardised with ImageNet's statistics. Feed them anything else and every activation is shifted:
+
+```python
+# The frozen backbone expects EXACTLY this, because that is what it saw in training
+transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+```
+
+Use your own dataset's statistics and a frozen backbone silently degrades. Use them with a *fully fine-tuned* backbone and it is fine, because the weights adapt. The rule: **frozen means you inherit the whole input contract**, normalisation included.
+
+**2. BatchNorm in a "frozen" backbone.** Setting `requires_grad = False` freezes the *weights*. It does **not** stop BatchNorm from updating its running mean and variance, which happen in the forward pass and are not parameters:
+
+```python
+for p in model.parameters():
+    p.requires_grad = False          # freezes weights — but NOT BN statistics
+
+model.eval()                          # this is what actually freezes BN running stats
+# or, per-module:
+for m in model.modules():
+    if isinstance(m, nn.BatchNorm2d):
+        m.eval()
+```
+
+Miss this and your "frozen" feature extractor drifts across epochs, producing the baffling symptom of a frozen model whose validation accuracy changes.
+
+## Worked example — how much data does the head need?
+
+Freeze a ResNet-50 and train a linear head for 10 classes on its 2048-dim features:
+
+$$\text{params} = 2048 \times 10 + 10 = \mathbf{20{,}490}$$
+
+Against fine-tuning the whole network:
+
+$$25{,}600{,}000 + 20{,}490 \approx \mathbf{25.6M}$$
+
+A **1,250× difference in the number of things your labels have to determine**. With 500 images the first is a comfortable ratio and the second is hopeless — which is the entire feature-extraction-versus-fine-tuning decision, made quantitative.
+
+---
+
+<Recall items={[
+  { q: "Why do the first-layer filters of vision models look the same regardless of what they were trained on?", a: "Because natural images are dominated by oriented edges and colour transitions at every scale, so the most useful first-layer basis is roughly the same whatever the subject matter. The learned filters converge to Gabor-like edge and blob detectors on photographs, X-rays and satellite tiles alike. That universality is what makes the early layers safe to freeze." },
+  { q: "You have 50,000 histology slides and 5,000 pet photos. Which transfers better from ImageNet, and why does that answer surprise people?", a: "The pet photos, despite being ten times fewer. Transferability is governed mainly by domain distance, not dataset size: pet photos are natural images with the same statistics ImageNet has, so nearly the whole backbone applies. Histology has different textures, scales and colour distributions, so only the earliest layers carry over and the rest must be relearned." },
+  { q: "What is negative transfer, and how would you detect it?", a: "Initialising from pretrained weights producing a worse result than random initialisation, because the pretrained deep layers encode priors that are wrong for the target domain and must be unlearned first. You detect it by always running a from-scratch baseline: the signature is fine-tuning converging fast to a mediocre plateau while the scratch model is still improving." },
+  { q: "You set requires_grad = False on every parameter but your 'frozen' backbone's outputs still drift between epochs. Why?", a: "BatchNorm's running mean and variance are buffers, not parameters, so they keep updating in the forward pass regardless of requires_grad. The fix is to put those modules in eval mode — model.eval() for the whole backbone, or setting each BatchNorm2d to eval individually — which is what actually stops the statistics from moving." },
+  { q: "Why must a frozen backbone keep the pretraining normalisation statistics?", a: "Because frozen weights were calibrated against inputs standardised a particular way, and every activation downstream assumes that input distribution. Substituting your own dataset's mean and std shifts every feature off the range the filters expect, degrading them silently. A fully fine-tuned backbone can adapt to new statistics; a frozen one inherits the entire input contract." },
+]} />
+
+<QuizCard
+  question="Freezing a ResNet-50 and training a linear head for 10 classes on its 2048-dim features. How many trainable parameters is that?"
+  options={[
+    "2,048",
+    "20,490",
+    "25.6 million",
+    "204,800"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about transfer learning are correct?"
+  options={[
+    "Early convolutional layers transfer across domains far better than deep ones",
+    "Transferability depends more on domain distance than on target dataset size",
+    "Setting requires_grad = False is sufficient to fully freeze a backbone containing BatchNorm",
+    "A frozen backbone should keep the normalisation statistics used during pretraining",
+    "Pretrained initialisation is always at least as good as random initialisation",
+    "On a distant domain, a smaller model trained from scratch can beat a fine-tuned ImageNet backbone"
+  ]}
+  correct={[0, 1, 3, 5]}
+/>

@@ -1,0 +1,200 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+
+# Module 12: Demonstration — U-Net in PyTorch
+
+<ConceptBox title="TL;DR">
+- A full U-Net is about **60 lines**: a `DoubleConv` block, a down path, an up path with `torch.cat`, and a 1×1 head.
+- Build it **shape-first**. Run a random tensor through before you touch a dataset — every U-Net bug is a shape bug.
+- Train with **BCE + soft Dice**, monitor **Dice on the validation set**, not the loss.
+- Threshold at 0.5 to start, then **tune the threshold on validation** — it is free accuracy and almost everyone forgets.
+- The whole of this module runs in the track notebook, including the training loop and a Dice-vs-threshold sweep.
+</ConceptBox>
+
+<Bridge>
+Modules 6 through 11 built every component and the loss. This module assembles them into working code and trains it, so the architecture stops being a diagram.
+</Bridge>
+
+## The model
+
+```python
+import torch, torch.nn as nn, torch.nn.functional as F
+
+class DoubleConv(nn.Module):
+    """(conv 3x3 → BN → ReLU) x 2 — the block repeated at every U-Net level.
+    Padding=1 keeps the spatial size, so no cropping is needed later."""
+    def __init__(self, in_ch, out_ch):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(in_ch,  out_ch, 3, padding=1, bias=False),
+            nn.BatchNorm2d(out_ch), nn.ReLU(inplace=True),
+            nn.Conv2d(out_ch, out_ch, 3, padding=1, bias=False),
+            nn.BatchNorm2d(out_ch), nn.ReLU(inplace=True),
+        )
+    def forward(self, x): return self.net(x)
+
+
+class UNet(nn.Module):
+    def __init__(self, in_ch=3, classes=1, base=32, depth=4):
+        super().__init__()
+        self.downs = nn.ModuleList()
+        self.ups   = nn.ModuleList()
+        self.pool  = nn.MaxPool2d(2)
+
+        # contracting path
+        ch = in_ch
+        for d in range(depth):
+            self.downs.append(DoubleConv(ch, base * 2**d))
+            ch = base * 2**d
+
+        self.bottleneck = DoubleConv(ch, ch * 2)
+
+        # expanding path: an up-conv then a DoubleConv, per level
+        for d in reversed(range(depth)):
+            out = base * 2**d
+            self.ups.append(nn.ConvTranspose2d(out * 2, out, kernel_size=2, stride=2))
+            self.ups.append(DoubleConv(out * 2, out))   # out (upsampled) + out (skip)
+
+        self.head = nn.Conv2d(base, classes, kernel_size=1)
+
+    def forward(self, x):
+        skips = []
+        for down in self.downs:
+            x = down(x)
+            skips.append(x)          # save BEFORE pooling — full resolution
+            x = self.pool(x)
+
+        x = self.bottleneck(x)
+        skips = skips[::-1]          # deepest first
+
+        for i in range(0, len(self.ups), 2):
+            x = self.ups[i](x)                       # up-conv
+            skip = skips[i // 2]
+            if x.shape[-2:] != skip.shape[-2:]:      # odd input sizes drift by a pixel
+                x = F.interpolate(x, size=skip.shape[-2:], mode='bilinear', align_corners=False)
+            x = torch.cat([skip, x], dim=1)          # concat on the channel axis
+            x = self.ups[i + 1](x)                   # DoubleConv
+
+        return self.head(x)                          # raw logits — no sigmoid here
+```
+
+<ConceptBox title="Check the shapes before anything else">
+```python
+m = UNet(in_ch=3, classes=1, base=32)
+x = torch.randn(2, 3, 256, 256)
+print(m(x).shape)                                   # torch.Size([2, 1, 256, 256])
+print(f'{sum(p.numel() for p in m.parameters()):,} parameters')
+```
+
+If this line does not produce a tensor the same height and width as the input, nothing downstream will work and every error you get will be confusing. Two rules that prevent most of it:
+
+- Save the skip **before** pooling, not after.
+- Use input sizes divisible by $2^{\text{depth}}$ — 256 with depth 4 is fine, 250 is not. The `F.interpolate` guard above handles the rest.
+
+Returning **logits** (no sigmoid) is deliberate: `BCEWithLogitsLoss` is numerically stabler than `sigmoid` followed by `BCELoss`, and the Dice term applies its own sigmoid.
+</ConceptBox>
+
+## Loss and metric
+
+```python
+def soft_dice_loss(logits, targets, eps=1.0):
+    probs = torch.sigmoid(logits)
+    dims  = (1, 2, 3)                                  # per image, then mean
+    inter = (probs * targets).sum(dims)
+    denom = probs.sum(dims) + targets.sum(dims)
+    return 1 - ((2 * inter + eps) / (denom + eps)).mean()
+
+bce = nn.BCEWithLogitsLoss()
+def criterion(logits, targets):
+    return 0.5 * bce(logits, targets) + 0.5 * soft_dice_loss(logits, targets)
+
+@torch.no_grad()
+def dice_score(logits, targets, thr=0.5, eps=1e-7):
+    """The METRIC: hard masks, per image, averaged. Not the loss."""
+    preds = (torch.sigmoid(logits) > thr).float()
+    dims  = (1, 2, 3)
+    inter = (preds * targets).sum(dims)
+    denom = preds.sum(dims) + targets.sum(dims)
+    return ((2 * inter + eps) / (denom + eps)).mean().item()
+```
+
+## Training loop
+
+```python
+model = UNet(in_ch=3, classes=1, base=32).to(DEVICE)
+opt   = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
+sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=EPOCHS)
+
+best = 0.0
+for ep in range(EPOCHS):
+    model.train()
+    for x, y in train_loader:
+        x, y = x.to(DEVICE), y.to(DEVICE)
+        loss = criterion(model(x), y)
+        opt.zero_grad(); loss.backward(); opt.step()
+    sched.step()
+
+    model.eval()
+    scores = []
+    with torch.no_grad():
+        for x, y in val_loader:
+            scores.append(dice_score(model(x.to(DEVICE)), y.to(DEVICE)))
+    val_dice = sum(scores) / len(scores)
+    print(f'ep {ep:>2}  loss {loss.item():.4f}  val Dice {val_dice:.4f}')
+
+    if val_dice > best:                       # select on the METRIC, never the loss
+        best = val_dice
+        torch.save(model.state_dict(), 'unet_best.pt')
+```
+
+## The threshold sweep almost everyone skips
+
+0.5 is a default, not an answer. The optimal threshold depends on your class balance and on whether false positives or false negatives cost more:
+
+```python
+import numpy as np
+
+@torch.no_grad()
+def sweep(model, loader, thresholds=np.arange(0.1, 0.91, 0.05)):
+    logits, targets = [], []
+    for x, y in loader:
+        logits.append(model(x.to(DEVICE)).cpu()); targets.append(y)
+    logits, targets = torch.cat(logits), torch.cat(targets)
+    return {round(float(t), 2): dice_score(logits, targets, thr=float(t)) for t in thresholds}
+
+for t, d in sweep(model, val_loader).items():
+    print(f'threshold {t:.2f} → Dice {d:.4f}')
+```
+
+On imbalanced data the best threshold is routinely 0.3–0.4 rather than 0.5, and moving it is worth several points of Dice for zero training cost.
+
+## Debugging table
+
+| Symptom | Likely cause |
+|---|---|
+| Output size ≠ input size | skip saved after pooling, or input not divisible by $2^{\text{depth}}$ |
+| Loss falls, Dice stays ~0 | predicting all background — imbalance; check the Dice term is actually in the loss |
+| `nan` loss | missing $\epsilon$ in soft Dice, or an all-empty target batch |
+| Masks correct but blurry | skips not connected, or concatenating on the wrong axis |
+| Train Dice ≫ val Dice | overfitting — lower `base`, augment harder, or use a pretrained encoder |
+| Val Dice swings wildly | batch too small for BatchNorm; use GroupNorm or accumulate gradients |
+
+---
+
+<Recall items={[
+  { q: "Why must the skip be saved before the pooling step rather than after?", a: "Because the whole point of the skip is to carry full-resolution spatial information across the bottleneck. Saving after pooling would hand the decoder a map that has already lost half its resolution — exactly the information the skip exists to preserve — and the output would be blurry despite the architecture looking correct." },
+  { q: "Why does the model return raw logits instead of applying a sigmoid?", a: "Numerical stability and separation of concerns. BCEWithLogitsLoss fuses the sigmoid with the loss using the log-sum-exp trick, which is stabler than sigmoid followed by BCELoss, and the Dice term applies its own sigmoid. Applying sigmoid inside forward would double-apply it in the loss and quietly degrade training." },
+  { q: "Why select the best checkpoint on validation Dice rather than on validation loss?", a: "Because the loss is a differentiable surrogate and the Dice score is what you actually care about. They can diverge — a model can lower the combined BCE-plus-Dice loss while its thresholded masks get worse, particularly around the decision boundary. Always checkpoint on the metric you will be judged by." },
+  { q: "What does a threshold sweep typically buy, and why is 0.5 often wrong?", a: "Several points of Dice at zero training cost. 0.5 is only optimal when the predicted probabilities are calibrated and the classes balanced; with heavy foreground imbalance the model is systematically under-confident about the rare class, so a lower threshold around 0.3 to 0.4 usually scores better. Tune it on validation, not test." },
+  { q: "Loss is falling but validation Dice sits near zero. What is happening?", a: "The model is predicting background everywhere. Cross-entropy is happy with that under imbalance, so the loss keeps dropping while every thresholded mask is empty and Dice stays at zero. Check that the Dice term is actually contributing to the loss and consider a pos_weight on the BCE term." },
+]} />
+
+<QuizCard
+  question="Your UNet(base=32, depth=4) returns a 248×248 output for a 250×250 input. What is the most likely cause?"
+  options={[
+    "The 1×1 head is reducing the size",
+    "250 is not divisible by 2⁴ = 16, so pooling truncates and the up path cannot restore the exact size",
+    "BatchNorm removes a pixel border",
+    "ConvTranspose2d always loses two pixels"
+  ]}
+  correct={1}
+/>

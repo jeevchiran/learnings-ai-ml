@@ -1,0 +1,113 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import UpsamplingWidget from '../../components/widgets/transfer-learning/UpsamplingWidget.jsx'
+
+# Module 7: Upsampling
+
+<ConceptBox title="TL;DR">
+- Upsampling makes a feature map bigger. **None of the fixed methods add information** — they only redistribute what is already there.
+- **Nearest** duplicates (blocky), **bilinear** interpolates (smooth), **bed of nails** leaves zeros for the next conv to fill, **max-unpool** puts values back where pooling found them.
+- Max-unpool is the only fixed method that restores *position*, and it costs you: the decoder must be paired with a specific encoder's pooling indices.
+- Fixed upsampling has **zero parameters**. Transposed convolution (Module 8) learns instead — which is more expressive and more able to go wrong.
+- The modern default is **`Upsample(bilinear) + Conv2d(3×3)`**: the interpolation fixes the size, the conv adds the learning, and no checkerboarding.
+</ConceptBox>
+
+<Bridge>
+Module 6 left a decoder that must turn a small feature map back into a full-resolution output. This module covers the non-learned half of how that happens — four fixed rules, what each preserves, and why "just make it bigger" has four different answers.
+</Bridge>
+
+## The four fixed methods
+
+<UpsamplingWidget />
+
+| Method | Rule | Preserves | Leaves |
+|---|---|---|---|
+| **Nearest** | copy each value into an $s \times s$ block | value | hard blocky edges |
+| **Bilinear** | weighted average of the 4 nearest inputs | smoothness | blur; cannot invent an edge |
+| **Bed of nails** | one value per block, rest zero | value | 75% zeros at $s=2$ |
+| **Max-unpool** | value goes back to its argmax position | **position** | zeros elsewhere, and a coupling to the encoder |
+
+## Why max-unpool is different
+
+The other three decide *where* to put values by a fixed geometric rule. Max-unpool asks the encoder.
+
+```python
+import torch.nn as nn
+
+pool   = nn.MaxPool2d(2, return_indices=True)     # ← the important argument
+unpool = nn.MaxUnpool2d(2)
+
+y, idx = pool(x)          # idx records WHERE each maximum came from
+z      = unpool(y, idx)   # values land back in exactly those positions
+```
+
+That `idx` tensor is genuine spatial information rescued from the pooling step — the one piece of "where" that survives. SegNet is built entirely on this idea. The catch is that the decoder now needs the matching encoder's indices at the matching depth, so the architecture is rigid, and the recovered map is still mostly zeros.
+
+<ConceptBox title="align_corners — the argument that silently shifts your output">
+`F.interpolate(x, scale_factor=2, mode='bilinear')` defaults to `align_corners=False`, which treats pixels as **areas** and samples at their centres:
+
+$$x_{\text{src}} = \frac{x_{\text{dst}} + 0.5}{s} - 0.5$$
+
+With `align_corners=True` pixels are treated as **points** and the corners are pinned:
+
+$$x_{\text{src}} = x_{\text{dst}} \cdot \frac{W_{\text{src}} - 1}{W_{\text{dst}} - 1}$$
+
+The two differ by up to half a pixel — invisible in a photo, meaningful for a segmentation boundary, and a classic source of "my exported model's masks are shifted". Pick one, and use the same one at training and inference. `False` is the default and the right choice for scale-consistent behaviour.
+</ConceptBox>
+
+## The modern default
+
+```python
+# The pattern almost every modern segmentation decoder uses
+up = nn.Sequential(
+    nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+    nn.Conv2d(in_ch, out_ch, 3, padding=1),      # this is where the learning happens
+    nn.BatchNorm2d(out_ch), nn.ReLU(inplace=True),
+)
+```
+
+Interpolation handles the resizing (no learnable weights, no artefacts); the 3×3 convolution afterwards does the learning. Compared with a transposed convolution this is **the same expressive power in practice**, without the checkerboard geometry — which is why it has largely displaced `ConvTranspose2d` in new architectures.
+
+## Worked example — parameters and cost
+
+Upsampling a $32\times32\times256$ map to $64\times64\times128$:
+
+**Transposed conv, $k=2$, $s=2$:**
+$$2 \times 2 \times 256 \times 128 + 128 = \mathbf{131{,}200} \text{ params}$$
+
+**Bilinear + 3×3 conv:**
+$$0 + (3 \times 3 \times 256 \times 128 + 128) = \mathbf{294{,}912 + 128 = 295{,}040} \text{ params}$$
+
+The interpolate-then-conv route is *more* parameters here, not fewer — the win is not efficiency, it is that the 3×3 conv sees a properly interpolated input rather than one built by uneven overlap-add. If parameters matter, use $k=2$ transposed or a 1×1 conv after interpolation.
+
+---
+
+<Recall items={[
+  { q: "Which fixed upsampling method restores position information, and what does it cost?", a: "Max-unpool. During pooling it records the argmax index of each window, then places each value back at exactly that location rather than at a fixed geometric position. The cost is coupling: the decoder needs the matching encoder's indices at the matching depth, so the architecture becomes rigid, and the output is still mostly zeros that a following convolution has to fill." },
+  { q: "Do any of the four fixed upsampling methods add information?", a: "No. They redistribute values that are already in the low-resolution map according to a fixed rule — none has a learnable parameter and none can invent detail the input does not contain. Bilinear produces smooth output but cannot create an edge that is not there; a following convolution is what adds learned content." },
+  { q: "What does align_corners change, and why does it matter more for segmentation than for photos?", a: "It changes how source coordinates are computed: False treats pixels as areas sampled at their centres, True treats them as points and pins the corners. The two differ by up to half a pixel. On a photo that is invisible, but a segmentation boundary shifted half a pixel at every scale compounds, and mismatching the setting between training and export shifts every mask." },
+  { q: "Why has 'bilinear upsample then 3x3 conv' largely replaced ConvTranspose2d?", a: "Because it gets the same practical expressive power without the transposed convolution's uneven overlap-add geometry, which produces checkerboard artefacts whenever kernel size is not divisible by stride. The interpolation handles resizing deterministically and the convolution does the learning. It is not cheaper — often it has more parameters — the benefit is artefact-free output." },
+]} />
+
+<QuizCard
+  question="Upsampling a 16×16×512 feature map to 32×32×256 with ConvTranspose2d(512, 256, kernel_size=2, stride=2). How many parameters?"
+  options={[
+    "524,544",
+    "1,179,904",
+    "262,144",
+    "131,328"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about upsampling are correct?"
+  options={[
+    "Nearest, bilinear, bed-of-nails and max-unpool all have zero learnable parameters",
+    "Max-unpool requires indices recorded during the corresponding pooling step",
+    "Bilinear interpolation can reconstruct an edge that the low-resolution map does not contain",
+    "align_corners=False is the PyTorch default for F.interpolate",
+    "Bed of nails leaves 75% of the output as zeros at scale factor 2",
+    "Bilinear upsample followed by a 3×3 conv avoids checkerboard artefacts"
+  ]}
+  correct={[0, 1, 3, 4, 5]}
+/>

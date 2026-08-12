@@ -1,0 +1,158 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import TransposedConvWidget from '../../components/widgets/transfer-learning/TransposedConvWidget.jsx'
+import ConvArithmeticWidget from '../../components/widgets/transfer-learning/ConvArithmeticWidget.jsx'
+
+# Module 8: Transposed Convolution
+
+<ConceptBox title="TL;DR">
+- A transposed convolution is **learned upsampling**: each input cell stamps a scaled copy of the kernel into the output, and overlapping stamps are summed.
+- It is *not* a deconvolution. It inverts the **shape** of a convolution, never its values.
+- Output size: $(H_{in} - 1)s - 2p + k + \text{output\_padding}$ — the conv formula solved for its input.
+- When $k$ is **not divisible by** $s$, output cells receive different numbers of stamps, producing **checkerboard artefacts** baked into the geometry rather than the weights.
+- Fixes: choose $k$ divisible by $s$ (2/2 or 4/2), or use bilinear upsample + 3×3 conv and sidestep it entirely.
+</ConceptBox>
+
+<Bridge>
+Module 7 covered upsampling rules with no parameters. This is the learned alternative: the operation U-Net's original decoder uses, where the network chooses how to distribute each value rather than following a fixed geometric rule.
+</Bridge>
+
+## Convolution gathers; transposed convolution scatters
+
+A convolution **gathers**: for each output cell, look at a $k \times k$ neighbourhood of the input and reduce it to one number.
+
+A transposed convolution **scatters**: for each *input* cell, multiply the entire kernel by that value and **add** it into the output at a stride-spaced offset.
+
+<TransposedConvWidget />
+
+That is the whole operation. The name comes from linear algebra: a convolution can be written as a sparse matrix $C$ acting on the flattened input, and this operation applies $C^\top$. Since $C^\top \neq C^{-1}$, it **restores the shape of the input, not its contents** — which is exactly why "deconvolution" is the wrong word for it.
+
+## The arithmetic
+
+$$H_{out} = (H_{in} - 1) \cdot s - 2p + d(k-1) + \text{output\_padding} + 1$$
+
+<ConvArithmeticWidget />
+
+<ConceptBox title="What output_padding is actually for">
+A convolution is many-to-one on sizes: with $k=3, s=2, p=1$, inputs of size 7 **and** 8 both produce output 4. So when a transposed conv is asked to invert that shape it faces a genuine ambiguity — should 4 map back to 7 or 8?
+
+`output_padding` breaks the tie by adding rows/columns to one side. It does **not** add padding in the usual sense and it contributes no values of its own; it only adjusts the output size.
+
+```python
+nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1)                     # 4 → 7
+nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1)   # 4 → 8
+```
+
+Get this wrong in a U-Net and the decoder tensor is one pixel off the skip it is meant to concatenate with, and you get a shape error — which is the *good* outcome. The bad outcome is silently building a network whose output is one pixel smaller than its labels.
+</ConceptBox>
+
+## Checkerboard artefacts
+
+Look at the stamp-count grid in the widget. With $k=3$, $s=2$ the interior counts are 1, 2 and 4 — some output cells receive four contributions and their neighbours receive one. Since every stamp is the same kernel scaled, cells with more stamps are **systematically larger**, and the pattern repeats with period $s$. The result is a visible grid texture.
+
+$$k \bmod s = 0 \;\Rightarrow\; \text{every interior cell gets } (k/s)^2 \text{ stamps} \;\Rightarrow\; \text{uniform}$$
+
+| $k$ | $s$ | Interior stamps | Verdict |
+|---|---|---|---|
+| 3 | 2 | 1, 2, 4 | checkerboards |
+| 2 | 2 | 1 | clean |
+| 4 | 2 | 4 | clean |
+| 3 | 1 | 9 | clean (no upsampling) |
+
+The artefact is **geometric, not learned** — it is there at initialisation and the network must spend capacity suppressing it. Odena, Dumoulin & Olah (2016) is the standard reference, and their recommendation is the one in Module 7: resize, then convolve.
+
+## In code
+
+```python
+import torch, torch.nn as nn
+
+# The U-Net "up-conv 2x2": doubles spatial size, halves channels, no artefacts
+up = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
+
+x = torch.randn(1, 1024, 28, 28)
+print(up(x).shape)          # torch.Size([1, 512, 56, 56])
+
+# The artefact-prone version, for comparison
+bad = nn.ConvTranspose2d(1024, 512, kernel_size=3, stride=2, padding=1, output_padding=1)
+print(bad(x).shape)         # also [1, 512, 56, 56] — same shape, worse geometry
+```
+
+## Worked example — U-Net's up-conv
+
+Bottleneck $28 \times 28 \times 1024$, up-conv with $k=2$, $s=2$, $p=0$:
+
+$$H_{out} = (28 - 1)\cdot 2 - 0 + 2 = 56$$
+
+$$\text{params} = 2 \times 2 \times 1024 \times 512 + 512 = 2{,}097{,}152 + 512 = \mathbf{2{,}097{,}664}$$
+
+Two megabytes of parameters for one upsampling step — and there are four of them in a U-Net. Choosing $k=2$ rather than $k=3$ here saves 2.25× the parameters *and* removes the checkerboard risk, which is why the original paper's "up-conv 2×2" is exactly that.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Why it is called 'transposed'">
+
+Write a 1-D convolution as a matrix. Input $x \in \mathbb{R}^4$, kernel $[w_1, w_2, w_3]$, stride 1, no padding, output $y \in \mathbb{R}^2$:
+
+$$y = Cx, \qquad C = \begin{bmatrix} w_1 & w_2 & w_3 & 0 \\ 0 & w_1 & w_2 & w_3 \end{bmatrix} \in \mathbb{R}^{2\times 4}$$
+
+The gradient of the loss with respect to the input is
+
+$$\frac{\partial L}{\partial x} = C^\top \frac{\partial L}{\partial y}$$
+
+and $C^\top \in \mathbb{R}^{4 \times 2}$ maps a 2-vector back to a 4-vector. **That is the transposed convolution**: it is literally the backward pass of a convolution, used as a forward pass.
+
+Two consequences worth internalising:
+- The forward pass of a transposed conv is the backward pass of a conv, and vice versa. Frameworks implement one and reuse it.
+- $C^\top$ is not $C^{-1}$ — for a start it is usually not even square. Shape is restored; values are not.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Where the checkerboard pattern comes from, exactly">
+
+Output cell $j$ receives a contribution from input cell $i$ whenever $j - is$ lies in $[0, k)$. The number of contributing inputs is
+
+$$n_j = \#\{ i : 0 \le j - is < k \} = \left\lceil \frac{k - (j \bmod s)}{s} \right\rceil$$
+
+in the interior. This depends on $j \bmod s$ — so the count is **periodic with period $s$**, which is precisely a checkerboard.
+
+If $s \mid k$, write $k = ms$. Then for every residue $r = j \bmod s$:
+
+$$n_j = \left\lceil \frac{ms - r}{s} \right\rceil = m \quad \text{for all } r \in [0, s)$$
+
+constant, and the pattern vanishes. In 2-D the counts multiply, giving $(k/s)^2$ — matching the table above: $k=4, s=2 \Rightarrow 4$ stamps everywhere.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+<Recall items={[
+  { q: "Why is 'deconvolution' the wrong name for a transposed convolution?", a: "Because it does not invert a convolution. Writing a convolution as a sparse matrix C, the transposed convolution applies C-transpose, not C-inverse — and C-transpose is usually not even square. It restores the input's shape while producing entirely different values. The name comes from that transpose, and the operation is literally a convolution's backward pass used as a forward pass." },
+  { q: "State the transposed convolution output-size formula and say what output_padding resolves.", a: "H_out = (H_in − 1)·s − 2p + d(k−1) + output_padding + 1. It resolves a genuine ambiguity: a forward convolution maps several input sizes to the same output size — with k=3, s=2, p=1 both 7 and 8 give 4 — so inverting the shape has more than one valid answer. output_padding picks which, by adding rows or columns to one side without contributing any values." },
+  { q: "Explain checkerboard artefacts in one sentence, and give the condition that prevents them.", a: "When kernel size is not divisible by stride, interior output cells receive different numbers of overlapping kernel stamps — a count that is periodic with period s — so some cells are systematically larger and a grid texture appears. The condition is k mod s = 0, which makes every interior cell receive exactly (k/s)² stamps." },
+  { q: "Why is the artefact described as geometric rather than learned?", a: "Because it follows purely from which output positions the stamps land on, which is fixed by k, s and p — it is present at random initialisation, before any training. The network can partially suppress it by learning compensating kernel values, but it spends capacity doing so, which is why choosing compatible k and s (or resize-then-convolve) is the better fix." },
+]} />
+
+<QuizCard
+  question="nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1) applied to a 16×16 input. What is the output size, and does it checkerboard?"
+  options={[
+    "32×32, and no — 4 is divisible by 2",
+    "34×34, and yes",
+    "32×32, and yes — any stride-2 transposed conv checkerboards",
+    "31×31, and no"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about transposed convolution are correct?"
+  options={[
+    "It is the backward pass of a convolution used as a forward pass",
+    "It inverts the values of the convolution it transposes",
+    "Its output size formula is the conv formula solved for the input",
+    "output_padding adds learnable parameters",
+    "k=2, s=2 produces a uniform stamp count and no checkerboarding",
+    "Checkerboard artefacts exist at initialisation, before any training"
+  ]}
+  correct={[0, 2, 4, 5]}
+/>

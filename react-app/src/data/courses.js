@@ -347,6 +347,28 @@ export const courses = [
       { id: 'cv-quiz', title: 'Track Quiz — Computer Vision',            file: 'cv-quiz.html', description: '16 questions plus 3 multi-selects — memory numericals, kernels, IoU and AP by hand, the R-CNN line, YOLO tensors, anchors, and SSD.', readTime: 25 },
     ],
   },
+  {
+    id: 'transfer-learning',
+    title: 'Transfer Learning, Embeddings & U-Net',
+    description: '12 interactive modules following one arc — what to do with a pretrained backbone. Why transfer works and when it fails, the freeze-versus-fine-tune decision as a data budget, then a measured demonstration. Cutting the classifier off turns the same network into an embedding model, which leads to vector representations, similarity search and metric learning. Then the opposite problem: producing a label per pixel. Encoder-decoders and the bottleneck they lose detail in, upsampling, transposed convolution and its checkerboard geometry, skip connections, U-Net itself, the Dice coefficient, and a U-Net built and trained in PyTorch. Thirteen widgets including a layer-transferability curve, a freeze-budget calculator, an embedding space with live kNN, a triplet-margin explorer, a stamp-by-stamp transposed convolution, an interactive U-Net with per-level skips, and draggable Dice masks.',
+    color: '#9f1239',
+    trackPath: 'transfer-learning',
+    modules: [
+      { id: 'tl-m1',   title: 'Why Transfer Learning Works — and When It Fails', file: 'tl-m1.html',  description: 'The feature hierarchy, layer-wise transferability, domain distance vs dataset size, negative transfer, and the BatchNorm trap.', readTime: 16 },
+      { id: 'tl-m2',   title: 'Feature Extraction vs Fine-Tuning',        file: 'tl-m2.html',  description: 'The freeze spectrum as a data budget, discriminative learning rates, head warm-up, and choosing a backbone by embedding dim.',    readTime: 16 },
+      { id: 'tl-m3',   title: 'Demonstration — Fine-Tuning a Backbone',   file: 'tl-m3.html',  description: 'The complete two-phase script, freezing BatchNorm properly, the three baselines, and reading the phase-1/phase-2 gap.',          readTime: 18 },
+      { id: 'tl-m4',   title: 'Image Embeddings & Vector Representations', file: 'tl-m4.html', description: 'Why pixel space fails, nn.Identity() as an embedding model, L2 normalisation, which layer to take, and index memory maths.',     readTime: 18 },
+      { id: 'tl-m5',   title: 'Metric Learning & Similarity Search',      file: 'tl-m5.html',  description: 'Triplet and contrastive losses, the three triplet regimes, why mining is mandatory, InfoNCE, and temperature as mining.',        readTime: 18 },
+      { id: 'tl-m6',   title: 'Encoder–Decoder Architecture',             file: 'tl-m6.html',  description: 'The bottleneck as both the point and the cost, why downsampling is unavoidable, and the bound it puts on boundary precision.',   readTime: 16 },
+      { id: 'tl-m7',   title: 'Upsampling',                               file: 'tl-m7.html',  description: 'Nearest, bilinear, bed-of-nails and max-unpool, the align_corners trap, and why resize-then-convolve became the default.',      readTime: 15 },
+      { id: 'tl-m8',   title: 'Transposed Convolution',                   file: 'tl-m8.html',  description: 'Scatter-add, the output-size formula, what output_padding resolves, and checkerboarding derived from stamp counts.',           readTime: 20 },
+      { id: 'tl-m9',   title: 'Skip Connections',                         file: 'tl-m9.html',  description: 'Residual vs concatenative — gradient flow against spatial detail — and why concatenation strictly generalises addition.',       readTime: 18 },
+      { id: 'tl-m10',  title: 'U-Net',                                    file: 'tl-m10.html', description: 'The full architecture, why 572 becomes 388, overlap-tile inference, pretrained encoders, and where the 31M parameters sit.',     readTime: 20 },
+      { id: 'tl-m11',  title: 'The Dice Coefficient & Segmentation Losses', file: 'tl-m11.html', description: 'Dice as pixel-wise F1, D = 2J/(1+J), why accuracy and BCE collapse under imbalance, soft Dice, and what the epsilon protects.', readTime: 20 },
+      { id: 'tl-m12',  title: 'Demonstration — U-Net in PyTorch',         file: 'tl-m12.html', description: 'The full model in 60 lines, shape-first debugging, BCE+Dice, checkpointing on the metric, and the threshold sweep.',           readTime: 20 },
+      { id: 'tl-quiz', title: 'Track Quiz — Transfer Learning & U-Net',   file: 'tl-quiz.html', description: '16 questions plus 3 multi-selects — transferability, freeze budgets, embedding memory, triplet regimes, conv arithmetic, skips, and Dice/IoU conversions.', readTime: 25 },
+    ],
+  },
 ];
 
 /* ── Derived lookups (built once at module load) ── */

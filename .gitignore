@@ -9,6 +9,11 @@ __pycache__/
 # Jupyter
 .ipynb_checkpoints/
 
+# Datasets the notebooks download or generate at run time
+*/notebooks/data/
+*/notebooks/runs/
+*/notebooks/cvlab/
+
 # OS
 .DS_Store
 Thumbs.db

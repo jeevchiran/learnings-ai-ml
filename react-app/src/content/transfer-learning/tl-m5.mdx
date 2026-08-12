@@ -1,0 +1,136 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import TripletLossWidget from '../../components/widgets/transfer-learning/TripletLossWidget.jsx'
+
+# Module 5: Metric Learning and Similarity Search
+
+<ConceptBox title="TL;DR">
+- A classifier's embedding is *incidentally* useful for similarity. **Metric learning optimises for it directly.**
+- **Contrastive** loss works on pairs, **triplet** loss on (anchor, positive, negative). Both push similar things together and different things apart by at least a **margin**.
+- Once the model is decent, most randomly-sampled triplets have **zero loss and therefore zero gradient**. Training stalls unless you *mine* hard ones.
+- Modern practice mostly skips triplets: **InfoNCE / NT-Xent** compares one positive against many negatives in the same batch, which is far more sample-efficient.
+- Use metric learning when the classes are **open-ended** (faces, products, re-identification). Use a classifier when they are fixed.
+</ConceptBox>
+
+<Bridge>
+Module 4 took the embedding a classifier happened to produce. But nothing in cross-entropy asks for *similar images to be close* — only for classes to be linearly separable, which is a weaker requirement. Metric learning makes proximity the objective itself.
+</Bridge>
+
+## Why a classifier's embedding is not optimal for retrieval
+
+Cross-entropy is satisfied as soon as every class sits on the correct side of a hyperplane. It does not care whether a class forms one tight cluster or three scattered blobs, nor whether two similar classes stay separated by a comfortable gap. For classification that is fine. For retrieval it is not: your query lands in a blob, and the neighbours it retrieves are whatever happened to be nearby.
+
+Metric learning replaces "be separable" with **"be close to your own kind, and at least `m` away from everything else"**.
+
+## Triplet loss
+
+$$\mathcal{L} = \max\big(0,\; d(a, p) - d(a, n) + m\big)$$
+
+<TripletLossWidget />
+
+Three regimes, and only two of them teach anything:
+
+| Regime | Condition | Gradient |
+|---|---|---|
+| **easy** | $d(a,n) > d(a,p) + m$ | **zero** — wasted compute |
+| **semi-hard** | $d(a,p) < d(a,n) < d(a,p) + m$ | small, stable, the useful one |
+| **hard** | $d(a,n) < d(a,p)$ | large, and often a mislabelled or ambiguous sample |
+
+<ConceptBox title="The sampling problem is the whole difficulty">
+With $N$ images there are $O(N^3)$ triplets, and after a few epochs the overwhelming majority are easy — zero loss, zero gradient. Sample randomly and your average batch gradient goes to nearly zero while your loss curve looks "converged".
+
+Fixes, in increasing order of how well they work:
+- **Batch-all**: average over non-zero triplets in the batch only (do not let the zeros dilute).
+- **Batch-hard**: within each batch, for every anchor take the *hardest* positive and *hardest* negative. Cheap and strong.
+- **Semi-hard mining** (FaceNet): pick negatives that are further than the positive but still inside the margin — hard enough to teach, not so hard they are noise.
+
+Mining hardest-of-all often *destabilises* training, because the hardest negative in a real dataset is frequently a labelling error.
+</ConceptBox>
+
+## What replaced triplets
+
+**InfoNCE / NT-Xent** — one anchor, one positive, and **every other item in the batch** as negatives, all at once:
+
+$$\mathcal{L} = -\log \frac{\exp(\text{sim}(a, p)/\tau)}{\sum_{k} \exp(\text{sim}(a, k)/\tau)}$$
+
+This is cross-entropy over similarities, with $\tau$ (temperature) controlling how sharply it focuses on the hardest negatives. One positive is compared against $B-1$ negatives per step instead of one, so a batch of 256 does the work of 255 triplets — which is why contrastive pretraining (SimCLR, CLIP) uses very large batches.
+
+```python
+import torch, torch.nn.functional as F
+
+def info_nce(z1, z2, tau=0.07):
+    """z1, z2: (B, d) L2-normalised embeddings of two views of the same B images."""
+    z1, z2 = F.normalize(z1, dim=1), F.normalize(z2, dim=1)
+    logits = z1 @ z2.T / tau                 # (B, B); the diagonal is the positive
+    labels = torch.arange(len(z1), device=z1.device)
+    return F.cross_entropy(logits, labels)   # "match yourself, not the others"
+
+# Triplet loss, for comparison
+triplet = torch.nn.TripletMarginLoss(margin=0.2, p=2)
+loss = triplet(anchor, positive, negative)
+```
+
+## When to reach for metric learning
+
+| Situation | Use |
+|---|---|
+| Fixed, known classes; plenty of labels | a classifier — simpler, and its embedding is usually fine |
+| Classes appear and disappear (products, faces) | metric learning |
+| "Is this the same individual?" verification | metric learning — the answer is a distance, not a class |
+| Very few labels but lots of unlabelled images | self-supervised contrastive pretraining, then a linear probe |
+
+<ConceptBox title="Metric learning's underrated competitor">
+Before building a triplet pipeline, try this: train an ordinary classifier, take its embeddings, L2-normalise. On closed-set problems with decent data this is frequently within a point or two of a carefully-tuned metric-learning setup, at a fraction of the engineering cost.
+
+Metric learning earns its complexity when the label set is genuinely open — when the thing you deploy will meet classes that did not exist at training time.
+</ConceptBox>
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Why the margin cannot be zero">
+
+Without a margin the loss is $\max(0, d(a,p) - d(a,n))$, which is satisfied the instant $d(a,n)$ exceeds $d(a,p)$ by *any* amount — including $10^{-9}$.
+
+That admits a degenerate solution: collapse every embedding to nearly the same point. All distances become tiny, the ordering is satisfied by numerical noise, and the loss reaches zero while the embedding carries no information at all. Embedding collapse is the classic failure of naive contrastive setups.
+
+The margin forces a *quantitative* gap:
+
+$$d(a,n) \geq d(a,p) + m$$
+
+so the representation must actually spread out by at least $m$. With L2-normalised embeddings, distances are bounded in $[0, 2]$, which is why margins around 0.2–0.5 are typical — a margin of 2 would be unsatisfiable.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="Why temperature matters in InfoNCE">
+
+$$\mathcal{L} = -\log \frac{\exp(s_{ap}/\tau)}{\sum_k \exp(s_{ak}/\tau)}$$
+
+As $\tau \to 0$ the softmax becomes a hard max: essentially all the gradient goes to the single hardest negative. That is automatic hard-negative mining — and it inherits hard mining's fragility, since one mislabelled neighbour dominates the update.
+
+As $\tau \to \infty$ every negative is weighted equally, the loss becomes nearly uniform, and the model gets little pressure to separate anything.
+
+$\tau \approx 0.07$ (SimCLR, CLIP) sits in between: the hardest negatives dominate but do not monopolise. Note this makes temperature a **mining hyperparameter in disguise** — the thing triplet loss needs an explicit sampling strategy for, InfoNCE handles with one scalar.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+<Recall items={[
+  { q: "Why does triplet training stall even while the loss looks converged?", a: "Because once the model is reasonable, most randomly-sampled triplets already satisfy the margin, so their loss is exactly zero and they contribute no gradient. The average batch gradient collapses toward zero while the loss value looks fine. The fix is mining — batch-hard or semi-hard selection — so that the triplets in each batch are ones the model still gets wrong." },
+  { q: "What does the margin in triplet loss prevent?", a: "Embedding collapse. Without it the loss is satisfied as soon as the negative is further than the positive by any infinitesimal amount, which a degenerate solution mapping every image to nearly the same point achieves trivially. The margin demands a quantitative gap, forcing the representation to actually spread out." },
+  { q: "How is InfoNCE more sample-efficient than triplet loss?", a: "A triplet compares one positive against one negative. InfoNCE compares the positive against every other item in the batch simultaneously, so a batch of 256 gives 255 negatives per anchor in a single step. That is why contrastive pretraining methods use very large batches — the batch size is effectively the number of negatives." },
+  { q: "In what sense is InfoNCE's temperature a mining strategy?", a: "As temperature goes to zero the softmax concentrates almost all gradient on the single hardest negative, which is exactly what hard-negative mining does; as it grows large all negatives are weighted equally and little separation pressure remains. So one scalar controls the same trade-off triplet loss needs an explicit sampling algorithm for. Around 0.07 is the common choice." },
+  { q: "When is a plain classifier's embedding good enough, and when is metric learning worth the engineering?", a: "A classifier is enough when the class set is fixed and you have decent labels — take its embeddings, L2-normalise, and you are often within a point or two of tuned metric learning. Metric learning earns its cost when the label set is open-ended, such as faces, product catalogues or re-identification, where deployment will meet classes that did not exist during training." },
+]} />
+
+<QuizCard
+  question="A triplet has d(a,p) = 0.4, d(a,n) = 0.9, margin = 0.2. What is the loss and what does it contribute?"
+  options={[
+    "0.7 — a strong gradient",
+    "0.0 — an easy triplet contributing no gradient at all",
+    "0.3 — a semi-hard triplet",
+    "1.5 — the model has the ordering backwards"
+  ]}
+  correct={1}
+/>

@@ -1,0 +1,173 @@
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import DiceWidget from '../../components/widgets/transfer-learning/DiceWidget.jsx'
+import SegLossWidget from '../../components/widgets/transfer-learning/SegLossWidget.jsx'
+
+# Module 11: The Dice Coefficient and Segmentation Losses
+
+<ConceptBox title="TL;DR">
+- **Dice** $= \dfrac{2|A \cap B|}{|A| + |B|}$ — the F1 score of the pixels, and the standard segmentation metric.
+- Dice and IoU rank identically: $D = \dfrac{2J}{1+J}$. Dice always reads **higher**, so never compare one against the other.
+- **Pixel accuracy is a trap.** With 4% foreground, predicting all background scores 96%.
+- Cross-entropy averages over pixels and is dominated by the majority class; **Dice is a set overlap with no background term**, so an empty mask scores 0 however large the image.
+- Ship **`BCE + (1 − soft Dice)`**: cross-entropy gives stable per-pixel gradients early, Dice supplies the shape objective that stops the collapse.
+</ConceptBox>
+
+<Bridge>
+Module 10 built the network. This module decides what "good" means for its output — and the answer is not the accuracy you would use for classification, because segmentation is almost always a severely imbalanced problem.
+</Bridge>
+
+## Dice, and its relationship to IoU
+
+$$\text{Dice}(A,B) = \frac{2|A \cap B|}{|A| + |B|} = \frac{2\text{TP}}{2\text{TP} + \text{FP} + \text{FN}}$$
+
+Written the second way it is exactly the **F1 score** computed over pixels — the harmonic mean of precision and recall.
+
+<DiceWidget />
+
+$$\text{IoU} = \frac{|A \cap B|}{|A \cup B|} = \frac{\text{TP}}{\text{TP} + \text{FP} + \text{FN}}$$
+
+The only difference is that Dice counts the intersection **twice** — once in each mask's area. So:
+
+$$D = \frac{2J}{1 + J}, \qquad J = \frac{D}{2 - D}$$
+
+| IoU | Dice |
+|---|---|
+| 0.50 | 0.667 |
+| 0.75 | 0.857 |
+| 0.85 | 0.919 |
+| 0.90 | 0.947 |
+
+They are **monotone in each other**, so they always rank models the same way. The practical consequence is only that a paper reporting "Dice 0.92" and one reporting "IoU 0.92" are not comparable — the second is much better.
+
+## Why accuracy fails and Dice does not
+
+<SegLossWidget />
+
+Segmentation classes are usually wildly imbalanced: a tumour is a few percent of a scan, a crack is a fraction of a percent of a road image. Two consequences:
+
+- **Pixel accuracy** rewards predicting background. At 4% foreground the empty mask scores 96%.
+- **Cross-entropy** averages the per-pixel loss, so the majority class dominates the gradient, and early in training the cheapest way to lower it is to predict nothing.
+
+Dice has **no background term at all**. An empty prediction has zero intersection, so Dice is 0 regardless of how much background it got right.
+
+## Soft Dice — making it differentiable
+
+Hard Dice needs a threshold, and thresholding has zero gradient. The fix is to leave the predictions as probabilities:
+
+$$\mathcal{L}_{\text{Dice}} = 1 - \frac{2\sum_i p_i g_i + \epsilon}{\sum_i p_i + \sum_i g_i + \epsilon}$$
+
+with $p_i \in [0,1]$ the sigmoid output and $g_i \in \{0,1\}$ the label. The $\epsilon$ is not cosmetic — see the derivation.
+
+```python
+import torch, torch.nn as nn, torch.nn.functional as F
+
+def soft_dice_loss(logits, targets, eps=1.0):
+    """logits: (N,1,H,W) raw; targets: (N,1,H,W) in {0,1}."""
+    probs = torch.sigmoid(logits)
+    dims = (1, 2, 3)                                   # per-image, then averaged
+    inter = (probs * targets).sum(dims)
+    denom = probs.sum(dims) + targets.sum(dims)
+    dice  = (2 * inter + eps) / (denom + eps)
+    return 1 - dice.mean()
+
+class BCEDiceLoss(nn.Module):
+    """The default. BCE stabilises early training; Dice fixes the imbalance."""
+    def __init__(self, w_bce=0.5, pos_weight=None):
+        super().__init__()
+        self.w = w_bce
+        self.bce = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+
+    def forward(self, logits, targets):
+        return self.w * self.bce(logits, targets) + (1 - self.w) * soft_dice_loss(logits, targets)
+```
+
+<ConceptBox title="Reduce per image, then average — not over the whole batch">
+Summing the intersection across the entire batch lets a large object in one image compensate for a missed small object in another: the batch-level Dice barely moves, so the network is never punished for the miss.
+
+Computing Dice **per image** and averaging makes every image count equally, which is what you want when object size varies. The `dims=(1,2,3)` above does exactly that. For multi-class, reduce per class as well and average — that is macro-Dice, and it is the number that exposes a class the model is quietly ignoring.
+</ConceptBox>
+
+## The alternatives, and when they matter
+
+| Loss | Fixes | Cost |
+|---|---|---|
+| **BCE** | well-behaved gradients everywhere | collapses under imbalance |
+| **Weighted BCE** (`pos_weight`) | imbalance, cheaply | one more hyperparameter to tune |
+| **Focal** | down-weights easy pixels continuously | two hyperparameters ($\alpha$, $\gamma$) |
+| **Soft Dice** | imbalance, directly optimises the metric | unstable when the target is empty |
+| **Tversky** | lets you trade FP against FN ($\alpha$, $\beta$) | tuning |
+| **BCE + Dice** | both, in practice | none worth mentioning — this is the default |
+
+**Boundary-aware** losses (Hausdorff, boundary loss) exist for the case where the mask is nearly right but the edge placement is what matters clinically. Reach for them only after BCE+Dice has plateaued.
+
+---
+
+<DerivationSteps>
+<DerivationStep number={1} title="Deriving D = 2J / (1 + J)">
+
+Write both in terms of intersection $I$ and the two areas:
+
+$$D = \frac{2I}{|A| + |B|}, \qquad J = \frac{I}{|A| + |B| - I}$$
+
+Let $S = |A| + |B|$. Then $J = \dfrac{I}{S - I}$, so $J(S - I) = I$, giving $JS = I(1 + J)$ and
+
+$$I = \frac{JS}{1+J}$$
+
+Substitute into Dice:
+
+$$D = \frac{2I}{S} = \frac{2}{S}\cdot\frac{JS}{1+J} = \frac{2J}{1+J} \qquad \blacksquare$$
+
+Since $\frac{dD}{dJ} = \frac{2}{(1+J)^2} > 0$, the map is strictly increasing — Dice and IoU can never disagree about which of two predictions is better.
+
+</DerivationStep>
+
+<DerivationStep number={2} title="What the epsilon actually protects against">
+
+Consider an image whose ground truth is **empty** ($\sum g_i = 0$) and a model that correctly predicts nothing ($\sum p_i \approx 0$). Without $\epsilon$:
+
+$$\mathcal{L} = 1 - \frac{2 \cdot 0}{0 + 0} = 1 - \frac{0}{0}$$
+
+Undefined — in practice `nan`, which propagates through the whole batch and destroys the run. With $\epsilon = 1$:
+
+$$\mathcal{L} = 1 - \frac{0 + 1}{0 + 0 + 1} = 1 - 1 = 0$$
+
+A perfect score for a correct empty prediction, which is the right answer.
+
+The $\epsilon$ also **smooths the gradient** for small objects. With a 20-pixel target, the denominator is tiny and Dice swings violently for a one-pixel change; adding 1 damps that. This is why empty-mask images in a dataset are a real hazard for pure Dice training and why BCE in the mix helps — BCE is perfectly well-behaved on an empty target.
+
+</DerivationStep>
+</DerivationSteps>
+
+---
+
+<Recall items={[
+  { q: "State Dice in terms of TP, FP and FN, and say what other metric that makes it.", a: "Dice = 2TP / (2TP + FP + FN), which is exactly the F1 score computed over pixels — the harmonic mean of precision and recall. IoU is TP / (TP + FP + FN); the only difference is that Dice counts the intersection twice, once in each mask's area, which is why it always reads higher." },
+  { q: "A paper reports Dice 0.92 and another reports IoU 0.92. Which is better, and by how much?", a: "The IoU one, substantially. Dice 0.92 corresponds to IoU = D/(2−D) = 0.852, whereas IoU 0.92 corresponds to Dice 0.958. They are monotone in each other so they never disagree about ranking, but the numbers are on different scales and quoting them side by side is misleading." },
+  { q: "Why does cross-entropy collapse on a 4%-foreground segmentation task while Dice does not?", a: "Cross-entropy averages the loss over pixels, so with 96% background the majority class dominates the gradient and the cheapest early move is to predict background everywhere — which also scores 96% pixel accuracy. Dice is a set-overlap measure with no background term: an empty prediction has zero intersection and therefore Dice 0, no matter how much background it got right." },
+  { q: "Why does soft Dice need an epsilon in both numerator and denominator?", a: "To handle the empty-target case. If the ground truth has no foreground and the model correctly predicts none, the ratio is 0/0 — a nan that propagates through the batch. With epsilon it becomes 1/1, a perfect score for a correct empty prediction. It also damps the wild gradient swings that a tiny denominator causes on very small objects." },
+  { q: "Why compute Dice per image and average, rather than over the whole batch at once?", a: "Because a batch-level sum lets a large well-segmented object in one image mask a completely missed small object in another — the pooled intersection barely changes, so the network is never punished. Per-image reduction then averaging weights every image equally, which is what you want when object sizes vary. The same argument extends to per-class reduction for multi-class macro-Dice." },
+]} />
+
+<QuizCard
+  question="A prediction achieves IoU = 0.60 against the ground truth. What is its Dice coefficient?"
+  options={[
+    "0.600",
+    "0.750",
+    "0.429",
+    "0.800"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about segmentation metrics and losses are correct?"
+  options={[
+    "Dice equals the pixel-wise F1 score",
+    "Dice and IoU can rank two models differently",
+    "Pixel accuracy is misleading when foreground is a small fraction of the image",
+    "Soft Dice replaces the thresholded mask with probabilities so it is differentiable",
+    "The epsilon in soft Dice prevents a nan when the ground-truth mask is empty",
+    "BCE combined with Dice is a common default because BCE gives stable early gradients"
+  ]}
+  correct={[0, 2, 3, 4, 5]}
+/>
