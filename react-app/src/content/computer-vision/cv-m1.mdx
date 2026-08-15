@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import PixelInspectorWidget from '../../components/widgets/cv/PixelInspectorWidget.jsx'
 import ColorSpaceWidget from '../../components/widgets/cv/ColorSpaceWidget.jsx'
 
@@ -6,7 +6,7 @@ import ColorSpaceWidget from '../../components/widgets/cv/ColorSpaceWidget.jsx'
 
 <ConceptBox title="Run the code">
 Every code block in this track is collected into one runnable notebook:
-**[Open the Computer Vision lab in Google Colab](https://colab.research.google.com/github/jeevchiran/learnings-ai-ml/blob/main/computer-vision/notebooks/computer-vision-lab.ipynb)**.
+**[Open the Computer Vision lab in Google Colab](https://colab.research.google.com/github/jeevchiran/learnings-ai-ml/blob/main/notebook/computer-vision/computer-vision-lab.ipynb)**.
 
 It runs top to bottom on a fresh runtime — image processing on CPU, then IoU/NMS/mAP
 from scratch in NumPy, then Faster R-CNN and YOLO inference and a real YOLO training
@@ -14,48 +14,96 @@ run on a synthetic dataset. Numbers quoted in these modules are re-derived there
 checked with `assert`.
 </ConceptBox>
 
-<ConceptBox title="TL;DR">
-- An image is a **2-D (or 3-D) array of integers**. Everything else in this track is arithmetic on that array.
-- Shape is `(H, W)` greyscale or `(H, W, 3)` colour. NumPy indexes `img[y, x]` — **row first**, the opposite of the `(x, y)` order drawing functions take.
-- **Sampling** decides how many pixels; **quantisation** decides how many values each pixel may hold. Both are lossy, both happen before your model sees anything.
-- Greyscale is not the channel average: $0.299R + 0.587G + 0.114B$, because the eye weights green most.
-- **HSV** separates colour from brightness; RGB does not. That is why colour thresholding works in HSV and fails in RGB.
-</ConceptBox>
-
 <Bridge>
 The CNN track treated an image as a tensor and went straight to convolution. This track backs up one step and asks what that tensor actually contains, because every detection bug you will meet later — boxes in the wrong place, a model that trains to nothing, colours that invert — is a misunderstanding at this level.
 </Bridge>
 
-## An image is an array
+An image is numbers in a grid. Nothing more. Every idea below is a consequence of that one fact.
 
-A greyscale image of height $H$ and width $W$ is a function sampled on a grid:
+## The array
 
-$$I : \{0,\dots,H-1\} \times \{0,\dots,W-1\} \rightarrow \{0,\dots,255\}$$
+<PredictReveal
+  prompt="A greyscale image loads with shape (480, 640). Which number is the width?"
+  options={["480", "640", "Can't tell without more info"]}
+  correct={1}
+>
 
-Two independent discretisations produced it:
-
-| Step | What it discretises | Controlled by | Artefact when too coarse |
-|---|---|---|---|
-| **Sampling** | position | sensor resolution | aliasing, jagged edges |
-| **Quantisation** | intensity | bit depth | banding, posterisation |
-
-A 1920×1080 RGB frame at 8 bits is $1920 \times 1080 \times 3 = 6{,}220{,}800$ bytes — just under 6 MB, uncompressed, for one frame.
-
-## Interactive: the array behind the picture
+Shape is `(H, W)` for greyscale, `(H, W, 3)` for colour — height first. NumPy indexes the same way: `img[y, x]`, row before column. That is the opposite of the `(x, y)` order drawing functions like `cv2.rectangle` take, and it is the single most common source of a swapped-box bug.
 
 <PixelInspectorWidget />
 
+Formally, a greyscale image is a function sampled on a grid:
+
+$$I : \{0,\dots,H-1\} \times \{0,\dots,W-1\} \rightarrow \{0,\dots,255\}$$
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "An image has shape (480, 640, 3). What is its width, and what does img[10, 20] return?", a: "Width is 640 — shape is (H, W, C), so 480 is the height. img[10, 20] returns a 3-element array: the pixel in row 10, column 20. Row index comes first; the point 'x=10, y=20' would be img[20, 10]." },
+]} />
+
+## Sampling and quantisation
+
+<PredictReveal
+  prompt="You take a smooth gradient photo and drop it from 8-bit to 4-bit. What artefact shows up?"
+  options={["Jagged, staircase edges", "Visible banding in the gradient", "Nothing — 4-bit is still smooth"]}
+  correct={1}
+>
+
+Two independent, both-lossy discretisations produced every pixel: **sampling** (how many pixels — controlled by sensor resolution, too coarse gives jagged edges/aliasing) and **quantisation** (how many values each pixel may hold — controlled by bit depth, too coarse gives banding). Your guess was about quantisation: fewer intensity levels means a smooth gradient becomes visible steps. The pixel positions are untouched — that's sampling's job, not quantisation's.
+
+A 1920×1080 RGB frame at 8 bits is $1920 \times 1080 \times 3 = 6{,}220{,}800$ bytes — just under 6 MB, uncompressed, for one frame.
+
+</PredictReveal>
+
+## Greyscale is not the average
+
+<PredictReveal
+  prompt="You convert a pure-green patch and a pure-blue patch to greyscale by averaging (R+G+B)/3. Do they come out equally bright?"
+  options={["Yes — averaging is colour-blind by design", "No — green comes out brighter"]}
+  correct={1}
+>
+
+The eye is most sensitive to green, so the standard luma weights are not an even split:
+
+$$0.299R + 0.587G + 0.114B$$
+
+Average the channels instead and a pure-green patch and a pure-blue patch land at the same "brightness" even though one looks far brighter to you. That mismatch is why greyscale conversion uses fixed, uneven weights rather than a mean.
+
+</PredictReveal>
+
 ## Colour is three arrays stacked
 
-An RGB image is $(H, W, 3)$: three greyscale planes read together. Nothing about that layout says the channels are the *right* three numbers — it is a storage convention, and other conventions are better for other jobs.
+<PredictReveal
+  prompt="You're thresholding a red mug under changing room light. Better to threshold in RGB or HSV?"
+  options={["RGB", "HSV"]}
+  correct={1}
+>
+
+An RGB image is $(H, W, 3)$: three greyscale planes read together — a storage convention, not a law of nature. **HSV** separates colour identity (hue) from brightness (value). Under changing light, an object's RGB triple moves along all three axes at once; its hue barely moves. A hue *range* is a stable rule where an RGB box keeps sliding out from under you — which is why colour thresholding works in HSV and fights you in RGB.
 
 <ColorSpaceWidget />
 
-<ConceptBox title="Two conventions that bite">
-**BGR, not RGB.** OpenCV's `imread` returns channels in **B, G, R** order for historical reasons. Matplotlib expects RGB. Displaying an OpenCV image directly with `plt.imshow` swaps red and blue — the classic "why is the sky orange" bug. Fix: `img[:, :, ::-1]` or `cv2.cvtColor(img, cv2.COLOR_BGR2RGB)`.
+</PredictReveal>
 
-**Row-major indexing.** `img[y, x]` in NumPy, `cv2.rectangle(img, (x, y), ...)` in OpenCV drawing calls. Same library, opposite order.
-</ConceptBox>
+<Recall items={[
+  { q: "Why is greyscale not simply (R + G + B) / 3?", a: "Because perceived brightness is not distributed evenly across wavelengths. The human eye is most sensitive to green, so the standard luma weights are 0.299R + 0.587G + 0.114B. Averaging makes a pure green patch and a pure blue patch equally bright, which does not match what you see." },
+  { q: "Why does colour-based segmentation usually convert to HSV first?", a: "Because HSV puts colour identity in one channel (hue) and brightness in another (value). Under changing illumination an object's RGB triple moves along all three axes, but its hue barely moves — so a hue range is a stable rule where an RGB box is not." },
+]} />
+
+## Two conventions that bite
+
+<PredictReveal
+  prompt="You load a photo with cv2.imread and hand it straight to plt.imshow, no conversion. What do you see?"
+  options={["The photo, correctly", "Red and blue swapped"]}
+  correct={1}
+>
+
+**BGR, not RGB.** OpenCV's `imread` returns channels in **B, G, R** order for historical reasons; Matplotlib expects RGB. Displaying an OpenCV image directly swaps red and blue — the classic "why is the sky orange" bug. Fix: `img[:, :, ::-1]` or `cv2.cvtColor(img, cv2.COLOR_BGR2RGB)`.
+
+The row-major indexing from the first section has the same shape of bug: `img[y, x]` in NumPy, `cv2.rectangle(img, (x, y), ...)` in OpenCV's own drawing calls — same library, opposite order.
+
+</PredictReveal>
 
 ## Worked example — memory and dtype
 
@@ -80,14 +128,19 @@ print(grey.min(), grey.max(), grey.mean().round(1))
 
 Note the OpenCV quirk in that last comment: hue is halved to fit 0–255 in a `uint8`, so "red" is near 0 **or** near 179, not 359.
 
+<Recall items={[
+  { q: "You drop an image from 8-bit to 4-bit. What changes, and what does not?", a: "The number of distinct intensity values drops from 256 to 16 — that is quantisation. The shape, the number of pixels and the sampling grid are untouched. The visible artefact is banding: smooth gradients become visible steps." },
+]} />
+
 ---
 
-<Recall items={[
-  { q: "An image has shape (480, 640, 3). What is its width, and what does img[10, 20] return?", a: "Width is 640 — shape is (H, W, C), so 480 is the height. img[10, 20] returns a 3-element array: the pixel in row 10, column 20. Row index comes first; the point 'x=10, y=20' would be img[20, 10]." },
-  { q: "Why is greyscale not simply (R + G + B) / 3?", a: "Because perceived brightness is not distributed evenly across wavelengths. The human eye is most sensitive to green, so the standard luma weights are 0.299R + 0.587G + 0.114B. Averaging makes a pure green patch and a pure blue patch equally bright, which does not match what you see." },
-  { q: "You drop an image from 8-bit to 4-bit. What changes, and what does not?", a: "The number of distinct intensity values drops from 256 to 16 — that is quantisation. The shape, the number of pixels and the sampling grid are untouched. The visible artefact is banding: smooth gradients become visible steps." },
-  { q: "Why does colour-based segmentation usually convert to HSV first?", a: "Because HSV puts colour identity in one channel (hue) and brightness in another (value). Under changing illumination an object's RGB triple moves along all three axes, but its hue barely moves — so a hue range is a stable rule where an RGB box is not." },
-]} />
+<ConceptBox title="TL;DR">
+- An image is a **2-D (or 3-D) array of integers**. Everything above is arithmetic on that array.
+- Shape is `(H, W)` greyscale or `(H, W, 3)` colour. NumPy indexes `img[y, x]` — **row first**, the opposite of the `(x, y)` order drawing functions take.
+- **Sampling** decides how many pixels; **quantisation** decides how many values each pixel may hold. Both are lossy, both happen before your model sees anything.
+- Greyscale is not the channel average: $0.299R + 0.587G + 0.114B$, because the eye weights green most.
+- **HSV** separates colour from brightness; RGB does not. That is why colour thresholding works in HSV and fails in RGB.
+</ConceptBox>
 
 <QuizCard
   question="A 1024×768 RGB image is loaded as uint8 and then cast to float32. How much memory does the float32 copy occupy?"

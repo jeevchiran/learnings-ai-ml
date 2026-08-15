@@ -1,22 +1,20 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import DiceWidget from '../../components/widgets/transfer-learning/DiceWidget.jsx'
 import SegLossWidget from '../../components/widgets/transfer-learning/SegLossWidget.jsx'
 
 # Module 11: The Dice Coefficient and Segmentation Losses
-
-<ConceptBox title="TL;DR">
-- **Dice** $= \dfrac{2|A \cap B|}{|A| + |B|}$ — the F1 score of the pixels, and the standard segmentation metric.
-- Dice and IoU rank identically: $D = \dfrac{2J}{1+J}$. Dice always reads **higher**, so never compare one against the other.
-- **Pixel accuracy is a trap.** With 4% foreground, predicting all background scores 96%.
-- Cross-entropy averages over pixels and is dominated by the majority class; **Dice is a set overlap with no background term**, so an empty mask scores 0 however large the image.
-- Ship **`BCE + (1 − soft Dice)`**: cross-entropy gives stable per-pixel gradients early, Dice supplies the shape objective that stops the collapse.
-</ConceptBox>
 
 <Bridge>
 Module 10 built the network. This module decides what "good" means for its output — and the answer is not the accuracy you would use for classification, because segmentation is almost always a severely imbalanced problem.
 </Bridge>
 
 ## Dice, and its relationship to IoU
+
+<PredictReveal
+  prompt="Two masks overlap with an IoU of 0.75. Is the Dice coefficient for that same pair higher than 0.75, lower than 0.75, or equal to 0.75?"
+  options={["Equal — they're the same score", "Higher than 0.75", "Lower than 0.75"]}
+  correct={1}
+>
 
 $$\text{Dice}(A,B) = \frac{2|A \cap B|}{|A| + |B|} = \frac{2\text{TP}}{2\text{TP} + \text{FP} + \text{FN}}$$
 
@@ -39,9 +37,20 @@ $$D = \frac{2J}{1 + J}, \qquad J = \frac{D}{2 - D}$$
 
 They are **monotone in each other**, so they always rank models the same way. The practical consequence is only that a paper reporting "Dice 0.92" and one reporting "IoU 0.92" are not comparable — the second is much better.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "State Dice in terms of TP, FP and FN, and say what other metric that makes it.", a: "Dice = 2TP / (2TP + FP + FN), which is exactly the F1 score computed over pixels — the harmonic mean of precision and recall. IoU is TP / (TP + FP + FN); the only difference is that Dice counts the intersection twice, once in each mask's area, which is why it always reads higher." },
+  { q: "A paper reports Dice 0.92 and another reports IoU 0.92. Which is better, and by how much?", a: "The IoU one, substantially. Dice 0.92 corresponds to IoU = D/(2−D) = 0.852, whereas IoU 0.92 corresponds to Dice 0.958. They are monotone in each other so they never disagree about ranking, but the numbers are on different scales and quoting them side by side is misleading." },
+]} />
+
 ## Why accuracy fails and Dice does not
 
-<SegLossWidget />
+<PredictReveal
+  prompt="A tumour occupies 4% of a scan. A model plays it safe and predicts an all-background (empty) mask. What pixel accuracy and Dice score does that get?"
+  options={["96% accuracy, 0 Dice", "50% accuracy, 50% Dice", "96% accuracy, 96% Dice"]}
+  correct={0}
+>
 
 Segmentation classes are usually wildly imbalanced: a tumour is a few percent of a scan, a crack is a fraction of a percent of a road image. Two consequences:
 
@@ -49,6 +58,14 @@ Segmentation classes are usually wildly imbalanced: a tumour is a few percent of
 - **Cross-entropy** averages the per-pixel loss, so the majority class dominates the gradient, and early in training the cheapest way to lower it is to predict nothing.
 
 Dice has **no background term at all**. An empty prediction has zero intersection, so Dice is 0 regardless of how much background it got right.
+
+<SegLossWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does cross-entropy collapse on a 4%-foreground segmentation task while Dice does not?", a: "Cross-entropy averages the loss over pixels, so with 96% background the majority class dominates the gradient and the cheapest early move is to predict background everywhere — which also scores 96% pixel accuracy. Dice is a set-overlap measure with no background term: an empty prediction has zero intersection and therefore Dice 0, no matter how much background it got right." },
+]} />
 
 ## Soft Dice — making it differentiable
 
@@ -87,7 +104,18 @@ Summing the intersection across the entire batch lets a large object in one imag
 Computing Dice **per image** and averaging makes every image count equally, which is what you want when object size varies. The `dims=(1,2,3)` above does exactly that. For multi-class, reduce per class as well and average — that is macro-Dice, and it is the number that exposes a class the model is quietly ignoring.
 </ConceptBox>
 
+<Recall items={[
+  { q: "Why does soft Dice need an epsilon in both numerator and denominator?", a: "To handle the empty-target case. If the ground truth has no foreground and the model correctly predicts none, the ratio is 0/0 — a nan that propagates through the batch. With epsilon it becomes 1/1, a perfect score for a correct empty prediction. It also damps the wild gradient swings that a tiny denominator causes on very small objects." },
+  { q: "Why compute Dice per image and average, rather than over the whole batch at once?", a: "Because a batch-level sum lets a large well-segmented object in one image mask a completely missed small object in another — the pooled intersection barely changes, so the network is never punished. Per-image reduction then averaging weights every image equally, which is what you want when object sizes vary. The same argument extends to per-class reduction for multi-class macro-Dice." },
+]} />
+
 ## The alternatives, and when they matter
+
+<PredictReveal
+  prompt="For a typical imbalanced segmentation task, which loss setup ships as the default in most practical pipelines?"
+  options={["Plain BCE alone", "Soft Dice alone", "BCE + Dice combined"]}
+  correct={2}
+>
 
 | Loss | Fixes | Cost |
 |---|---|---|
@@ -99,6 +127,8 @@ Computing Dice **per image** and averaging makes every image count equally, whic
 | **BCE + Dice** | both, in practice | none worth mentioning — this is the default |
 
 **Boundary-aware** losses (Hausdorff, boundary loss) exist for the case where the mask is nearly right but the edge placement is what matters clinically. Reach for them only after BCE+Dice has plateaued.
+
+</PredictReveal>
 
 ---
 
@@ -140,13 +170,13 @@ The $\epsilon$ also **smooths the gradient** for small objects. With a 20-pixel 
 
 ---
 
-<Recall items={[
-  { q: "State Dice in terms of TP, FP and FN, and say what other metric that makes it.", a: "Dice = 2TP / (2TP + FP + FN), which is exactly the F1 score computed over pixels — the harmonic mean of precision and recall. IoU is TP / (TP + FP + FN); the only difference is that Dice counts the intersection twice, once in each mask's area, which is why it always reads higher." },
-  { q: "A paper reports Dice 0.92 and another reports IoU 0.92. Which is better, and by how much?", a: "The IoU one, substantially. Dice 0.92 corresponds to IoU = D/(2−D) = 0.852, whereas IoU 0.92 corresponds to Dice 0.958. They are monotone in each other so they never disagree about ranking, but the numbers are on different scales and quoting them side by side is misleading." },
-  { q: "Why does cross-entropy collapse on a 4%-foreground segmentation task while Dice does not?", a: "Cross-entropy averages the loss over pixels, so with 96% background the majority class dominates the gradient and the cheapest early move is to predict background everywhere — which also scores 96% pixel accuracy. Dice is a set-overlap measure with no background term: an empty prediction has zero intersection and therefore Dice 0, no matter how much background it got right." },
-  { q: "Why does soft Dice need an epsilon in both numerator and denominator?", a: "To handle the empty-target case. If the ground truth has no foreground and the model correctly predicts none, the ratio is 0/0 — a nan that propagates through the batch. With epsilon it becomes 1/1, a perfect score for a correct empty prediction. It also damps the wild gradient swings that a tiny denominator causes on very small objects." },
-  { q: "Why compute Dice per image and average, rather than over the whole batch at once?", a: "Because a batch-level sum lets a large well-segmented object in one image mask a completely missed small object in another — the pooled intersection barely changes, so the network is never punished. Per-image reduction then averaging weights every image equally, which is what you want when object sizes vary. The same argument extends to per-class reduction for multi-class macro-Dice." },
-]} />
+<ConceptBox title="TL;DR">
+- **Dice** $= \dfrac{2|A \cap B|}{|A| + |B|}$ — the F1 score of the pixels, and the standard segmentation metric.
+- Dice and IoU rank identically: $D = \dfrac{2J}{1+J}$. Dice always reads **higher**, so never compare one against the other.
+- **Pixel accuracy is a trap.** With 4% foreground, predicting all background scores 96%.
+- Cross-entropy averages over pixels and is dominated by the majority class; **Dice is a set overlap with no background term**, so an empty mask scores 0 however large the image.
+- Ship **`BCE + (1 − soft Dice)`**: cross-entropy gives stable per-pixel gradients early, Dice supplies the shape objective that stops the collapse.
+</ConceptBox>
 
 <QuizCard
   question="A prediction achieves IoU = 0.60 against the ground truth. What is its Dice coefficient?"

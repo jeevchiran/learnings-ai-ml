@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall, PredictReveal } from '../../components/learning/index.js'
 import RNNCellWidget from '../../components/widgets/rnn/RNNCellWidget.jsx'
 
 # Module 6: Anatomy of an RNN Cell
-
-<ConceptBox title="TL;DR">
-- One equation is the whole cell: $\mathbf{h}_t=\tanh(\mathbf{W}_h\mathbf{h}_{t-1}+\mathbf{W}_x\mathbf{x}_t+\mathbf{b})$ — mix memory with new input, squash.
-- Two inputs ($\mathbf{h}_{t-1}$, $\mathbf{x}_t$), two matrices ($\mathbf{W}_h$ recurrent, $\mathbf{W}_x$ input), one output that is also the next step's memory.
-- **tanh, not ReLU**: it's zero-centred and bounded to $(-1,1)$, so the state can't blow up over hundreds of recurrent applications.
-- That bound comes at a price: $\tanh'(z)=1-\tanh^2(z)\to0$ when saturated, feeding the vanishing gradient of Module 9.
-- This is the trade the gated cells (LSTM, GRU) are designed to escape.
-</ConceptBox>
 
 <Bridge>
 **From Module 5:** you know the overall structure — an RNN is a cell copied $T$ times in a line. Now we open the cell and understand every computation inside it. One equation, four operations, two inputs, two outputs — let's make it concrete.
@@ -33,7 +25,17 @@ That's it. Let's dissect every term.
 | $\tanh$ | — | Non-linearity: squashes pre-activation to $(-1, 1)$ |
 | $\mathbf{h}_t$ | $(n,)$ | New hidden state — output passed to next step |
 
+<Recall items={[
+  { q: "Read the cell equation aloud as a sentence about memory.", a: "Take what I remembered from before, transform it by W_h; take what I am seeing now, transform it by W_x; add them with a bias, and squash the result into (-1, 1). That squashed vector is both this step's output and what I will remember going into the next step." },
+]} />
+
 ## Step-by-step walkthrough
+
+<PredictReveal
+  prompt="The cell mixes two signals: the transformed past state and the transformed current input. Are they combined by concatenating the vectors, or by adding them together?"
+  options={["Concatenated into a longer, wider vector", "Added together, then a bias is added", "Multiplied element-wise"]}
+  correct={1}
+>
 
 **Step 1 — Linear combination from past:**
 
@@ -61,11 +63,29 @@ $$\mathbf{h}_t = \tanh(\mathbf{z})$$
 
 tanh is applied element-wise. Values $\mathbf{z}_i \gg 0$ are squashed near $+1$; values $\mathbf{z}_i \ll 0$ near $-1$; values near zero stay roughly linear.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Distinguish the roles of W_h and W_x.", a: "W_x maps the current input into the hidden space — it determines what the new observation contributes. W_h transforms the carried memory — it determines how the past is updated and propagated. Only W_h appears in the step-to-step Jacobian, which is why it, not W_x, governs long-range gradient behaviour." },
+]} />
+
 ## Interactive: explore the cell computation
+
+<PredictReveal
+  prompt="In the widget, push the input and the previous hidden state to large magnitudes. What happens to the tanh derivative (the gradient scale) shown?"
+  options={["It stays close to 1", "It drops toward 0", "It flips negative"]}
+  correct={1}
+>
 
 Adjust $x_t$ and $h_{t-1}$ to see how the cell's output $h_t$ changes. Notice how the tanh derivative (gradient scale) drops when inputs are large — the harbinger of vanishing gradients.
 
 <RNNCellWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "State the cost of that bounding, precisely.", a: "The derivative is 1 - tanh^2(z), which is at most 1 at zero and collapses towards 0 as |z| grows. Once units saturate, each backward step through the cell multiplies the gradient by a near-zero factor, and over many steps the signal from distant time steps vanishes." },
+]} />
 
 ## The output layer
 
@@ -81,7 +101,17 @@ For language modeling: $\mathbf{W}_y \in \mathbb{R}^{|V| \times n}$ maps hidden 
 
 Note: computing $\hat{\mathbf{y}}_t$ is optional at every step. Many applications only need $\hat{\mathbf{y}}_T$ (the output after the last token). Others need $\hat{\mathbf{y}}_t$ at every step (tagging).
 
+<Recall items={[
+  { q: "How many outputs does the cell have?", a: "One vector, used twice. h_t is emitted as the step's output AND fed back as the next step's memory input. There is no separate memory variable in a vanilla RNN — that separation is exactly what the LSTM introduces with its cell state." },
+]} />
+
 ## Why tanh? Why not ReLU?
+
+<PredictReveal
+  prompt="A vanilla RNN reapplies the same activation hundreds of times along a sequence. If it used unbounded ReLU instead of tanh, what tends to happen to the hidden state?"
+  options={["It stays as well-behaved as with tanh", "It can grow without bound and explode", "It collapses toward zero"]}
+  correct={1}
+>
 
 ReLU is the standard activation for feedforward layers. Why does the vanilla RNN use tanh?
 
@@ -95,6 +125,12 @@ ReLU is the standard activation for feedforward layers. Why does the vanilla RNN
 The hidden state $\mathbf{h}_t$ flows into $\mathbf{W}_h \mathbf{h}_{t-1}$ at the next step. If $\mathbf{h}_t$ can grow without bound (ReLU), applying $\mathbf{W}_h$ repeatedly makes norms explode. The tanh bound prevents this.
 
 In practice, ReLU-based RNNs require careful weight initialisation (initialise $\mathbf{W}_h$ near the identity to prevent explosion). The LSTM and GRU architectures (Module 10) use a combination of sigmoid and tanh gates to control information flow more precisely.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why tanh rather than ReLU, given ReLU won everywhere else?", a: "Because the same function is applied hundreds of times in sequence. ReLU is unbounded, so repeated recurrent application can let the state grow without limit and explode. tanh bounds the state to (-1, 1) and is zero-centred, keeping the recurrence numerically stable across long sequences." },
+]} />
 
 <ConceptBox title="The concatenated weight form">
 The cell equation $\mathbf{h}_t = \tanh(\mathbf{W}_h \mathbf{h}_{t-1} + \mathbf{W}_x \mathbf{x}_t + \mathbf{b})$ is sometimes written equivalently as $\mathbf{h}_t = \tanh(\mathbf{W}[\mathbf{h}_{t-1};\mathbf{x}_t] + \mathbf{b})$ where $\mathbf{W} = [\mathbf{W}_h \mid \mathbf{W}_x] \in \mathbb{R}^{n \times (n+d)}$. In PyTorch's `nn.RNN` implementation, this is exactly what happens internally — the input and hidden state are concatenated, then multiplied by a combined weight matrix, which is more cache-efficient.
@@ -134,6 +170,14 @@ $$\mathbf{h}_1 = \tanh([0.26, 0.42, 0.30]) = [0.254, 0.399, 0.291]$$
 
 ---
 
+<ConceptBox title="TL;DR">
+- One equation is the whole cell: $\mathbf{h}_t=\tanh(\mathbf{W}_h\mathbf{h}_{t-1}+\mathbf{W}_x\mathbf{x}_t+\mathbf{b})$ — mix memory with new input, squash.
+- Two inputs ($\mathbf{h}_{t-1}$, $\mathbf{x}_t$), two matrices ($\mathbf{W}_h$ recurrent, $\mathbf{W}_x$ input), one output that is also the next step's memory.
+- **tanh, not ReLU**: it's zero-centred and bounded to $(-1,1)$, so the state can't blow up over hundreds of recurrent applications.
+- That bound comes at a price: $\tanh'(z)=1-\tanh^2(z)\to0$ when saturated, feeding the vanishing gradient of Module 9.
+- This is the trade the gated cells (LSTM, GRU) are designed to escape.
+</ConceptBox>
+
 ## Quiz
 
 <QuizCard
@@ -146,14 +190,6 @@ $$\mathbf{h}_1 = \tanh([0.26, 0.42, 0.30]) = [0.254, 0.399, 0.291]$$
   ]}
   correct={1}
 />
-
-<Recall items={[
-  { q: "Read the cell equation aloud as a sentence about memory.", a: "Take what I remembered from before, transform it by W_h; take what I am seeing now, transform it by W_x; add them with a bias, and squash the result into (-1, 1). That squashed vector is both this step's output and what I will remember going into the next step." },
-  { q: "Why tanh rather than ReLU, given ReLU won everywhere else?", a: "Because the same function is applied hundreds of times in sequence. ReLU is unbounded, so repeated recurrent application can let the state grow without limit and explode. tanh bounds the state to (-1, 1) and is zero-centred, keeping the recurrence numerically stable across long sequences." },
-  { q: "State the cost of that bounding, precisely.", a: "The derivative is 1 - tanh^2(z), which is at most 1 at zero and collapses towards 0 as |z| grows. Once units saturate, each backward step through the cell multiplies the gradient by a near-zero factor, and over many steps the signal from distant time steps vanishes." },
-  { q: "Distinguish the roles of W_h and W_x.", a: "W_x maps the current input into the hidden space — it determines what the new observation contributes. W_h transforms the carried memory — it determines how the past is updated and propagated. Only W_h appears in the step-to-step Jacobian, which is why it, not W_x, governs long-range gradient behaviour." },
-  { q: "How many outputs does the cell have?", a: "One vector, used twice. h_t is emitted as the step's output AND fed back as the next step's memory input. There is no separate memory variable in a vanilla RNN — that separation is exactly what the LSTM introduces with its cell state." },
-]} />
 
 <MultiSelectQuiz
   question="Which statements correctly describe the tanh activation in a vanilla RNN cell?"

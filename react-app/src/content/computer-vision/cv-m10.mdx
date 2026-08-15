@@ -1,16 +1,8 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import NMSWidget from '../../components/widgets/cv/NMSWidget.jsx'
 import DetectionMetricWidget from '../../components/widgets/cv/DetectionMetricWidget.jsx'
 
 # Module 10: Detection Concepts — NMS, Matching, and mAP
-
-<ConceptBox title="TL;DR">
-- Every detector emits **far more boxes than objects**. The pipeline is always: score → threshold → **NMS** → final list.
-- **NMS** is greedy: sort by score, keep the top box, delete everything overlapping it above a threshold, repeat. Per class.
-- Evaluation **matches** predictions to ground truth greedily by score; a second box on an already-matched object is a **false positive**, not a duplicate.
-- **AP** is the area under the precision–recall curve; **mAP** averages it over classes (and over IoU thresholds, for COCO).
-- Raising the score threshold trades recall for precision. AP measures the whole trade-off at once, which is why it is threshold-free.
-</ConceptBox>
 
 <Bridge>
 Module 9 built a head that emits one box. A real detector runs that head at thousands of positions, so its raw output is a cloud of overlapping boxes. This module covers the two algorithms that turn that cloud into an answer and into a number.
@@ -28,6 +20,12 @@ def nms(boxes, scores, iou_thr):
     return keep
 ```
 
+<PredictReveal
+  prompt="Two boxes land on the same dog: box A scores 0.9, box B scores 0.85 and overlaps A with IoU 0.6. NMS runs with an IoU threshold of 0.5. What happens to box B?"
+  options={["Kept — it's a separate local maximum", "Deleted — its IoU with kept box A exceeds the threshold", "Kept — its score is close enough to A's"]}
+  correct={1}
+>
+
 Three details that are easy to get wrong:
 
 - **Per class.** A "person" box must not suppress an overlapping "bicycle" box. `torchvision.ops.batched_nms` handles this by offsetting boxes per class.
@@ -36,7 +34,19 @@ Three details that are easy to get wrong:
 
 <NMSWidget />
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Describe NMS in one sentence and name the two thresholds it interacts with.", a: "Sort candidates by score, keep the highest, delete every remaining box whose IoU with it exceeds the NMS threshold, and repeat on what is left. It interacts with the score threshold applied before it (which candidates enter at all) and its own IoU threshold (how aggressively duplicates are removed). It runs per class." },
+]} />
+
 ## What NMS cannot do
+
+<PredictReveal
+  prompt="A photo shows two people standing back-to-back, both correctly detected with boxes overlapping at IoU 0.6. Standard NMS runs at threshold 0.5. What happens?"
+  options={["Both boxes survive — NMS checks class before suppressing", "The lower-scoring person's box gets deleted, treated as a duplicate", "Neither box is affected — NMS ignores same-class overlaps"]}
+  correct={1}
+>
 
 It has no idea how many objects exist — only how much boxes overlap. Two genuinely overlapping objects (a crowd, a traffic jam) are indistinguishable from one object detected twice.
 
@@ -47,9 +57,21 @@ It has no idea how many objects exist — only how much boxes overlap. Two genui
 | **DIoU-NMS** | also require close centres before suppressing | concentric boxes |
 | **No NMS** (DETR) | bipartite matching in training makes duplicates unlikely | removes the hyperparameter entirely |
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does NMS fail on crowds, and what does soft-NMS change?", a: "NMS only measures overlap, so two genuinely distinct but overlapping objects look exactly like one object detected twice — the second is deleted, producing a false negative. Soft-NMS multiplies the neighbour's score by a decay factor instead of removing it, so a strong detection of a second object survives with a reduced score and can still be counted." },
+]} />
+
 ## Matching for evaluation
 
 Predictions are sorted by score and walked top-down. Each is matched to the highest-IoU **unmatched** ground truth of the same class:
+
+<PredictReveal
+  prompt="Two predicted boxes both have IoU ≥ 0.5 with the same ground-truth object: a sloppy box scored 0.9 and a tightly-fit box scored 0.6. Which one gets counted as the true positive?"
+  options={["The tightly-fit box — it's better localised", "The sloppy 0.9-score box — matching is greedy by score", "Both — one ground truth can match two predictions"]}
+  correct={1}
+>
 
 - IoU ≥ threshold and that GT is free → **TP**, and the GT is now taken.
 - IoU ≥ threshold but the GT is already matched → **FP** (the duplicate rule).
@@ -58,15 +80,29 @@ Predictions are sorted by score and walked top-down. Each is matched to the high
 
 Note the order dependence: because matching is greedy by score, a high-scoring sloppy box can claim a ground truth and force a better-localised low-scoring box to be counted as a duplicate.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "A detector outputs two boxes on one object, both above IoU 0.5. How does evaluation count them?", a: "The higher-scoring one is matched and becomes a true positive; the second finds the ground truth already taken and is counted as a false positive. Duplicates are penalised, not ignored — which is precisely what makes NMS necessary rather than cosmetic." },
+]} />
+
 ## AP — precision, recall, and the curve
 
 $$\text{Precision} = \frac{TP}{TP + FP}, \qquad \text{Recall} = \frac{TP}{TP + FN} = \frac{TP}{\#\text{GT}}$$
+
+<PredictReveal
+  prompt="Walking down the sorted-by-score detection list and recomputing precision and recall at each step, which one can only ever go up, never down?"
+  options={["Precision", "Recall", "Both always move together"]}
+  correct={1}
+>
 
 Walking the sorted list, recall only ever increases and precision wobbles. The result is a staircase, and AP is the area under its monotone envelope:
 
 $$\text{AP} = \sum_{n} (r_n - r_{n-1})\, p_{\text{interp}}(r_n), \qquad p_{\text{interp}}(r) = \max_{\tilde r \ge r} p(\tilde r)$$
 
 <DetectionMetricWidget />
+
+</PredictReveal>
 
 ## Worked example — AP by hand
 
@@ -89,6 +125,10 @@ $$\text{AP} = 0.20(1.000) + 0.20(1.000) + 0.20(0.750) + 0.20(0.667) = 0.2 + 0.2 
 
 Recall stops at 0.80 because only 4 of the 5 objects were ever found — the missing one contributes 0 to the sum, which is how AP charges for false negatives without listing them.
 
+<Recall items={[
+  { q: "AP is 0.68 with 4 of 5 objects found. Where does the missing object show up in the arithmetic?", a: "As a ceiling on recall. With 4 true positives against 5 ground truths, recall can never exceed 0.8, so the precision-recall curve simply stops there and the interval from 0.8 to 1.0 contributes nothing to the integral. False negatives cost AP by truncating the curve rather than by appearing as a term." },
+]} />
+
 <ConceptBox title="Reading mAP without being misled">
 **mAP@0.5** (VOC) and **mAP@[.5:.95]** (COCO) differ by roughly 20 points for the same model. Always state which.
 
@@ -99,12 +139,13 @@ Recall stops at 0.80 because only 4 of the 5 objects were ever found — the mis
 
 ---
 
-<Recall items={[
-  { q: "Describe NMS in one sentence and name the two thresholds it interacts with.", a: "Sort candidates by score, keep the highest, delete every remaining box whose IoU with it exceeds the NMS threshold, and repeat on what is left. It interacts with the score threshold applied before it (which candidates enter at all) and its own IoU threshold (how aggressively duplicates are removed). It runs per class." },
-  { q: "Why does NMS fail on crowds, and what does soft-NMS change?", a: "NMS only measures overlap, so two genuinely distinct but overlapping objects look exactly like one object detected twice — the second is deleted, producing a false negative. Soft-NMS multiplies the neighbour's score by a decay factor instead of removing it, so a strong detection of a second object survives with a reduced score and can still be counted." },
-  { q: "A detector outputs two boxes on one object, both above IoU 0.5. How does evaluation count them?", a: "The higher-scoring one is matched and becomes a true positive; the second finds the ground truth already taken and is counted as a false positive. Duplicates are penalised, not ignored — which is precisely what makes NMS necessary rather than cosmetic." },
-  { q: "AP is 0.68 with 4 of 5 objects found. Where does the missing object show up in the arithmetic?", a: "As a ceiling on recall. With 4 true positives against 5 ground truths, recall can never exceed 0.8, so the precision-recall curve simply stops there and the interval from 0.8 to 1.0 contributes nothing to the integral. False negatives cost AP by truncating the curve rather than by appearing as a term." },
-]} />
+<ConceptBox title="TL;DR">
+- Every detector emits **far more boxes than objects**. The pipeline is always: score → threshold → **NMS** → final list.
+- **NMS** is greedy: sort by score, keep the top box, delete everything overlapping it above a threshold, repeat. Per class.
+- Evaluation **matches** predictions to ground truth greedily by score; a second box on an already-matched object is a **false positive**, not a duplicate.
+- **AP** is the area under the precision–recall curve; **mAP** averages it over classes (and over IoU thresholds, for COCO).
+- Raising the score threshold trades recall for precision. AP measures the whole trade-off at once, which is why it is threshold-free.
+</ConceptBox>
 
 <QuizCard
   question="After NMS at IoU 0.5, a detector still returns three heavily overlapping boxes on one object. What is the most likely cause?"

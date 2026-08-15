@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import SequencePatternWidget from '../../components/widgets/rnn/SequencePatternWidget.jsx'
 
 # Module 12: Sequence Modeling Patterns
-
-<ConceptBox title="TL;DR">
-- Four patterns cover every RNN task, and picking one is the **first architectural decision** — it fixes where the loss attaches and what the states must carry.
-- **Many→one** reads everything and predicts from $\mathbf{h}_T$. **Synced many→many** emits one output per input. **Encoder-decoder** decouples the lengths. **One→many** generates from a single input.
-- Encoder-decoder: the encoder compresses the source into a **single context vector** — and that bottleneck is precisely what attention was invented to remove.
-- **Teacher forcing** feeds ground-truth tokens to the decoder during training for stable gradients; at inference it must consume its own predictions.
-- That mismatch is exposure bias: one early wrong token can derail the whole generated sequence.
-</ConceptBox>
 
 <Bridge>
 **From Module 11:** we can now handle sequences of any length efficiently. Before diving into specific applications, let's map out the four canonical I/O patterns that every RNN task fits into. Choosing the right pattern is the first architectural decision.
@@ -17,13 +9,27 @@ import SequencePatternWidget from '../../components/widgets/rnn/SequencePatternW
 
 ## The four patterns
 
+<PredictReveal
+  prompt="Classic RNN diagrams usually show five input/output shapes, including one-to-one. This module only covers four sequence patterns. Which shape got left out?"
+  options={["Many-to-many synced — it is too rare in practice", "One-to-one — it is just a normal feedforward step, no recurrence needed", "One-to-many — it is not commonly used"]}
+  correct={1}
+>
+
 Every RNN task maps to one of these four input-output configurations:
 
 <SequencePatternWidget />
 
+</PredictReveal>
+
 ## Pattern 1 — Many to One
 
 **Setup:** process a full sequence, emit a single output at the end.
+
+<PredictReveal
+  prompt="A many-to-one RNN reads an entire sentence before predicting its sentiment. How many of the hidden states it computes actually feed into that final prediction?"
+  options={["Only the last one, h_T", "All of them, averaged together", "Only the first one, h_1"]}
+  correct={0}
+>
 
 **Architecture:** Run RNN over the entire input sequence. Use only the final hidden state $\mathbf{h}_T$ for prediction.
 
@@ -43,6 +49,8 @@ class ManyToOneRNN(nn.Module):
 **Examples:** sentiment analysis, document classification, sequence-level regression (predict one number from a time series).
 
 **Key point:** only the final $\mathbf{h}_T$ is used. All earlier hidden states are intermediate — they exist only to build up context for $\mathbf{h}_T$.
+
+</PredictReveal>
 
 ## Pattern 2 — One to Many
 
@@ -100,6 +108,12 @@ class ManyToManyRNN(nn.Module):
 
 **Setup:** read the full input sequence, then generate the output sequence of (potentially) different length.
 
+<PredictReveal
+  prompt="An encoder-decoder translates a 50-word English sentence into French. How much information can the encoder actually pass to the decoder about that sentence?"
+  options={["Everything — one vector per source word", "Only what fits into a single fixed-size context vector", "Nothing until attention is added"]}
+  correct={1}
+>
+
 **Architecture:** encoder reads input and produces a context vector; decoder generates output word-by-word conditioned on the context.
 
 ```python
@@ -119,6 +133,13 @@ logits = output_layer(dec_output)   # (batch, tgt_len-1, vocab_size)
 
 **Key point:** the bottleneck is the context vector — it must compress the entire source into a fixed-size vector. Attention mechanisms address this by allowing the decoder to look at all encoder states directly.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does an encoder-decoder exist at all, when synced many-to-many is simpler?", a: "Because the input and output lengths differ and the tokens do not correspond position by position. A five-word English sentence may become a seven-word French one with different ordering, so there is no aligned output to attach to each input step. The encoder reads everything first, then the decoder generates freely." },
+  { q: "What is the encoder-decoder bottleneck, and what removed it?", a: "The entire source sequence must be compressed into one fixed-size context vector, so long inputs lose information regardless of how good the encoder is. Attention removed it by letting the decoder look back at ALL encoder hidden states and weight them per output step, rather than relying on a single summary." },
+]} />
+
 ## Choosing the right pattern
 
 | Question | Answer → Pattern |
@@ -128,11 +149,36 @@ logits = output_layer(dec_output)   # (batch, tgt_len-1, vocab_size)
 | Label each element of the input? | Many-to-many synced |
 | Transform one sequence into another (different structure/length)? | Many-to-many encoder-decoder |
 
+<Recall items={[
+  { q: "Match each to a pattern: sentiment analysis, POS tagging, image captioning, translation.", a: "Sentiment is many-to-one. POS tagging is synced many-to-many. Image captioning is one-to-many. Translation is encoder-decoder many-to-many. Naming the pattern first tells you immediately where the loss attaches and whether you need a decoder at all." },
+]} />
+
+<PredictReveal
+  prompt="During training, a decoder-based model needs an input at each step to predict the next token. Does it use its own last prediction, or the true target token?"
+  options={["Its own last prediction from the previous step", "The true target token (teacher forcing)", "A random mix decided per batch"]}
+  correct={1}
+>
+
 <ConceptBox title="Teacher forcing">
 During training of decoder-based models (one-to-many, encoder-decoder), the true target tokens are fed as inputs at each step rather than the model's own predictions. This is called **teacher forcing**. It makes training more stable (no error accumulation) but creates a train-test mismatch — at inference time, the model feeds its own (potentially wrong) predictions back. Scheduled sampling gradually replaces ground-truth with model predictions during training to close this gap.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is teacher forcing, and why is it used?", a: "During training, the decoder is fed the GROUND-TRUTH previous token rather than its own last prediction. That keeps it on a correct trajectory so gradients are informative from the start — without it, early training predictions are noise and every subsequent step compounds that noise, making learning extremely slow." },
+  { q: "Teacher forcing creates a train-inference mismatch. Describe the consequence.", a: "Exposure bias. At inference no ground truth exists, so the decoder consumes its own outputs — a distribution it never trained on. One wrong token early puts it in a state it has never seen, and errors compound down the sequence. Scheduled sampling, which mixes in the model's own predictions during training, is one mitigation." },
+]} />
+
 ---
+
+<ConceptBox title="TL;DR">
+- Four patterns cover every RNN task, and picking one is the **first architectural decision** — it fixes where the loss attaches and what the states must carry.
+- **Many→one** reads everything and predicts from $\mathbf{h}_T$. **Synced many→many** emits one output per input. **Encoder-decoder** decouples the lengths. **One→many** generates from a single input.
+- Encoder-decoder: the encoder compresses the source into a **single context vector** — and that bottleneck is precisely what attention was invented to remove.
+- **Teacher forcing** feeds ground-truth tokens to the decoder during training for stable gradients; at inference it must consume its own predictions.
+- That mismatch is exposure bias: one early wrong token can derail the whole generated sequence.
+</ConceptBox>
 
 ## Quiz
 
@@ -146,14 +192,6 @@ During training of decoder-based models (one-to-many, encoder-decoder), the true
   ]}
   correct={2}
 />
-
-<Recall items={[
-  { q: "Why does an encoder-decoder exist at all, when synced many-to-many is simpler?", a: "Because the input and output lengths differ and the tokens do not correspond position by position. A five-word English sentence may become a seven-word French one with different ordering, so there is no aligned output to attach to each input step. The encoder reads everything first, then the decoder generates freely." },
-  { q: "What is teacher forcing, and why is it used?", a: "During training, the decoder is fed the GROUND-TRUTH previous token rather than its own last prediction. That keeps it on a correct trajectory so gradients are informative from the start — without it, early training predictions are noise and every subsequent step compounds that noise, making learning extremely slow." },
-  { q: "Teacher forcing creates a train-inference mismatch. Describe the consequence.", a: "Exposure bias. At inference no ground truth exists, so the decoder consumes its own outputs — a distribution it never trained on. One wrong token early puts it in a state it has never seen, and errors compound down the sequence. Scheduled sampling, which mixes in the model's own predictions during training, is one mitigation." },
-  { q: "What is the encoder-decoder bottleneck, and what removed it?", a: "The entire source sequence must be compressed into one fixed-size context vector, so long inputs lose information regardless of how good the encoder is. Attention removed it by letting the decoder look back at ALL encoder hidden states and weight them per output step, rather than relying on a single summary." },
-  { q: "Match each to a pattern: sentiment analysis, POS tagging, image captioning, translation.", a: "Sentiment is many-to-one. POS tagging is synced many-to-many. Image captioning is one-to-many. Translation is encoder-decoder many-to-many. Naming the pattern first tells you immediately where the loss attaches and whether you need a decoder at all." },
-]} />
 
 <MultiSelectQuiz
   question="Which of these are correct statements about the encoder-decoder pattern?"

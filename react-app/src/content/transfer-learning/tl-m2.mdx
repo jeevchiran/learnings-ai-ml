@@ -1,16 +1,8 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import FreezeStrategyWidget from '../../components/widgets/transfer-learning/FreezeStrategyWidget.jsx'
 import BackboneCompareWidget from '../../components/widgets/transfer-learning/BackboneCompareWidget.jsx'
 
 # Module 2: Feature Extraction vs Fine-Tuning
-
-<ConceptBox title="TL;DR">
-- **Feature extraction**: freeze the backbone, train a head. Cheap, fast, hard to overfit, and it caps your accuracy at whatever the frozen features can express.
-- **Fine-tuning**: unfreeze some or all of the backbone at a **low** learning rate. More capacity, more data required, more ways to destroy the weights you borrowed.
-- The choice is a **data-budget** decision: every unfrozen parameter is one more thing your labels must pin down.
-- Use **discriminative learning rates** — the head needs a large LR (it is random), the backbone a small one (it is already good). A 10× gap is the usual default.
-- **Warm up the head first.** A randomly-initialised head produces huge early gradients that will wreck a pretrained backbone in the first few steps.
-</ConceptBox>
 
 <Bridge>
 Module 1 established that transferability decays with depth. This module turns that into an operational decision: exactly where to cut, what to do on each side of the cut, and how to pick the backbone in the first place.
@@ -19,6 +11,12 @@ Module 1 established that transferability decays with depth. This module turns t
 ## The spectrum, not the binary
 
 "Feature extraction or fine-tuning" is really one slider:
+
+<PredictReveal
+  prompt="As you unfreeze more of a pretrained backbone, does the amount of labeled data you need to avoid overfitting go up or down?"
+  options={["Up — more trainable weights need more evidence", "Down — more capacity means it learns faster", "Stays about the same regardless of how much you unfreeze"]}
+  correct={0}
+>
 
 | Frozen | Trainable | Called | Use when |
 |---|---|---|---|
@@ -29,9 +27,21 @@ Module 1 established that transferability decays with depth. This module turns t
 
 <FreezeStrategyWidget />
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "When is a linear probe on frozen features the right answer rather than a compromise?", a: "When the target domain is close to the pretraining domain and the dataset is small. The frozen features already encode what matters, so the only thing left to learn is a linear boundary in that space — around 20k parameters for a 10-class head on ResNet-50. With a few hundred images per class that is a well-posed problem, while fine-tuning 25M parameters is not." },
+]} />
+
 ## Discriminative learning rates
 
 The head and the backbone are in completely different states at step 0: the head is random noise, the backbone is a well-tuned function. One learning rate cannot serve both.
+
+<PredictReveal
+  prompt="At step 0, the head is random and the backbone is pretrained. If you unfreeze everything and train both at the same learning rate, what happens?"
+  options={["Nothing bad — both converge at the same pace", "The head's huge early gradients flow into the backbone and overwrite its pretrained features", "The backbone trains fine but the head never converges"]}
+  correct={1}
+>
 
 ```python
 optimizer = torch.optim.AdamW([
@@ -55,7 +65,20 @@ The fix is two-phase:
 This is why "progressive unfreezing" reliably beats unfreezing everything from the start, and the reason has nothing to do with capacity — it is purely about the size of the gradients arriving in the first few hundred steps.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why do the backbone and the head need different learning rates?", a: "Because they start in completely different states. The head is randomly initialised and needs to move fast to become useful; the backbone is already a well-tuned function and only needs nudging. A single learning rate either leaves the head undertrained or destroys the backbone's features. The usual default is a 10x gap, backbone lower." },
+  { q: "What goes wrong if you unfreeze everything and start training immediately?", a: "The randomly-initialised head produces a large loss and therefore large gradients, and those flow straight back into the pretrained backbone. Within a few hundred steps the borrowed features are overwritten with noise. Warming up the head for an epoch or two with the backbone frozen keeps early gradients small, which is the real reason progressive unfreezing works." },
+]} />
+
 ## Picking a backbone
+
+<PredictReveal
+  prompt="Two backbones have the same ImageNet top-1 accuracy. Does that mean they're equally good choices for your product?"
+  options={["Yes — top-1 accuracy is the only thing that matters", "No — embedding dimension and real inference latency can differ a lot even at equal accuracy", "No — only parameter count matters once accuracy is tied"]}
+  correct={1}
+>
 
 <BackboneCompareWidget />
 
@@ -64,9 +87,17 @@ Two things matter more than the top-1 column:
 - **Embedding dimension**, because it sets the size of your head and of any vector index you build later (Module 4).
 - **Inference cost on your hardware**, which correlates with parameters only loosely. EfficientNet has excellent accuracy-per-parameter and mediocre accuracy-per-millisecond on a GPU, because depthwise convolutions are memory-bound rather than compute-bound.
 
+</PredictReveal>
+
 ## Worked example — the head is almost free
 
 ResNet-50, 2048-dim features, 10 target classes.
+
+<PredictReveal
+  prompt="Unfreezing ResNet-50's last block (stage4) takes trainable parameters from ~20K to ~12M. Roughly what multiple is that jump?"
+  options={["About 6×", "About 60×", "About 590×"]}
+  correct={2}
+>
 
 **Feature extraction:** trainable $= 2048 \times 10 + 10 = 20{,}490$.
 
@@ -95,14 +126,21 @@ total     = sum(p.numel() for p in model.parameters())
 print(f'{trainable:,} trainable of {total:,} ({trainable/total:.1%})')
 ```
 
----
+</PredictReveal>
 
 <Recall items={[
-  { q: "Why do the backbone and the head need different learning rates?", a: "Because they start in completely different states. The head is randomly initialised and needs to move fast to become useful; the backbone is already a well-tuned function and only needs nudging. A single learning rate either leaves the head undertrained or destroys the backbone's features. The usual default is a 10x gap, backbone lower." },
-  { q: "What goes wrong if you unfreeze everything and start training immediately?", a: "The randomly-initialised head produces a large loss and therefore large gradients, and those flow straight back into the pretrained backbone. Within a few hundred steps the borrowed features are overwritten with noise. Warming up the head for an epoch or two with the backbone frozen keeps early gradients small, which is the real reason progressive unfreezing works." },
   { q: "Unfreezing just ResNet-50's last block takes trainable parameters from 20 thousand to about 12 million. Why such a jump?", a: "Because ResNet's parameters are heavily back-loaded — stage4 alone holds roughly 12M of the 25.6M total, since channel counts double while spatial size shrinks and parameter count scales with the product of input and output channels. So 'just unfreeze the last block' is not a marginal change; it is most of the network." },
-  { q: "When is a linear probe on frozen features the right answer rather than a compromise?", a: "When the target domain is close to the pretraining domain and the dataset is small. The frozen features already encode what matters, so the only thing left to learn is a linear boundary in that space — around 20k parameters for a 10-class head on ResNet-50. With a few hundred images per class that is a well-posed problem, while fine-tuning 25M parameters is not." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Feature extraction**: freeze the backbone, train a head. Cheap, fast, hard to overfit, and it caps your accuracy at whatever the frozen features can express.
+- **Fine-tuning**: unfreeze some or all of the backbone at a **low** learning rate. More capacity, more data required, more ways to destroy the weights you borrowed.
+- The choice is a **data-budget** decision: every unfrozen parameter is one more thing your labels must pin down.
+- Use **discriminative learning rates** — the head needs a large LR (it is random), the backbone a small one (it is already good). A 10× gap is the usual default.
+- **Warm up the head first.** A randomly-initialised head produces huge early gradients that will wreck a pretrained backbone in the first few steps.
+</ConceptBox>
 
 <QuizCard
   question="You have 800 labelled images in a domain close to ImageNet. Which strategy is the best starting point?"

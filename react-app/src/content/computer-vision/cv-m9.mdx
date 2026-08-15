@@ -1,16 +1,8 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LocalizationHeadWidget from '../../components/widgets/cv/LocalizationHeadWidget.jsx'
 import BoxLossWidget from '../../components/widgets/cv/BoxLossWidget.jsx'
 
 # Module 9: Object Localization and Its Loss
-
-<ConceptBox title="TL;DR">
-- Localisation = classification head **plus** a 4-number regression head on the same backbone. Two losses, one network, one optimiser.
-- The output vector is $y = [p_{\text{obj}},\, b_x, b_y, b_w, b_h,\, c_1 \dots c_C]$ and the loss is $L = L_{\text{obj}} + \mathbb{1}[\text{obj}]\,(\lambda L_{\text{box}} + L_{\text{cls}})$.
-- That **indicator is the key idea**: background regions have no correct box, so the box and class terms must be masked out, not trained toward zero.
-- Boxes are regressed as **normalised offsets**, never raw pixels, so the two loss terms stay commensurable and the model stays resolution-independent.
-- **Smooth L1** is used over L2 because it caps the gradient at 1, so one badly-labelled box cannot dominate a batch.
-</ConceptBox>
 
 <Bridge>
 Module 8 defined the task and IoU. This module builds the smallest thing that solves it — single-object localisation — because every detector head in the rest of the track is this head, replicated over cells or anchors.
@@ -40,7 +32,15 @@ The `Sigmoid` is not decoration: it hard-constrains the box to the image, so the
 
 ## Interactive: the output vector and its masked loss
 
+<PredictReveal
+  prompt="A training image is pure background — no object in it at all. Under the masked loss L = L_obj + 1[obj]·(λL_box + L_cls), what does the box head's gradient look like for that image?"
+  options={["Pushed toward a degenerate zero-size box", "Exactly zero — the term is masked out entirely", "The same gradient as an object region, just scaled down"]}
+  correct={1}
+>
+
 <LocalizationHeadWidget />
+
+</PredictReveal>
 
 ## The composite loss
 
@@ -50,7 +50,17 @@ $$L = \underbrace{L_{\text{obj}}(\hat p, p)}_{\text{always}} + \mathbb{1}[p = 1]
 For a background region there is no ground-truth box. Training the box head toward zeros would teach the network that "background ⇒ predict a degenerate box at the origin" — a signal that competes with the real regression task and, because background regions vastly outnumber objects, wins. Masking removes the term entirely: for those samples the box head receives **no gradient at all**.
 </ConceptBox>
 
+<Recall items={[
+  { q: "Write the localisation output vector and say what the indicator in the loss is for.", a: "y = [p_obj, bx, by, bw, bh, c1..cC]. The loss is L_obj + 1[object present] times (lambda*L_box + L_cls). The indicator masks the box and class terms for background regions, because there is no correct box for background — training toward zeros would teach a degenerate answer that, given how much background there is, would swamp the real regression signal." },
+]} />
+
 ## Why normalised offsets
+
+<PredictReveal
+  prompt="You regress raw pixel offsets instead of normalised fractions. The same model is trained once on 224×224 images and once on 4K images, and in both cases a box is off by 40 px. What breaks?"
+  options={["Nothing — 40 px is 40 px regardless of resolution", "λ_coord needs retuning per resolution, since the same pixel error means a very different relative error", "The class head trains faster because the box head is unaffected"]}
+  correct={1}
+>
 
 Regress raw pixels and you inherit three problems:
 
@@ -64,17 +74,41 @@ $$b_x, b_y, b_w, b_h \in [0, 1]$$
 
 Both loss terms are then $O(1)$ and $\lambda_{\text{coord}}$ is a genuine balance knob rather than a unit conversion.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are box coordinates regressed as fractions of the image rather than pixels?", a: "Three reasons. Pixel errors scale with resolution, so the balance weight would need retuning for every input size. A squared pixel error is orders of magnitude larger than a cross-entropy value, so the class head would stop learning. And an absolute coordinate breaks the shift invariance that makes a convolutional feature mean the same thing at every position." },
+]} />
+
 ## Interactive: which regression loss
+
+<PredictReveal
+  prompt="A box has three clean coordinate errors and one wildly wrong one (a mislabelled box). Which loss gets dragged furthest off course by that single bad outlier?"
+  options={["L2 — its gradient grows with the error, unbounded", "Smooth L1 — it caps the gradient, so it reacts more", "Both equally — the outlier dominates either way"]}
+  correct={0}
+>
 
 <BoxLossWidget />
 
+</PredictReveal>
+
 ## Worked example — how much one outlier costs
 
-Four coordinate errors: $0.02, 0.03, 0.01$, and one mislabelled box giving $5.0$.
+<PredictReveal
+  prompt="Four coordinate errors: 0.02, 0.03, 0.01, and one mislabelled box giving 5.0. Roughly what share of the total L2 loss does that single outlier account for?"
+  options={["About 50%", "About 90%", "About 99.99%"]}
+  correct={2}
+>
 
 **L2** ($\tfrac12 x^2$): $0.0002 + 0.00045 + 0.00005 + 12.5 = 12.5007$ — the outlier is **99.99%** of the loss.
 
 **Smooth L1** ($\beta = 1$): $0.0002 + 0.00045 + 0.00005 + 4.5 = 4.5007$ — still dominant, but its *gradient* is capped at 1 instead of being 5, so it moves the weights five times less. That cap is what stops one bad annotation from wrecking a batch update.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does smooth L1 buy over plain L2, in terms of gradients?", a: "Its gradient magnitude is min(|x|/beta, 1) — proportional to the error near zero, capped at 1 beyond beta. L2's gradient grows without bound, so a single mislabelled box with a large error contributes a proportionally large update and can dominate the batch. Smooth L1 keeps that outlier's influence bounded while still giving fine-grained gradients near the optimum." },
+]} />
 
 ---
 
@@ -107,14 +141,19 @@ where $C$ is the smallest box enclosing both. The extra term is what gives a gra
 </DerivationStep>
 </DerivationSteps>
 
----
-
 <Recall items={[
-  { q: "Write the localisation output vector and say what the indicator in the loss is for.", a: "y = [p_obj, bx, by, bw, bh, c1..cC]. The loss is L_obj + 1[object present] times (lambda*L_box + L_cls). The indicator masks the box and class terms for background regions, because there is no correct box for background — training toward zeros would teach a degenerate answer that, given how much background there is, would swamp the real regression signal." },
-  { q: "Why are box coordinates regressed as fractions of the image rather than pixels?", a: "Three reasons. Pixel errors scale with resolution, so the balance weight would need retuning for every input size. A squared pixel error is orders of magnitude larger than a cross-entropy value, so the class head would stop learning. And an absolute coordinate breaks the shift invariance that makes a convolutional feature mean the same thing at every position." },
-  { q: "What does smooth L1 buy over plain L2, in terms of gradients?", a: "Its gradient magnitude is min(|x|/beta, 1) — proportional to the error near zero, capped at 1 beyond beta. L2's gradient grows without bound, so a single mislabelled box with a large error contributes a proportionally large update and can dominate the batch. Smooth L1 keeps that outlier's influence bounded while still giving fine-grained gradients near the optimum." },
   { q: "Two predictions have the same smooth-L1 box loss but very different IoU. How is that possible, and what fixes it?", a: "Because smooth L1 scores four coordinates independently and does not know the boxes' sizes. Five pixels of error is most of a 20-pixel box and nothing on a 200-pixel one. IoU-family losses (IoU, GIoU, DIoU, CIoU) optimise the evaluation metric directly, so equal loss means equal overlap quality." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Localisation = classification head **plus** a 4-number regression head on the same backbone. Two losses, one network, one optimiser.
+- The output vector is $y = [p_{\text{obj}},\, b_x, b_y, b_w, b_h,\, c_1 \dots c_C]$ and the loss is $L = L_{\text{obj}} + \mathbb{1}[\text{obj}]\,(\lambda L_{\text{box}} + L_{\text{cls}})$.
+- That **indicator is the key idea**: background regions have no correct box, so the box and class terms must be masked out, not trained toward zero.
+- Boxes are regressed as **normalised offsets**, never raw pixels, so the two loss terms stay commensurable and the model stays resolution-independent.
+- **Smooth L1** is used over L2 because it caps the gradient at 1, so one badly-labelled box cannot dominate a batch.
+</ConceptBox>
 
 <QuizCard
   question="With λ_coord = 5 and an indicator-masked loss, what gradient does the box head receive from a pure-background training region?"

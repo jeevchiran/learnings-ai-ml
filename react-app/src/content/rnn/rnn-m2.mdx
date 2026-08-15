@@ -1,20 +1,18 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall, PredictReveal } from '../../components/learning/index.js'
 
 # Module 2: Why MLPs Struggle with Sequential Data
-
-<ConceptBox title="TL;DR">
-- **Fixed input size**: $W\in\mathbb{R}^{n\times d}$ bakes the length into the weights, so you must pad (teaching the model to ignore fake zeros) or truncate (throwing information away).
-- **No state**: an MLP has no channel to carry anything from position $t$ to position $t+1$. Each forward pass is independent.
-- **Position-specific weights**: a pattern learned at position 3 must be relearned from scratch at position 27.
-- These are *structural*, not capacity limits. A bigger MLP has exactly the same three problems.
-- An MLP can still represent nonlinear functions and can technically process text — the failure is specifically about sequence structure.
-</ConceptBox>
 
 <Bridge>
 **From Module 1:** we established that sequential data requires order sensitivity and supports variable length. Now let's be precise about exactly how MLPs fail — not hand-waving, but three concrete architectural limitations. Understanding these failures is what makes the RNN solution feel *necessary* rather than arbitrary.
 </Bridge>
 
 ## Failure 1 — Fixed input size
+
+<PredictReveal
+  prompt="An MLP is built for reviews of exactly 100 tokens. A test review shows up with 150 tokens. What has to happen before you can feed it to the model?"
+  options={["Nothing — an MLP accepts any input length automatically", "The review must be padded or truncated to match the fixed size the weights were built for", "The weight matrix W resizes itself at runtime"]}
+  correct={1}
+>
 
 An MLP maps $\mathbf{x} \in \mathbb{R}^d$ to $\hat{\mathbf{y}} \in \mathbb{R}^k$. The weight matrix $W \in \mathbb{R}^{n \times d}$ hardcodes the input dimension $d$ at construction time.
 
@@ -26,7 +24,19 @@ Sequences don't have a fixed length. "Hi" has 2 characters. "Supercalifragilisti
 
 Neither approach is satisfying. The fundamental issue is that MLP architecture bakes length into its weights.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are padding and truncation both unsatisfying rather than merely inconvenient?", a: "Padding injects fake zeros that the network must learn to distinguish from real zero-valued features — it wastes capacity on bookkeeping and can still leak signal. Truncation discards data outright, which is fatal when the decisive information sits at the end of a long sequence. Neither addresses the cause: length is hardcoded in the weight matrix." },
+]} />
+
 ## Failure 2 — No memory across positions
+
+<PredictReveal
+  prompt='An MLP processes "Despite the long wait, the food was not disappointing" as a flat vector. When it computes using position 10 ("disappointing"), does it have any sense that it already processed position 9 ("not") first?'
+  options={["Yes — it tracks what it has read so far, like reading left to right", "No — all positions are consumed simultaneously, there is no notion of a processing order", "Only for the last two positions in the sequence"]}
+  correct={1}
+>
 
 Consider classifying the sentence: *"Despite the long wait, the food was not disappointing."*
 
@@ -36,7 +46,19 @@ To capture that relationship, an MLP would need to hard-code a connection betwee
 
 More precisely: an MLP with input $[x_1, x_2, \ldots, x_T]$ sees the entire sequence at once as a flat vector. There is no concept of "I have read $x_1$ through $x_5$, and now I'm at $x_6$." All positions contribute simultaneously, weighted by the corresponding columns of $W$. There is no **state** that accumulates as the sequence is processed.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "State the 'no state' failure precisely.", a: "An MLP's forward pass is a pure function of its current input — there is no variable that persists from one position to the next and no path by which position t's computation can influence position t+1's. Memory is not weak in an MLP; it is architecturally absent." },
+]} />
+
 ## Failure 3 — Permutation invariance
+
+<PredictReveal
+  prompt="Feed an MLP the tokens [x1, x2, x3], then feed it the reordered [x2, x1, x3]. Same weights, same architecture — does it produce the same output both times?"
+  options={["Yes — MLPs are permutation-invariant, like a sum or a mean", "No — generally different output, because each weight column is tied to a fixed input slot", "Only if the activation function is linear"]}
+  correct={1}
+>
 
 This is the most fundamental flaw. Mathematically:
 
@@ -58,7 +80,20 @@ These three sentences use exactly the same words. The MLP, receiving the same ba
 A function $f$ is **permutation-invariant** if $f(\pi(\mathbf{x})) = f(\mathbf{x})$ for any permutation $\pi$. Sum and mean are permutation-invariant. An MLP with positional indexing is NOT permutation-invariant — but its notion of position is rigid (always slot 1, slot 2, …), not learned from content. An RNN is inherently order-sensitive: $h_t$ depends on the full history $x_1, \ldots, x_t$ in the exact order they were processed.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "How does the position-specific-weights problem show up in practice?", a: "The word 'not' negating what follows must be learned separately for position 3, position 27, and every other position, because each feeds a different column of the weight matrix. The model needs vastly more data, and it still fails on any position combination the training set did not cover." },
+  { q: "Would a much larger MLP fix any of this?", a: "No. All three failures are structural properties of the architecture, not limits on capacity. More parameters give more ways to memorise position-specific patterns; they do not create a state channel, do not remove the fixed input dimension, and do not share weights across positions." },
+]} />
+
 ## The sliding-window workaround and its limits
+
+<PredictReveal
+  prompt="A sliding-window MLP uses a fixed context window of k=5 tokens per step. While processing position t=1000, can it use any information from position t=100?"
+  options={["Yes — the window carries forward everything it has seen", "No — anything more than k positions back is invisible to that step", "Yes, but only for the first few positions of the sequence"]}
+  correct={1}
+>
 
 One common workaround is a **sliding window**: for each position $t$, feed the MLP a fixed context window $[x_{t-k}, \ldots, x_t]$. This gives the model local order within the window.
 
@@ -71,6 +106,8 @@ One common workaround is a **sliding window**: for each position $t$, feed the M
 N-gram language models are exactly this idea. They work well for short-range context (2–4 words) but cannot capture dependencies across 50 tokens.
 
 RNNs solve all three failures in a single design move: a **recurrent connection** that carries a hidden state from step to step, accumulating context without fixing a window size.
+
+</PredictReveal>
 
 ---
 
@@ -97,6 +134,14 @@ In an RNN, $\mathbf{h}_t = f(\mathbf{h}_{t-1}, x_t)$ means the gradient of the l
 
 ---
 
+<ConceptBox title="TL;DR">
+- **Fixed input size**: $W\in\mathbb{R}^{n\times d}$ bakes the length into the weights, so you must pad (teaching the model to ignore fake zeros) or truncate (throwing information away).
+- **No state**: an MLP has no channel to carry anything from position $t$ to position $t+1$. Each forward pass is independent.
+- **Position-specific weights**: a pattern learned at position 3 must be relearned from scratch at position 27.
+- These are *structural*, not capacity limits. A bigger MLP has exactly the same three problems.
+- An MLP can still represent nonlinear functions and can technically process text — the failure is specifically about sequence structure.
+</ConceptBox>
+
 ## Quiz
 
 <QuizCard
@@ -109,13 +154,6 @@ In an RNN, $\mathbf{h}_t = f(\mathbf{h}_{t-1}, x_t)$ means the gradient of the l
   ]}
   correct={1}
 />
-
-<Recall items={[
-  { q: "Why are padding and truncation both unsatisfying rather than merely inconvenient?", a: "Padding injects fake zeros that the network must learn to distinguish from real zero-valued features — it wastes capacity on bookkeeping and can still leak signal. Truncation discards data outright, which is fatal when the decisive information sits at the end of a long sequence. Neither addresses the cause: length is hardcoded in the weight matrix." },
-  { q: "State the 'no state' failure precisely.", a: "An MLP's forward pass is a pure function of its current input — there is no variable that persists from one position to the next and no path by which position t's computation can influence position t+1's. Memory is not weak in an MLP; it is architecturally absent." },
-  { q: "How does the position-specific-weights problem show up in practice?", a: "The word 'not' negating what follows must be learned separately for position 3, position 27, and every other position, because each feeds a different column of the weight matrix. The model needs vastly more data, and it still fails on any position combination the training set did not cover." },
-  { q: "Would a much larger MLP fix any of this?", a: "No. All three failures are structural properties of the architecture, not limits on capacity. More parameters give more ways to memorise position-specific patterns; they do not create a state channel, do not remove the fixed input dimension, and do not share weights across positions." },
-]} />
 
 <MultiSelectQuiz
   question="Which of these limitations does a plain MLP have when applied to sequential data?"

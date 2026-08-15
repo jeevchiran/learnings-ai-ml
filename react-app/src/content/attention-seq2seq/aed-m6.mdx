@@ -1,0 +1,79 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import AttentionAlignmentWidget from '../../components/widgets/attention-seq2seq/AttentionAlignmentWidget.jsx'
+
+# Module 6: Attention-Based Encoder-Decoder — the Idea
+
+<Bridge>
+Module 5 diagnosed the problem precisely: one fixed-size context vector, reused unchanged at every decoder step, has to represent the entire source sentence. Bahdanau, Cho & Bengio (2014) and Luong et al. (2015) fixed it with a change that sounds almost too simple: stop throwing away the encoder's intermediate hidden states, and let the decoder look at all of them, differently, at every step.
+</Bridge>
+
+## Don't compress — keep everything, and look selectively
+
+<PredictReveal
+  prompt='Generating "café" (the last French word, meaning coffee), which source word should the decoder most want to look at?'
+  options={['"I"', '"love"', '"coffee"']}
+  correct={2}
+>
+
+<AttentionAlignmentWidget />
+
+The plain encoder-decoder discards every intermediate hidden state and keeps only the last one. Attention keeps **all of them** — one hidden state $h_j$ per source token. At each decoder step, instead of reading one fixed $c$, the decoder computes a fresh **weighted combination** of all the encoder states, where the weights say how relevant each source token is *to this particular output word*.
+
+Generating "café" naturally wants most of its weight on "coffee" — and the widget's alignment matrix shows exactly that, along with "J'aime" leaning on "love" and "le" leaning on "coffee" too (the article agrees with the noun it precedes). Three different output words, three different weightings over the same three source states.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the single biggest structural change attention makes compared to the plain encoder-decoder?", a: "Instead of discarding every intermediate encoder hidden state and keeping only the final one, attention keeps all of them and lets the decoder compute a fresh weighted combination of them at every output step, rather than reusing one fixed vector throughout decoding." },
+]} />
+
+## A different context vector for every output word
+
+<PredictReveal
+  prompt="In the plain encoder-decoder, the same context vector c is reused at every decoder step. In the attention-based version, is there still just one c for the whole sentence?"
+  options={["Yes — c is still computed once and reused", "No — a new context vector is computed at every decoder step"]}
+  correct={1}
+>
+
+This is the terminology shift worth being precise about: there is no longer a single $c$. Each decoder step $i$ gets its **own** context vector $c_i$, built specifically for that step from a weighted sum of all the encoder states. The weights themselves — how much step $i$ should attend to source token $j$ — are learned, not hand-set; Module 7 covers exactly how they're computed and Module 10 covers the underlying math.
+
+Nothing about the encoder or the RNN machinery from Module 2 changes. The decoder still runs an RNN cell per step. What's new is *what gets fed into that cell alongside the previous token* — no longer a single reused $c$, but a step-specific $c_i$.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How many context vectors exist across a whole decoding pass, in the attention-based architecture?", a: "One per decoder step, not one for the whole sentence. Each c_i is a fresh weighted combination of the encoder's hidden states, computed specifically for output step i, rather than a single c reused throughout decoding." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Attention (Bahdanau 2014, Luong 2015) keeps **every** encoder hidden state instead of discarding all but the last one.
+- At each decoder step, a **fresh weighted combination** of all encoder states is computed — a step-specific context vector $c_i$, not one reused $c$.
+- The weights say how relevant each source token is to the *current* output word — different output words attend to different source words.
+- Nothing about the encoder or decoder RNN cells changes; what's new is what gets fed into the decoder at each step.
+</ConceptBox>
+
+<QuizCard
+  question="What is the key structural difference between attention-based and plain encoder-decoder architectures?"
+  options={[
+    "Attention uses a bigger hidden state size",
+    "Attention keeps all encoder hidden states and computes a fresh weighted combination of them at every decoder step, instead of reusing one fixed context vector",
+    "Attention replaces the RNN cells with feedforward layers",
+    "Attention removes the need for a decoder entirely"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the attention-based encoder-decoder are correct?"
+  options={[
+    "Every encoder hidden state is retained, not just the final one",
+    "Each decoder step computes its own context vector, tailored to that step",
+    "The attention weights are hand-set based on word position, not learned",
+    "Different output words can attend most strongly to different source words",
+    "The decoder no longer needs an RNN cell once attention is added",
+    "The plain encoder-decoder's single context vector c is replaced by a sequence of step-specific context vectors"
+  ]}
+  correct={[0, 1, 3, 5]}
+/>

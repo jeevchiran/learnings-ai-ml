@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import EmbeddingSpaceWidget from '../../components/widgets/transfer-learning/EmbeddingSpaceWidget.jsx'
 
 # Module 4: Image Embeddings and Vector Representations
-
-<ConceptBox title="TL;DR">
-- An **embedding** is the vector a network produces just before its classifier — 512 numbers for ResNet-18, 2048 for ResNet-50.
-- It is a **learned coordinate system** in which semantically similar images are close. Raw pixels are not: two photos of the same cat can be further apart in pixel space than a cat and a car.
-- **L2-normalise, then use cosine.** After normalisation cosine and Euclidean rank identically, because $\|a-b\|^2 = 2 - 2\cos(a,b)$.
-- Embeddings decouple representation from task: **add a new class without retraining anything** by adding vectors to an index.
-- The classifier is a thin layer on top. Removing it does not remove the intelligence — it removes the opinion.
-</ConceptBox>
 
 <Bridge>
 Module 3 ended with `model.fc = nn.Identity()`, turning a classifier into a feature extractor. That one line is the subject of this module: what the resulting vector *is*, what its geometry means, and why so many production systems ship the embedding rather than the prediction.
@@ -17,7 +9,15 @@ Module 3 ended with `model.fc = nn.Identity()`, turning a classifier into a feat
 
 ## Pixels are a terrible coordinate system
 
-Two 224×224 RGB images live in $\mathbb{R}^{150528}$. In that space, distance measures *pixel-wise agreement*, which has almost nothing to do with content:
+Two 224×224 RGB images live in $\mathbb{R}^{150528}$. Does distance in that space track visual content at all?
+
+<PredictReveal
+  prompt="Which pair is closer together in raw pixel space: two different photos of the same cat (one brighter than the other), or a dark cat next to a dark car?"
+  options={["The two cat photos", "The dark cat and the dark car", "About the same"]}
+  correct={1}
+>
+
+In raw pixel space, distance measures *pixel-wise agreement*, which has almost nothing to do with content:
 
 - Shift an image one pixel right → every coordinate changes → enormous distance, identical content.
 - Brighten it by 10% → large distance, identical content.
@@ -25,9 +25,23 @@ Two 224×224 RGB images live in $\mathbb{R}^{150528}$. In that space, distance m
 
 A trained network's penultimate layer is a space where those pathologies are largely gone, because the training objective *forced* it: to separate 1,000 classes linearly at the last layer, everything before it must arrange images so that classes are linearly separable — which means semantically alike images end up near each other.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is Euclidean distance in pixel space a poor measure of image similarity?", a: "Because it measures pixel-wise agreement, which is not content. Shifting an image by one pixel or brightening it changes almost every coordinate while the content is identical, whereas two unrelated but similarly-lit images can be close. A trained network's penultimate layer removes most of that because separating classes linearly at the end forces semantically similar images together earlier." },
+]} />
+
 ## Interactive: the embedding space
 
+<PredictReveal
+  prompt="In the trained network's embedding space below, will two images of the same class end up clustered together even though their raw pixels look quite different?"
+  options={["Yes — they cluster by class", "No — pixel differences still dominate", "Only if the images are pixel-aligned"]}
+  correct={0}
+>
+
 <EmbeddingSpaceWidget />
+
+</PredictReveal>
 
 ## Getting an embedding
 
@@ -48,6 +62,10 @@ e = embed(images)
 sim = e @ e.T                        # (B, B) cosine similarity, one matmul
 ```
 
+<Recall items={[
+  { q: "What is an image embedding, concretely, and where in the network does it come from?", a: "It is the activation vector at the layer just before the classifier — after global average pooling, so 512 numbers for ResNet-18 and 2048 for ResNet-50. You obtain it by replacing the final fully-connected layer with nn.Identity(). It is a learned coordinate system in which semantically similar images sit close together." },
+]} />
+
 That `e @ e.T` is the whole of similarity search at small scale: after normalisation, **cosine similarity is just a dot product**.
 
 <ConceptBox title="Why L2-normalise">
@@ -60,7 +78,17 @@ $$\|a - b\|^2 = \|a\|^2 + \|b\|^2 - 2a\cdot b = 2 - 2\cos(a, b)$$
 so Euclidean distance is a monotone function of cosine similarity, and the two produce **identical rankings**. Pick whichever your index supports; do not agonise over it.
 </ConceptBox>
 
+<Recall items={[
+  { q: "After L2-normalising, does it matter whether you rank by cosine similarity or Euclidean distance?", a: "No — they give identical rankings. On unit vectors the squared Euclidean distance equals 2 minus twice the cosine similarity, so one is a monotone decreasing function of the other. Use whichever your vector index supports natively." },
+]} />
+
 ## Which layer, and why not the logits
+
+<PredictReveal
+  prompt="Four candidate layers to use as the embedding: raw conv features (7x7x512), global-average-pooled features (512), logits (1000), softmax probabilities (1000). Which makes the best general-purpose embedding?"
+  options={["Softmax probabilities", "Logits", "Pooled features (after global average pool)"]}
+  correct={2}
+>
 
 | Layer | Dim | Character |
 |---|---|---|
@@ -70,6 +98,12 @@ so Euclidean distance is a monotone function of cosine similarity, and the two p
 | softmax probabilities | 1000 | worse still — squashed, and mostly zeros |
 
 Use the pooled features. The logits are a projection onto 1,000 specific classes; two images of an object ImageNet has never seen may get nearly identical (uninformative) logits while their pooled features are clearly distinct.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why use pooled features rather than the logits as an embedding?", a: "Logits are a projection onto the 1,000 specific ImageNet classes — they encode that model's opinion, not a general representation. For an object ImageNet never saw, two distinct images can produce similarly uninformative logits while their pooled features remain clearly different. The pooled layer keeps semantics without committing to a label set." },
+]} />
 
 ## What embeddings buy you
 
@@ -82,6 +116,12 @@ Use the pooled features. The logits are a projection onto 1,000 specific classes
 **Cheap downstream models.** Embed once, then train a logistic regression in seconds — the linear probe from Module 3.
 
 ## Worked example — the index, and when brute force stops working
+
+<PredictReveal
+  prompt="One million 512-dim embeddings, compared by brute force against a single query on a CPU. Roughly how long does that take, and what happens as the collection grows to 100 million images?"
+  options={["A few hundred ms; scales linearly, becomes hopeless at 10^8", "Microseconds, regardless of collection size", "A few hundred ms, and stays roughly constant as it grows"]}
+  correct={0}
+>
 
 $N$ images, $d$-dimensional embeddings, one query:
 
@@ -100,15 +140,21 @@ Approximate nearest neighbour (FAISS, HNSW, ScaNN) trades a little recall for su
 
 Memory matters as much as speed: $10^6 \times 512 \times 4$ bytes $= \mathbf{2.05\ \text{GB}}$ in float32. Product quantisation compresses that to tens of megabytes, which is the difference between fitting in RAM and not.
 
----
+</PredictReveal>
 
 <Recall items={[
-  { q: "What is an image embedding, concretely, and where in the network does it come from?", a: "It is the activation vector at the layer just before the classifier — after global average pooling, so 512 numbers for ResNet-18 and 2048 for ResNet-50. You obtain it by replacing the final fully-connected layer with nn.Identity(). It is a learned coordinate system in which semantically similar images sit close together." },
-  { q: "Why is Euclidean distance in pixel space a poor measure of image similarity?", a: "Because it measures pixel-wise agreement, which is not content. Shifting an image by one pixel or brightening it changes almost every coordinate while the content is identical, whereas two unrelated but similarly-lit images can be close. A trained network's penultimate layer removes most of that because separating classes linearly at the end forces semantically similar images together earlier." },
-  { q: "After L2-normalising, does it matter whether you rank by cosine similarity or Euclidean distance?", a: "No — they give identical rankings. On unit vectors the squared Euclidean distance equals 2 minus twice the cosine similarity, so one is a monotone decreasing function of the other. Use whichever your vector index supports natively." },
-  { q: "Why use pooled features rather than the logits as an embedding?", a: "Logits are a projection onto the 1,000 specific ImageNet classes — they encode that model's opinion, not a general representation. For an object ImageNet never saw, two distinct images can produce similarly uninformative logits while their pooled features remain clearly different. The pooled layer keeps semantics without committing to a label set." },
   { q: "One million 512-dim float32 embeddings — how much memory, and what fixes it?", a: "1,000,000 x 512 x 4 bytes = about 2.05 GB. Product quantisation compresses the vectors into small codebook codes, cutting that by 8 to 32 times at a modest recall cost, which is often the difference between the index fitting in RAM and not. Combined with IVF or HNSW it also makes the search sub-linear." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- An **embedding** is the vector a network produces just before its classifier — 512 numbers for ResNet-18, 2048 for ResNet-50.
+- It is a **learned coordinate system** in which semantically similar images are close. Raw pixels are not: two photos of the same cat can be further apart in pixel space than a cat and a car.
+- **L2-normalise, then use cosine.** After normalisation cosine and Euclidean rank identically, because $\|a-b\|^2 = 2 - 2\cos(a,b)$.
+- Embeddings decouple representation from task: **add a new class without retraining anything** by adding vectors to an index.
+- The classifier is a thin layer on top. Removing it does not remove the intelligence — it removes the opinion.
+</ConceptBox>
 
 <QuizCard
   question="Storing 2 million ResNet-50 embeddings (2048-dim) as float32. How much memory?"

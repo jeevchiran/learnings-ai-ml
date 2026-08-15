@@ -1,0 +1,94 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import BLEUCalculatorWidget from '../../components/widgets/attention-seq2seq/BLEUCalculatorWidget.jsx'
+
+# Module 3: Evaluating Translations — BLEU Score
+
+<Bridge>
+Module 2 built a model that outputs a sequence of tokens. Before training anything, there's a prior question: how do you score a translation as good or bad? "J'aime le café" and "J'adore le café" are both fine translations of "I love coffee" — exact-match accuracy would fail one of them for no good reason. BLEU is the metric that grew out of taking that problem seriously.
+</Bridge>
+
+## Partial credit via overlapping n-grams
+
+<PredictReveal
+  prompt='Candidate: "the cat sat on the mat". Reference: "the cat is on the mat". Do these share zero credit, or does BLEU give partial credit?'
+  options={["Zero — one word differs, so it's simply wrong", "Partial credit, based on how many n-grams overlap"]}
+  correct={1}
+>
+
+<BLEUCalculatorWidget />
+
+BLEU (Bilingual Evaluation Understudy) scores a candidate translation by counting how many of its **n-grams** (n consecutive tokens) also appear in a reference translation, for n = 1, 2, 3, 4. Precision at each order:
+
+$$p_n = \frac{\text{count of candidate }n\text{-grams that appear in the reference}}{\text{total candidate }n\text{-grams}}$$
+
+Five out of six unigrams matching, four out of five bigrams, and so on — a translation doesn't need to be a verbatim match to score well, it just needs a lot of overlapping short spans with the reference.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does BLEU use n-grams instead of requiring an exact whole-sentence match?", a: "Because many different word choices can be equally valid translations — exact match would score a perfectly good but differently-worded translation as completely wrong. Counting overlapping n-grams gives partial credit proportional to how much of the candidate's local structure matches the reference." },
+]} />
+
+## Two ways to cheat, and the two fixes
+
+<PredictReveal
+  prompt='A broken model outputs just "the the the the the the" for every sentence. The reference happens to contain "the" once. Without any fix, does 1-gram precision reward or punish this?'
+  options={["Punishes it — precision would be low", "Rewards it — precision would be 100%, since every candidate word appears in the reference"]}
+  correct={1}
+>
+
+Unclipped precision breaks here: all six "the"s count as matches because "the" does appear in the reference, giving 6/6 = 100% precision for a useless output. The fix is **clipping**: a candidate n-gram can only be credited up to the number of times it actually occurs in the reference. If the reference has one "the", the candidate can score at most 1 match for "the", no matter how many times it repeats it.
+
+The second exploit is the opposite: output just the single word "the" (which does appear in the reference) and unigram precision is a perfect 1/1 — a tiny, useless output with a flawless-looking score. The fix is the **brevity penalty**:
+
+$$BP = \begin{cases} 1 & \text{if candidate length} \geq \text{reference length} \\ \exp\!\left(1 - \dfrac{\text{reference length}}{\text{candidate length}}\right) & \text{otherwise} \end{cases}$$
+
+Too-short candidates get penalized multiplicatively, however good their raw precision looks.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What problem does n-gram clipping solve, and how?", a: "It stops a model from gaming precision by repeating a common word many times. Clipping caps the credit for any n-gram at the number of times that n-gram actually appears in the reference, so repeating 'the' six times when the reference has it once earns credit for only one match, not six." },
+  { q: "Why is the brevity penalty needed even though clipping already exists?", a: "Clipping stops repetition-gaming but not truncation-gaming: a candidate that outputs only one or two correct words can still get perfect precision on those words. The brevity penalty multiplies the score down whenever the candidate is shorter than the reference, so an artificially short-but-precise output no longer scores well." },
+]} />
+
+## Putting it together
+
+The full score combines all four n-gram orders with the brevity penalty out front:
+
+$$BLEU = BP \cdot \exp\left(\frac{1}{N}\sum_{n=1}^{N} \log p_n\right)$$
+
+with $N = 4$ conventionally. Because this is a *geometric* mean, a single $p_n = 0$ — one n-gram order with zero overlap — collapses the whole score to 0, which the widget above will show you directly on the "Wrong sentence" preset.
+
+---
+
+<ConceptBox title="TL;DR">
+- BLEU scores a candidate translation by counting overlapping **n-grams** (n = 1..4) with a reference, giving partial credit instead of requiring exact match.
+- **Clipping** caps how many times a repeated candidate n-gram can be credited, at the count it actually appears in the reference — stops repetition-gaming.
+- The **brevity penalty** multiplies the score down when the candidate is shorter than the reference — stops truncation-gaming.
+- $BLEU = BP \cdot \exp\left(\frac{1}{N}\sum \log p_n\right)$ — a geometric mean, so any single zero-precision n-gram order zeroes the whole score.
+</ConceptBox>
+
+<QuizCard
+  question="A candidate translation repeats the word 'the' six times; the reference contains 'the' exactly once. Without clipping, unigram precision would credit all six occurrences. What does clipping do instead?"
+  options={[
+    "Ignores the word 'the' entirely from the precision calculation",
+    "Caps the credit for 'the' at 1 — the number of times it appears in the reference",
+    "Multiplies the final score by zero",
+    "Doubles the reference count to compensate"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about BLEU are correct?"
+  options={[
+    "BLEU requires an exact whole-sentence match to score above zero",
+    "The brevity penalty only reduces the score for candidates shorter than the reference",
+    "BLEU is a geometric mean of n-gram precisions, so a single zero-precision order zeroes the whole score",
+    "Clipping caps how many times a repeated n-gram can be credited",
+    "Higher n-gram orders (like 4-grams) check for longer matching spans than unigrams",
+    "BLEU scores are computed the same way regardless of candidate length"
+  ]}
+  correct={[1, 2, 3, 4]}
+/>

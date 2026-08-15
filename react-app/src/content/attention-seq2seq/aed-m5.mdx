@@ -1,0 +1,78 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import BottleneckWidget from '../../components/widgets/attention-seq2seq/BottleneckWidget.jsx'
+
+# Module 5: The Limitation of Encoder-Decoder — the Bottleneck
+
+<Bridge>
+Modules 2–4 built and trained a working encoder-decoder. It translates short sentences fine. This module is about exactly where it stops being fine, and why — the diagnosis that motivates everything from Module 6 onward.
+</Bridge>
+
+## One vector, however long the sentence
+
+<PredictReveal
+  prompt='"I love coffee" (3 tokens) and a 40-word paragraph both get compressed into the same fixed-size context vector — say, 512 numbers. Does the 40-word sentence get more room in that vector, or the same room?'
+  options={["More room — longer inputs get a proportionally larger context vector", "The same room — the vector's size never changes"]}
+  correct={1}
+>
+
+<BottleneckWidget />
+
+The context vector $c$ has a fixed dimensionality, set once when the model is built — say, 512 numbers, whether the source sentence is three words or three hundred. Every word of a long sentence has to be squeezed into that same 512-number budget. Cho et al. (2014) and Bahdanau et al. (2014) both measured this directly: translation quality (BLEU) for a vanilla encoder-decoder degrades sharply as source sentence length increases, while a human translator's quality doesn't.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does the encoder-decoder's translation quality degrade on long sentences specifically?", a: "Because the context vector's size is fixed regardless of input length, so a longer sentence has to be compressed into the same amount of representational space as a short one. Past some length, the compression starts discarding information the decoder actually needs." },
+]} />
+
+## What gets lost first
+
+<PredictReveal
+  prompt='The encoder reads the source sentence left to right, updating one hidden state as it goes. In a long sentence, is information from the FIRST word or the LAST word more likely to survive intact into the final context vector?'
+  options={["The first word — it's had the most updates applied on top of it", "The last word — it's freshest, closest to the final hidden state"]}
+  correct={1}
+>
+
+Because the encoder's hidden state is repeatedly overwritten step by step, information from early tokens has to survive being folded through every subsequent update. In a long sentence, the final hidden state is dominated by whatever was read most recently — early words are the first casualties of the compression. This is the same **vanishing-influence** pattern the RNN track covered for gradients (Module 9 there), now showing up as a *representation* problem instead of a *training* one.
+
+This is architectural, not a training bug: no amount of extra training data or a bigger hidden size fully fixes it, because the bottleneck is structural — one vector has to represent an unboundedly long sequence.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Is the bottleneck problem fixable by training longer or using a bigger hidden state?", a: "Not fully. A bigger hidden state raises the ceiling but the structural problem remains: an arbitrarily long sequence still has to fit into a fixed-size vector. More training data doesn't change that the architecture forces a many-to-one compression before decoding starts." },
+  { q: "Which part of the source sentence tends to be represented worst in the final context vector, and why?", a: "The earliest tokens, because the encoder's hidden state is overwritten at every step — information from early words has to survive being repeatedly folded through updates from every word that follows, so it's diluted the most by the time encoding finishes." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The context vector's dimensionality is **fixed**, regardless of source sentence length — long sentences and short sentences get the same representational budget.
+- Cho et al. (2014) and Bahdanau et al. (2014) both measured translation quality degrading sharply as source length grows, for exactly this reason.
+- Because the hidden state is repeatedly overwritten while reading, **early tokens** are diluted the most by the time the final context vector is formed.
+- This is a structural limitation of the architecture, not a training bug — bigger hidden sizes or more data raise the ceiling but don't remove it.
+</ConceptBox>
+
+<QuizCard
+  question="Why can't the encoder-decoder bottleneck be fixed simply by using a larger hidden state?"
+  options={[
+    "A larger hidden state would slow down training too much to be practical",
+    "The problem is structural: an arbitrarily long sequence must still be squeezed into one fixed-size vector, whatever that size is",
+    "Larger hidden states cause the gradient to explode during backpropagation",
+    "PyTorch does not support hidden states larger than 512"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the encoder-decoder bottleneck are correct?"
+  options={[
+    "The context vector's size scales automatically with the length of the source sentence",
+    "Translation quality for a vanilla encoder-decoder degrades as source sentence length increases",
+    "Early tokens in the source sentence tend to be represented worse than late tokens in the final context vector",
+    "The bottleneck is a training bug that more epochs reliably fix",
+    "This limitation is what directly motivates the attention mechanism",
+    "The bottleneck only affects the decoder, never the encoder"
+  ]}
+  correct={[1, 2, 4]}
+/>

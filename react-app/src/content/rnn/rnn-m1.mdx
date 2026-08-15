@@ -1,12 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
 # Module 1: Introduction to Sequential Data
 
-<ConceptBox title="TL;DR">
-- Sequential data is data where **position carries meaning** — reorder it and you change what it says.
-- Two properties follow, and both break the MLP: **order sensitivity** and **variable length**.
-- The test for "is this a sequence": would shuffling it destroy information? If yes it's sequential; if no it's just a set.
-- A flattened image is *not* sequential in this sense — its structure is spatial, which is what CNNs already exploit.
+<ConceptBox title="Run the code">
+Every code block in this track is collected into one runnable notebook:
+**[Open the RNN lab in Google Colab](https://colab.research.google.com/github/jeevchiran/learnings-ai-ml/blob/main/notebook/rnn/rnn-lab.ipynb)**.
+
+It runs top to bottom on a fresh runtime — RNN cell parameter counts, the BPTT
+gradient-decay estimate measured directly, LSTM/GRU vs vanilla RNN on a parity
+task, gradient clipping, and packing variable-length sequences. Numbers quoted
+in these modules are re-derived there and checked with `assert`.
 </ConceptBox>
 
 <Bridge>
@@ -28,7 +31,18 @@ Sequential data is any data where **position carries meaning**. Examples:
 
 In every case, shuffling the sequence produces something meaningless or wrong.
 
+<Recall items={[
+  { q: "Give a one-line test for whether data is sequential.", a: "Ask whether shuffling it destroys information. Stock prices, words, and DNA bases all lose their meaning when reordered, so they are sequential. A set of customer IDs does not, so it is not — order there is an artefact of storage, not signal." },
+  { q: "Why is a flattened 256x256 image NOT sequential data in this sense?", a: "Its structure is spatial and two-dimensional, not temporal and ordered along one axis. Flattening imposes an arbitrary raster order in which vertically adjacent pixels end up 256 positions apart — the relationships that matter are neighbourhoods, which is exactly what convolution exploits and recurrence does not." },
+]} />
+
 ## Why standard networks fail on sequences
+
+<PredictReveal
+  prompt="A feedforward MLP is trained on 12-word sentences. You feed it the same 12 words in a different order. What does it output?"
+  options={["The same output as before, unchanged", "A completely different output", "An error - it will not run"]}
+  correct={0}
+>
 
 A feedforward network (MLP or CNN) takes a **fixed-size input** and produces an output. Feed it a sentence of 12 words and it works. Feed it a sentence of 19 words — it can't, without changes. Feed it the same 12 words in a different order — it produces the same output, because the architecture is **permutation-invariant**.
 
@@ -38,7 +52,19 @@ This is the core problem. Sequential data has two properties that standard netwo
 
 **2. Order dependency** — position matters. The word "not" completely changes the meaning of what follows. In a stock series, whether price 110 comes *before* or *after* 90 determines whether you're in a downtrend or an uptrend.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Name the two properties of sequences that together defeat an MLP.", a: "Order sensitivity — the same values in a different arrangement mean something different, and an MLP has no mechanism to represent that beyond memorising position. And variable length — sequences differ in length while an MLP's first weight matrix hardcodes the input dimension at construction." },
+]} />
+
 ## What RNNs do differently
+
+<PredictReveal
+  prompt="A sentence grows from 5 words to 50 words. What happens to the size of the RNN hidden state vector at each step?"
+  options={["It grows proportionally with sequence length", "It stays a fixed size (e.g. always 128 numbers)", "It shrinks as more context is packed in"]}
+  correct={1}
+>
 
 A Recurrent Neural Network maintains a **hidden state** $\mathbf{h}_t$ — a compact summary of everything seen up to time step $t$. At each step it reads two things: the new input $\mathbf{x}_t$ and the previous hidden state $\mathbf{h}_{t-1}$, producing a new hidden state:
 
@@ -50,7 +76,15 @@ This loop gives the network **memory across time**. When processing word 8 in a 
 The hidden state $\mathbf{h}_t$ is a fixed-size vector (say, 128 floats) that summarises the entire input history $x_1, x_2, \ldots, x_t$. Think of it as a running note that the network keeps rewriting as it reads the sequence. The network learns *what to remember and what to forget* from data — not by hand-crafted rules.
 </ConceptBox>
 
+</PredictReveal>
+
 ## The anatomy of a recurrence
+
+<PredictReveal
+  prompt="A single RNN is unrolled across 20 time steps to process a 20-word sentence. How many distinct sets of weight matrices does it use across those 20 steps?"
+  options={["20 different sets, one per time step", "Just one set, reused at every step", "3 sets, rotated every few steps"]}
+  correct={1}
+>
 
 Concretely, the standard RNN computes:
 
@@ -59,6 +93,8 @@ $$\mathbf{h}_t = \tanh\!\left(\mathbf{W}_h \mathbf{h}_{t-1} + \mathbf{W}_x \math
 $$\hat{\mathbf{y}}_t = \mathbf{W}_y \mathbf{h}_t + \mathbf{b}_y$$
 
 Three learned matrices — $\mathbf{W}_h$, $\mathbf{W}_x$, $\mathbf{W}_y$ — and two bias vectors. These are **shared across every time step** (crucial — we explore this in Module 7). The output $\hat{\mathbf{y}}_t$ is optional at intermediate steps; sometimes we only care about $\hat{\mathbf{y}}_T$, the output after reading the entire sequence.
+
+</PredictReveal>
 
 ## Folded vs unfolded view
 
@@ -127,6 +163,13 @@ For $d=50, n=128, k=10$: $50 \times 128 + 128^2 + 128 + 10 \times 128 + 10 = 24{
 
 ---
 
+<ConceptBox title="TL;DR">
+- Sequential data is data where **position carries meaning** — reorder it and you change what it says.
+- Two properties follow, and both break the MLP: **order sensitivity** and **variable length**.
+- The test for "is this a sequence": would shuffling it destroy information? If yes it's sequential; if no it's just a set.
+- A flattened image is *not* sequential in this sense — its structure is spatial, which is what CNNs already exploit.
+</ConceptBox>
+
 ## Quiz
 
 <QuizCard
@@ -139,12 +182,6 @@ For $d=50, n=128, k=10$: $50 \times 128 + 128^2 + 128 + 10 \times 128 + 10 = 24{
   ]}
   correct={1}
 />
-
-<Recall items={[
-  { q: "Give a one-line test for whether data is sequential.", a: "Ask whether shuffling it destroys information. Stock prices, words, and DNA bases all lose their meaning when reordered, so they are sequential. A set of customer IDs does not, so it is not — order there is an artefact of storage, not signal." },
-  { q: "Why is a flattened 256x256 image NOT sequential data in this sense?", a: "Its structure is spatial and two-dimensional, not temporal and ordered along one axis. Flattening imposes an arbitrary raster order in which vertically adjacent pixels end up 256 positions apart — the relationships that matter are neighbourhoods, which is exactly what convolution exploits and recurrence does not." },
-  { q: "Name the two properties of sequences that together defeat an MLP.", a: "Order sensitivity — the same values in a different arrangement mean something different, and an MLP has no mechanism to represent that beyond memorising position. And variable length — sequences differ in length while an MLP's first weight matrix hardcodes the input dimension at construction." },
-]} />
 
 <MultiSelectQuiz
   question="Which of these are genuine examples of sequential data where order carries meaning?"

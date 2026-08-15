@@ -1,0 +1,86 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import Seq2SeqEncodeDecodeWidget from '../../components/widgets/attention-seq2seq/Seq2SeqEncodeDecodeWidget.jsx'
+
+# Module 2: The Encoder-Decoder Architecture
+
+<Bridge>
+Module 1 established the problem the rest of this track solves: a plain embedding table gives a word a vector, but never a vector that depends on the sentence it's actually in. An RNN reading a sequence in order is exactly a way to build that sentence-dependent representation. Point two RNNs at each other — one reading, one writing — and you have the encoder-decoder architecture: the standard shape for any task that maps one sequence to a *different* sequence, like translation.
+</Bridge>
+
+Running example for this whole track: translating **"I love coffee"** into French, **"J'aime le café"**. Three source tokens in, three target tokens out — a different count, a different vocabulary, a different word order. A plain classifier has no way to do this.
+
+## Two RNNs, one handoff
+
+<PredictReveal
+  prompt='The encoder reads "I", "love", "coffee" one token at a time and updates its hidden state each step. What does it pass to the decoder once it has read the whole sentence?'
+  options={["Every hidden state it computed, one per source token", "Only its final hidden state, as a single vector"]}
+  correct={1}
+>
+
+<Seq2SeqEncodeDecodeWidget />
+
+The **encoder** is an RNN (usually an LSTM or GRU) that reads the source sentence token by token, updating its hidden state at every step exactly as in the RNN track. It never produces an output during this phase — it only accumulates. After the last source token, its final hidden state is handed off as the **context vector**, often written $c$.
+
+The **decoder** is a *separate* RNN that starts from $c$ and generates the target sentence one token at a time. At each step it takes its own previous output (or the ground-truth previous token, during training) plus its running hidden state, and produces the next word. It stops when it emits a special end-of-sequence token, `EOS`.
+
+Encoder and decoder have their own vocabularies and their own embedding tables — nothing requires them to match, which is exactly right for two different languages.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What exactly does the encoder pass to the decoder?", a: "Only its final hidden state after reading the entire source sequence — a single fixed-size vector, the context vector c. Every intermediate hidden state the encoder computed along the way is discarded." },
+]} />
+
+## Starting and stopping the decoder
+
+<PredictReveal
+  prompt={"The decoder needs a first input to get going — it has no \"previous token\" yet before generating \"J'aime\". What is typically used?"}
+  options={["The context vector c, fed in again as if it were a token", "A dedicated start-of-sequence token, SOS"]}
+  correct={1}
+>
+
+The decoder is seeded with a `SOS` (start-of-sequence) token as its first input, alongside the context vector $c$ as its initial hidden state. From there it's autoregressive: predict a token, feed that token back in as the next step's input, repeat — until it predicts `EOS` or hits a maximum length.
+
+$$c = \text{Encoder}(x_1, \ldots, x_T) \qquad y_i = \text{Decoder}(y_{i-1}, h_{i-1};\, c)$$
+
+Every decoder step reuses the *same* $c$ — it's set once, at the handoff, and never updated as decoding proceeds. That single fact is the entire subject of Module 5.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What input does the decoder use to generate its very first output token?", a: "A special start-of-sequence token (SOS) as input, combined with the context vector c used as its initial hidden state. From there each subsequent step feeds back the previously generated (or ground-truth) token." },
+  { q: "Does the decoder need the same vocabulary as the encoder?", a: "No. They're separate RNNs with separate embedding tables — the only thing that crosses from one to the other is the context vector c, which lives in a shared hidden-state space, not a shared vocabulary." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The encoder-decoder architecture is two separate RNNs: an **encoder** that reads the source sequence and an **decoder** that generates the target sequence.
+- The encoder's *only* output is its final hidden state — the **context vector** $c$ — every intermediate state is discarded.
+- The decoder is autoregressive: seeded with `SOS` and $c$, it feeds each generated token back in as the next input, stopping at `EOS`.
+- The same $c$ is reused, unchanged, at every decoder step — the fixed handoff point this whole track is building toward interrogating.
+</ConceptBox>
+
+<QuizCard
+  question="In the standard encoder-decoder architecture, what does the decoder receive from the encoder?"
+  options={[
+    "One hidden state per source token, updated live as decoding proceeds",
+    "A single fixed-size context vector, computed once from the encoder's final hidden state",
+    "The raw source tokens themselves, re-embedded by the decoder",
+    "Nothing — decoder and encoder are trained independently"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the encoder-decoder architecture are correct?"
+  options={[
+    "The encoder and decoder are typically separate RNNs with separate vocabularies",
+    "The decoder is autoregressive — it feeds its own previous output back in as the next input",
+    "The context vector c is recomputed at every decoder step",
+    "The decoder is seeded with a start-of-sequence token and the encoder's final hidden state",
+    "The encoder produces one output token per source token, just like the decoder",
+    "Decoding stops when the decoder emits an end-of-sequence token"
+  ]}
+  correct={[0, 1, 3, 5]}
+/>

@@ -1,15 +1,6 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
 # Module 4: Applications of RNNs
-
-<ConceptBox title="TL;DR">
-- Every application reduces to one of four **input/output shapes**, and the shape dictates the architecture.
-- **Many→one**: sentiment, classification, readmission risk. Read the whole sequence, emit one answer from the final state.
-- **Many→many (synced)**: POS tagging, NER. One output per input, aligned position by position.
-- **Many→many (encoder-decoder)**: translation, summarisation. Lengths differ, so you read fully *then* generate.
-- **One→many**: image captioning. One input, a generated sequence out.
-- Naming the shape first is the practical skill — it tells you where the loss attaches and what the final state must carry.
-</ConceptBox>
 
 <Bridge>
 **From Module 3:** we've established why order matters and why standard networks can't handle it. Before diving into architecture, let's survey the landscape of what RNNs actually build — the motivation for everything that follows in this track.
@@ -38,6 +29,12 @@ RNNs power a wide range of real-world systems. The common thread: all inputs are
 
 Every RNN application falls into one of four I/O patterns. We'll explore these in depth in Module 12 — here's a quick preview.
 
+<PredictReveal
+  prompt="Translating a 10-word English sentence into a 12-word German sentence needs different input and output lengths. Which I/O pattern handles that?"
+  options={["Many-to-one — read everything, output one label", "Many-to-many synced — one output word per input word", "Many-to-many encoder-decoder — read fully, then generate freely"]}
+  correct={2}
+>
+
 **Many-to-one** — consume a sequence, emit a single summary. Used for classification and regression over sequences.
 
 ```
@@ -63,7 +60,20 @@ Encoder: x₁ → x₂ → x₃ → context
 Decoder: context → y₁ → y₂ → y₃ → y₄
 ```
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Classify these by shape: sentiment analysis, NER, translation, image captioning.", a: "Sentiment is many-to-one — the whole review yields one label. NER is many-to-many synced — one tag per token, aligned. Translation is many-to-many encoder-decoder — input and output lengths differ and there is no positional alignment. Captioning is one-to-many — a single image produces a generated sequence." },
+  { q: "Where does the loss attach in a many-to-one model versus a synced many-to-many one?", a: "Many-to-one puts a single loss on the final time step's output, so gradient must travel back through every earlier step from that one point. Synced many-to-many puts a loss at every step, so each position gets direct gradient — which is one reason tagging models train more easily than long-sequence classifiers." },
+]} />
+
 ## Spotlight: Language Modeling
+
+<PredictReveal
+  prompt="An RNN language model predicts the next word using the entire history so far, but it only keeps one fixed-size hidden state h. What does that hidden state have to do?"
+  options={["Store just the previous word", "Compress the entire word history seen so far into one vector", "Store a running count of vocabulary frequencies"]}
+  correct={1}
+>
 
 A language model predicts $P(w_t \mid w_1, \ldots, w_{t-1})$ — the probability of the next word given all previous words. An RNN maintains $\mathbf{h}_{t-1}$ which compresses the entire history, then produces:
 
@@ -75,7 +85,19 @@ $$\mathcal{L} = -\sum_{t=1}^{T} \log P(w_t \mid w_1, \ldots, w_{t-1})$$
 
 This is the foundation of all modern NLP. GPT-2, GPT-3, and their successors all descend from this idea — though they replace the RNN with the Transformer (attention) mechanism.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What must the final hidden state carry in a many-to-one model, and why is that demanding?", a: "It must be a compressed representation of the ENTIRE sequence sufficient to make the decision — a fixed-size vector summarising arbitrarily many steps. That is a genuine bottleneck: information from early steps has to survive all the way to the end, which is exactly the pressure that motivates gating and later attention." },
+]} />
+
 ## Spotlight: Machine Translation
+
+<PredictReveal
+  prompt="The encoder squeezes an entire source sentence into one fixed-size context vector c. What happens to translation quality as source sentences get longer?"
+  options={["No effect — c scales to fit any length", "It degrades — early information gets crowded out of the fixed-size vector", "It only slows down training, quality is unaffected"]}
+  correct={1}
+>
 
 The encoder-decoder architecture was the first to successfully translate between languages with deep learning. The encoder reads the source sentence and produces a context vector $\mathbf{c}$ (the final hidden state). The decoder generates the target language word-by-word, conditioned on $\mathbf{c}$:
 
@@ -87,9 +109,21 @@ output_tokens = decoder(context)       # generate target autoregressively
 
 The bottleneck: $\mathbf{c}$ must compress the entire source sentence into a single fixed-size vector. Long sentences lose information. The **attention mechanism** (precursor to Transformers) solved this by allowing the decoder to look back at all encoder hidden states at each decoding step.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can't translation use the synced many-to-many setup that works for POS tagging?", a: "Because the output has a different length and a different word order from the input — there is no position-by-position correspondence to attach an output to. The encoder-decoder split exists precisely for this: read the entire source into a state, then generate the target freely from it." },
+]} />
+
 ## Spotlight: Time-Series Forecasting
 
-Stock prices, weather, energy demand, web traffic — all are time series. An LSTM (Module 10) is well-suited here:
+Stock prices, weather, energy demand, web traffic — all are time series. An LSTM (Module 10) is well-suited here.
+
+<PredictReveal
+  prompt="Classical ARIMA models need lag windows specified by hand ahead of time. What does an LSTM need to be told about which lags matter?"
+  options={["The exact lag windows, same as ARIMA", "Nothing — it learns relevant lags and nonlinear patterns from the data", "Only the single most recent time step"]}
+  correct={1}
+>
 
 ```python
 # Simplified structure
@@ -100,6 +134,8 @@ model = nn.LSTM(input_size=1, hidden_size=64, num_layers=2, batch_first=True)
 
 Key advantage over ARIMA and classical methods: the model *learns* which lags matter and what nonlinear patterns to exploit — without hand-specified lag windows.
 
+</PredictReveal>
+
 ## Spotlight: Speech Recognition
 
 A speech signal is a sequence of 16,000 samples per second. After feature extraction (mel spectrograms), it becomes a sequence of ~100 frames per second. An RNN maps this to a sequence of characters or phonemes. The CTC (Connectionist Temporal Classification) loss handles the alignment mismatch between acoustic frames and text characters.
@@ -109,6 +145,15 @@ For many of these tasks, Transformers (BERT, GPT, Wav2Vec) have surpassed RNNs b
 </ConceptBox>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Every application reduces to one of four **input/output shapes**, and the shape dictates the architecture.
+- **Many→one**: sentiment, classification, readmission risk. Read the whole sequence, emit one answer from the final state.
+- **Many→many (synced)**: POS tagging, NER. One output per input, aligned position by position.
+- **Many→many (encoder-decoder)**: translation, summarisation. Lengths differ, so you read fully *then* generate.
+- **One→many**: image captioning. One input, a generated sequence out.
+- Naming the shape first is the practical skill — it tells you where the loss attaches and what the final state must carry.
+</ConceptBox>
 
 ## Quiz
 
@@ -122,13 +167,6 @@ For many of these tasks, Transformers (BERT, GPT, Wav2Vec) have surpassed RNNs b
   ]}
   correct={3}
 />
-
-<Recall items={[
-  { q: "Classify these by shape: sentiment analysis, NER, translation, image captioning.", a: "Sentiment is many-to-one — the whole review yields one label. NER is many-to-many synced — one tag per token, aligned. Translation is many-to-many encoder-decoder — input and output lengths differ and there is no positional alignment. Captioning is one-to-many — a single image produces a generated sequence." },
-  { q: "Why can't translation use the synced many-to-many setup that works for POS tagging?", a: "Because the output has a different length and a different word order from the input — there is no position-by-position correspondence to attach an output to. The encoder-decoder split exists precisely for this: read the entire source into a state, then generate the target freely from it." },
-  { q: "Where does the loss attach in a many-to-one model versus a synced many-to-many one?", a: "Many-to-one puts a single loss on the final time step's output, so gradient must travel back through every earlier step from that one point. Synced many-to-many puts a loss at every step, so each position gets direct gradient — which is one reason tagging models train more easily than long-sequence classifiers." },
-  { q: "What must the final hidden state carry in a many-to-one model, and why is that demanding?", a: "It must be a compressed representation of the ENTIRE sequence sufficient to make the decision — a fixed-size vector summarising arbitrarily many steps. That is a genuine bottleneck: information from early steps has to survive all the way to the end, which is exactly the pressure that motivates gating and later attention." },
-]} />
 
 <MultiSelectQuiz
   question="Which of these applications use the 'many-to-one' RNN pattern?"

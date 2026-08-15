@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import GradientFlowWidget from '../../components/widgets/rnn/GradientFlowWidget.jsx'
 
 # Module 9: Gradient Problems in RNNs
-
-<ConceptBox title="TL;DR">
-- One product causes both failures: $\prod_t \mathbf{W}_h^T\,\text{diag}(1-\mathbf{h}_t^2)$. Factors below 1 vanish, above 1 explode — exponentially in $T$.
-- **The two failures are not symmetric.** Exploding is loud (loss spikes, NaN) and easy to fix. Vanishing is silent — the model just never learns long-range structure.
-- **Gradient clipping rescales the gradient vector to a maximum norm, preserving its direction.** It fixes exploding only.
-- Order matters: `clip_grad_norm_` goes **after `loss.backward()`, before `optimizer.step()`**.
-- Clipping is not a substitute for LSTM/GRU — those exist for the vanishing half, which no rescaling can recover.
-</ConceptBox>
 
 <Bridge>
 **From Module 8:** BPTT sends gradients backward through every time step — multiplying by $\mathbf{W}_h^T$ and the tanh derivative at each step. Module 7 warned that this product is the critical bottleneck. Now let's examine what happens when that product becomes either very small or very large, and what practitioners do about it.
@@ -21,17 +13,33 @@ During BPTT, the gradient at step 1 is related to the gradient at step $T$ by:
 
 $$\frac{\partial \mathbf{h}_T}{\partial \mathbf{h}_1} = \prod_{t=2}^{T} \mathbf{W}_h^T \cdot \text{diag}(1 - \mathbf{h}_t^2)$$
 
+<PredictReveal
+  prompt="In the BPTT chain, gradients at step 1 come from multiplying T-1 Jacobian factors together. If every factor has magnitude less than 1, what happens to the gradient as T grows?"
+  options={["It shrinks toward zero, and the rate is exponential in T", "It shrinks toward zero, but only linearly in T", "It stays roughly constant regardless of T"]}
+  correct={0}
+>
+
 Two things can go wrong:
 
 **Vanishing gradients** — the product collapses to near zero. Gradients at early steps are too small to update weights meaningfully. The network cannot learn long-range dependencies.
 
 **Exploding gradients** — the product grows without bound. Gradients become so large that a single update overshoots, destabilising training. Loss may oscillate or diverge to NaN.
 
+</PredictReveal>
+
 ## Interactive: gradient magnitude over time
+
+<PredictReveal
+  prompt="Set the widget to Vanishing and increase T. What happens to the gradient magnitude at the earliest time step?"
+  options={["It shrinks toward zero, and faster as T grows", "It stays roughly flat no matter what T is", "It grows unboundedly as T grows"]}
+  correct={0}
+>
 
 Use the widget to see how gradient magnitude changes across time steps for each regime. Switch between Vanishing, Healthy, and Exploding, and observe what happens as you increase T.
 
 <GradientFlowWidget />
+
+</PredictReveal>
 
 ## Vanishing gradients — why they happen
 
@@ -53,7 +61,18 @@ If $\|\mathbf{W}_h\|_2 > 1$, each multiplication amplifies the gradient. After $
 
 In practice, exploding gradients are easier to detect (loss goes to NaN) and easier to fix (gradient clipping). Vanishing gradients are insidious — training proceeds but the model simply doesn't learn long-range patterns.
 
+<Recall items={[
+  { q: "Why is vanishing the more dangerous of the two failures?", a: "Because it is silent. Exploding gradients announce themselves with loss spikes and NaNs, so you cannot miss them. Vanishing gradients just mean early time steps receive negligible updates — training proceeds, loss decreases, and the model quietly learns only short-range structure while appearing to work." },
+  { q: "Point at the exact factor in the product that causes each failure.", a: "Each step contributes W_h^T times diag(1 - h_t^2). The tanh derivative term is at most 1 and near 0 when saturated, so it drives vanishing. The spectral radius of W_h can exceed 1, which drives exploding. Both compound over T steps, which is why the effect is exponential rather than gradual." },
+]} />
+
 ## Fix 1 — Gradient clipping (for exploding)
+
+<PredictReveal
+  prompt="Gradient clipping rescales a too-large gradient vector down to norm theta. Does this change the direction the update points in?"
+  options={["No — only magnitude changes, direction is preserved", "Yes — clipping also rotates the vector toward a safer direction", "It depends on which components exceeded the threshold"]}
+  correct={0}
+>
 
 Cap the gradient norm before applying the update:
 
@@ -74,7 +93,20 @@ optimizer.step()
 Gradient clipping rescales without changing direction — the update still points in a sensible direction, just with controlled magnitude. Truncating gradients to zero (zeroing any component exceeding a threshold) would change the direction and may not converge. Clipping the norm (not the components) is the standard approach.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does gradient clipping do to the gradient vector, and what does it deliberately preserve?", a: "If the global norm exceeds max_norm, it multiplies the whole gradient by max_norm divided by that norm. That caps the step size while preserving the DIRECTION — every component is scaled by the same factor, so the update still points where backprop said, just less far." },
+  { q: "Where exactly does clip_grad_norm_ go in the training loop?", a: "After loss.backward(), because the gradients must exist before they can be clipped, and before optimizer.step(), because the point is for the optimizer to consume the clipped values. Placing it after the step does nothing; placing it before backward operates on stale or zeroed gradients." },
+]} />
+
 ## Fix 2 — Better initialisation (for vanishing)
+
+<PredictReveal
+  prompt="Orthogonal initialisation keeps all singular values of W_h exactly 1. Does this alone guarantee gradients will not vanish?"
+  options={["No — tanh saturation can still shrink gradients even when the weight matrix preserves norm", "Yes — with singular values at 1, the product cannot shrink no matter what", "No — orthogonal init actually makes vanishing worse"]}
+  correct={0}
+>
 
 Initialising $\mathbf{W}_h$ as an **orthogonal matrix** keeps its singular values exactly 1, so $\|\mathbf{W}_h\|_2 = 1$. Gradients neither grow nor shrink due to the weight matrix alone — only the tanh derivative causes shrinkage.
 
@@ -83,11 +115,17 @@ In PyTorch:
 nn.init.orthogonal_(rnn.weight_hh_l0)
 ```
 
+</PredictReveal>
+
 ## Fix 3 — LSTM and GRU (the real solution)
 
 Gradient clipping and orthogonal initialisation are band-aids. The real fix is to redesign the cell so that gradients can flow without going through tanh repeatedly — this is exactly what LSTM and GRU do (Module 10).
 
 Their key insight: instead of computing $\mathbf{h}_t$ entirely from scratch via tanh at every step, maintain a separate **cell state** that is updated *additively* rather than through a squash function. Additive updates produce constant-magnitude gradients along the cell state dimension.
+
+<Recall items={[
+  { q: "Does clipping fix vanishing gradients too?", a: "No. Clipping only ever shrinks gradients that are too large — it never amplifies small ones, and rescaling a vector that has decayed to numerical noise recovers no information. The vanishing half requires an architectural change, which is what the additive cell state in LSTM and GRU provides." },
+]} />
 
 ## Fix 4 — Gradient penalty / weight constraints
 
@@ -130,6 +168,14 @@ The update $\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} - \alpha \mathbf{
 
 ---
 
+<ConceptBox title="TL;DR">
+- One product causes both failures: $\prod_t \mathbf{W}_h^T\,\text{diag}(1-\mathbf{h}_t^2)$. Factors below 1 vanish, above 1 explode — exponentially in $T$.
+- **The two failures are not symmetric.** Exploding is loud (loss spikes, NaN) and easy to fix. Vanishing is silent — the model just never learns long-range structure.
+- **Gradient clipping rescales the gradient vector to a maximum norm, preserving its direction.** It fixes exploding only.
+- Order matters: `clip_grad_norm_` goes **after `loss.backward()`, before `optimizer.step()`**.
+- Clipping is not a substitute for LSTM/GRU — those exist for the vanishing half, which no rescaling can recover.
+</ConceptBox>
+
 ## Quiz
 
 <QuizCard
@@ -142,14 +188,6 @@ The update $\boldsymbol{\theta} \leftarrow \boldsymbol{\theta} - \alpha \mathbf{
   ]}
   correct={1}
 />
-
-<Recall items={[
-  { q: "Why is vanishing the more dangerous of the two failures?", a: "Because it is silent. Exploding gradients announce themselves with loss spikes and NaNs, so you cannot miss them. Vanishing gradients just mean early time steps receive negligible updates — training proceeds, loss decreases, and the model quietly learns only short-range structure while appearing to work." },
-  { q: "What does gradient clipping do to the gradient vector, and what does it deliberately preserve?", a: "If the global norm exceeds max_norm, it multiplies the whole gradient by max_norm divided by that norm. That caps the step size while preserving the DIRECTION — every component is scaled by the same factor, so the update still points where backprop said, just less far." },
-  { q: "Where exactly does clip_grad_norm_ go in the training loop?", a: "After loss.backward(), because the gradients must exist before they can be clipped, and before optimizer.step(), because the point is for the optimizer to consume the clipped values. Placing it after the step does nothing; placing it before backward operates on stale or zeroed gradients." },
-  { q: "Does clipping fix vanishing gradients too?", a: "No. Clipping only ever shrinks gradients that are too large — it never amplifies small ones, and rescaling a vector that has decayed to numerical noise recovers no information. The vanishing half requires an architectural change, which is what the additive cell state in LSTM and GRU provides." },
-  { q: "Point at the exact factor in the product that causes each failure.", a: "Each step contributes W_h^T times diag(1 - h_t^2). The tanh derivative term is at most 1 and near 0 when saturated, so it drives vanishing. The spectral radius of W_h can exceed 1, which drives exploding. Both compound over T steps, which is why the effect is exponential rather than gradual." },
-]} />
 
 <MultiSelectQuiz
   question="Which of these are correct statements about gradient clipping in RNN training?"

@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import AnchorBoxWidget from '../../components/widgets/cv/AnchorBoxWidget.jsx'
 
 # Module 18: Anchor Boxes
-
-<ConceptBox title="TL;DR">
-- An anchor is a **fixed reference box** attached to a feature-map position. The network predicts a small correction to it, not a box from nothing.
-- Anchors make target assignment well-posed: each ground truth is matched to the anchor it overlaps most, so every output slot has an unambiguous job.
-- They also lift the one-object-per-cell ceiling — $k$ anchors per cell means $k$ objects of different shapes can coexist there.
-- Shapes are chosen by **k-means on the training boxes with $d = 1 - \text{IoU}$**, not Euclidean distance, so large boxes do not dominate.
-- YOLOv2's constrained parameterisation ($\sigma$ on the centre offsets, $\exp$ on the sizes) is what made anchors trainable from a random init.
-</ConceptBox>
 
 <Bridge>
 The RPN in Module 13 introduced anchors and Module 15 showed what YOLO v1 lost by not having them. This module is the mechanism itself: where the shapes come from, how targets are assigned, and how the offsets are parameterised.
@@ -28,7 +20,17 @@ $$\text{prediction} = \text{anchor} + \text{learned offset}$$
 
 The target is now near zero, well conditioned, and unambiguous.
 
+<Recall items={[
+  { q: "What two ill-posed problems do anchors fix?", a: "Target assignment and conditioning. Without anchors, a single output slot can receive a tall box on one image and a wide box on the next, so it learns their meaningless average; anchors let each ground truth be matched to the slot whose prior shape it overlaps most, making every slot's job consistent. And because the network predicts a correction to a reasonable prior rather than a box from scratch, the regression target is near zero and far better conditioned." },
+]} />
+
 ## Choosing the shapes
+
+<PredictReveal
+  prompt="Anchor shapes are chosen by k-means on the training boxes — but not with ordinary Euclidean distance on (w, h). What distance function replaces it?"
+  options={["Euclidean distance, just normalised first", "1 − IoU between the box and the centroid", "Manhattan distance on (w, h)"]}
+  correct={1}
+>
 
 <AnchorBoxWidget />
 
@@ -44,7 +46,19 @@ $1 - \text{IoU}$ is scale-free: a 2× shape mismatch costs the same whether the 
 
 The elbow in the mean-IoU curve is the real answer to "how many anchors". YOLOv2 chose **5** as the accuracy/cost knee; v3 uses **9**, split three per scale across three feature maps.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does anchor k-means use 1 − IoU rather than Euclidean distance on (w, h)?", a: "Because Euclidean distance is scale-dependent: the same relative shape mismatch costs a hundred times more on a 400-pixel box than on a 40-pixel one, so the centroids all migrate toward large boxes and small objects share one poor anchor. 1 − IoU is scale-free, and it is also the quantity you actually care about — how well the assigned anchor covers a typical ground truth." },
+]} />
+
 ## Assignment during training
+
+<PredictReveal
+  prompt="An anchor has IoU 0.5 with the nearest ground truth — above the negative threshold but below the positive one. How does training treat it?"
+  options={["As a positive — better to over-assign", "As a negative — safer to suppress", "It gets no gradient at all — ignored"]}
+  correct={2}
+>
 
 For every anchor at every position:
 
@@ -57,7 +71,19 @@ For every anchor at every position:
 
 The ignore band matters. An anchor at IoU 0.5 is neither clearly right nor clearly wrong; training it as a negative teaches the network to suppress a nearly-correct box, and as a positive it teaches sloppiness. Excluding it is cleaner than guessing.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the 'ignore band' in anchor assignment for?", a: "It excludes anchors whose IoU with a ground truth is neither clearly high nor clearly low — say between 0.3 and 0.7 for the RPN. Calling such an anchor negative would train the network to suppress a nearly-correct box; calling it positive would reward sloppy localisation. Giving it no gradient at all is cleaner than guessing which." },
+]} />
+
 ## The parameterisation, and the bug it fixed
+
+<PredictReveal
+  prompt="Faster R-CNN's raw offset t_x is unbounded — nothing stops a random init from predicting t_x = 30 and throwing the box across the image. What did YOLOv2 change to fix the resulting training instability?"
+  options={["Clipped t_x to a fixed numeric range", "Wrapped the centre offset in a sigmoid, tying it to its own cell", "Dropped the centre offset and predicted absolute pixel coordinates"]}
+  correct={1}
+>
 
 Faster R-CNN's offsets are unbounded:
 
@@ -70,6 +96,12 @@ Their fix ties the centre to the cell it was predicted in:
 $$b_x = \sigma(t_x) + c_x, \qquad b_y = \sigma(t_y) + c_y, \qquad b_w = p_w e^{t_w}, \qquad b_h = p_h e^{t_h}$$
 
 $\sigma$ bounds the centre offset to $[0,1)$, so **a prediction can never leave its own cell**, while $\exp$ keeps sizes positive and symmetric under doubling/halving (Module 13's derivation). Size stays unbounded because an object legitimately can be much larger than its anchor; position does not, because the responsible cell is a fact.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does YOLOv2 put a sigmoid on the centre offsets but an exponential on the sizes?", a: "Because the constraints differ. The responsible cell is a fact, so a centre offset should never leave it — the sigmoid bounds it to [0,1) and removes the early-training instability where an unconstrained offset threw boxes across the image. Size has no such bound: an object can legitimately be several times its anchor, so the exponential keeps it positive and symmetric under doubling and halving without capping it." },
+]} />
 
 ## Worked example — decode one prediction
 
@@ -84,6 +116,12 @@ Divide by 13 for image fractions: centre $(0.354,\, 0.479)$, size $(0.185,\, 0.2
 
 ## Anchor-free, and why the idea keeps returning
 
+<PredictReveal
+  prompt="Given everything above, do current state-of-the-art detectors like YOLOv8 still rely on anchor boxes?"
+  options={["Yes — anchors remain standard", "No — modern detectors are anchor-free"]}
+  correct={1}
+>
+
 Anchors are hyperparameters: how many, what shapes, which IoU cut-offs, per dataset. FCOS and CenterNet remove them:
 
 | Method | Predicts | Advantage |
@@ -93,6 +131,8 @@ Anchors are hyperparameters: how many, what shapes, which IoU cut-offs, per data
 | **YOLOv8** | anchor-free, with task-aligned assignment | fewer knobs, same accuracy |
 
 Modern YOLO is anchor-free, so do not read Module 15–18 as describing current code. Read them as describing the *problem* anchors solved — target assignment and conditioning — because anchor-free methods still have to solve it, they just do it with a different rule.
+
+</PredictReveal>
 
 ---
 
@@ -130,15 +170,19 @@ which at $\gamma = 2$ scales an easy negative's contribution ($p_t = 0.99$) down
 </DerivationStep>
 </DerivationSteps>
 
----
-
 <Recall items={[
-  { q: "What two ill-posed problems do anchors fix?", a: "Target assignment and conditioning. Without anchors, a single output slot can receive a tall box on one image and a wide box on the next, so it learns their meaningless average; anchors let each ground truth be matched to the slot whose prior shape it overlaps most, making every slot's job consistent. And because the network predicts a correction to a reasonable prior rather than a box from scratch, the regression target is near zero and far better conditioned." },
-  { q: "Why does anchor k-means use 1 − IoU rather than Euclidean distance on (w, h)?", a: "Because Euclidean distance is scale-dependent: the same relative shape mismatch costs a hundred times more on a 400-pixel box than on a 40-pixel one, so the centroids all migrate toward large boxes and small objects share one poor anchor. 1 − IoU is scale-free, and it is also the quantity you actually care about — how well the assigned anchor covers a typical ground truth." },
-  { q: "Why does YOLOv2 put a sigmoid on the centre offsets but an exponential on the sizes?", a: "Because the constraints differ. The responsible cell is a fact, so a centre offset should never leave it — the sigmoid bounds it to [0,1) and removes the early-training instability where an unconstrained offset threw boxes across the image. Size has no such bound: an object can legitimately be several times its anchor, so the exponential keeps it positive and symmetric under doubling and halving without capping it." },
-  { q: "What is the 'ignore band' in anchor assignment for?", a: "It excludes anchors whose IoU with a ground truth is neither clearly high nor clearly low — say between 0.3 and 0.7 for the RPN. Calling such an anchor negative would train the network to suppress a nearly-correct box; calling it positive would reward sloppy localisation. Giving it no gradient at all is cleaner than guessing which." },
   { q: "YOLOv3 at 416px produces 10,647 boxes for an image with about 7 objects. What problem does that create and name two fixes.", a: "Extreme class imbalance — roughly 1 positive to 500 negatives, so the summed background gradient swamps the positives and the model converges toward predicting nothing. YOLO damps it with lambda_noobj = 0.5, SSD uses hard negative mining capped at 3 negatives per positive, and RetinaNet's focal loss down-weights easy examples continuously by (1-p)^gamma." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- An anchor is a **fixed reference box** attached to a feature-map position. The network predicts a small correction to it, not a box from nothing.
+- Anchors make target assignment well-posed: each ground truth is matched to the anchor it overlaps most, so every output slot has an unambiguous job.
+- They also lift the one-object-per-cell ceiling — $k$ anchors per cell means $k$ objects of different shapes can coexist there.
+- Shapes are chosen by **k-means on the training boxes with $d = 1 - \text{IoU}$**, not Euclidean distance, so large boxes do not dominate.
+- YOLOv2's constrained parameterisation ($\sigma$ on the centre offsets, $\exp$ on the sizes) is what made anchors trainable from a random init.
+</ConceptBox>
 
 <QuizCard
   question="A YOLOv2 cell at (cx, cy) = (3, 5) with anchor (pw, ph) = (2.0, 4.0) outputs tx = 0, ty = 2.0, tw = 0, th = 0. Where is the decoded box centre?"

@@ -1,0 +1,82 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 1: Word Embeddings — Strengths and Limits
+
+<Bridge>
+The RNN track's final module ended on a teaser: translation needs an encoder and a decoder, the whole source sentence gets squeezed into one fixed-size vector, and that squeeze is "the through-line that motivated attention, and from there transformers." This track cashes that promise in — properly this time, with the architecture, the math, the training loop, and runnable code. Before any of that: every word going into these models first has to become a vector, so start there.
+</Bridge>
+
+A word embedding is a dense vector that stands in for a word — learned so that words used in similar contexts end up with similar vectors. "coffee" and "tea" land close together; "coffee" and "bicycle" don't. That single idea — distributional similarity, encoded as geometry — is what every model in this track builds on top of.
+
+## One vector per word, learned from context
+
+<PredictReveal
+  prompt="word2vec trains by predicting a word from its neighbours (or vice versa) across a huge corpus. Two words that never once appear in the same sentence — can they still end up with similar vectors?"
+  options={["No — similarity requires having appeared together", "Yes — sharing the same kinds of neighbours is enough"]}
+  correct={1}
+>
+
+"cat" and "dog" rarely sit in the exact same sentence, but both show up near "pet", "vet", "feed", "walk". word2vec (skip-gram or CBOW) and GloVe both exploit this: predict a word from its context (or context from the word) over millions of sentences, and words with interchangeable contexts converge to nearby vectors — without ever being told what "cat" or "dog" mean.
+
+The result is a lookup table: one fixed vector per vocabulary word, typically 100–300 dimensions, learned once and reused everywhere. Arithmetic on these vectors captures relationships too — the classic example is `king - man + woman ≈ queen`.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why do 'cat' and 'dog' end up with similar embeddings even if they rarely co-occur directly?", a: "Because word2vec and GloVe learn from shared context, not direct co-occurrence. Both words tend to appear near the same neighbours (pet, vet, walk, feed), and it's that shared context distribution — not appearing together — that pulls their vectors close." },
+]} />
+
+## The limit: one vector, no matter the sentence
+
+<PredictReveal
+  prompt='"river bank" and "savings bank" both contain the word "bank". In a plain word-embedding table (word2vec/GloVe), do these two occurrences get the same vector or different vectors?'
+  options={["The same vector", "Different vectors, based on context"]}
+  correct={0}
+>
+
+A classic embedding table is a fixed lookup: `embedding["bank"]` returns one vector, always, regardless of what surrounds it in a given sentence. "bank" in "river bank" and "bank" in "savings bank" are the exact same 300 numbers. The model has folded every sense of the word into a single average-ish point in space.
+
+This is the ceiling of this approach: embeddings are **context-independent**. They tell you what a word tends to mean *in general*, not what it means *right here*. There's also no mechanism for words the table has never seen (out-of-vocabulary tokens just fail to resolve) and no notion of word order at all — the table has no idea if "bank" was the 1st word or the 41st.
+
+</PredictReveal>
+
+<ConceptBox title="Where this is going">
+Fixing "one vector per word, no matter the sentence" is a big part of what the rest of this track — and eventually self-attention in transformers — is about. The encoder-decoder architecture in the next module is the first step: instead of looking up a word in isolation, an RNN reads it *in sequence*, so the representation it builds can depend on everything that came before.
+</ConceptBox>
+
+<Recall items={[
+  { q: "Name two limitations of a classic word-embedding table (word2vec/GloVe), besides being context-independent.", a: "It can't handle out-of-vocabulary words — anything not seen during training simply has no vector. And it carries no notion of order or position: the table returns the same vector whether the word was first, last, or anywhere in between." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A word embedding is a dense vector learned so that words with similar contexts end up close together — the mechanism behind `king - man + woman ≈ queen`.
+- word2vec/GloVe learn from **shared context**, not direct co-occurrence, which is why semantically related words cluster even without appearing in the same sentence.
+- The core limitation: a classic embedding table returns **one fixed vector per word**, identical no matter which sentence it appears in — "bank" (river) and "bank" (money) are indistinguishable.
+- No handling of out-of-vocabulary words, and no notion of word order — both motivate reading words *in sequence*, which is where the encoder-decoder architecture starts.
+</ConceptBox>
+
+<QuizCard
+  question="In a classic word2vec/GloVe embedding table, what determines a word's vector?"
+  options={[
+    "The specific sentence it currently appears in",
+    "A single vector learned once from the word's typical contexts across the whole training corpus, fixed thereafter",
+    "The position of the word within its current sentence",
+    "A hand-crafted rule based on part of speech"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of these are genuine limitations of a classic (word2vec/GloVe-style) word embedding table?"
+  options={[
+    "The same word always gets the same vector, regardless of context",
+    "It cannot represent semantic similarity between words at all",
+    "It has no built-in notion of word order",
+    "Out-of-vocabulary words have no vector",
+    "It requires labeled training data for every word",
+    "Vector arithmetic never captures any relationship between words"
+  ]}
+  correct={[0, 2, 3]}
+/>

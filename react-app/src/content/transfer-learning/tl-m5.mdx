@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall, PredictReveal } from '../../components/learning/index.js'
 import TripletLossWidget from '../../components/widgets/transfer-learning/TripletLossWidget.jsx'
 
 # Module 5: Metric Learning and Similarity Search
-
-<ConceptBox title="TL;DR">
-- A classifier's embedding is *incidentally* useful for similarity. **Metric learning optimises for it directly.**
-- **Contrastive** loss works on pairs, **triplet** loss on (anchor, positive, negative). Both push similar things together and different things apart by at least a **margin**.
-- Once the model is decent, most randomly-sampled triplets have **zero loss and therefore zero gradient**. Training stalls unless you *mine* hard ones.
-- Modern practice mostly skips triplets: **InfoNCE / NT-Xent** compares one positive against many negatives in the same batch, which is far more sample-efficient.
-- Use metric learning when the classes are **open-ended** (faces, products, re-identification). Use a classifier when they are fixed.
-</ConceptBox>
 
 <Bridge>
 Module 4 took the embedding a classifier happened to produce. But nothing in cross-entropy asks for *similar images to be close* — only for classes to be linearly separable, which is a weaker requirement. Metric learning makes proximity the objective itself.
@@ -22,6 +14,12 @@ Cross-entropy is satisfied as soon as every class sits on the correct side of a 
 Metric learning replaces "be separable" with **"be close to your own kind, and at least `m` away from everything else"**.
 
 ## Triplet loss
+
+<PredictReveal
+  prompt="As training progresses and the model gets better, what happens to the fraction of randomly-sampled triplets that still produce a non-zero gradient?"
+  options={["Stays roughly constant", "Grows — there's more to learn as the embedding sharpens", "Shrinks toward zero — most triplets become 'easy' and stop teaching anything"]}
+  correct={2}
+>
 
 $$\mathcal{L} = \max\big(0,\; d(a, p) - d(a, n) + m\big)$$
 
@@ -46,7 +44,19 @@ Fixes, in increasing order of how well they work:
 Mining hardest-of-all often *destabilises* training, because the hardest negative in a real dataset is frequently a labelling error.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does triplet training stall even while the loss looks converged?", a: "Because once the model is reasonable, most randomly-sampled triplets already satisfy the margin, so their loss is exactly zero and they contribute no gradient. The average batch gradient collapses toward zero while the loss value looks fine. The fix is mining — batch-hard or semi-hard selection — so that the triplets in each batch are ones the model still gets wrong." },
+]} />
+
 ## What replaced triplets
+
+<PredictReveal
+  prompt="InfoNCE compares one anchor against every other item in its batch. With a batch of 256 images, how many negatives does a single anchor get compared against in one step?"
+  options={["1, same as triplet loss", "255 — every other item in the batch", "256"]}
+  correct={1}
+>
 
 **InfoNCE / NT-Xent** — one anchor, one positive, and **every other item in the batch** as negatives, all at once:
 
@@ -69,7 +79,19 @@ triplet = torch.nn.TripletMarginLoss(margin=0.2, p=2)
 loss = triplet(anchor, positive, negative)
 ```
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "How is InfoNCE more sample-efficient than triplet loss?", a: "A triplet compares one positive against one negative. InfoNCE compares the positive against every other item in the batch simultaneously, so a batch of 256 gives 255 negatives per anchor in a single step. That is why contrastive pretraining methods use very large batches — the batch size is effectively the number of negatives." },
+]} />
+
 ## When to reach for metric learning
+
+<PredictReveal
+  prompt="Your catalog gets new, never-before-seen products every day, and you need to find visually similar items already in stock. Fixed classifier or metric learning?"
+  options={["A fixed classifier — simpler and usually enough", "Metric learning — the class set is open-ended", "Doesn't matter, either works equally well"]}
+  correct={1}
+>
 
 | Situation | Use |
 |---|---|
@@ -83,6 +105,12 @@ Before building a triplet pipeline, try this: train an ordinary classifier, take
 
 Metric learning earns its complexity when the label set is genuinely open — when the thing you deploy will meet classes that did not exist at training time.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "When is a plain classifier's embedding good enough, and when is metric learning worth the engineering?", a: "A classifier is enough when the class set is fixed and you have decent labels — take its embeddings, L2-normalise, and you are often within a point or two of tuned metric learning. Metric learning earns its cost when the label set is open-ended, such as faces, product catalogues or re-identification, where deployment will meet classes that did not exist during training." },
+]} />
 
 ---
 
@@ -117,12 +145,17 @@ $\tau \approx 0.07$ (SimCLR, CLIP) sits in between: the hardest negatives domina
 ---
 
 <Recall items={[
-  { q: "Why does triplet training stall even while the loss looks converged?", a: "Because once the model is reasonable, most randomly-sampled triplets already satisfy the margin, so their loss is exactly zero and they contribute no gradient. The average batch gradient collapses toward zero while the loss value looks fine. The fix is mining — batch-hard or semi-hard selection — so that the triplets in each batch are ones the model still gets wrong." },
   { q: "What does the margin in triplet loss prevent?", a: "Embedding collapse. Without it the loss is satisfied as soon as the negative is further than the positive by any infinitesimal amount, which a degenerate solution mapping every image to nearly the same point achieves trivially. The margin demands a quantitative gap, forcing the representation to actually spread out." },
-  { q: "How is InfoNCE more sample-efficient than triplet loss?", a: "A triplet compares one positive against one negative. InfoNCE compares the positive against every other item in the batch simultaneously, so a batch of 256 gives 255 negatives per anchor in a single step. That is why contrastive pretraining methods use very large batches — the batch size is effectively the number of negatives." },
   { q: "In what sense is InfoNCE's temperature a mining strategy?", a: "As temperature goes to zero the softmax concentrates almost all gradient on the single hardest negative, which is exactly what hard-negative mining does; as it grows large all negatives are weighted equally and little separation pressure remains. So one scalar controls the same trade-off triplet loss needs an explicit sampling algorithm for. Around 0.07 is the common choice." },
-  { q: "When is a plain classifier's embedding good enough, and when is metric learning worth the engineering?", a: "A classifier is enough when the class set is fixed and you have decent labels — take its embeddings, L2-normalise, and you are often within a point or two of tuned metric learning. Metric learning earns its cost when the label set is open-ended, such as faces, product catalogues or re-identification, where deployment will meet classes that did not exist during training." },
 ]} />
+
+<ConceptBox title="TL;DR">
+- A classifier's embedding is *incidentally* useful for similarity. **Metric learning optimises for it directly.**
+- **Contrastive** loss works on pairs, **triplet** loss on (anchor, positive, negative). Both push similar things together and different things apart by at least a **margin**.
+- Once the model is decent, most randomly-sampled triplets have **zero loss and therefore zero gradient**. Training stalls unless you *mine* hard ones.
+- Modern practice mostly skips triplets: **InfoNCE / NT-Xent** compares one positive against many negatives in the same batch, which is far more sample-efficient.
+- Use metric learning when the classes are **open-ended** (faces, products, re-identification). Use a classifier when they are fixed.
+</ConceptBox>
 
 <QuizCard
   question="A triplet has d(a,p) = 0.4, d(a,n) = 0.9, margin = 0.2. What is the loss and what does it contribute?"

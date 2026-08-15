@@ -1,0 +1,107 @@
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ContextVectorCalcWidget from '../../components/widgets/attention-seq2seq/ContextVectorCalcWidget.jsx'
+
+# Module 10: The Math of Attention — Context Vectors
+
+<Bridge>
+Module 7 named the four steps — score, normalize, combine, generate — and Module 8 showed one concrete score function in code. This module is the formal version: the exact definition of a context vector, the family of score functions it can be built from, and a fully worked numeric example so every step has real numbers behind it.
+</Bridge>
+
+## The context vector, defined
+
+<PredictReveal
+  prompt="Formally, c_i (the context vector for decoder step i) is a weighted sum of the encoder hidden states h_j. What must be true of the weights alpha_ij for c_i to count as a proper weighted average?"
+  options={["They must all be equal to each other", "They must be non-negative and sum to 1 across j"]}
+  correct={1}
+>
+
+$$c_i = \sum_{j=1}^{T_{src}} \alpha_{ij}\, h_j \qquad \text{where } \alpha_{ij} = \frac{\exp(e_{ij})}{\sum_{k=1}^{T_{src}} \exp(e_{ik})}$$
+
+That denominator is softmax, applied across the source positions $j$ for a fixed decoder step $i$. It guarantees $\alpha_{ij} \geq 0$ and $\sum_j \alpha_{ij} = 1$ — exactly the two conditions that make $c_i$ a genuine weighted average of the $h_j$'s rather than an arbitrary combination. Nothing here has changed from Module 7; this is that same pipeline, written as one equation.
+
+</PredictReveal>
+
+## Three ways to compute the score $e_{ij}$
+
+<DerivationSteps>
+<DerivationStep number={1} title="Dot, general, and additive scoring">
+
+Given the decoder's previous hidden state $s_{i-1}$ and an encoder state $h_j$, three standard score functions:
+
+| Name | Formula | Learnable parameters |
+|---|---|---|
+| Dot (Luong) | $e_{ij} = s_{i-1}^\top h_j$ | none |
+| General (Luong) | $e_{ij} = s_{i-1}^\top W_a\, h_j$ | $W_a$ |
+| Additive (Bahdanau) | $e_{ij} = v_a^\top \tanh(W_a s_{i-1} + U_a h_j)$ | $v_a, W_a, U_a$ |
+
+Dot is the cheapest — no extra parameters at all — but it requires $s_{i-1}$ and $h_j$ to have the same dimensionality, since it's a plain inner product. General relaxes that with a learned bilinear map. Additive is the most expressive, and the one Module 8's code used, at the cost of a small feedforward network run once per source position per decoder step.
+
+</DerivationStep>
+<DerivationStep number={2} title="Why scaled dot-product exists">
+
+Take dot scoring with vectors of dimension $d$, whose components are roughly independent with mean 0 and variance 1. The dot product $s^\top h = \sum_{k=1}^d s_k h_k$ is a sum of $d$ roughly-independent terms, so its **variance grows linearly with $d$** — its typical magnitude grows like $\sqrt{d}$.
+
+As $d$ gets large, raw dot-product scores spread out over a wide range, and softmax over a wide range saturates: one score dominates, the rest collapse toward zero, and the "soft" in soft attention stops meaning much. Dividing by $\sqrt{d}$ counteracts exactly this growth, keeping the scores at a roughly constant scale regardless of dimensionality:
+
+$$e_{ij} = \frac{s_{i-1}^\top h_j}{\sqrt{d}}$$
+
+This scaled dot-product is precisely the score function later adopted, unchanged, as the core of self-attention in the Transformer — the same variance argument, just applied there to a different pair of vectors.
+
+</DerivationStep>
+</DerivationSteps>
+
+<Recall items={[
+  { q: "Which score function needs no extra learnable parameters, and what's the trade-off?", a: "Dot-product scoring — it's a plain inner product of the decoder and encoder hidden states. The trade-off is that it requires both vectors to have the same dimensionality, since a dot product is undefined otherwise; general and additive scoring both relax that requirement at the cost of extra learned weights." },
+  { q: "Why does scaling by 1/√d matter for dot-product attention as dimensionality grows?", a: "A dot product of two roughly-independent, unit-variance vectors of dimension d has variance that grows linearly with d, so its typical magnitude grows like √d. Without correcting for that, scores at high dimensions spread out wide enough that softmax saturates toward a near one-hot output, losing the soft weighting attention is supposed to provide. Dividing by √d keeps the score scale roughly constant as d changes." },
+]} />
+
+## Computing $c_i$ end to end, with real numbers
+
+<PredictReveal
+  prompt='Toggle the "scale by 1/√d" option below. With scaling off, dot-product scores for a 3-dimensional toy example can already differ by close to a full unit. Turning scaling on divides every score by √3 ≈ 1.73. Does this make the resulting attention weights MORE peaked (closer to one-hot) or LESS peaked (closer to uniform)?'
+  options={["More peaked", "Less peaked — smaller score gaps mean softmax spreads weight out more"]}
+  correct={1}
+>
+
+<ContextVectorCalcWidget />
+
+Walk the table above for any decoder step: each $h_j$ is a real 3-number vector, each $e_j$ is a real dot product, and $\alpha_j$ is exactly what softmax makes of those three numbers. The context vector row at the bottom is $\sum_j \alpha_j h_j$, computed live — not hand-waved. Toggling the scale option shrinks the gaps between the raw scores, and a smaller gap going into softmax always comes out as a flatter, less confident weight distribution — the direct, numeric version of the variance argument above.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "In the worked example, what determines how much weight the context vector puts on the encoder state for 'coffee' when decoding 'café'?", a: "The dot product between the decoder's hidden state at that step and the 'coffee' encoder hidden state, relative to the dot products against the other source states — after softmax normalises all three into weights that sum to 1. A higher relative dot product for 'coffee' means a higher alpha, and therefore more of 'coffee' in the resulting weighted-average context vector." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- $c_i = \sum_j \alpha_{ij} h_j$, with $\alpha_{ij} = \text{softmax}_j(e_{ij})$ — softmax is what guarantees $c_i$ is a genuine weighted average.
+- Three standard score functions: **dot** (no extra parameters, needs matching dimensions), **general** (a learned bilinear map), **additive/Bahdanau** (a small feedforward network, most expressive).
+- Dot-product scores have variance growing with dimension $d$, which can saturate softmax at high $d$ — **scaled dot-product** ($e_{ij} = s^\top h_j / \sqrt{d}$) corrects for this, and is exactly what the Transformer later reuses.
+- The worked numeric example shows the full pipeline end to end: real hidden-state vectors, real dot products, real softmax weights, and the resulting context vector as their weighted sum.
+</ConceptBox>
+
+<QuizCard
+  question="What does dividing the dot-product score by √d (scaled dot-product) correct for?"
+  options={[
+    "It normalises the encoder hidden states to unit length",
+    "It counteracts the variance of the dot product growing with dimension d, which would otherwise saturate softmax",
+    "It reduces the number of learnable parameters in the score function",
+    "It speeds up matrix multiplication on GPUs"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the math of attention context vectors are correct?"
+  options={[
+    "The context vector c_i is guaranteed to be a weighted average because softmax makes the weights non-negative and sum to 1",
+    "Dot-product scoring introduces new learnable parameters beyond the decoder and encoder states themselves",
+    "Additive (Bahdanau) scoring is the most expressive of the three standard score functions, at the cost of extra parameters",
+    "Dot-product scoring requires the decoder and encoder hidden states to have the same dimensionality",
+    "Scaled dot-product attention divides the raw score by the sequence length, not by √d",
+    "Scaling corrects for the dot product's variance growing with vector dimensionality"
+  ]}
+  correct={[0, 2, 3, 5]}
+/>

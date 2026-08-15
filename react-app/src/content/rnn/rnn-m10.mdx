@@ -1,16 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall, PredictReveal } from '../../components/learning/index.js'
 import LSTMGateWidget from '../../components/widgets/rnn/LSTMGateWidget.jsx'
 
 # Module 10: LSTM & GRU — Extended Memory Architectures
-
-<ConceptBox title="TL;DR">
-- **The whole idea is additive vs multiplicative.** A vanilla RNN *replaces* the state through tanh every step; the LSTM *adds* to a separate cell state: $\mathbf{c}_t=\mathbf{f}_t\odot\mathbf{c}_{t-1}+\mathbf{i}_t\odot\tilde{\mathbf{c}}_t$.
-- With $\mathbf{f}_t\approx1$ the gradient path from $\mathbf{c}_T$ to $\mathbf{c}_1$ multiplies by ~1 each step instead of by a tanh derivative. That's the **constant error carousel**.
-- Gates are sigmoids, so they live in $(0,1)$ and act as **soft, learned** switches — 0 erases, 1 passes through untouched.
-- The forget gate controls $\mathbf{c}_t$, not $\mathbf{h}_t$ directly. $\mathbf{h}_t$ comes from the output gate applied to the cell state.
-- **GRU merges cell and hidden state into one** and uses two gates instead of three — fewer parameters, usually comparable accuracy.
-- Neither *eliminates* vanishing gradients; they make long-range paths trainable in practice.
-</ConceptBox>
 
 <Bridge>
 **From Module 9:** vanishing gradients prevent vanilla RNNs from learning long-range dependencies. The fix requires redesigning the cell so that a gradient can travel directly from step T back to step 1 without repeatedly passing through a squash function. This module introduces the two dominant solutions: LSTM (1997) and GRU (2014).
@@ -24,6 +15,12 @@ $$\mathbf{h}_t = \tanh(\mathbf{W}_h \mathbf{h}_{t-1} + \mathbf{W}_x \mathbf{x}_t
 
 Every update goes through tanh. Multiply this by $T$ steps, and you have $T$ tanh derivatives in the gradient chain.
 
+<PredictReveal
+  prompt="The LSTM keeps a separate cell state that updates additively instead of through tanh: c_t = f_t times c_(t-1) plus i_t times c-tilde_t. If the forget gate stays near 1, what happens to the gradient as it flows backward through the cell state, step by step, compared to the vanilla RNN above?"
+  options={["It still shrinks by a tanh derivative each step, same as the vanilla RNN", "It stays roughly constant, multiplied by about 1 each step", "It grows without bound since nothing squashes it"]}
+  correct={1}
+>
+
 The LSTM's key insight is to maintain a separate **cell state** $\mathbf{c}_t$ that is updated **additively**:
 
 $$\mathbf{c}_t = \mathbf{f}_t \odot \mathbf{c}_{t-1} + \mathbf{i}_t \odot \tilde{\mathbf{c}}_t$$
@@ -33,6 +30,12 @@ This is an *addition*, not a squash. The gradient of the loss with respect to $\
 $$\frac{\partial \mathcal{L}}{\partial \mathbf{c}_{t-1}} = \frac{\partial \mathcal{L}}{\partial \mathbf{c}_t} \odot \mathbf{f}_t$$
 
 No matrix multiplication by $\mathbf{W}_h$. No tanh derivative. Just element-wise multiplication by the forget gate $\mathbf{f}_t$ (which can be close to 1). This is called the **constant error carousel** — it provides a nearly unobstructed gradient highway along the cell state.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "State the single structural change that fixes the gradient problem, and why it works.", a: "The cell state is updated ADDITIVELY rather than being replaced through a squash function. Because c_t = f_t * c_{t-1} + something, the derivative of c_t with respect to c_{t-1} is f_t — and if the forget gate is near 1, the gradient is multiplied by roughly 1 at each step instead of by a tanh derivative below 1. The exponential decay disappears." },
+]} />
 
 ## LSTM: four equations, three gates
 
@@ -48,7 +51,17 @@ Cell and hidden state updates:
 $$\mathbf{c}_t = \mathbf{f}_t \odot \mathbf{c}_{t-1} + \mathbf{i}_t \odot \tilde{\mathbf{c}}_t$$
 $$\mathbf{h}_t = \mathbf{o}_t \odot \tanh(\mathbf{c}_t)$$
 
+<Recall items={[
+  { q: "Why are gates sigmoids specifically?", a: "Because a gate must express 'how much of this to let through' as a fraction, and sigmoid maps any real value into (0, 1). It is also differentiable everywhere, so the gating decision itself is learned by gradient descent — the network discovers WHEN to remember and forget from data rather than being told." },
+]} />
+
 ## What each gate does — in plain terms
+
+<PredictReveal
+  prompt="An LSTM has four gates and candidates: forget, input, cell candidate, and output. Which one directly controls what part of the cell state becomes the externally visible hidden state h_t?"
+  options={["The forget gate", "The input gate", "The output gate"]}
+  correct={2}
+>
 
 **Forget gate $\mathbf{f}_t$ ∈ (0,1):** decides how much of the *old* cell state to keep. Value near 1 = remember everything; near 0 = forget everything. The network learns to forget when context changes (e.g. moving to a new sentence).
 
@@ -58,15 +71,36 @@ $$\mathbf{h}_t = \mathbf{o}_t \odot \tanh(\mathbf{c}_t)$$
 
 **Output gate $\mathbf{o}_t$ ∈ (0,1):** controls what part of the cell state to expose as the hidden state $\mathbf{h}_t$ (which is passed to the output layer and to the next step). The cell state stores information; the output gate filters what the rest of the network sees.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "The forget gate controls which state?", a: "The cell state c_t. It multiplies c_{t-1} to decide how much of the long-term memory survives. The hidden state h_t is produced separately, by applying the output gate to a squashed cell state — which is why an LSTM can hold something in memory without exposing it in its output at that step." },
+  { q: "f_t = 0 versus f_t = 1 — what happens in each case?", a: "All zeros wipes the previous cell state entirely, so the memory restarts from just the new candidate — appropriate at a sentence or episode boundary. All ones passes the previous cell state through unchanged, giving perfect retention and an undamped gradient path. Real gates sit between, per dimension." },
+]} />
+
 ## Interactive: explore LSTM and GRU gate computations
+
+<PredictReveal
+  prompt="In the widget below, drag the forget gate slider down to 0 while keeping the input gate high. What happens to the displayed cell state value?"
+  options={["It keeps most of its old value because the input gate is still open", "It loses essentially all of its old value since nothing of c_(t-1) survives", "It becomes negative because a forget gate of 0 flips the sign"]}
+  correct={1}
+>
 
 Adjust the inputs and observe how each gate opens or closes. Toggle to GRU to compare the simpler 2-gate design.
 
 <LSTMGateWidget />
 
+</PredictReveal>
+
 ## GRU: simplified to two gates
 
 The GRU (Gated Recurrent Unit) merges the cell state and hidden state into one, and reduces to two gates:
+
+<PredictReveal
+  prompt="GRU replaces the forget/input/output gates with just a reset gate and an update gate z_t, where h_t = (1 - z_t) * h_(t-1) + z_t * h-tilde_t. When z_t is close to 0, what happens to h_t?"
+  options={["h_t is almost entirely replaced by the new candidate h-tilde_t", "h_t passes through nearly unchanged from the previous step", "h_t resets to zero regardless of the candidate"]}
+  correct={1}
+>
 
 $$\mathbf{r}_t = \sigma(\mathbf{W}_r [\mathbf{h}_{t-1}; \mathbf{x}_t] + \mathbf{b}_r) \quad \text{(reset gate)}$$
 $$\mathbf{z}_t = \sigma(\mathbf{W}_z [\mathbf{h}_{t-1}; \mathbf{x}_t] + \mathbf{b}_z) \quad \text{(update gate)}$$
@@ -79,6 +113,8 @@ $$\mathbf{h}_t = (1 - \mathbf{z}_t) \odot \mathbf{h}_{t-1} + \mathbf{z}_t \odot 
 
 The update is also additive: $\mathbf{h}_t = (1-\mathbf{z}_t)\mathbf{h}_{t-1} + \mathbf{z}_t \tilde{\mathbf{h}}_t$. When $\mathbf{z}_t \approx 0$, the hidden state passes through unchanged — a gradient highway.
 
+</PredictReveal>
+
 ## LSTM vs GRU — when to use which
 
 | Aspect | LSTM | GRU |
@@ -90,6 +126,10 @@ The update is also additive: $\mathbf{h}_t = (1-\mathbf{z}_t)\mathbf{h}_{t-1} + 
 | When to prefer | Complex tasks, long sequences | Simpler tasks, limited compute |
 
 In practice, both are good starting points. GRU is preferred when training speed matters; LSTM when task requires very long memory.
+
+<Recall items={[
+  { q: "GRU versus LSTM — what is traded?", a: "GRU merges the cell and hidden state into one vector and uses two gates instead of three, so it has roughly 25% fewer parameters and trains faster. It gives up the LSTM's ability to keep memory separate from output. Empirically the two perform comparably on most tasks, so GRU is often the better default on limited data." },
+]} />
 
 ## In PyTorch
 
@@ -146,6 +186,15 @@ The gradient is transmitted from step $T$ to step 1 **without decay**. This is w
 
 ---
 
+<ConceptBox title="TL;DR">
+- **The whole idea is additive vs multiplicative.** A vanilla RNN *replaces* the state through tanh every step; the LSTM *adds* to a separate cell state: $\mathbf{c}_t=\mathbf{f}_t\odot\mathbf{c}_{t-1}+\mathbf{i}_t\odot\tilde{\mathbf{c}}_t$.
+- With $\mathbf{f}_t\approx1$ the gradient path from $\mathbf{c}_T$ to $\mathbf{c}_1$ multiplies by ~1 each step instead of by a tanh derivative. That's the **constant error carousel**.
+- Gates are sigmoids, so they live in $(0,1)$ and act as **soft, learned** switches — 0 erases, 1 passes through untouched.
+- The forget gate controls $\mathbf{c}_t$, not $\mathbf{h}_t$ directly. $\mathbf{h}_t$ comes from the output gate applied to the cell state.
+- **GRU merges cell and hidden state into one** and uses two gates instead of three — fewer parameters, usually comparable accuracy.
+- Neither *eliminates* vanishing gradients; they make long-range paths trainable in practice.
+</ConceptBox>
+
 ## Quiz
 
 <QuizCard
@@ -158,14 +207,6 @@ The gradient is transmitted from step $T$ to step 1 **without decay**. This is w
   ]}
   correct={1}
 />
-
-<Recall items={[
-  { q: "State the single structural change that fixes the gradient problem, and why it works.", a: "The cell state is updated ADDITIVELY rather than being replaced through a squash function. Because c_t = f_t * c_{t-1} + something, the derivative of c_t with respect to c_{t-1} is f_t — and if the forget gate is near 1, the gradient is multiplied by roughly 1 at each step instead of by a tanh derivative below 1. The exponential decay disappears." },
-  { q: "Why are gates sigmoids specifically?", a: "Because a gate must express 'how much of this to let through' as a fraction, and sigmoid maps any real value into (0, 1). It is also differentiable everywhere, so the gating decision itself is learned by gradient descent — the network discovers WHEN to remember and forget from data rather than being told." },
-  { q: "The forget gate controls which state?", a: "The cell state c_t. It multiplies c_{t-1} to decide how much of the long-term memory survives. The hidden state h_t is produced separately, by applying the output gate to a squashed cell state — which is why an LSTM can hold something in memory without exposing it in its output at that step." },
-  { q: "f_t = 0 versus f_t = 1 — what happens in each case?", a: "All zeros wipes the previous cell state entirely, so the memory restarts from just the new candidate — appropriate at a sentence or episode boundary. All ones passes the previous cell state through unchanged, giving perfect retention and an undamped gradient path. Real gates sit between, per dimension." },
-  { q: "GRU versus LSTM — what is traded?", a: "GRU merges the cell and hidden state into one vector and uses two gates instead of three, so it has roughly 25% fewer parameters and trains faster. It gives up the LSTM's ability to keep memory separate from output. Empirically the two perform comparably on most tasks, so GRU is often the better default on limited data." },
-]} />
 
 <MultiSelectQuiz
   question="Which statements correctly describe the forget gate f_t in an LSTM?"

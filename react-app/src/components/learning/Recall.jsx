@@ -3,7 +3,7 @@ export default function Recall({ items = [] }) {
   if (!items.length) return null
   return (
     <div className="lc-recall">
-      <h4 className="lc-recall-title">Active recall — answer out loud, then reveal</h4>
+      <h4 className="lc-recall-title">Quick recall check</h4>
       {items.map((it, i) => (
         <details key={i} className="lc-recall-item">
           <summary>{it.q}</summary>

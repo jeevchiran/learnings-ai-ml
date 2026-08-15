@@ -1,16 +1,8 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import SSDPyramidWidget from '../../components/widgets/cv/SSDPyramidWidget.jsx'
 import DetectorCompareWidget from '../../components/widgets/cv/DetectorCompareWidget.jsx'
 
 # Module 19: SSD — Single Shot MultiBox Detector
-
-<ConceptBox title="TL;DR">
-- SSD keeps YOLO's one-pass idea and fixes its scale problem: predict from **six feature maps of decreasing resolution**, not one.
-- Early, high-resolution maps have small receptive fields and catch small objects; late, coarse maps catch large ones. No image pyramid needed.
-- Default boxes (SSD's word for anchors) follow $s_k = s_{\min} + \frac{s_{\max}-s_{\min}}{m-1}(k-1)$ from 0.2 to 0.9.
-- SSD300 scores **8,732 boxes** per image against YOLO v1's 98 — and reaches **74.3 mAP at 59 fps**, beating Faster R-CNN on both axes.
-- 8,732 boxes are ~99.9% background, so **hard negative mining at 3:1** is not a tuning detail; without it the model does not train.
-</ConceptBox>
 
 <Bridge>
 Module 15 left YOLO v1 fast but weak on small objects and coarse in localisation, and Module 18 supplied the anchor machinery. SSD is what you get when you apply anchors at several resolutions at once — the design that finally beat two-stage accuracy without giving up one-stage speed.
@@ -19,6 +11,12 @@ Module 15 left YOLO v1 fast but weak on small objects and coarse in localisation
 ## The multi-scale idea
 
 YOLO v1 predicts from one $7\times7$ map. Every object, from a distant pedestrian to a bus filling the frame, must be described by a cell of one fixed receptive field. That is the root of both its weaknesses.
+
+<PredictReveal
+  prompt="SSD replaces YOLO's single 7×7 map with predictions from six feature maps at different depths of the backbone. Which maps catch the small objects?"
+  options={["The early, high-resolution maps", "The late, coarse maps", "All six equally — resolution doesn't matter"]}
+  correct={0}
+>
 
 SSD attaches a small **prediction head — a $3\times3$ convolution** — to six feature maps at different depths:
 
@@ -30,7 +28,19 @@ $$(C + 1 + 4) \times k \times m \times n$$
 
 values, all convolutionally — no dense layers, so the whole detector is fully convolutional in the sense of Module 11.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is SSD's core architectural difference from YOLO v1?", a: "Prediction happens on six feature maps of decreasing resolution rather than a single 7x7 map. Early high-resolution maps have small receptive fields and handle small objects; deep coarse maps handle large ones. It gets multi-scale detection from the network's own hierarchy, with no image pyramid and no extra forward passes." },
+]} />
+
 ## Where 8,732 comes from
+
+<PredictReveal
+  prompt="SSD300 sums default boxes across six feature maps. Roughly what fraction of the 8,732 total sit on conv4_3 alone, the highest-resolution map?"
+  options={["About 10%", "About 35%", "About 66%"]}
+  correct={2}
+>
 
 | Layer | Map | Boxes/cell | Default boxes |
 |---|---|---|---|
@@ -46,6 +56,12 @@ Notice where the boxes are: **66% of them live on conv4_3**, the highest-resolut
 
 Notice also that conv4_3 is *shallow*, so its features are weaker semantically than the deep layers'. SSD compensates with an L2 normalisation layer on conv4_3 (its activations have a much larger scale than the later maps'); FPN's top-down pathway a year later solved the same problem properly by feeding deep semantics back into high-resolution maps.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Where do SSD300's 8,732 default boxes come from, and where are most of them?", a: "38²x4 + 19²x6 + 10²x6 + 5²x6 + 3²x4 + 1²x4 = 5,776 + 2,166 + 600 + 150 + 36 + 4. About 66% sit on conv4_3, the highest-resolution map — deliberately, because small objects are the hard case and need the fine grid." },
+]} />
+
 ## Default box scales
 
 For $m = 6$ prediction layers, with $s_{\min} = 0.2$ and $s_{\max} = 0.9$:
@@ -60,9 +76,19 @@ plus one extra square box of scale $\sqrt{s_k s_{k+1}}$, which is where "6 boxes
 
 Note $w \cdot h = s_k^2$ for every ratio — **the area is held constant and only the shape varies**. Scale is the feature map's job, aspect ratio is the default box's.
 
+<Recall items={[
+  { q: "Default boxes at one layer share a scale but vary in aspect ratio. What does that split buy?", a: "It separates two independent variables cleanly. The feature map's resolution and receptive field determine what size of object a cell can see, so scale is the map's job; the default boxes then only have to cover shape at that scale, using w = s*sqrt(a) and h = s/sqrt(a), which keeps the area equal to s² for every ratio. That way adding aspect ratios does not disturb the scale assignment." },
+]} />
+
 ## Matching and the imbalance problem
 
 Matching is Module 18's rule: each ground truth takes its best-overlapping default box, plus **any** default box with IoU > 0.5 (so one object may have several positives, which improves recall).
+
+<PredictReveal
+  prompt="Of SSD300's 8,732 default boxes, a typical image matches only about 10 to a real object — roughly 0.11% positive. Train on all 8,732 unweighted, and what happens?"
+  options={["Works fine — the 8,722 easy negatives just add stable signal", "The background class dominates the loss and the model fails to train", "The model automatically down-weights unmatched boxes on its own"]}
+  correct={1}
+>
 
 Then the arithmetic bites. Of 8,732 boxes, a typical image matches perhaps 10:
 
@@ -74,7 +100,19 @@ $$L = \frac{1}{N}\left(L_{\text{conf}} + \alpha L_{\text{loc}}\right), \qquad \a
 
 with $N$ the number of matched boxes — and if $N = 0$ the loss is set to 0 rather than dividing by zero.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does SSD need hard negative mining when Faster R-CNN's head does not?", a: "Because SSD computes a loss over every one of its 8,732 default boxes, of which roughly 0.1% are matched to an object, so the background term outweighs the positives by about a thousand to one. Faster R-CNN's second stage is trained on a sampled, roughly balanced minibatch of a few hundred RoIs, so the imbalance never reaches the loss. SSD sorts negatives by confidence loss and keeps only the worst, capped at 3 per positive." },
+]} />
+
 ## SSD versus the field
+
+<PredictReveal
+  prompt="SSD300 uses 8,732 default boxes; Faster R-CNN uses ~300 proposals — nearly 30x fewer. Which wins on both accuracy and speed?"
+  options={["Faster R-CNN — fewer, higher-quality proposals win", "SSD300 — cheap boxes on a shared feature hierarchy beat expensive per-region computation", "They tie — SSD trades accuracy for speed"]}
+  correct={1}
+>
 
 <DetectorCompareWidget />
 
@@ -86,6 +124,12 @@ with $N$ the number of matched boxes — and if $N = 0$ the loss is set to 0 rat
 | SSD512 | 24,564 | 7 | 76.8 | 22 |
 
 SSD300 beats Faster R-CNN on accuracy at **12× the speed**. The lesson is not "more boxes is better" — it is that *cheap* boxes on a shared feature hierarchy beat expensive per-region computation, once you handle the imbalance the cheapness creates.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "SSD300 gets 74.3 mAP at 59 fps against Faster R-CNN's 73.2 at 5 fps. What is the general lesson?", a: "That cheap dense predictions on a shared feature hierarchy beat expensive per-region computation — provided you handle the class imbalance that cheapness creates. It is not 'more boxes is better'; the 8,732 boxes are nearly free precisely because they are read off feature maps that were computed anyway, and they are only usable because hard negative mining stops the background from swamping the loss." },
+]} />
 
 <ConceptBox title="Where SSD still loses">
 **Small objects**, despite everything. conv4_3 is shallow and its features are semantically thin, so a 20-pixel object gets a fine grid but a weak descriptor. The SSD paper's own error analysis says so, and recommends more aggressive random-crop ("zoom out") augmentation as a partial fix.
@@ -124,13 +168,13 @@ The assumption underneath is that **receptive field grows fast enough to cover t
 
 ---
 
-<Recall items={[
-  { q: "What is SSD's core architectural difference from YOLO v1?", a: "Prediction happens on six feature maps of decreasing resolution rather than a single 7x7 map. Early high-resolution maps have small receptive fields and handle small objects; deep coarse maps handle large ones. It gets multi-scale detection from the network's own hierarchy, with no image pyramid and no extra forward passes." },
-  { q: "Where do SSD300's 8,732 default boxes come from, and where are most of them?", a: "38²x4 + 19²x6 + 10²x6 + 5²x6 + 3²x4 + 1²x4 = 5,776 + 2,166 + 600 + 150 + 36 + 4. About 66% sit on conv4_3, the highest-resolution map — deliberately, because small objects are the hard case and need the fine grid." },
-  { q: "Why does SSD need hard negative mining when Faster R-CNN's head does not?", a: "Because SSD computes a loss over every one of its 8,732 default boxes, of which roughly 0.1% are matched to an object, so the background term outweighs the positives by about a thousand to one. Faster R-CNN's second stage is trained on a sampled, roughly balanced minibatch of a few hundred RoIs, so the imbalance never reaches the loss. SSD sorts negatives by confidence loss and keeps only the worst, capped at 3 per positive." },
-  { q: "Default boxes at one layer share a scale but vary in aspect ratio. What does that split buy?", a: "It separates two independent variables cleanly. The feature map's resolution and receptive field determine what size of object a cell can see, so scale is the map's job; the default boxes then only have to cover shape at that scale, using w = s*sqrt(a) and h = s/sqrt(a), which keeps the area equal to s² for every ratio. That way adding aspect ratios does not disturb the scale assignment." },
-  { q: "SSD300 gets 74.3 mAP at 59 fps against Faster R-CNN's 73.2 at 5 fps. What is the general lesson?", a: "That cheap dense predictions on a shared feature hierarchy beat expensive per-region computation — provided you handle the class imbalance that cheapness creates. It is not 'more boxes is better'; the 8,732 boxes are nearly free precisely because they are read off feature maps that were computed anyway, and they are only usable because hard negative mining stops the background from swamping the loss." },
-]} />
+<ConceptBox title="TL;DR">
+- SSD keeps YOLO's one-pass idea and fixes its scale problem: predict from **six feature maps of decreasing resolution**, not one.
+- Early, high-resolution maps have small receptive fields and catch small objects; late, coarse maps catch large ones. No image pyramid needed.
+- Default boxes (SSD's word for anchors) follow $s_k = s_{\min} + \frac{s_{\max}-s_{\min}}{m-1}(k-1)$ from 0.2 to 0.9.
+- SSD300 scores **8,732 boxes** per image against YOLO v1's 98 — and reaches **74.3 mAP at 59 fps**, beating Faster R-CNN on both axes.
+- 8,732 boxes are ~99.9% background, so **hard negative mining at 3:1** is not a tuning detail; without it the model does not train.
+</ConceptBox>
 
 <QuizCard
   question="An SSD variant predicts from feature maps of 20×20 (6 boxes/cell) and 10×10 (4 boxes/cell). How many default boxes is that?"

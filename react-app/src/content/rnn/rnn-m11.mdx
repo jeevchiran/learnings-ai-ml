@@ -1,15 +1,6 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall, PredictReveal } from '../../components/learning/index.js'
 
 # Module 11: Handling Variable-Length Sequences
-
-<ConceptBox title="TL;DR">
-- GPUs need rectangular tensors, so a batch of mixed-length sequences must be **padded to the longest member**.
-- Padding alone is correct but wasteful *and* wrong at the boundary: the RNN keeps updating its state over the pad tokens, so the final hidden state reflects zeros rather than the sequence's real end.
-- **`pack_padded_sequence` fixes both** — the RNN genuinely skips padded positions, so `h_T` is the state at each sequence's true last token.
-- It needs lengths, and sequences sorted descending — or `enforce_sorted=False`.
-- **Packing is optional**: `nn.LSTM` accepts padded input without error. It just gives you subtly wrong states and wasted compute.
-- Packing handles the *recurrence*; you may still need a **mask in the loss** so pad positions don't contribute to per-step losses.
-</ConceptBox>
 
 <Bridge>
 **From Module 10:** LSTMs and GRUs solve the gradient problem. Now comes a practical challenge that every production RNN faces: real-world sequences don't all have the same length. A batch of 32 sentences might have lengths ranging from 3 to 87 tokens. How do you efficiently process them together?
@@ -20,6 +11,12 @@ import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSel
 GPUs are efficient at parallel matrix operations — but only when all tensors have the same shape. If you want to process 32 sequences simultaneously, they must form a rectangular tensor of shape `(32, T, d)`. When sequences have different lengths, you have two choices: padding or dynamic batching.
 
 ## Solution 1 — Zero padding
+
+<PredictReveal
+  prompt="You pad every sequence in a batch with zeros and feed it straight into an LSTM. What happens to the final hidden state for a short sequence?"
+  options={["It is unaffected — the LSTM ignores the padding automatically", "It gets corrupted, since the LSTM keeps updating state over the zero pad steps", "Training crashes because of a shape mismatch"]}
+  correct={1}
+>
 
 **Pad all sequences to the length of the longest one** in the batch. Shorter sequences get zeros appended:
 
@@ -40,7 +37,19 @@ padded = pad_sequence(sequences, batch_first=True, padding_value=0)
 
 **Problem:** the RNN will process pad tokens, updating the hidden state based on zeros. This corrupts the final hidden state for short sequences.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why isn't padding alone good enough, beyond wasted compute?", a: "Because the RNN keeps stepping over the pad tokens and updating its hidden state. For a short sequence in a long batch, the final hidden state is the state after processing many zeros — not the state at the sequence's real last token. Any many-to-one head reading h_T is therefore reading a corrupted summary." },
+]} />
+
 ## Solution 2 — Masking
+
+<PredictReveal
+  prompt="After masking the loss so pad positions contribute no gradient, is the LSTM final hidden state h_T also correct now?"
+  options={["Yes, masking the loss fixes h_T as a side effect", "No, the LSTM still updates h_T while stepping over pad positions", "It depends on the batch size"]}
+  correct={1}
+>
 
 After padding, apply a **mask** to ignore pad positions in the loss:
 
@@ -59,7 +68,15 @@ loss = (loss * mask.float()).sum() / mask.float().sum()
 
 Masking ensures that pad positions don't contribute to parameter updates. But it doesn't stop the RNN from updating its hidden state at pad positions — for the final hidden state, you still get a corrupted value for short sequences.
 
+</PredictReveal>
+
 ## Solution 3 — pack_padded_sequence
+
+<PredictReveal
+  prompt="You call lstm(packed) on a sequence with true length 7, in a batch padded to 20. What ends up in h_n for that sequence?"
+  options={["The state after 20 steps, including 13 steps spent over padding", "The state after exactly 7 real steps", "The average hidden state across all 20 positions"]}
+  correct={1}
+>
 
 PyTorch provides `pack_padded_sequence`, which skips pad positions entirely during the RNN forward pass:
 
@@ -87,6 +104,14 @@ output, _ = pad_packed_sequence(output_packed, batch_first=True)
 The packed format interleaves tokens from different sequences step by step. At time step t, only sequences with length ≥ t are processed. Sorting by length ensures that when shorter sequences "drop out" of the batch, they drop out from the end — making the interleaving trivial to implement. With `enforce_sorted=False`, PyTorch handles the sorting internally, but there's a small overhead.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does pack_padded_sequence actually change?", a: "It reorganises the batch so the RNN processes only real timesteps, stopping each sequence at its own length. The returned final hidden state is genuinely the state at each sequence's true last token, and no computation is spent on padding." },
+  { q: "Is packing required to use nn.LSTM?", a: "No — an LSTM accepts a plain padded tensor and runs without error. That is precisely why the bug is common: nothing complains, the shapes are right, and the model trains to a slightly worse result. Packing is a correctness and efficiency choice you must make deliberately." },
+  { q: "Does packing remove the need for a loss mask?", a: "Not in general. Packing fixes the RECURRENCE, so the hidden states are right. If your loss is computed per timestep — tagging, language modelling — you still need to mask out padded positions so they contribute no loss. For a many-to-one task reading only h_T, packing alone suffices." },
+]} />
+
 ## Extracting the correct final hidden state
 
 After unpacking, the `h_n` from the LSTM/GRU is already the correct final state per sequence (the state at the actual last token, not after padding). But from the `output` tensor, you need to extract position `lengths[i] - 1` for sequence `i`:
@@ -99,7 +124,17 @@ final_hidden = output.gather(1, idx).squeeze(1)
 # final_hidden: (batch_size, hidden_size) — correct for all lengths
 ```
 
+<Recall items={[
+  { q: "What shape does pad_packed_sequence return, and why unpack at all?", a: "Back to (batch, max_len, hidden_size) — the padded rectangular form. You unpack because downstream layers, loss functions and metrics expect a regular tensor; the packed representation exists only for the duration of the recurrent computation." },
+]} />
+
 ## Bucket sampling — minimising wasted padding
+
+<PredictReveal
+  prompt="Sorting training examples by length before batching, instead of batching randomly, cuts average padding by roughly how much?"
+  options={["About 5-10%", "About 40-60%", "About 90% or more"]}
+  correct={1}
+>
 
 Even with packing, some padding is inevitable in a batch. A practical trick: **sort training examples by length and create batches from similar-length sequences**. This minimises the total amount of padding in the batch.
 
@@ -109,6 +144,8 @@ dataset_sorted = sorted(dataset, key=lambda x: len(x['tokens']))
 # Create batches from consecutive examples (similar lengths)
 # This reduces average padding by ~40-60% vs random batching
 ```
+
+</PredictReveal>
 
 ## Practical checklist for variable-length sequences
 
@@ -143,7 +180,14 @@ For short sequences with a long outlier (say, average 10, max 200), packing redu
 
 ---
 
-## Quiz
+<ConceptBox title="TL;DR">
+- GPUs need rectangular tensors, so a batch of mixed-length sequences must be **padded to the longest member**.
+- Padding alone is correct but wasteful *and* wrong at the boundary: the RNN keeps updating its state over the pad tokens, so the final hidden state reflects zeros rather than the sequence's real end.
+- **`pack_padded_sequence` fixes both** — the RNN genuinely skips padded positions, so `h_T` is the state at each sequence's true last token.
+- It needs lengths, and sequences sorted descending — or `enforce_sorted=False`.
+- **Packing is optional**: `nn.LSTM` accepts padded input without error. It just gives you subtly wrong states and wasted compute.
+- Packing handles the *recurrence*; you may still need a **mask in the loss** so pad positions don't contribute to per-step losses.
+</ConceptBox>
 
 <QuizCard
   question="You call lstm(packed_input) where packed_input was created with pack_padded_sequence. What does the returned h_n contain for a sequence of true length 7 in a batch padded to length 20?"
@@ -155,14 +199,6 @@ For short sequences with a long outlier (say, average 10, max 200), packing redu
   ]}
   correct={1}
 />
-
-<Recall items={[
-  { q: "Why isn't padding alone good enough, beyond wasted compute?", a: "Because the RNN keeps stepping over the pad tokens and updating its hidden state. For a short sequence in a long batch, the final hidden state is the state after processing many zeros — not the state at the sequence's real last token. Any many-to-one head reading h_T is therefore reading a corrupted summary." },
-  { q: "What does pack_padded_sequence actually change?", a: "It reorganises the batch so the RNN processes only real timesteps, stopping each sequence at its own length. The returned final hidden state is genuinely the state at each sequence's true last token, and no computation is spent on padding." },
-  { q: "Is packing required to use nn.LSTM?", a: "No — an LSTM accepts a plain padded tensor and runs without error. That is precisely why the bug is common: nothing complains, the shapes are right, and the model trains to a slightly worse result. Packing is a correctness and efficiency choice you must make deliberately." },
-  { q: "Does packing remove the need for a loss mask?", a: "Not in general. Packing fixes the RECURRENCE, so the hidden states are right. If your loss is computed per timestep — tagging, language modelling — you still need to mask out padded positions so they contribute no loss. For a many-to-one task reading only h_T, packing alone suffices." },
-  { q: "What shape does pad_packed_sequence return, and why unpack at all?", a: "Back to (batch, max_len, hidden_size) — the padded rectangular form. You unpack because downstream layers, loss functions and metrics expect a regular tensor; the packed representation exists only for the duration of the recurrent computation." },
-]} />
 
 <MultiSelectQuiz
   question="Which of these statements about pad_sequence and pack_padded_sequence are correct?"

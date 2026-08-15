@@ -1,0 +1,90 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 8: Training an Attention-Based Encoder-Decoder
+
+<Bridge>
+Module 7 walked through the four-step pipeline that runs at inference and training alike: score, normalize, combine, generate. This module is about what training actually has to learn to make that pipeline produce sensible alignments — and it's less than you might expect, because nothing about it needs separate supervision.
+</Bridge>
+
+## No one labels the alignments
+
+<PredictReveal
+  prompt='To train the alignment weights (which source word "café" should attend to), does the training data need to include, alongside each translation pair, a human-labeled word-alignment map?'
+  options={["Yes — alignment is supervised separately from translation", "No — alignment weights are learned purely from the translation loss, end to end"]}
+  correct={1}
+>
+
+The score function — whether it's Bahdanau's small feedforward network $e_{ij} = v_a^\top \tanh(W_a s_{i-1} + U_a h_j)$ or Luong's simpler dot-product/bilinear form — is just more learnable parameters sitting inside the same computational graph as the encoder and decoder. Nothing about training changes structurally from Module 4: forward pass, cross-entropy loss against the target tokens, backpropagate, update. Gradients flow back through the softmax and the score function exactly the way they flow through everything else, and the network discovers on its own which source words matter for which output words — because *any* alignment that reduces the translation loss is reinforced, whether or not it matches what a human would have drawn.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Does training an attention-based encoder-decoder require a separate loss term or labeled data for the alignments?", a: "No. The score function's parameters are ordinary learnable weights inside the same computational graph as the encoder and decoder. A single cross-entropy loss on the predicted tokens is backpropagated through everything — softmax, score function, decoder, encoder — and sensible alignments emerge purely because they reduce that one loss." },
+]} />
+
+## What training actually costs more of
+
+<PredictReveal
+  prompt="Compared to the plain encoder-decoder, does adding attention increase the number of forward-pass computations needed per training example?"
+  options={["No — attention is free at inference and training time", "Yes — every decoder step now scores against every encoder step"]}
+  correct={1}
+>
+
+The plain decoder does one RNN-cell update per output step: $O(T_{tgt})$ work total. With attention, every decoder step scores against *every* encoder hidden state — $O(T_{src})$ extra work per decoder step, so $O(T_{src} \times T_{tgt})$ overall. For short sentences this is negligible; it's the reason attention wasn't the obvious first move even though the idea itself is simple — quadratic-ish cost in sequence length matters a lot more once sequences get long, which is exactly the tension Module 11 returns to.
+
+```python
+class BahdanauAttention(nn.Module):
+    def __init__(self, hidden_dim):
+        super().__init__()
+        self.W = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.U = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.v = nn.Linear(hidden_dim, 1, bias=False)
+
+    def forward(self, dec_hidden, enc_outputs):    # enc_outputs: (batch, src_len, hidden)
+        dec_hidden = dec_hidden.unsqueeze(1)         # (batch, 1, hidden)
+        scores = self.v(torch.tanh(self.W(dec_hidden) + self.U(enc_outputs)))  # (batch, src_len, 1)
+        weights = torch.softmax(scores.squeeze(-1), dim=1)                      # (batch, src_len)
+        context = torch.bmm(weights.unsqueeze(1), enc_outputs).squeeze(1)       # (batch, hidden)
+        return context, weights
+```
+
+This module drops straight into the training loop from Module 4: the decoder calls it once per step, using its own `weights` as the training-time debugging window into what the model is attending to — and using `context` in place of the fixed `c` everywhere the old decoder used it.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is attention more expensive than the plain encoder-decoder, computationally?", a: "The plain decoder does one RNN update per output step, O(T_tgt) total. Attention adds a score computation against every encoder hidden state at every decoder step, making the cost O(T_src x T_tgt) — proportional to the product of both sequence lengths rather than just the target length." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The score function's parameters are ordinary learnable weights inside the same computational graph — no separate supervision for alignments is needed.
+- A single cross-entropy loss on the predicted tokens, backpropagated end to end, is enough to make the model discover sensible alignments on its own.
+- Attention adds real compute: scoring against every encoder state at every decoder step costs $O(T_{src} \times T_{tgt})$, versus $O(T_{tgt})$ for the plain decoder.
+- The attention module (`BahdanauAttention` above) drops into the exact same training loop from Module 4 — only what feeds the decoder at each step changes.
+</ConceptBox>
+
+<QuizCard
+  question="How are the attention weights learned during training?"
+  options={[
+    "From a separate loss term computed against human-labeled word alignments",
+    "End to end, from the same translation cross-entropy loss backpropagated through the score function's parameters",
+    "They are fixed at initialization and never updated",
+    "By a separate unsupervised pretraining stage before translation training begins"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about training an attention-based encoder-decoder are correct?"
+  options={[
+    "Alignment weights require a dedicated, separately-labeled training signal",
+    "The score function's weights are updated by the same backpropagation pass as the rest of the model",
+    "Attention adds computational cost proportional to source length times target length",
+    "Training uses the same single cross-entropy loss on predicted tokens as the plain encoder-decoder",
+    "Attention makes training strictly cheaper than the plain encoder-decoder",
+    "The context vector computed by the attention module replaces the fixed c used in the plain decoder"
+  ]}
+  correct={[1, 2, 3, 5]}
+/>

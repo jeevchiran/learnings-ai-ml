@@ -1,18 +1,10 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import EncoderDecoderWidget from '../../components/widgets/transfer-learning/EncoderDecoderWidget.jsx'
 
 # Module 6: Encoder–Decoder Architecture
 
-<ConceptBox title="TL;DR">
-- An **encoder** compresses input to a compact representation; a **decoder** expands it back to a structured output. The pair is the standard shape for any task whose output is not a single label.
-- The **bottleneck** is the point of the design *and* its cost: it forces the network to keep only what matters, and permanently discards everything else.
-- For **classification** that loss is fine — you wanted a summary. For **segmentation** it is fatal, because you need a decision at every original pixel.
-- Semantic information survives the bottleneck; **precise spatial information does not**. That asymmetry is the entire motivation for skip connections.
-- Same skeleton, different jobs: autoencoders, seq2seq, VAEs, and every segmentation network.
-</ConceptBox>
-
 <Bridge>
-Modules 1–5 used a backbone to produce a *vector*: one embedding per image, position thrown away by global pooling. Segmentation needs the opposite — a label for every pixel, position preserved exactly. This module introduces the architecture that gets from one to the other, and diagnoses the flaw that U-Net exists to fix.
+Modules 1–5 used a backbone to produce a *vector*: one embedding per image, position thrown away by global pooling. Segmentation needs the opposite — a label for every pixel, position preserved exactly. The Computer Vision track's fully-convolutional module already got you a *map* of scores instead of one label; encoder-decoder is that same trick pushed further, aiming for a map at full input resolution instead of one shrunk by the output stride. This module introduces the architecture that gets from one to the other, and diagnoses the flaw that U-Net exists to fix.
 </Bridge>
 
 ## The shape
@@ -29,11 +21,29 @@ The encoder is the CNN you already know — convolutions interleaved with downsa
 | **Segmentation** | image | feature map | **per-pixel class map** |
 | seq2seq translation | sentence | context vector | sentence |
 
+<Recall items={[
+  { q: "Why is a plain encoder-decoder acceptable for classification but not for segmentation?", a: "Classification wants exactly what the bottleneck produces — a compact summary saying what is present, with position deliberately discarded by global pooling. Segmentation needs a decision at every original pixel, so it needs the position information the bottleneck threw away. Same architecture, opposite requirement." },
+]} />
+
 ## Interactive: what the bottleneck costs
+
+<PredictReveal
+  prompt="The widget below defaults to a 128×128×3 image (49,152 values) squeezed into a 128-dim latent — a 384× compression. Roughly what percentage of the original information survives that squeeze?"
+  options={["About 25%", "About 2.6%", "About 0.26%"]}
+  correct={2}
+>
 
 <EncoderDecoderWidget />
 
+</PredictReveal>
+
 ## The information argument
+
+<PredictReveal
+  prompt="That same squeeze — 49,152 values down to a 128-dim latent — keeps only about 0.26% of the values. Which kind of information is more likely to be among the part that survives?"
+  options={["Precise pixel-level boundary locations", "High-level semantic content, like \"a cat is present, upper-left\"", "Both survive equally well"]}
+  correct={1}
+>
 
 A $128 \times 128 \times 3$ image is 49,152 numbers. Squeeze it to a 128-dim latent and you have kept **0.26%** of the values. The decoder is not "reconstructing" — it is *generating a plausible image consistent with a summary*.
 
@@ -43,6 +53,12 @@ But note precisely **what** survives:
 
 - "there is a cat, upper-left, on grass" — survives easily, it is a few numbers
 - "the boundary between fur and grass passes exactly through pixel (63, 41)" — does not survive, it is thousands of numbers
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does the bottleneck keep and what does it destroy?", a: "It keeps semantics — what is present and roughly where — because that is only a few numbers and it is what the objective rewards. It destroys precise spatial information: the exact pixel a boundary passes through is thousands of numbers and cannot survive a compression to a few hundred. That asymmetry is why encoder-decoders classify well and segment softly." },
+]} />
 
 <ConceptBox title="Why downsampling is not optional">
 It would be tempting to avoid the whole problem: never downsample, keep everything at full resolution. Two things stop you.
@@ -54,7 +70,17 @@ It would be tempting to avoid the whole problem: never downsample, keep everythi
 You downsample because you need context. You lose spatial precision because you downsampled. Skip connections let you have both, which is Module 9.
 </ConceptBox>
 
+<Recall items={[
+  { q: "Why not simply avoid downsampling and keep everything at full resolution?", a: "Two reasons. Compute: a conv layer costs H x W x Cin x Cout x k², so halving each spatial dimension quarters the cost, which is what pays for doubling the channels. And receptive field: 3x3 convs at full resolution grow the receptive field by 2 pixels per layer, so seeing 200 pixels of context would need about 100 layers, whereas each stride-2 stage doubles the growth rate." },
+]} />
+
 ## The naive decoder, and why its output is blurry
+
+<PredictReveal
+  prompt="This decoder has three max-pool layers, each halving resolution — so the bottleneck sees the image at 1/8 scale. Roughly how precisely can the resulting output locate a segmentation boundary?"
+  options={["To within about 1 pixel", "To within about 8 pixels", "To within about 64 pixels"]}
+  correct={1}
+>
 
 ```python
 import torch.nn as nn
@@ -84,7 +110,15 @@ class PlainEncoderDecoder(nn.Module):
 
 Three max-pools mean the bottleneck sees the image at $\tfrac{1}{8}$ resolution. Every boundary is now located to within **8 pixels**, and no decoder can recover a precision that no longer exists in its input. The output will be recognisably correct and visibly soft — round corners, thick edges, small objects missing entirely.
 
+</PredictReveal>
+
 ## Worked example — how much position is left
+
+<PredictReveal
+  prompt="A 256×256 image passes through four stride-2 downsampling stages, so the bottleneck lands at 16×16. How many original pixels does each bottleneck cell end up representing?"
+  options={["16 pixels", "64 pixels", "256 pixels"]}
+  correct={2}
+>
 
 Input $256 \times 256$, four stride-2 stages:
 
@@ -96,14 +130,21 @@ $$\frac{256^2}{16^2} = 256 \text{ pixels per bottleneck cell}$$
 
 Upsampling back to $256^2$ cannot distinguish those 256 pixels — whatever the decoder outputs for one of them, it outputs for a whole neighbourhood, modulated only by what the upsampling interpolates. **Boundary error is bounded below by the downsampling factor**, and that bound is architectural, not a training problem.
 
----
+</PredictReveal>
 
 <Recall items={[
-  { q: "What does the bottleneck keep and what does it destroy?", a: "It keeps semantics — what is present and roughly where — because that is only a few numbers and it is what the objective rewards. It destroys precise spatial information: the exact pixel a boundary passes through is thousands of numbers and cannot survive a compression to a few hundred. That asymmetry is why encoder-decoders classify well and segment softly." },
-  { q: "Why not simply avoid downsampling and keep everything at full resolution?", a: "Two reasons. Compute: a conv layer costs H x W x Cin x Cout x k², so halving each spatial dimension quarters the cost, which is what pays for doubling the channels. And receptive field: 3x3 convs at full resolution grow the receptive field by 2 pixels per layer, so seeing 200 pixels of context would need about 100 layers, whereas each stride-2 stage doubles the growth rate." },
   { q: "A 256x256 input passes through four stride-2 stages. What is the bound on boundary precision?", a: "The bottleneck is 16x16, so each cell covers a 16x16 patch — 256 original pixels. The decoder cannot distinguish positions within that patch because the information is not in its input, so boundary error is bounded below by roughly the downsampling factor of 16 pixels. That floor is architectural and no amount of training removes it." },
-  { q: "Why is a plain encoder-decoder acceptable for classification but not for segmentation?", a: "Classification wants exactly what the bottleneck produces — a compact summary saying what is present, with position deliberately discarded by global pooling. Segmentation needs a decision at every original pixel, so it needs the position information the bottleneck threw away. Same architecture, opposite requirement." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- An **encoder** compresses input to a compact representation; a **decoder** expands it back to a structured output. The pair is the standard shape for any task whose output is not a single label.
+- The **bottleneck** is the point of the design *and* its cost: it forces the network to keep only what matters, and permanently discards everything else.
+- For **classification** that loss is fine — you wanted a summary. For **segmentation** it is fatal, because you need a decision at every original pixel.
+- Semantic information survives the bottleneck; **precise spatial information does not**. That asymmetry is the entire motivation for skip connections.
+- Same skeleton, different jobs: autoencoders, seq2seq, VAEs, and every segmentation network.
+</ConceptBox>
 
 <QuizCard
   question="A 512×512 image goes through five stride-2 downsampling stages. What spatial size is the bottleneck, and how many original pixels does each cell cover?"

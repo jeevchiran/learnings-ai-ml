@@ -1,21 +1,19 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import SkipConnectionWidget from '../../components/widgets/transfer-learning/SkipConnectionWidget.jsx'
 
 # Module 9: Skip Connections
-
-<ConceptBox title="TL;DR">
-- Two different things share the name. **Residual** skips add (`x + f(x)`) and exist to carry **gradient**. **Concatenative** skips stack (`[x, f(x)]`) and exist to carry **detail**.
-- Residual: because $\frac{d}{dx}(x + f(x)) = 1 + f'(x)$, the gradient always has an unattenuated path back — depth stops causing vanishing.
-- Concatenative: the encoder's high-resolution map is handed directly to the decoder, restoring the boundary precision that pooling destroyed. **This is U-Net's.**
-- Concatenation **doubles the channel count**, so the following convolution is wider and costs more. Addition does not.
-- Skips do not just help optimisation — they change what the network *can represent* at full resolution.
-</ConceptBox>
 
 <Bridge>
 Module 6 showed a plain encoder-decoder cannot produce sharp boundaries because the information is gone by the bottleneck. This module is the fix: give the decoder a second input that never went through the bottleneck at all.
 </Bridge>
 
 ## Two mechanisms, one word
+
+<PredictReveal
+  prompt="Residual skips compute y = x + f(x). Concatenative skips compute y = [x, f(x)]. Which one increases the number of channels feeding into the next layer?"
+  options={["Residual — addition combines channels into more of them", "Concatenative — stacking preserves both sets of channels", "Neither — channel count depends only on f(x)"]}
+  correct={1}
+>
 
 <SkipConnectionWidget />
 
@@ -28,7 +26,19 @@ Module 6 showed a plain encoder-decoder cannot produce sharp boundaries because 
 | Requires | identical shapes | matching spatial size only |
 | Cost | free | next conv sees 2× channels |
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Residual and concatenative skips are both called 'skip connections'. What does each actually solve?", a: "Residual skips (x + f(x)) solve gradient flow: the derivative is I + f'(x), so an unattenuated identity path always reaches earlier layers and depth stops causing vanishing gradients. Concatenative skips ([x, f(x)]) solve spatial detail: they hand the decoder a high-resolution encoder map that never passed through the bottleneck, restoring boundary precision. Different problems, same name." },
+]} />
+
 ## Residual skips: the gradient argument
+
+<PredictReveal
+  prompt="Without any skip connection, a 40-layer network has an average per-layer gradient factor of about 0.75. What happens to the gradient reaching layer 1?"
+  options={["It shrinks by roughly 10⁻⁵ — the early layers barely learn", "It stays close to its original size", "It grows because errors compound upward"]}
+  correct={0}
+>
 
 Without a skip, the gradient reaching layer $\ell$ from a loss $L$ passes through every Jacobian in between:
 
@@ -37,6 +47,8 @@ $$\frac{\partial L}{\partial x_\ell} = \frac{\partial L}{\partial x_L}\prod_{i=\
 A product of $L - \ell$ terms. If each has magnitude around 0.75, after 40 layers you have $0.75^{40} \approx 10^{-5}$ — the early layers receive essentially nothing and never move.
 
 With $x_{i+1} = x_i + f(x_i)$ each factor becomes $I + f'(x_i)$, so the product expands into a sum that **contains the identity term**. There is always a path back that is not multiplied down. Depth stops being the enemy, which is what let ResNet go from 34 to 152 layers and keep improving.
+
+</PredictReveal>
 
 ## Concatenative skips: the detail argument
 
@@ -73,13 +85,35 @@ class UpBlock(nn.Module):
 
 `dim=1` is the channel axis for `(N, C, H, W)` tensors. Concatenating on the wrong axis is a classic bug that produces a tensor of plausible shape and nonsense contents.
 
+<Recall items={[
+  { q: "Why must torch.cat use dim=1 when joining a skip to a decoder tensor?", a: "Because PyTorch tensors are (N, C, H, W), so dim=1 is the channel axis — concatenating there stacks the feature maps, which is what you want. Concatenating on dim=0 would stack along the batch axis, producing a tensor with a plausible shape and meaningless contents that often fails only much later." },
+]} />
+
+<PredictReveal
+  prompt="You train a U-Net with all of its long concatenative skip connections removed. What actually happens?"
+  options={["Training fails outright — the loss won't come down", "Training still works, but boundaries go soft and thin structures vanish", "Nothing changes — the skips are redundant"]}
+  correct={1}
+>
+
 <ConceptBox title="What actually breaks without the long skips">
 Remove U-Net's skips and training still works — the loss goes down, the masks are recognisable. What degrades is **boundary quality**: edges become soft, thin structures (vessels, cracks, cell walls) disappear, and small objects are missed.
 
 That is the diagnostic. Blurry-but-correct output means missing detail path (skips). Failure to train at all means gradient problems (residual connections, normalisation, learning rate). Confusing the two sends you tuning the wrong thing.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "A U-Net trains fine but its masks have soft, thick boundaries and thin structures vanish. What is the likely cause, and what is NOT?", a: "The likely cause is a missing or broken detail path — the long concatenative skips. It is not a gradient problem: the network is training, the loss is falling, the masks are recognisable. Failure to train at all would point at gradients, normalisation or learning rate. Distinguishing the two symptoms stops you tuning the wrong mechanism." },
+]} />
+
 ## Worked example — what concatenation costs
+
+<PredictReveal
+  prompt="U-Net decoder level 1: a 128-channel upsampled tensor meets a 128-channel skip, feeding a 3×3 conv that outputs 128 channels. Compared to adding the two tensors, how much more expensive is concatenating them at that conv?"
+  options={["About the same cost", "Exactly 2× the parameters", "Exactly 4× the parameters"]}
+  correct={1}
+>
 
 U-Net decoder level 1. Upsampled tensor $\to 128$ channels; skip $\to 128$ channels.
 
@@ -90,6 +124,12 @@ $$3 \times 3 \times 256 \times 128 + 128 = \mathbf{295{,}040}$$
 $$3 \times 3 \times 128 \times 128 + 128 = \mathbf{147{,}584}$$
 
 Concatenation costs **exactly 2×** the parameters in that layer. What you buy is that the convolution can *weigh* the two sources independently — addition forces them to be commensurable and pre-mixed, concatenation lets the network learn the mixture. For segmentation that flexibility is worth the parameters; ResNet's whole point is that for gradient flow it is not.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does concatenation double the following convolution's parameters, and what do you get for it?", a: "Because the conv's input channel count doubles, and parameter count is proportional to input channels. What you buy is independent weights for the two sources: with concatenation the conv computes W_u·u + W_s·s and can weight skip and upsampled features differently per channel, whereas addition forces the same W on both. Addition is the special case W_u = W_s." },
+]} />
 
 ---
 
@@ -127,12 +167,13 @@ Addition is the special case $W_u = W_s$. Concatenation strictly generalises it,
 
 ---
 
-<Recall items={[
-  { q: "Residual and concatenative skips are both called 'skip connections'. What does each actually solve?", a: "Residual skips (x + f(x)) solve gradient flow: the derivative is I + f'(x), so an unattenuated identity path always reaches earlier layers and depth stops causing vanishing gradients. Concatenative skips ([x, f(x)]) solve spatial detail: they hand the decoder a high-resolution encoder map that never passed through the bottleneck, restoring boundary precision. Different problems, same name." },
-  { q: "Why does concatenation double the following convolution's parameters, and what do you get for it?", a: "Because the conv's input channel count doubles, and parameter count is proportional to input channels. What you buy is independent weights for the two sources: with concatenation the conv computes W_u·u + W_s·s and can weight skip and upsampled features differently per channel, whereas addition forces the same W on both. Addition is the special case W_u = W_s." },
-  { q: "A U-Net trains fine but its masks have soft, thick boundaries and thin structures vanish. What is the likely cause, and what is NOT?", a: "The likely cause is a missing or broken detail path — the long concatenative skips. It is not a gradient problem: the network is training, the loss is falling, the masks are recognisable. Failure to train at all would point at gradients, normalisation or learning rate. Distinguishing the two symptoms stops you tuning the wrong mechanism." },
-  { q: "Why must torch.cat use dim=1 when joining a skip to a decoder tensor?", a: "Because PyTorch tensors are (N, C, H, W), so dim=1 is the channel axis — concatenating there stacks the feature maps, which is what you want. Concatenating on dim=0 would stack along the batch axis, producing a tensor with a plausible shape and meaningless contents that often fails only much later." },
-]} />
+<ConceptBox title="TL;DR">
+- Two different things share the name. **Residual** skips add (`x + f(x)`) and exist to carry **gradient**. **Concatenative** skips stack (`[x, f(x)]`) and exist to carry **detail**.
+- Residual: because $\frac{d}{dx}(x + f(x)) = 1 + f'(x)$, the gradient always has an unattenuated path back — depth stops causing vanishing.
+- Concatenative: the encoder's high-resolution map is handed directly to the decoder, restoring the boundary precision that pooling destroyed. **This is U-Net's.**
+- Concatenation **doubles the channel count**, so the following convolution is wider and costs more. Addition does not.
+- Skips do not just help optimisation — they change what the network *can represent* at full resolution.
+</ConceptBox>
 
 <QuizCard
   question="A decoder tensor with 256 channels is concatenated with a 256-channel skip, then passed through Conv2d(?, 256, kernel_size=3). How many parameters does that conv have?"

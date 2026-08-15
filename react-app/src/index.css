@@ -780,3 +780,26 @@ button { font-family: inherit; }
 .lc-quiz-result { margin-top: 10px; font-size: 0.85rem; font-weight: 600; }
 .lc-quiz-result.correct { color: var(--success); }
 .lc-quiz-result.wrong   { color: #ef4444; }
+
+/* ── PredictReveal ───────────────────────────────────── */
+.lc-predict {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 20px 0;
+  background: var(--bg-card);
+}
+
+.lc-predict-prompt { font-weight: 600; margin-bottom: 12px; font-size: 0.9rem; }
+
+.lc-predict-reveal {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+  animation: lc-reveal 0.25s ease;
+}
+
+@keyframes lc-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}

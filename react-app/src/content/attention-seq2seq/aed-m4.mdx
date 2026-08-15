@@ -1,0 +1,133 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 4: Demonstration — Encoder-Decoder in PyTorch
+
+<ConceptBox title="Run the code">
+This module's full encoder-decoder is collected into a runnable notebook, alongside the attention version from Module 9:
+**[Open the Attention & Encoder-Decoder lab in Google Colab](https://colab.research.google.com/github/jeevchiran/learnings-ai-ml/blob/main/notebook/attention-seq2seq/attention-seq2seq-lab.ipynb)**.
+
+Not executed in this module — read the code here, run it in Colab when you want the actual numbers.
+</ConceptBox>
+
+<Bridge>
+Modules 2 and 3 covered the architecture and how to grade its output. This module is the architecture in code — an encoder, a decoder, and the training loop that connects them, small enough to read end to end.
+</Bridge>
+
+## The encoder and decoder as modules
+
+```python
+import torch
+import torch.nn as nn
+
+class Encoder(nn.Module):
+    def __init__(self, vocab_size, embed_dim, hidden_dim):
+        super().__init__()
+        self.embed = nn.Embedding(vocab_size, embed_dim)
+        self.rnn = nn.GRU(embed_dim, hidden_dim, batch_first=True)
+
+    def forward(self, src):                    # src: (batch, src_len)
+        embedded = self.embed(src)              # (batch, src_len, embed_dim)
+        _, hidden = self.rnn(embedded)           # hidden: (1, batch, hidden_dim)
+        return hidden                            # this IS the context vector c
+
+class Decoder(nn.Module):
+    def __init__(self, vocab_size, embed_dim, hidden_dim):
+        super().__init__()
+        self.embed = nn.Embedding(vocab_size, embed_dim)
+        self.rnn = nn.GRU(embed_dim, hidden_dim, batch_first=True)
+        self.out = nn.Linear(hidden_dim, vocab_size)
+
+    def forward(self, input_tok, hidden):        # input_tok: (batch, 1)
+        embedded = self.embed(input_tok)          # (batch, 1, embed_dim)
+        output, hidden = self.rnn(embedded, hidden)
+        logits = self.out(output.squeeze(1))       # (batch, vocab_size)
+        return logits, hidden
+```
+
+Nothing here is new machinery — it's the RNN track's `nn.GRU`, wired so the encoder's final `hidden` becomes the decoder's initial `hidden`. That handoff line is the entire architecture from Module 2, in code.
+
+## Training with teacher forcing
+
+<PredictReveal
+  prompt="Early in training, the decoder's predictions are mostly wrong. If you feed each step's own (wrong) prediction back in as the next input during training, what happens to the training signal?"
+  options={["Nothing changes — the model still learns just as well", "Errors compound: one wrong token derails every token after it, making gradients noisy and training slower"]}
+  correct={1}
+>
+
+```python
+def train_step(encoder, decoder, src, tgt, optimizer, criterion, teacher_forcing=0.5):
+    optimizer.zero_grad()
+    hidden = encoder(src)
+    input_tok = tgt[:, 0:1]                      # <sos>
+    loss = 0
+    for t in range(1, tgt.size(1)):
+        logits, hidden = decoder(input_tok, hidden)
+        loss += criterion(logits, tgt[:, t])
+        use_teacher = torch.rand(1).item() < teacher_forcing
+        input_tok = tgt[:, t:t+1] if use_teacher else logits.argmax(-1, keepdim=True)
+    loss.backward()
+    optimizer.step()
+    return loss.item() / (tgt.size(1) - 1)
+```
+
+**Teacher forcing** feeds the *ground-truth* previous token as the decoder's next input during training, instead of its own (possibly wrong) prediction. This decouples one step's error from contaminating every later step, so gradients stay clean and training converges faster. The `teacher_forcing` probability is annealed down over training so the model also gets practice recovering from its own mistakes — since at inference time there's no ground truth to fall back on.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does the encoder's forward() return, and why does the decoder need it?", a: "It returns the final hidden state of its GRU after reading the whole source sequence — the context vector c. The decoder needs it as its own initial hidden state; it's the only information the decoder ever receives about the source sentence." },
+  { q: "What is teacher forcing, and why anneal it down over training rather than using it 100% of the time?", a: "Teacher forcing feeds the ground-truth previous token to the decoder during training instead of its own prediction, which speeds up and stabilises early training. But at inference there's no ground truth available, so a model trained with 100% teacher forcing never practices recovering from its own errors — annealing the probability down exposes it to its own predictions increasingly often as training proceeds." },
+]} />
+
+## Inference: greedy decoding
+
+At inference time there's no target sequence to teacher-force from — the loop simply feeds each predicted token back in, starting from `SOS` and stopping at `EOS` or a max length:
+
+```python
+@torch.no_grad()
+def translate(encoder, decoder, src, sos_id, eos_id, max_len=20):
+    hidden = encoder(src)
+    input_tok = torch.tensor([[sos_id]])
+    tokens = []
+    for _ in range(max_len):
+        logits, hidden = decoder(input_tok, hidden)
+        next_tok = logits.argmax(-1, keepdim=True)
+        if next_tok.item() == eos_id:
+            break
+        tokens.append(next_tok.item())
+        input_tok = next_tok
+    return tokens
+```
+
+---
+
+<ConceptBox title="TL;DR">
+- The encoder-decoder architecture is two small `nn.GRU`-based modules: the encoder's final hidden state becomes the decoder's initial hidden state — the context vector, in code.
+- **Teacher forcing** feeds the ground-truth previous token during training instead of the model's own prediction, preventing early errors from compounding through the rest of the sequence.
+- Teacher forcing probability is typically annealed down over training so the model also learns to recover from its own mistakes, since inference has no ground truth to fall back on.
+- At inference, decoding is autoregressive and greedy: feed each predicted token back in until `EOS` or a max length is hit.
+</ConceptBox>
+
+<QuizCard
+  question="Why is teacher forcing annealed down over the course of training rather than kept at 100%?"
+  options={[
+    "It has no effect on training, so annealing is purely cosmetic",
+    "100% teacher forcing makes training unstable and slow",
+    "At inference there's no ground truth to feed in, so the model needs practice recovering from its own predictions",
+    "Annealing reduces the number of parameters the decoder needs"
+  ]}
+  correct={2}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about this PyTorch encoder-decoder are correct?"
+  options={[
+    "The encoder's final GRU hidden state is passed directly as the decoder's initial hidden state",
+    "The decoder processes the entire target sequence in a single forward call, with no loop",
+    "Teacher forcing feeds the ground-truth previous token to the decoder during training",
+    "At inference, the decoder feeds its own predicted token back in as the next input",
+    "The encoder and decoder must share the same nn.Embedding layer",
+    "Decoding stops when the maximum length is reached or an end-of-sequence token is produced"
+  ]}
+  correct={[0, 2, 3, 5]}
+/>

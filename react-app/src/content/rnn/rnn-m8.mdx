@@ -1,16 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import RNNUnfoldWidget from '../../components/widgets/rnn/RNNUnfoldWidget.jsx'
 
 # Module 8: Backpropagation Through Time (BPTT)
-
-<ConceptBox title="TL;DR">
-- **BPTT is just ordinary backprop on the unrolled graph.** Nothing new mathematically — the graph simply extends through time, one "layer" per step.
-- So a 500-step sequence is effectively a 500-layer network, and all the depth problems arrive with it.
-- Every step's activations must be kept until the backward pass reaches them, so **memory scales with sequence length**.
-- **Truncated BPTT** cuts the sequence into chunks to bound that memory. Gradients stop at the chunk boundary — they do *not* flow more slowly, they stop.
-- `hidden.detach()` is the mechanism: **keep the value, cut the gradient path**, so context carries forward while the graph doesn't.
-- Consequence: chunk size $k$ caps the dependency length that can be *learned*, even though the state still carries information further.
-</ConceptBox>
 
 <Bridge>
 **From Module 7:** the same weight matrices apply at every time step, and gradients accumulate across all positions. Now we formalise exactly how training works — how error signals travel backward through the unfolded RNN. This is called Backpropagation Through Time (BPTT), and it's what makes RNN training hard.
@@ -21,6 +12,10 @@ import RNNUnfoldWidget from '../../components/widgets/rnn/RNNUnfoldWidget.jsx'
 Training an RNN is the same as training any neural network: compute the loss, compute gradients of the loss with respect to every parameter, update parameters. The only difference is that the **computational graph extends through time**.
 
 When we unroll the RNN, we get a graph that looks like a very deep feedforward network — one layer per time step. BPTT is just standard backpropagation applied to this unrolled graph.
+
+<Recall items={[
+  { q: "In what sense is BPTT not a new algorithm?", a: "It is standard backpropagation applied to the unrolled computational graph. The graph happens to extend along the time axis rather than through stacked layers, and the same weights recur, but the chain rule is applied exactly as in any feedforward network. The name describes the graph, not a different procedure." },
+]} />
 
 ## Forward pass — unrolling through time
 
@@ -35,7 +30,17 @@ Compute loss: $\mathcal{L} = \sum_{t=1}^{T} \mathcal{L}_t(\hat{\mathbf{y}}_t, \m
 
 All $\mathbf{h}_t$ values must be **cached** during the forward pass — the backward pass needs them.
 
+<Recall items={[
+  { q: "Why does BPTT dominate memory on long sequences?", a: "Every time step's activations must be retained until the backward pass reaches that step, so memory grows linearly with sequence length times batch size times hidden size. A 500-step sequence holds 500 sets of activations simultaneously — which is why long sequences OOM long before they become slow." },
+]} />
+
 ## Backward pass — gradients flow back through time
+
+<PredictReveal
+  prompt="In an RNN, does the gradient reaching hidden state h_t come only from the loss at step t, or does it also include gradient flowing back from step t+1?"
+  options={["Only from the loss at step t", "From the loss at step t plus gradient flowing back from step t+1 onward", "Only from future steps, not step t itself"]}
+  correct={1}
+>
 
 Now we compute $\partial \mathcal{L} / \partial \mathbf{W}_h$, $\partial \mathcal{L} / \partial \mathbf{W}_x$, $\partial \mathcal{L} / \partial \mathbf{b}$.
 
@@ -65,13 +70,29 @@ $$\frac{\partial \mathcal{L}}{\partial \mathbf{W}_h} += \boldsymbol{\delta}_t^z 
 
 Repeat for $t = T, T-1, \ldots, 1$.
 
+</PredictReveal>
+
 ## Visualising gradient flow — backward through time
+
+<PredictReveal
+  prompt="In BPTT mode, which direction does the gradient flow through the unrolled graph?"
+  options={["Left to right, same direction as the forward pass", "Right to left, from the final step back toward the first", "It flows in both directions simultaneously"]}
+  correct={1}
+>
 
 The widget below shows the BPTT direction. Toggle "BPTT mode" to see the gradient flowing right-to-left through the unrolled graph.
 
 <RNNUnfoldWidget showBPTT={true} />
 
+</PredictReveal>
+
 ## The chain of matrix multiplications
+
+<PredictReveal
+  prompt="For a 100-step sequence with spectral radius rho=0.9 per step, roughly how much does the gradient reaching step 1 shrink relative to where it started?"
+  options={["Barely shrinks, about 0.9x", "Shrinks by roughly 1000x", "Shrinks by roughly 30,000x, down near 0.00003"]}
+  correct={2}
+>
 
 The gradient from the final step $T$ reaching step 1 passes through $T-1$ applications of $\mathbf{W}_h^T$:
 
@@ -83,7 +104,15 @@ $$\rho \approx \|\mathbf{W}_h\| \cdot \max_t(1 - h_{t,i}^2)$$
 
 For $T=100$ steps and $\rho=0.9$: gradient shrinks by $0.9^{99} \approx 0.00003$. This is the **vanishing gradient problem** — covered in depth in Module 9.
 
+</PredictReveal>
+
 ## Truncated BPTT — the practical version
+
+<PredictReveal
+  prompt="After processing chunk 2 in truncated BPTT, does the gradient computed there flow backward into chunk 1?"
+  options={["Yes, gradients flow through all previous chunks, just weaker each time", "No, hidden.detach() cuts the gradient path at the chunk boundary", "Only if chunk size k is greater than 35"]}
+  correct={1}
+>
 
 Full BPTT over very long sequences is computationally expensive (memory scales with $T$). **Truncated BPTT** processes the sequence in chunks of length $k$:
 
@@ -114,6 +143,14 @@ for chunk_start in range(0, T, chunk_size):
 <ConceptBox title="BPTT vs truncated BPTT">
 Full BPTT is exact but requires storing all activations for T steps and computing T matrix products in the backward pass. Truncated BPTT (chunk size k) requires only k-step activations and is k/T times cheaper in memory. The tradeoff: gradients can only flow k steps backward, so dependencies longer than k steps will not be learned. In practice, k=35 works well for most language modeling tasks. LSTM and GRU (Module 10) partially mitigate this by providing a better gradient highway.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What exactly does hidden.detach() do between chunks, and why both halves matter?", a: "It returns a tensor with the same VALUES but no history in the autograd graph. Keeping the values means the next chunk starts from real accumulated context rather than zeros; cutting the history means the backward pass stops at the boundary, freeing the previous chunk's graph. Doing only one of the two either loses context or defeats the memory saving." },
+  { q: "'Truncated BPTT lets gradients flow across the full sequence, just more slowly.' True?", a: "False. The gradient path is severed at each chunk boundary — nothing flows across it at all. What continues across the boundary is the hidden state's VALUE, not gradient. This is the most common misunderstanding of truncated BPTT." },
+  { q: "Can truncated BPTT with chunk size k learn a dependency longer than k steps?", a: "Not directly. The weights are only ever updated using gradient signal from within a chunk, so a relationship spanning more than k steps produces no learning signal linking its two ends. The forward state can still carry information further, which is why the model may exploit such dependencies once learned by other means — but it cannot discover them." },
+]} />
 
 ---
 
@@ -152,6 +189,15 @@ Memory complexity: $O(T \cdot n)$ — we must store all $\mathbf{h}_t$ for the b
 
 ---
 
+<ConceptBox title="TL;DR">
+- **BPTT is just ordinary backprop on the unrolled graph.** Nothing new mathematically — the graph simply extends through time, one "layer" per step.
+- So a 500-step sequence is effectively a 500-layer network, and all the depth problems arrive with it.
+- Every step's activations must be kept until the backward pass reaches them, so **memory scales with sequence length**.
+- **Truncated BPTT** cuts the sequence into chunks to bound that memory. Gradients stop at the chunk boundary — they do *not* flow more slowly, they stop.
+- `hidden.detach()` is the mechanism: **keep the value, cut the gradient path**, so context carries forward while the graph doesn't.
+- Consequence: chunk size $k$ caps the dependency length that can be *learned*, even though the state still carries information further.
+</ConceptBox>
+
 ## Quiz
 
 <QuizCard
@@ -164,14 +210,6 @@ Memory complexity: $O(T \cdot n)$ — we must store all $\mathbf{h}_t$ for the b
   ]}
   correct={1}
 />
-
-<Recall items={[
-  { q: "In what sense is BPTT not a new algorithm?", a: "It is standard backpropagation applied to the unrolled computational graph. The graph happens to extend along the time axis rather than through stacked layers, and the same weights recur, but the chain rule is applied exactly as in any feedforward network. The name describes the graph, not a different procedure." },
-  { q: "Why does BPTT dominate memory on long sequences?", a: "Every time step's activations must be retained until the backward pass reaches that step, so memory grows linearly with sequence length times batch size times hidden size. A 500-step sequence holds 500 sets of activations simultaneously — which is why long sequences OOM long before they become slow." },
-  { q: "What exactly does hidden.detach() do between chunks, and why both halves matter?", a: "It returns a tensor with the same VALUES but no history in the autograd graph. Keeping the values means the next chunk starts from real accumulated context rather than zeros; cutting the history means the backward pass stops at the boundary, freeing the previous chunk's graph. Doing only one of the two either loses context or defeats the memory saving." },
-  { q: "'Truncated BPTT lets gradients flow across the full sequence, just more slowly.' True?", a: "False. The gradient path is severed at each chunk boundary — nothing flows across it at all. What continues across the boundary is the hidden state's VALUE, not gradient. This is the most common misunderstanding of truncated BPTT." },
-  { q: "Can truncated BPTT with chunk size k learn a dependency longer than k steps?", a: "Not directly. The weights are only ever updated using gradient signal from within a chunk, so a relationship spanning more than k steps produces no learning signal linking its two ends. The forward state can still carry information further, which is why the model may exploit such dependencies once learned by other means — but it cannot discover them." },
-]} />
 
 <MultiSelectQuiz
   question="Which of these statements about truncated BPTT are correct?"

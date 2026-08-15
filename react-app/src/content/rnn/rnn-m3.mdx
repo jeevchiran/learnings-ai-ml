@@ -1,21 +1,19 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, DerivationSteps, DerivationStep, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import SequenceOrderWidget from '../../components/widgets/rnn/SequenceOrderWidget.jsx'
 
 # Module 3: The Importance of Order
-
-<ConceptBox title="TL;DR">
-- Same tokens, opposite meaning: "the dog bit the man" vs "the man bit the dog". A bag-of-words model sees **one identical vector** for both.
-- Order isn't decoration on top of the content — for many tasks it *is* the content.
-- **Negation and questions are the sharpest cases**: inserting "not" or reordering into a question reverses the claim while barely changing the token set.
-- Numerically the same holds: `[100, 103, 97]` and `[97, 103, 100]` share every value and describe opposite trends.
-- Not every text task needs order. Topic detection survives shuffling; translation, tagging, and generation do not.
-</ConceptBox>
 
 <Bridge>
 **From Module 2:** we know MLPs are structurally incapable of modeling order. Now let's build a deep intuition for *why order is the central signal* in sequential data — through concrete linguistic and numerical examples that show how rearranging the same elements can completely reverse the meaning.
 </Bridge>
 
 ## Language: identical words, opposite meanings
+
+<PredictReveal
+  prompt='The sentences "The dog bit the man" and "The man bit the dog" use the exact same six words. Does a word-count (bag-of-words) vector tell them apart?'
+  options={["Yes, the counts differ because order changes the counts", "No, both produce the identical word-count vector", "Only the verb count differs between them"]}
+  correct={1}
+>
 
 Consider these four sentences built from overlapping words:
 
@@ -38,7 +36,20 @@ The same six core words. Entirely different meanings. Order is not decoration �
 
 A model that doesn't track order cannot distinguish these. It sees the same tokens: {"movie", "was", "not", "great"} — and produces the same output regardless of position.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does a bag-of-words model see for 'the dog bit the man' and 'the man bit the dog'?", a: "The identical vector — same words, same counts. The two sentences describe opposite events and the representation cannot distinguish them at all. This is the concrete demonstration that the information lives in the arrangement, not in the token inventory." },
+  { q: "Why are negation and question formation the sharpest arguments for order?", a: "Because they invert the meaning while changing the token set minimally. Adding 'not' flips an assertion to its opposite with one extra word; reordering into 'Did the dog bite the man?' removes the assertion entirely. Any model that scores on token presence will treat these as near-identical to the original." },
+]} />
+
 ## Numerical sequences: same values, different trend
+
+<PredictReveal
+  prompt="The sequence [90, 95, 100, 105, 110] and the sequence [110, 105, 100, 95, 90] contain exactly the same five numbers, just reordered. What differs between them?"
+  options={["Nothing meaningful — they describe the same trend", "One is a rising trend and the other is a falling trend, despite identical values", "The mean differs even though the values are the same"]}
+  correct={1}
+>
 
 Take the sequence $[90, 95, 100, 105, 110]$. This represents a rising trend — up 5 each day. Now consider $[110, 105, 100, 95, 90]$ — a falling trend with the exact same values. Same set, opposite stories.
 
@@ -48,11 +59,23 @@ In time-series forecasting:
 
 The causal question "does yesterday's price predict today's?" only makes sense if time is preserved. Shuffling the series destroys all predictive structure.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Give the numerical analogue of the word-order argument.", a: "The series 100, 103, 97 and the series 97, 103, 100 contain exactly the same three values, so their mean, variance and every order-free summary statistic match. One ends below where it started and the other ends above — opposite trends, identical bags." },
+]} />
+
 <ConceptBox title="Why 'bag of words' fails for sentiment">
 A **bag-of-words** model represents a document as a multiset of tokens — it counts how many times each word appears, discarding all position information. "John loves Mary" and "Mary loves John" produce the exact same bag. "The food was not good" and "The food was good, not bad" share almost the same bag. Bag-of-words works well for topic classification (documents about "sport" contain sport-related words) but fails for any task where order changes meaning — sentiment, negation, entailment, coreference.
 </ConceptBox>
 
 ## Dependencies at arbitrary distance
+
+<PredictReveal
+  prompt='In the sentence "The trophy did not fit in the suitcase because it was too big," what does "it" most likely refer to?'
+  options={["The trophy", "The suitcase", "It is genuinely ambiguous, could be either"]}
+  correct={0}
+>
 
 Order matters not just locally (adjacent words) but across long distances:
 
@@ -66,6 +89,8 @@ In time series, long-range patterns include:
 - Seasonal trends (sell ice cream in summer, coats in winter)
 - Periodic signals (CPU load spikes every 24h)
 - Lag correlations (economic indicators affect prices 3 months later)
+
+</PredictReveal>
 
 ## Order-sensitive tasks vs order-invariant tasks
 
@@ -82,6 +107,10 @@ Not every task requires order. Here's a practical guide:
 | Set operations (max, min, sum) | No | Inherently permutation-invariant |
 
 Choosing the right architecture starts with asking: **does my output change if I shuffle the input?** If yes, you need an order-sensitive model.
+
+<Recall items={[
+  { q: "Name a text task where order genuinely does not matter, and say why.", a: "Broad topic detection — deciding whether an article is about sport or finance. The vocabulary alone carries almost all the signal, so a shuffled document is still classifiable. That is precisely why bag-of-words models remained competitive on topic classification long after they failed on translation and tagging." },
+]} />
 
 ---
 
@@ -114,7 +143,25 @@ An RNN, by contrast, carries all context in $\mathbf{h}_{t-1}$ — theoretically
 
 ---
 
+<PredictReveal
+  prompt="All three token orderings in the widget below use the exact same five words (dog, bit, man, the x2). How many distinct bag-of-words signatures do the three orderings produce?"
+  options={["Three — a different bag for each ordering", "One — the same bag for all three, no matter how scrambled", "Two — the word-salad order is the odd one out"]}
+  correct={1}
+>
+
 <SequenceOrderWidget />
+
+</PredictReveal>
+
+---
+
+<ConceptBox title="TL;DR">
+- Same tokens, opposite meaning: "the dog bit the man" vs "the man bit the dog". A bag-of-words model sees **one identical vector** for both.
+- Order isn't decoration on top of the content — for many tasks it *is* the content.
+- **Negation and questions are the sharpest cases**: inserting "not" or reordering into a question reverses the claim while barely changing the token set.
+- Numerically the same holds: `[100, 103, 97]` and `[97, 103, 100]` share every value and describe opposite trends.
+- Not every text task needs order. Topic detection survives shuffling; translation, tagging, and generation do not.
+</ConceptBox>
 
 ## Quiz
 
@@ -128,13 +175,6 @@ An RNN, by contrast, carries all context in $\mathbf{h}_{t-1}$ — theoretically
   ]}
   correct={2}
 />
-
-<Recall items={[
-  { q: "What does a bag-of-words model see for 'the dog bit the man' and 'the man bit the dog'?", a: "The identical vector — same words, same counts. The two sentences describe opposite events and the representation cannot distinguish them at all. This is the concrete demonstration that the information lives in the arrangement, not in the token inventory." },
-  { q: "Why are negation and question formation the sharpest arguments for order?", a: "Because they invert the meaning while changing the token set minimally. Adding 'not' flips an assertion to its opposite with one extra word; reordering into 'Did the dog bite the man?' removes the assertion entirely. Any model that scores on token presence will treat these as near-identical to the original." },
-  { q: "Give the numerical analogue of the word-order argument.", a: "The series 100, 103, 97 and the series 97, 103, 100 contain exactly the same three values, so their mean, variance and every order-free summary statistic match. One ends below where it started and the other ends above — opposite trends, identical bags." },
-  { q: "Name a text task where order genuinely does not matter, and say why.", a: "Broad topic detection — deciding whether an article is about sport or finance. The vocabulary alone carries almost all the signal, so a shuffled document is still classifiable. That is precisely why bag-of-words models remained competitive on topic classification long after they failed on translation and tagging." },
-]} />
 
 <MultiSelectQuiz
   question="Which of these tasks require order-sensitive modeling — where shuffling the input would change the correct output?"

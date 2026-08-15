@@ -1,21 +1,19 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import DetectorCostWidget from '../../components/widgets/cv/DetectorCostWidget.jsx'
 
 # Module 11: Fully Convolutional Networks for Detection
-
-<ConceptBox title="TL;DR">
-- Naive detection = classify every crop of every size at every position. The arithmetic kills it before the accuracy does.
-- Neighbouring windows overlap by 80–95%, so a crop-and-classify loop recomputes almost the same features thousands of times.
-- A **fully convolutional network** computes them once: replace every `Linear` with an equivalent `Conv2d` and the network accepts any input size and emits a **map** of scores, one per window position, in a single pass.
-- The equivalence is exact — an $n \times n \times C \to K$ dense layer *is* a $n \times n$ convolution with $K$ filters.
-- What you get is a score map at **output stride** $s$ = the product of all strides. That map is the substrate every later detector predicts on.
-</ConceptBox>
 
 <Bridge>
 Module 10 assumed a detector that emits candidate boxes. This module is where those candidates start coming from — and why the obvious approach, sliding a classifier, had to be abandoned for something that shares computation.
 </Bridge>
 
 ## The naive cost
+
+<PredictReveal
+  prompt="A 512×512 image, 64×64 sliding window, stride 8, single scale. Roughly how many window positions does naive scanning need to evaluate?"
+  options={["About 500", "About 3,200", "About 12,000"]}
+  correct={1}
+>
 
 Slide a $w \times w$ window with stride $s$ over a $W \times H$ image, at $L$ pyramid scales:
 
@@ -28,7 +26,19 @@ Two objections, and only one has a fix:
 - **Too many windows.** Fixable — that is the rest of this module.
 - **A window is a bad prior.** Even with a pyramid, you are betting that some rectangle in your fixed set fits the object. Not fixable here; Module 12's region proposals and Module 18's anchors are the two answers.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is sliding a classifier over an image so wasteful, in one sentence about overlap?", a: "Because consecutive windows share most of their pixels — at window 64 and stride 8 they overlap by 87.5% — so the convolutional features over that shared area are recomputed from scratch for every window. A fully convolutional pass computes each feature exactly once and reads off all window scores from the resulting map." },
+]} />
+
 ## Convolutionalising a classifier
+
+<PredictReveal
+  prompt="Take a Conv2d(512, 4096, kernel_size=7) layer, built to be equivalent to a 7×7 Linear classifier, and feed it a 512×512 feature map instead of a 7×7 one. What comes out?"
+  options={["An error — shape mismatch, same as the Linear version", "A single 4096-vector, same as before", "A grid of 4096-vectors, one per window position — a score map"]}
+  correct={2}
+>
 
 A `Linear(n·n·C, K)` applied to a flattened $n\times n\times C$ feature map is a dot product of $K$ weight vectors with that map. So is a `Conv2d(C, K, kernel_size=n)` applied to the same map — same weights, reshaped.
 
@@ -49,7 +59,20 @@ For a VGG-style backbone with five stride-2 pooling stages, the **output stride*
 Fine detail is the price. Objects smaller than the stride can fall between positions entirely — the small-object problem that Modules 18 and 19 attack with multi-scale feature maps.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "How do you convert a trained Linear(7*7*512, 4096) into an equivalent convolution?", a: "Use Conv2d(512, 4096, kernel_size=7) and reshape the weight matrix with .view(4096, 512, 7, 7), copying the bias unchanged. On a 7x7 input the two produce identical numbers; on a larger input the convolution slides and emits a map of outputs where the dense layer would simply fail on shape." },
+  { q: "What is the output stride of a backbone with five stride-2 pooling stages, and what does it cost you?", a: "32 — the product of the strides. A 512x512 input yields a 16x16 map, so window positions are 32 pixels apart in the original image. The cost is granularity: an object smaller than about 32 pixels can fall between sampled positions, which is the small-object weakness that multi-scale feature maps were introduced to fix." },
+]} />
+
 ## Worked example — the saving, exactly
+
+<PredictReveal
+  prompt="For a 512×512 image, 64×64 window, stride 8: sliding-window scanning costs 3,249 forward passes. The FCN equivalent costs the equivalent of 64 window-passes total. Roughly what's the speed-up?"
+  options={["About 5×", "About 50×", "About 500×"]}
+  correct={1}
+>
 
 $512\times512$ image, $64\times64$ window, stride 8, single scale:
 
@@ -64,6 +87,12 @@ $$c \cdot \frac{512^2}{64^2} = 64\,c$$
 $$\text{speed-up} = \frac{3249}{64} \approx \mathbf{50.8\times}$$
 
 Halve the stride to 4 and $N$ quadruples to $12{,}769$ while the FCN cost does not move at all — the speed-up becomes 200×. **The saving is exactly the redundancy**, and the redundancy grows as you look more finely.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Sliding-window cost is 3,249 window-passes and the FCN equivalent is 64. What happens to each if you halve the stride?", a: "The window count roughly quadruples, to 12,769, because it scales as 1/stride squared in two dimensions. The FCN cost does not change at all — it depends on the input area, not on how densely you read the output map. The speed-up therefore rises from about 51x to about 200x; the saving is exactly the redundancy you added." },
+]} />
 
 ## Where this leads
 
@@ -116,12 +145,13 @@ Identical, under the index identification $K_{k,c,i,j} = W_{k,(i,j,c)}$ — whic
 
 ---
 
-<Recall items={[
-  { q: "Why is sliding a classifier over an image so wasteful, in one sentence about overlap?", a: "Because consecutive windows share most of their pixels — at window 64 and stride 8 they overlap by 87.5% — so the convolutional features over that shared area are recomputed from scratch for every window. A fully convolutional pass computes each feature exactly once and reads off all window scores from the resulting map." },
-  { q: "How do you convert a trained Linear(7*7*512, 4096) into an equivalent convolution?", a: "Use Conv2d(512, 4096, kernel_size=7) and reshape the weight matrix with .view(4096, 512, 7, 7), copying the bias unchanged. On a 7x7 input the two produce identical numbers; on a larger input the convolution slides and emits a map of outputs where the dense layer would simply fail on shape." },
-  { q: "What is the output stride of a backbone with five stride-2 pooling stages, and what does it cost you?", a: "32 — the product of the strides. A 512x512 input yields a 16x16 map, so window positions are 32 pixels apart in the original image. The cost is granularity: an object smaller than about 32 pixels can fall between sampled positions, which is the small-object weakness that multi-scale feature maps were introduced to fix." },
-  { q: "Sliding-window cost is 3,249 window-passes and the FCN equivalent is 64. What happens to each if you halve the stride?", a: "The window count roughly quadruples, to 12,769, because it scales as 1/stride squared in two dimensions. The FCN cost does not change at all — it depends on the input area, not on how densely you read the output map. The speed-up therefore rises from about 51x to about 200x; the saving is exactly the redundancy you added." },
-]} />
+<ConceptBox title="TL;DR">
+- Naive detection = classify every crop of every size at every position. The arithmetic kills it before the accuracy does.
+- Neighbouring windows overlap by 80–95%, so a crop-and-classify loop recomputes almost the same features thousands of times.
+- A **fully convolutional network** computes them once: replace every `Linear` with an equivalent `Conv2d` and the network accepts any input size and emits a **map** of scores, one per window position, in a single pass.
+- The equivalence is exact — an $n \times n \times C \to K$ dense layer *is* a $n \times n$ convolution with $K$ filters.
+- What you get is a score map at **output stride** $s$ = the product of all strides. That map is the substrate every later detector predicts on.
+</ConceptBox>
 
 <QuizCard
   question="A 384×384 image, 96×96 window, stride 16, single scale. How many window positions are there?"
