@@ -1,0 +1,88 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ValueUpdateWidget from '../../components/widgets/transformers/ValueUpdateWidget.jsx'
+
+# Module 5: Value Vectors and Word Context Through Attention
+
+<Bridge>
+Module 4 computed attention *weights* — a distribution over which words matter to which. This module is what those weights actually do: they decide how much of each word's meaning gets mixed into another word's embedding. This is the payoff the very first module of the previous track was building toward — a fixed-vocabulary embedding table that finally, genuinely, depends on context.
+</Bridge>
+
+## A third projection: Value
+
+<PredictReveal
+  prompt="Query and Key decide HOW MUCH attention creature pays to fluffy. What decides WHAT actually gets absorbed into creature's embedding once that weight is set?"
+  options={["The Key vector of fluffy, reused", "A third, separate projection: the Value vector"]}
+  correct={1}
+>
+
+$$v_j = W_V\, e_j$$
+
+Query and Key exist purely to compute a *weight* — a number saying how relevant word $j$ is to word $i$. They never touch the actual content that gets moved. That's the **Value** vector's job: a third projection of the same embedding, representing what word $j$ actually contributes to any word that attends to it.
+
+The final update to word $i$'s embedding is a weighted sum of every other word's Value vector, using the attention weights from Module 4:
+
+$$\Delta e_i = \sum_j \alpha_{ij}\, v_j$$
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the role of the Value vector, and how is it different from Query and Key?", a: "Query and Key only compute a weight — how relevant one position is to another. The Value vector is a separate projection of the embedding that represents what a position actually contributes to the sequence. The final attention output is a weighted sum of Value vectors, using the weights that Query and Key produced." },
+]} />
+
+## The update, concretely
+
+<PredictReveal
+  prompt='Before attention, "creature" is a generic embedding. After attention pulls in "fluffy" and "blue" via their Value vectors, is the updated embedding a completely new vector, or the original plus an addition?'
+  options={["A completely new, unrelated vector", "The original embedding plus Δe — an addition, not a replacement"]}
+  correct={1}
+>
+
+<ValueUpdateWidget />
+
+$$e_i' = e_i + \Delta e_i$$
+
+Attention never throws away the original embedding — it *adds* a context-dependent correction to it. "Creature" still means creature; it now also means *this specific* creature, fluffy and blue. Run this for every word in the sentence and the whole sequence goes from a bag of dictionary definitions to a set of vectors that actually encode this sentence, this meaning, this context.
+
+</PredictReveal>
+
+<ConceptBox title="Back to Module 1 of the previous track">
+Recall the "bank" problem from the very start of the previous track: a plain word-embedding table gives "bank" the exact same vector whether it's a river bank or a savings bank, because the table has no way to look at surrounding words. This is the fix. "Bank" starts generic. Self-attention lets it look at "river" or "savings" nearby, pull in the relevant Value vector, and land at two genuinely different embeddings — solved not by a bigger table, but by letting meaning depend on context, computed fresh for every sentence.
+</ConceptBox>
+
+<Recall items={[
+  { q: "Does attention replace a token's original embedding, or add to it?", a: "It adds to it. The final embedding is the original vector plus Δe, a weighted sum of Value vectors from attended positions — the word's base meaning is preserved and a context-specific correction is layered on top, not discarded and replaced." },
+  { q: "How does this fix the context-independence problem from the very first module of the previous track?", a: "A plain embedding table returns one fixed vector per word regardless of sentence, so 'bank' can't distinguish river from savings. Self-attention lets 'bank' look at its actual neighbours in each sentence and pull in a different Value-vector contribution depending on what's nearby, producing two different final embeddings for the two different senses — computed fresh per sentence rather than looked up from a fixed table." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A third projection, $v_j = W_V e_j$, produces the **Value** vector — what a position actually contributes, separate from how much attention it receives.
+- The attention output is $\Delta e_i = \sum_j \alpha_{ij} v_j$ — a weighted sum of Value vectors, using the weights Query/Key computed.
+- The update is additive: $e_i' = e_i + \Delta e_i$ — context refines the embedding, it doesn't replace it.
+- This is the concrete fix for the context-independence problem that opened the previous track: the same word gets a genuinely different final embedding depending on what surrounds it, computed per sentence rather than looked up from a fixed table.
+</ConceptBox>
+
+<QuizCard
+  question="What does the Value vector represent, and how is a token's final attention output computed from it?"
+  options={[
+    "The Value vector is another name for the Key vector; the output is the highest-scoring Value alone",
+    "The Value vector is what a position contributes to others; the output is a weighted sum of Value vectors using the attention weights",
+    "The Value vector replaces the original embedding entirely once attention runs",
+    "Value vectors are only used in cross-attention, never in self-attention"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about Value vectors and the embedding update are correct?"
+  options={[
+    "The Value vector is a third, separate projection of the embedding, distinct from Query and Key",
+    "The final embedding update is additive: original embedding plus a weighted sum of Values",
+    "Query and Key vectors directly carry the content that gets mixed into the output",
+    "This mechanism lets the same word type end up with different final embeddings in different sentences",
+    "Attention discards the original embedding and replaces it with Δe",
+    "The weights used in the Value-vector sum come from the same softmax computed in Module 4"
+  ]}
+  correct={[0, 1, 3, 5]}
+/>

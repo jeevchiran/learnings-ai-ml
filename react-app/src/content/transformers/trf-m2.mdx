@@ -1,0 +1,84 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 2: Encoder-Decoder in a Transformer
+
+<Bridge>
+Module 1 established the two flavours of attention a transformer uses: self-attention (a sequence reading itself) and cross-attention (one sequence reading another). This module is where they get assembled into the two halves of the original transformer — an encoder stack and a decoder stack — and what's different about each.
+</Bridge>
+
+## Two stacks, two jobs
+
+<PredictReveal
+  prompt="The encoder reads the full source sentence before translation starts — it already has the whole sentence in hand. The decoder generates the output one word at a time, left to right. Should the encoder's self-attention be allowed to look at future words in its own input?"
+  options={["No — same restriction as the decoder", "Yes — the encoder already has the whole sentence, there's nothing to leak"]}
+  correct={1}
+>
+
+The **encoder** stack runs self-attention with no mask at all: every word can attend to every other word, before and after it, because the encoder's whole job is to build the richest possible representation of an input it already has completely.
+
+The **decoder** stack runs *masked* self-attention — the causal mask from Module 1's intuition, made concrete: when generating word 5, the decoder can only attend to words 1 through 5 of what it has generated so far, never word 6 onward, because word 6 doesn't exist yet. Predicting it by looking at it would be cheating during training and impossible at inference.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does the encoder's self-attention need no mask, while the decoder's does?", a: "The encoder receives the entire input sequence at once and its job is just to build the best representation of it, so there's nothing to hide — every word can see every other word. The decoder generates output one token at a time and must not be able to look at tokens it hasn't generated yet, so its self-attention is masked to only allow attending to the current position and earlier ones." },
+]} />
+
+## Where cross-attention comes back in
+
+<PredictReveal
+  prompt="A decoder block has masked self-attention over its own (partial) output. Where does information from the SOURCE sentence — the thing actually being translated — enter the decoder?"
+  options={["It doesn't — the decoder only ever sees its own previous output", "Through a separate cross-attention layer, querying the encoder's output"]}
+  correct={1}
+>
+
+Each decoder block has *two* attention layers, not one: masked self-attention over what it has generated so far, followed by cross-attention where the decoder's queries meet the *encoder's* keys and values. This is exactly the attention mechanism from the previous track's Modules 6–10 — a decoder step attending to encoder states — just now sitting inside a much larger, fully-attention-based architecture instead of wrapping an RNN.
+
+$$\text{Attention}(Q_{\text{decoder}}, K_{\text{encoder}}, V_{\text{encoder}})$$
+
+</PredictReveal>
+
+<ConceptBox title="The three attention layers, side by side">
+| Layer | Lives in | Queries from | Keys/Values from | Masked? |
+|---|---|---|---|---|
+| Encoder self-attention | Encoder | Source sentence | Source sentence | No |
+| Decoder self-attention | Decoder | Generated-so-far | Generated-so-far | Yes (causal) |
+| Decoder cross-attention | Decoder | Generated-so-far | Encoder output | No |
+</ConceptBox>
+
+<Recall items={[
+  { q: "How many distinct attention layers does one decoder block contain, and what does each attend to?", a: "Two. First, masked self-attention over the decoder's own generated-so-far sequence, restricted to the current position and earlier. Second, cross-attention where the decoder's queries meet the encoder's keys and values, pulling in information about the source sentence." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The transformer has two stacks: an **encoder** (unmasked self-attention, sees the whole input at once) and a **decoder** (masked self-attention, generates left to right).
+- The encoder needs no causal mask — it already holds the complete input, so nothing is hidden from a future it doesn't have.
+- The decoder's masked self-attention prevents attending to not-yet-generated positions — enforcing at training time the same left-to-right constraint that holds at inference time.
+- A decoder block runs masked self-attention over its own output first, then **cross-attention** into the encoder's output — the exact mechanism the previous track covered, now embedded inside a fully-attention architecture.
+</ConceptBox>
+
+<QuizCard
+  question="Why does the decoder use masked self-attention while the encoder does not?"
+  options={[
+    "The decoder is a smaller network and masking saves compute",
+    "The decoder generates output left to right and must not see future positions it hasn't generated yet; the encoder already has its whole input available with nothing to hide",
+    "Masking is only used to reduce the vocabulary size",
+    "There is no difference — both use masked self-attention"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the transformer's encoder-decoder structure are correct?"
+  options={[
+    "Encoder self-attention is unmasked — every word can attend to every other word",
+    "Decoder self-attention is masked — only current and earlier positions are visible",
+    "Cross-attention lets the decoder query the encoder's output",
+    "The encoder and decoder never communicate with each other",
+    "A decoder block contains two separate attention layers",
+    "Cross-attention is a brand-new mechanism unrelated to anything in the previous track"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

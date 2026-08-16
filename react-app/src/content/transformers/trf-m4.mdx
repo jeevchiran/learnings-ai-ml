@@ -1,0 +1,103 @@
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import QueryKeyWidget from '../../components/widgets/transformers/QueryKeyWidget.jsx'
+import CausalMaskingWidget from '../../components/widgets/transformers/CausalMaskingWidget.jsx'
+
+# Module 4: The Math of Self-Attention
+
+<Bridge>
+Module 3 treated attention as a black box inside each block. This module opens it. If you've been through the Attention & Encoder-Decoder track, the formula will look familiar — it's the same scaled dot-product scoring from that track's Module 10, just with the query, key, and value now all coming from the *same* sequence instead of a decoder querying an encoder.
+</Bridge>
+
+## Query and Key: a question and an answer
+
+<PredictReveal
+  prompt='"Creature" is looking for adjectives sitting in front of it. What does its Query vector represent, and what does the Key vector of "fluffy" represent?'
+  options={["Both represent the same thing — the word's meaning", "Query = what creature is looking for; Key = what fluffy is offering"]}
+  correct={1}
+>
+
+<QueryKeyWidget />
+
+Every token's embedding is projected two different ways by two learned matrices:
+
+$$q_i = W_Q\, e_i \qquad k_j = W_K\, e_j$$
+
+$q_i$ (**Query**) encodes what position $i$ is looking for. $k_j$ (**Key**) encodes what position $j$ has to offer. They live in the same vector space *by construction*, so a plain dot product $q_i \cdot k_j$ measures how well what $i$ wants matches what $j$ has — high when "creature" (query: "adjectives?") meets "fluffy" (key: "I'm an adjective").
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What do the Query and Key vectors each represent, and why can they be compared with a dot product?", a: "The Query encodes what a position is looking for; the Key encodes what a position has to offer. Both are produced by projecting the same embeddings through learned matrices (W_Q and W_K) into the same vector space, which is exactly what makes a dot product between them meaningful as a similarity/relevance score." },
+]} />
+
+## Masking and softmax: turning scores into a distribution
+
+<PredictReveal
+  prompt="A decoder generating word 5 must not see word 6. What raw score does word 6 get before softmax, so that its attention weight comes out to exactly 0?"
+  options={["Zero", "Negative infinity"]}
+  correct={1}
+>
+
+<CausalMaskingWidget />
+
+Masking is done by setting the disallowed positions' raw scores to $-\infty$ *before* softmax:
+
+$$\alpha_{ij} = \text{softmax}_j\!\left(\frac{q_i \cdot k_j}{\sqrt{d_k}}\right), \qquad \text{score}_{ij} = -\infty \text{ if } j > i$$
+
+$e^{-\infty} = 0$, so those positions get exactly zero weight after softmax — not approximately zero, exactly zero, with no gradient leaking through them either. The $\sqrt{d_k}$ scaling is the same variance-control trick from the previous track's Module 10, needed here for the same reason: without it, scores computed from higher-dimensional Query/Key vectors would grow large enough to saturate softmax.
+
+</PredictReveal>
+
+<DerivationSteps>
+<DerivationStep number={1} title="Attention, as one equation">
+
+Stacking every token's query into a matrix $Q$, every key into $K$, and every value into $V$, one matrix multiplication computes the entire attention pattern for a whole sequence at once:
+
+$$\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}} + M\right) V$$
+
+where $M$ is the mask matrix (0 where attention is allowed, $-\infty$ where it isn't). This is the formula every widget on this page has been computing by hand, one row at a time.
+
+</DerivationStep>
+<DerivationStep number={2} title="Why the mask is additive, not multiplicative">
+
+Multiplying a disallowed score by zero *before* softmax would not work — softmax exponentiates everything, so a zeroed score $e^0 = 1$ would still receive real weight. Adding $-\infty$ before the exponential is what actually drives the post-softmax weight to zero: $e^{-\infty} = 0$. This is why the mask is added to the scores, never multiplied against the weights.
+
+</DerivationStep>
+</DerivationSteps>
+
+<Recall items={[
+  { q: "Why is the causal mask applied by adding -infinity to the raw scores rather than zeroing the attention weights afterward?", a: "Softmax exponentiates every score before normalising. Adding -infinity to a disallowed score makes its exponential exactly 0, so it contributes nothing and receives no gradient. Zeroing the weight after softmax instead would still have let a real (non-zero) score influence the normalisation, and would produce a discontinuous, non-differentiable operation." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- $q_i = W_Q e_i$ and $k_j = W_K e_j$ — Query encodes what a position wants, Key encodes what a position offers, and their dot product scores relevance.
+- $\alpha_{ij} = \text{softmax}_j(q_i \cdot k_j / \sqrt{d_k})$ — the same scaled dot-product formula from the previous track's Module 10, now applied within one sequence.
+- Causal masking sets disallowed positions' scores to $-\infty$ before softmax, so $e^{-\infty}=0$ gives them exactly zero weight and zero gradient.
+- The whole computation for an entire sequence is one matrix formula: $\text{softmax}(QK^\top/\sqrt{d_k} + M)V$.
+</ConceptBox>
+
+<QuizCard
+  question="Why is the causal mask applied as -infinity added to the raw scores, rather than as a zero multiplied into the post-softmax weights?"
+  options={[
+    "Both approaches are mathematically identical, -infinity is just a convention",
+    "Because e^(-infinity) = 0 exactly, so softmax naturally zeroes those positions with no leftover gradient",
+    "Because multiplying by zero would be computationally slower",
+    "Because softmax cannot process negative numbers at all"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the math of self-attention are correct?"
+  options={[
+    "Query and Key vectors are produced by two different learned projection matrices, W_Q and W_K",
+    "A high dot product between a query and a key means the value at that key position will be strongly weighted",
+    "Scores are divided by sqrt(d_k) to control variance as dimensionality grows",
+    "Masked positions receive a small but non-zero attention weight",
+    "The full-sequence attention computation can be written as one matrix formula",
+    "Query and Key must be computed from different sequences — self-attention is not possible"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

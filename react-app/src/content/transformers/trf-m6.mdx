@@ -1,0 +1,79 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import MultiHeadWidget from '../../components/widgets/transformers/MultiHeadWidget.jsx'
+
+# Module 6: Multi-Head Attention
+
+<Bridge>
+Module 5 gave one word one way to gather context: one set of Query, Key, and Value projections, one attention pattern. "Creature" found its adjectives that way — but a sentence has more than one kind of relationship to track at once (which word is the subject of which verb, which adjective belongs to which noun, what's nearby). One attention pattern can't hold all of that at the same time. Multi-head attention is running several of them in parallel.
+</Bridge>
+
+## Many small attention patterns instead of one big one
+
+<PredictReveal
+  prompt="One attention head learns roughly one kind of relationship. If a transformer only ever had a single head, could it track both 'which adjectives describe this noun' AND 'which noun is this verb's subject' equally well?"
+  options={["Yes, one head easily learns every kind of relationship at once", "No — a single attention pattern is a compromise across every relationship it's asked to track"]}
+  correct={1}
+>
+
+<MultiHeadWidget />
+
+Multi-head attention runs $h$ independent copies of Query/Key/Value projections — each with its own $W_Q^{(k)}, W_K^{(k)}, W_V^{(k)}$ — computes attention separately in each, and combines the results. One head might specialise in adjective-noun matching, another in verb-subject matching, another in something no human would name cleanly. Nothing forces this division of labour; it emerges from training, because different heads that ended up covering the same ground would be wasted capacity.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does multi-head attention exist instead of one larger attention computation?", a: "A single attention pattern has to compromise across every kind of relationship it's asked to capture. Running several smaller, independent attention computations in parallel — each with its own Q/K/V projections — lets different heads specialise in different kinds of relationships, which a single pattern can't do as cleanly." },
+]} />
+
+## Combining the heads without exploding the parameter count
+
+<PredictReveal
+  prompt="Each head's Value projection maps a 12,288-dimensional embedding down to a much smaller space (say, 128 dimensions) before computing the weighted sum, then back up to 12,288 to add into the embedding. Why go down to 128 and back up, instead of working in 12,288 dimensions the whole time?"
+  options={["It doesn't matter, it's just a stylistic choice", "It keeps each head's parameter count small — a full 12,288-to-12,288 matrix per head, times many heads, would be enormous"]}
+  correct={1}
+>
+
+Each head's $W_V$ is actually two matrices: a **down-projection** into a small space (matching the head's Query/Key dimension) and an **up-projection** back to full embedding size. Multiplying these two smaller matrices costs far less than one giant matrix would, which is exactly what makes dozens of heads per layer affordable.
+
+<ConceptBox title="GPT-3, for scale">
+GPT-3 has 96 attention heads per layer and 96 layers. Its Query, Key, Value, and Output matrices together account for roughly **57.9 billion** of its 175 billion total parameters — practically a third of the entire model is attention machinery, and the low-rank Value trick above is a meaningful part of why that number is affordable at all rather than orders of magnitude larger.
+</ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is each head's Value projection split into a down-projection and an up-projection instead of one direct matrix?", a: "A single matrix mapping the full embedding dimension to itself (e.g. 12,288 to 12,288) would need an enormous number of parameters per head, and that cost multiplies by however many heads exist. Down-projecting to a small dimension, computing the weighted sum there, then up-projecting back keeps each head's parameter count small enough that having dozens of heads per layer stays affordable." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Multi-head attention runs $h$ independent attention computations in parallel, each with its own Query/Key/Value projections, so different heads can specialise in different kinds of relationships.
+- Nothing manually assigns heads their specialisation — it emerges from training, since redundant heads waste capacity.
+- Each head's Value projection is split into a small down-projection and an up-projection back to full size, keeping per-head parameter cost low enough that many heads per layer is affordable.
+- In GPT-3, Query/Key/Value/Output matrices together account for roughly a third of all 175 billion parameters.
+</ConceptBox>
+
+<QuizCard
+  question="What is the main reason a transformer uses multiple attention heads instead of one larger attention computation?"
+  options={[
+    "Multiple heads are required for the softmax function to work correctly",
+    "Different heads can specialise in different kinds of relationships, which a single attention pattern would have to compromise across",
+    "It reduces the total number of parameters compared to a single head",
+    "It removes the need for positional encoding"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about multi-head attention are correct?"
+  options={[
+    "Each head has its own independent Query, Key, and Value projection matrices",
+    "Head specialisation is manually assigned by the model designer before training",
+    "Down-projecting to a small dimension before up-projecting keeps each head's parameter count manageable",
+    "Multi-head attention runs its heads' computations in parallel, not one after another",
+    "GPT-3's Query/Key/Value/Output matrices make up a negligible fraction of its total parameters",
+    "A single attention head can, in principle, track every kind of relationship equally well as many heads"
+  ]}
+  correct={[0, 2, 3]}
+/>

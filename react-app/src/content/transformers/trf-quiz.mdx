@@ -1,0 +1,167 @@
+import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Track Quiz — Transformers
+
+<ConceptBox title="End-of-track checkpoint">
+This quiz covers the full track: self-attention vs cross-attention, encoder (unmasked) vs decoder (masked) self-attention plus cross-attention, positional encoding and why attention needs it, the Query/Key/Value math (scaled dot-product, causal masking via -infinity, the softmax weighted sum), multi-head attention and why it exists, the low-rank Value projection, PyTorch self-attention/multi-head implementation, the feed-forward layer and residual "Add & Norm" connections, sinusoidal vs learned positional encoding, and training (parallel next-token loss, teacher forcing, learning-rate warmup). Expect conceptual, numerical, and code-reading questions.
+</ConceptBox>
+
+## Questions
+
+<QuizCard
+  question="What is the key difference between self-attention and cross-attention?"
+  options={[
+    "Self-attention uses Query/Key/Value and cross-attention does not",
+    "Self-attention is a sequence attending to itself; cross-attention is one sequence attending to a different sequence",
+    "They are the same mechanism, just different names for the same computation",
+    "Cross-attention is only used at inference time, never during training"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="Why does the transformer encoder's self-attention use no causal mask, while the decoder's does?"
+  options={[
+    "The encoder is a smaller network so masking is unnecessary",
+    "The encoder already has its entire input available with nothing to hide; the decoder generates left to right and must not see future positions",
+    "Masking is a training-only detail that applies equally to both",
+    "There is no encoder self-attention in a standard transformer"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="Why does a transformer need positional encoding when an RNN does not?"
+  options={[
+    "RNNs also need positional encoding, transformers do not",
+    "Self-attention compares all tokens to all other tokens with no inherent notion of order, unlike an RNN which reads tokens strictly in sequence",
+    "Positional encoding is only needed for very long sequences",
+    "It is purely a regularisation technique unrelated to order"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="A causal mask sets a disallowed position's raw score to -infinity before softmax. Why -infinity rather than a large negative number like -1000?"
+  options={[
+    "Any sufficiently negative number works identically in practice and -infinity is just convention",
+    "Only exactly -infinity guarantees e^score is exactly 0 after the exponential, giving that position exactly zero weight and zero gradient",
+    "PyTorch requires -infinity specifically for numerical stability reasons unrelated to the math",
+    "-infinity is used only for decoder self-attention, never in code"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question='Query vector q="creature" = [1.0, 0.0]. Key vector k="fluffy" = [1.0, 0.1]. What is their dot product q · k?'
+  options={[
+    "1.0",
+    "1.1",
+    "0.1",
+    "0"
+  ]}
+  correct={0}
+/>
+
+<QuizCard
+  question="Why does scaled dot-product attention divide the raw score by sqrt(d_k)?"
+  options={[
+    "To normalise the Key vectors to unit length",
+    "The dot product's variance grows with dimension d_k, and without scaling, high-dimensional scores can saturate softmax toward a near one-hot output",
+    "To reduce the number of learnable parameters",
+    "It has no mathematical purpose, it is a historical convention"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="What does the Value vector represent, and how does it differ from Query and Key?"
+  options={[
+    "Value is the same as Key, just renamed for clarity",
+    "Query and Key only compute a relevance weight; Value is a separate projection representing what a position actually contributes to the weighted output",
+    "Value vectors are only used when the causal mask is disabled",
+    "Value replaces the original embedding entirely once attention is applied"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="Is a token's final embedding after attention a replacement of its original embedding, or an addition to it?"
+  options={[
+    "A complete replacement — the original embedding is discarded",
+    "An addition — e_i' = e_i + Δe_i, where Δe_i is the weighted sum of attended Value vectors",
+    "Neither — attention only affects the loss, not the embeddings",
+    "It depends on whether causal masking is enabled"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="Why does multi-head attention run several smaller attention computations instead of one larger one?"
+  options={[
+    "It reduces total parameter count compared to a single head",
+    "Different heads can specialise in different kinds of relationships, which one attention pattern would have to compromise across",
+    "Multiple heads are required for backpropagation to work",
+    "It removes the need for a causal mask"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="In a multi-head attention layer with embed_dim=512 and num_heads=8, what is head_dim, and what shape does concatenating all heads' outputs produce per token?"
+  options={[
+    "head_dim=64; concatenated shape is 512, matching the original embedding dimension",
+    "head_dim=512; concatenated shape is 4096",
+    "head_dim=8; concatenated shape is 64",
+    "head_dim=64; concatenated shape is 64, since concatenation does not change size"
+  ]}
+  correct={0}
+/>
+
+<QuizCard
+  question="What does the feed-forward layer in a transformer block do that attention does not?"
+  options={[
+    "It mixes information across all positions, same as attention",
+    "It processes each position's vector independently — no information is exchanged between positions in this layer",
+    "It computes the causal mask",
+    "It replaces the need for an embedding table"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="Why can a transformer decoder train on every position's next-token prediction in parallel, unlike an RNN decoder's step-by-step training?"
+  options={[
+    "Cross-entropy loss is inherently designed to be computed in parallel",
+    "The causal mask already guarantees no position's prediction is computed using information from the token it's graded against, so all positions can be graded in one forward pass",
+    "Parallel training is a myth — transformers also train one position at a time",
+    "Teacher forcing is not used in transformer training"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the transformer architecture are correct?"
+  options={[
+    "A decoder block contains both masked self-attention and cross-attention into the encoder",
+    "Positional encoding is added once before the first block, not re-added at every block",
+    "Residual connections add a sublayer's output back onto its input to keep gradients flowing through deep stacks",
+    "The encoder stack uses a causal mask, just like the decoder",
+    "Learned positional embeddings generalise to sequence lengths never seen during training",
+    "Sinusoidal positional encoding has the property that relative position offsets are expressible as a linear function"
+  ]}
+  correct={[0, 1, 2, 5]}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about training a transformer are correct?"
+  options={[
+    "The loss function is ordinary cross-entropy on next-token prediction",
+    "Query, Key, and Value matrices require a specialised gradient computation separate from backpropagation",
+    "Teacher forcing feeds the ground-truth shifted sequence as decoder input during training",
+    "Inference must generate tokens sequentially, one at a time",
+    "Learning-rate warmup is used to stabilise early training of deep attention stacks",
+    "Training and inference use identical parallel computation, with no difference between them"
+  ]}
+  correct={[0, 2, 3, 4]}
+/>

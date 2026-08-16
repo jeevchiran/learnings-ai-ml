@@ -1,0 +1,101 @@
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 8: Feed Forward and Positional Encoding
+
+<Bridge>
+Every module so far has been about the attention layer. But Module 3's stack diagram had a second box in every block: "Feed Forward". This module is that second box, plus a formal look at the positional encoding trick Module 3 introduced only briefly — the two pieces of a transformer block that aren't attention.
+</Bridge>
+
+## The feed-forward layer: no mixing between positions
+
+<PredictReveal
+  prompt="Attention lets position 4 (creature) read information from positions 2 and 3 (fluffy, blue). Does the feed-forward layer that follows it also let positions exchange information with each other?"
+  options={["Yes, it mixes across positions too", "No — it processes each position's vector completely independently"]}
+  correct={1}
+>
+
+$$\text{FFN}(x) = W_2 \, \sigma(W_1 x + b_1) + b_2$$
+
+The feed-forward network is a small MLP — usually one hidden layer, 4x wider than the embedding, with a ReLU or GELU activation — applied to *each position's vector separately*. It never looks at any other position. All the cross-token communication in a transformer block happens in the attention layer; the feed-forward layer's job is to process, individually, whatever each position picked up.
+
+Think of it as two alternating phases per block: attention *gathers* information across positions, feed-forward *digests* it, one position at a time.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Which layer in a transformer block lets positions exchange information — attention or feed-forward?", a: "Only attention. The feed-forward layer applies the exact same small MLP to each position's vector independently, with no access to any other position's vector — all cross-token communication happens in attention." },
+]} />
+
+## Add & Norm: the residual connections holding it together
+
+<PredictReveal
+  prompt={"Module 3's diagram showed \"Add & Norm\" after both the attention layer and the feed-forward layer. What is being \"added\"?"}
+  options={["The output of the layer added to a random vector", "The output of the layer added back onto its own input — a residual connection"]}
+  correct={1}
+>
+
+$$x' = \text{LayerNorm}(x + \text{Sublayer}(x))$$
+
+This is the exact same residual-connection idea that showed up in the CNN and Transfer Learning tracks: add the sublayer's output back onto its input rather than replacing it, so gradients have an unbroken path straight through every block. `LayerNorm` then rescales the result to keep activations in a stable range as they pass through dozens of stacked blocks — without it, a 96-layer stack like GPT-3's would be close to untrainable.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does a transformer block add a sublayer's output back onto its input instead of just replacing it?", a: "It's a residual connection — it gives gradients an unbroken, unattenuated path straight through the block during backpropagation, which is what makes stacking dozens or hundreds of blocks trainable at all, rather than the gradient vanishing through so many layers." },
+]} />
+
+## Positional encoding, formally
+
+<DerivationSteps>
+<DerivationStep number={1} title="The sinusoidal formula">
+
+The original transformer paper adds a fixed (not learned) vector to each position, built from sine and cosine waves of different frequencies:
+
+$$PE(pos, 2i) = \sin\!\left(\frac{pos}{10000^{2i/d}}\right), \qquad PE(pos, 2i+1) = \cos\!\left(\frac{pos}{10000^{2i/d}}\right)$$
+
+Each dimension $2i$ oscillates at a different frequency, so every position ends up with a unique fingerprint across the full vector, even though every individual sine/cosine value repeats.
+
+</DerivationStep>
+<DerivationStep number={2} title="Why sine and cosine specifically">
+
+The key property: $PE(pos + k)$ can be written as a *linear function* of $PE(pos)$, for any fixed offset $k$ — a consequence of the angle-addition identities for sine and cosine. That means the model can learn to attend to "the position 3 words back" using a fixed linear operation, regardless of where in the sequence it currently is, instead of having to memorise absolute positions independently.
+
+</DerivationStep>
+</DerivationSteps>
+
+<ConceptBox title="Learned positional embeddings: the practical alternative">
+Many modern models (GPT-2 onward, among others) skip the sinusoidal formula entirely and just learn a positional embedding table the same way they learn a token embedding table — one trainable vector per position, up to some maximum sequence length. Simpler to implement, but it cannot generalise past the longest sequence length seen in training, which the sinusoidal version can.
+</ConceptBox>
+
+---
+
+<ConceptBox title="TL;DR">
+- The feed-forward layer applies the same small MLP to every position independently — it processes what attention gathered, but does not gather anything itself.
+- Every sublayer (attention, feed-forward) is wrapped in a residual connection and LayerNorm: $x' = \text{LayerNorm}(x + \text{Sublayer}(x))$, keeping gradients flowing through deep stacks.
+- Sinusoidal positional encoding gives every position a unique, frequency-based fingerprint, with the property that relative offsets are a fixed linear function — letting the model reason about relative position, not just absolute.
+- Learned positional embeddings are a simpler, common alternative, at the cost of not generalising beyond the maximum trained sequence length.
+</ConceptBox>
+
+<QuizCard
+  question="What is the key difference between what the attention layer does and what the feed-forward layer does in a transformer block?"
+  options={[
+    "They do the same thing, applied twice for redundancy",
+    "Attention mixes information across positions; feed-forward processes each position independently",
+    "Feed-forward mixes across positions; attention processes each position independently",
+    "Attention only runs during training, feed-forward only during inference"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about feed-forward layers and positional encoding are correct?"
+  options={[
+    "The feed-forward network is applied identically and independently to each position",
+    "Residual connections add a sublayer's output back onto its input to keep gradients flowing through deep stacks",
+    "Sinusoidal positional encoding is a learned, trainable set of vectors",
+    "A key property of sinusoidal encoding is that relative position offsets are expressible as a linear function",
+    "Learned positional embeddings generalise to sequence lengths longer than anything seen in training",
+    "LayerNorm is applied after adding a sublayer's output back onto its input"
+  ]}
+  correct={[0, 1, 3, 5]}
+/>

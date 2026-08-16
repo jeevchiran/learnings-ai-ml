@@ -1,0 +1,82 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 1: Intuition Behind a Transformer
+
+<Bridge>
+The Attention & Encoder-Decoder track ended on a specific, narrow limitation: the decoder attends to the encoder, but everything inside the encoder and inside the decoder is still a strictly sequential RNN. This track asks the question that limitation was pointing at — what if attention was not a bolt-on fix for one bottleneck, but the entire mechanism? No RNN, no recurrence, every token looking at every other token, all at once. That is a transformer.
+</Bridge>
+
+Running example for this whole track: the sentence **"a fluffy blue creature roamed the verdant forest"** — the exact one 3Blue1Brown uses to explain attention, kept here so the diagrams and the code agree.
+
+## Every word starts as a guess, then gets refined
+
+<PredictReveal
+  prompt='The word "creature" on its own could mean almost anything — an animal, a monster, a robot. In the sentence above, what narrows it down?'
+  options={["Nothing — the word creature always means the same thing", "The words around it: fluffy, blue, roamed, forest"]}
+  correct={1}
+>
+
+A transformer's core move is deceptively simple: every word starts with a generic, dictionary-style embedding — a vector that has to represent every possible sense of that word, because it has not read the sentence yet. Then, one layer at a time, each word is allowed to look at every other word and ask a question like *"is there an adjective sitting in front of me?"* — and if the answer is yes, it pulls that meaning into itself.
+
+"Creature" starts as a blank slate. After attention, it has absorbed "fluffy" and "blue" — its vector now encodes *specifically* a fluffy blue creature, not creatures in general.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does a token's embedding represent BEFORE any attention has run?", a: "A generic, context-free meaning — everything that token could possibly mean, since the model has not yet looked at the words around it." },
+]} />
+
+## Self-attention vs the attention you already know
+
+<PredictReveal
+  prompt="In the Attention & Encoder-Decoder track, the decoder attended to the encoder's hidden states — two different sequences. In a transformer, what does a word attend to?"
+  options={["Only words in a separate sequence, like before", "Other words in its own sequence"]}
+  correct={1}
+>
+
+That earlier mechanism is now called **cross-attention**: one sequence (the decoder) queries a different sequence (the encoder). A transformer adds a second kind, **self-attention**: every word in a sentence queries every *other* word in that same sentence. "Creature" is not looking outside itself for context — it is looking at its own neighbours, "fluffy" and "blue", to sharpen its own meaning.
+
+Self-attention is what lets a transformer build a genuinely contextual representation of a whole sentence in one pass, rather than reading it one token at a time the way an RNN has to.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Distinguish self-attention from cross-attention.", a: "Self-attention is a sequence attending to itself — every word looks at every other word in the same sentence. Cross-attention is one sequence attending to a different one, like a decoder attending to an encoder's outputs. Transformers use both, but self-attention is the new mechanism this track focuses on." },
+]} />
+
+<ConceptBox title="Why this replaces recurrence">
+An RNN builds context by reading left to right, one word updating a single hidden state at a time — which is exactly why it cannot be parallelised across time steps (Module 11 of the previous track). Self-attention lets every word look at every other word *simultaneously*, in one matrix multiplication. Context still gets built, but nothing has to wait its turn.
+</ConceptBox>
+
+---
+
+<ConceptBox title="TL;DR">
+- A transformer refines every word's meaning by letting it look at the other words in the sentence and pull in relevant context — starting from a generic, context-free embedding.
+- **Self-attention**: a sequence attends to itself (every word looks at every other word in the same sentence) — new in this track.
+- **Cross-attention**: one sequence attends to a different one (decoder attending to encoder) — the mechanism the previous track already covered.
+- Because every word can look at every other word at once, this context-building step runs in parallel — no sequential bottleneck like an RNN has.
+</ConceptBox>
+
+<QuizCard
+  question='In "a fluffy blue creature roamed the verdant forest", self-attention lets the word "creature" absorb context from which other words?'
+  options={[
+    "Only the word immediately before it",
+    "Any other word in the same sentence, most strongly the relevant ones like fluffy and blue",
+    "Only words in a separately encoded sentence",
+    "No other words — creature keeps its dictionary meaning unchanged"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about self-attention are correct?"
+  options={[
+    "Self-attention lets a sequence attend to itself, not a separate sequence",
+    "Cross-attention and self-attention are the same mechanism with different names",
+    "Self-attention can update every token's representation in parallel, not one step at a time",
+    "A word's embedding before attention already encodes the specific sense it has in its sentence",
+    "Self-attention is what removes the sequential-computation limitation RNNs have",
+    "Cross-attention was already covered in the Attention & Encoder-Decoder track"
+  ]}
+  correct={[0, 2, 4, 5]}
+/>

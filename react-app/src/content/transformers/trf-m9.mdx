@@ -1,0 +1,94 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 9: Loss Function and Training
+
+<Bridge>
+Every module so far has described what a trained transformer computes. This last module is how it gets there — and the good news is that almost nothing about training is new. The loss is the same cross-entropy the previous track used, teacher forcing is the same trick, and gradients flow backward through Query, Key, and Value projections exactly the way they flow through any other linear layer.
+</Bridge>
+
+## The loss: predict the next token, everywhere at once
+
+<PredictReveal
+  prompt={"Module 3's diagram labelled the decoder input \"Outputs (shifted right)\". A transformer decoder predicts a token at every position in parallel during training. What is position 4's prediction compared against?"}
+  options={["The actual token at position 4", "The actual token at position 5 — predicting one step ahead, everywhere at once"]}
+  correct={1}
+>
+
+$$\mathcal{L} = -\frac{1}{T}\sum_{t=1}^{T} \log p(x_{t+1} \mid x_1, \ldots, x_t)$$
+
+Feed the model the target sequence shifted right by one position (the `<sos>`-then-tokens input Module 2 of the previous track already used), and every output position is trained simultaneously to predict the *next* real token — position $t$'s output is graded against $x_{t+1}$. Because the causal mask already prevents position $t$ from seeing $x_{t+1}$ or anything later, this parallel training is completely legitimate: nothing peeks at the answer.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can a transformer train on predicting every position's next token in parallel, when an RNN decoder trains one step at a time?", a: "The causal mask already guarantees position t cannot see position t+1 or anything later, so grading every position's prediction against its true next token simultaneously is legitimate — no position is peeking at its own answer. An RNN decoder could in principle do the same with teacher forcing, but its sequential hidden-state computation still forces one step to finish before the next begins; the transformer's non-recurrent structure is what lets the forward pass itself be parallel too." },
+]} />
+
+## Teacher forcing, unchanged from before
+
+<PredictReveal
+  prompt="At inference time, there's no ground-truth next token to feed in. Does a transformer decoder handle this any differently than the RNN decoder from the previous track did?"
+  options={["Yes, transformers use a completely different inference procedure", "No — same autoregressive loop: feed the predicted token back in as the next input"]}
+  correct={1}
+>
+
+```python
+def train_step(model, src, tgt, optimizer, criterion):
+    optimizer.zero_grad()
+    decoder_input = tgt[:, :-1]     # shifted right: everything except the last token
+    decoder_target = tgt[:, 1:]      # everything except the first (<sos>) token
+    logits = model(src, decoder_input)                     # (batch, seq_len, vocab_size)
+    loss = criterion(logits.reshape(-1, logits.size(-1)), decoder_target.reshape(-1))
+    loss.backward()
+    optimizer.step()
+    return loss.item()
+```
+
+Training feeds the entire ground-truth sequence in at once (teacher forcing, same as the previous track's Module 4), computing every position's loss in a single forward pass — the parallelism advantage. Inference still has to generate one token at a time, feeding each prediction back in, because there is no ground truth to shift and feed all at once.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does training parallelize across positions but inference still cannot?", a: "Training has access to the full ground-truth target sequence, so it can shift it right and feed the whole thing in at once, letting every position's next-token prediction be computed and graded in one forward pass under the causal mask. Inference has no ground truth — each token must be generated before it can be fed back in as input for the next position, so generation is inherently sequential even though the model architecture itself is parallel." },
+]} />
+
+## Gradients flow through Q, K, and V like any other weights
+
+Nothing about attention is special from backpropagation's point of view. $W_Q$, $W_K$, $W_V$, the output projection, and every feed-forward weight are all ordinary parameters sitting in one computational graph; the single cross-entropy loss above is backpropagated through all of them at once, through the softmax, through the masked scores, all the way back to the embedding table.
+
+<ConceptBox title="One training detail specific to transformers">
+The original transformer paper uses a **learning-rate warmup**: the learning rate rises linearly for the first few thousand steps, then decays. Very deep, very wide attention stacks are unstable early in training if the learning rate starts high — warmup lets the Query/Key/Value projections settle into a reasonable range before training pushes them hard.
+</ConceptBox>
+
+---
+
+<ConceptBox title="TL;DR">
+- The loss is ordinary cross-entropy on next-token prediction, computed at every position simultaneously and averaged.
+- The causal mask is what makes parallel training legitimate — no position's prediction is graded using information it could see.
+- Teacher forcing works exactly as it did with the RNN decoder: feed the shifted ground truth during training, feed generated tokens back in one at a time during inference.
+- $W_Q, W_K, W_V$ and every other weight receive gradients through one ordinary backward pass — attention has no special-cased training procedure.
+</ConceptBox>
+
+<QuizCard
+  question="Why is it legitimate to train a transformer decoder on every position's next-token prediction in parallel?"
+  options={[
+    "Because cross-entropy loss is inherently parallel-safe",
+    "Because the causal mask already guarantees no position can see the token it's being graded against",
+    "Because transformers don't actually use teacher forcing",
+    "Parallel training is not actually legitimate, only inference can be trusted"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about training a transformer are correct?"
+  options={[
+    "The loss function is cross-entropy on next-token prediction",
+    "Training can compute every position's loss in one forward pass because of the causal mask",
+    "Inference generates tokens sequentially, feeding each prediction back in as the next input",
+    "Query, Key, and Value matrices require a separate, specialised gradient computation",
+    "Teacher forcing means training uses the ground-truth shifted sequence as decoder input",
+    "Learning-rate warmup is used to stabilise early training of deep attention stacks"
+  ]}
+  correct={[0, 1, 2, 4, 5]}
+/>

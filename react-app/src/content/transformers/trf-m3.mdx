@@ -1,0 +1,93 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import TransformerBlockWidget from '../../components/widgets/transformers/TransformerBlockWidget.jsx'
+
+# Module 3: Transformer Architecture, Walked Through an Example
+
+<Bridge>
+Module 2 named the pieces: an encoder stack, a decoder stack, three kinds of attention layer. This module puts them in motion on one concrete input, the way the original "Attention Is All You Need" diagram does — a source sequence going in, a generated sequence coming out, one token at a time.
+</Bridge>
+
+## The running example: source in, code out
+
+Take a toy source input $S_1$ and imagine the model is trained to translate a plain-English instruction into Python — $S_1$ = "print hello world" goes in, and the target is the code `print('Hello, world!')`.
+
+<PredictReveal
+  prompt='Before any attention runs, "print", "hello", and "world" each become a vector via an embedding table — exactly like Module 1 of the previous track. What is added to those vectors before they enter the first encoder block?'
+  options={["Nothing else — the embeddings go in as-is", "A positional encoding, so the model knows word order"]}
+  correct={1}
+>
+
+Self-attention has no built-in sense of order — Module 8 covers exactly why, but the short version: attention treats the input as a *set* of tokens to compare, not a *sequence*. So a **positional encoding** vector, one per position, is added to each token embedding before anything else happens. "print" at position 1 and "print" at position 4 would be identical without it.
+
+$$\text{block input} = \text{embedding} + \text{positional encoding}$$
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does a transformer need positional encoding when an RNN does not?", a: "An RNN processes tokens in order by construction — position 3 is literally read after position 2. Self-attention compares all tokens to all other tokens with no inherent notion of order, so without an explicit positional signal added to the embeddings, shuffling the input would produce the exact same attention computation." },
+]} />
+
+## Stacking blocks, encoder and decoder
+
+<PredictReveal
+  prompt="The encoder stack runs N identical blocks in sequence, each refining the source representation further. Does block 2 see the raw embeddings, or the output of block 1?"
+  options={["The raw embeddings again, every block starts fresh", "The output of block 1 — each block builds on the previous one's representation"]}
+  correct={1}
+>
+
+<TransformerBlockWidget />
+
+Each block's output becomes the next block's input. Early blocks tend to pick up local patterns (adjective-noun pairs, verb-subject pairs); later blocks combine those into more abstract structure, the same way early CNN layers detect edges and later ones detect whole objects. After $N$ encoder blocks, the final representation goes to every decoder block's cross-attention layer.
+
+</PredictReveal>
+
+## From the last block to a word
+
+<PredictReveal
+  prompt="After the last decoder block, the model has a vector for the next position. How does that vector become an actual predicted token, like 'print' or '('?"
+  options={["It's rounded to the nearest token id directly", "A linear layer projects it to one score per vocabulary word, then softmax turns those into probabilities"]}
+  correct={1}
+>
+
+$$\text{logits} = W_{\text{unembed}} \cdot h_{\text{final}} \qquad p = \text{softmax}(\text{logits})$$
+
+The final decoder block's output is one vector per position. A linear layer (often the transpose of the embedding table itself) projects it to one score per vocabulary entry, softmax turns the scores into a probability distribution, and the highest-probability token — or a sampled one — is emitted. That token is then fed back in as the next decoder input, exactly like the autoregressive decoding from the previous track's Module 2, just with a transformer decoder instead of an RNN one.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Trace the path from the last decoder block's output to a predicted word.", a: "The output vector is projected by a linear layer to one score per vocabulary word (logits), softmax converts those scores into a probability distribution over the whole vocabulary, and the token with highest probability (or a sampled one) is emitted as the prediction." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Positional encoding is added to every token embedding before the first block, because self-attention alone has no notion of order.
+- The encoder is $N$ identical blocks stacked, each one refining the previous block's output — not starting fresh each time.
+- The decoder mirrors this with $N$ blocks of its own, each doing masked self-attention then cross-attention into the encoder's final output.
+- The last decoder vector is projected to vocabulary-sized logits, softmaxed into probabilities, and the chosen token is fed back in — autoregressive decoding, same idea as the RNN version, different engine.
+</ConceptBox>
+
+<QuizCard
+  question="What is added to a token's embedding before it enters the first transformer block, and why?"
+  options={[
+    "A random noise vector, for regularisation",
+    "A positional encoding, because self-attention has no inherent sense of word order",
+    "The output of the previous sentence, for long-range context",
+    "Nothing is added — embeddings are used directly"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the transformer architecture walkthrough are correct?"
+  options={[
+    "Positional encoding is added once, before the first block, not re-added at every block",
+    "Each encoder block operates on the raw input embeddings independently, ignoring earlier blocks",
+    "The decoder's cross-attention layer reads the encoder's final output",
+    "A linear layer plus softmax converts the last decoder vector into a probability distribution over the vocabulary",
+    "Decoding is autoregressive — the predicted token is fed back in as input for the next position",
+    "The encoder and decoder must have the same number of blocks by mathematical necessity"
+  ]}
+  correct={[0, 2, 3, 4]}
+/>
