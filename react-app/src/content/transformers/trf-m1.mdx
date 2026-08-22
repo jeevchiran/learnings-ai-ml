@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import EmbeddingMethodsWidget from '../../components/widgets/transformers/EmbeddingMethodsWidget.jsx'
 
 # Module 1: Intuition Behind a Transformer
 
@@ -8,6 +9,54 @@ The Attention & Encoder-Decoder track ended on a specific, narrow limitation: th
 
 Running example for this whole track: the sentence **"a fluffy blue creature roamed the verdant forest"** — the exact one 3Blue1Brown uses to explain attention, kept here so the diagrams and the code agree.
 
+## Where words come from: the static embedding families
+
+<PredictReveal
+  prompt="Word2Vec has two training modes. CBOW predicts a target word from its surrounding context; skip-gram predicts the surrounding context from the target word. Which one produces better vectors for rare words?"
+  options={["CBOW — averaging context smooths out noise", "Skip-gram — each occurrence generates several training pairs instead of one"]}
+  correct={1}
+>
+
+<EmbeddingMethodsWidget />
+
+Before a transformer can refine anything, each word has to become a vector at all. Three families dominated this before transformers, and they are all still worth knowing because every one of them shows up inside a modern pipeline somewhere:
+
+- **Word2Vec** learns embeddings by prediction. **CBOW** predicts a target word from its surrounding context words, which encourages the model to learn how groups of related words jointly indicate meaning. **Skip-gram** goes the other way, predicting surrounding context from a given target word — and because one occurrence of a rare word generates a separate training pair for each of its neighbours, skip-gram builds much stronger representations for infrequent words.
+- **GloVe** skips prediction entirely and uses **global word co-occurrence statistics**, factorising a corpus-wide count matrix so the resulting vectors reflect overall distributional patterns rather than being inferred from many small local windows.
+- **FastText** represents each word as a bag of **character n-grams**, letting it model internal word structure and — crucially — build a vector for a word it has never seen, by summing the n-gram vectors it does know.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the difference between CBOW and skip-gram, and which handles rare words better?", a: "CBOW predicts a target word from its surrounding context words; skip-gram predicts the surrounding context words from the target. Skip-gram handles rare words better, because a single occurrence of a word produces one training pair per neighbour rather than contributing to just one averaged prediction." },
+  { q: "What can FastText do that Word2Vec and GloVe cannot?", a: "Build a vector for a word it never saw during training. FastText represents a word as the sum of its character n-gram vectors, and those n-grams are shared across words, so an unseen word can still be assembled from familiar pieces. Word2Vec and GloVe both have a fixed vocabulary with no vector at all for an out-of-vocabulary word." },
+]} />
+
+## Where static embeddings run out
+
+<PredictReveal
+  prompt='In a static embedding table, "bank" in "river bank" and "bank" in "savings bank" get which vectors?'
+  options={["Two different vectors, chosen by context", "The exact same vector, both times"]}
+  correct={1}
+>
+
+Every method above produces one fixed vector per word, learned once and looked up forever. That single design decision creates four distinct problems:
+
+| Limitation | What breaks |
+|---|---|
+| **Context insensitivity** | A word gets the same representation even when its meaning changes — "bank" as a financial institution or a river edge is one vector holding an average of both senses. |
+| **No grammatical or entity roles** | The same vector is used whether a word appears as a common noun, a named entity, or in a different syntactic position — "Apple" the company and "apple" the fruit collapse together. |
+| **Weak long-range dependencies** | Training relies mainly on local context windows, so relationships spanning longer stretches of text are hard to capture. |
+| **Poor sentence-level meaning** | Negation, emphasis, and sarcasm are properties of how words combine, not of any word alone — they are invisible at the word level. |
+
+Every one of these traces back to the same root: the embedding is computed *before* the sentence is read. Fixing it means making a word's representation depend on the sentence it actually appears in — which is exactly what the rest of this track builds.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Name the four limitations of static word embeddings, and the single root cause behind all of them.", a: "Context insensitivity (one vector per word regardless of sense), no grammatical or entity-role distinction, weak long-range dependency modelling because training uses local windows, and no sentence-level meaning such as negation or sarcasm. All four trace back to the same root cause: the embedding is computed before the sentence is read, so it cannot depend on context." },
+]} />
+
 ## Every word starts as a guess, then gets refined
 
 <PredictReveal
@@ -16,14 +65,14 @@ Running example for this whole track: the sentence **"a fluffy blue creature roa
   correct={1}
 >
 
-A transformer's core move is deceptively simple: every word starts with a generic, dictionary-style embedding — a vector that has to represent every possible sense of that word, because it has not read the sentence yet. Then, one layer at a time, each word is allowed to look at every other word and ask a question like *"is there an adjective sitting in front of me?"* — and if the answer is yes, it pulls that meaning into itself.
+A transformer's core move is deceptively simple: every word starts with a generic, dictionary-style embedding — one of the static vectors above, which has to represent every possible sense of that word because it has not read the sentence yet. Then, one layer at a time, each word is allowed to look at every other word and ask a question like *"is there an adjective sitting in front of me?"* — and if the answer is yes, it pulls that meaning into itself.
 
 "Creature" starts as a blank slate. After attention, it has absorbed "fluffy" and "blue" — its vector now encodes *specifically* a fluffy blue creature, not creatures in general.
 
 </PredictReveal>
 
 <Recall items={[
-  { q: "What does a token's embedding represent BEFORE any attention has run?", a: "A generic, context-free meaning — everything that token could possibly mean, since the model has not yet looked at the words around it." },
+  { q: "What does a token's embedding represent BEFORE any attention has run?", a: "A generic, context-free meaning — everything that token could possibly mean, since the model has not yet looked at the words around it. It is exactly a static Word2Vec/GloVe/FastText-style lookup at that point." },
 ]} />
 
 ## Self-attention vs the attention you already know
@@ -51,11 +100,22 @@ An RNN builds context by reading left to right, one word updating a single hidde
 ---
 
 <ConceptBox title="TL;DR">
-- A transformer refines every word's meaning by letting it look at the other words in the sentence and pull in relevant context — starting from a generic, context-free embedding.
-- **Self-attention**: a sequence attends to itself (every word looks at every other word in the same sentence) — new in this track.
-- **Cross-attention**: one sequence attends to a different one (decoder attending to encoder) — the mechanism the previous track already covered.
-- Because every word can look at every other word at once, this context-building step runs in parallel — no sequential bottleneck like an RNN has.
+- **Static embeddings** come in three families: Word2Vec (CBOW predicts target from context, skip-gram predicts context from target and handles rare words better), GloVe (factorises global co-occurrence counts), and FastText (sums character n-grams, so it can build vectors for unseen words).
+- All of them share four limitations — context insensitivity, no grammatical or entity roles, weak long-range dependencies, and no sentence-level meaning — because the vector is computed before the sentence is read.
+- A transformer refines every word's meaning by letting it look at the other words in the sentence and pull in relevant context, starting from exactly one of those static vectors.
+- **Self-attention** is a sequence attending to itself; **cross-attention** is one sequence attending to another. Because every word can look at every other word at once, this runs in parallel — no sequential bottleneck like an RNN has.
 </ConceptBox>
+
+<QuizCard
+  question="Which statement correctly distinguishes CBOW from skip-gram in Word2Vec?"
+  options={[
+    "CBOW predicts context words from a target word; skip-gram predicts a target word from context",
+    "CBOW predicts a target word from surrounding context; skip-gram predicts surrounding context from a target word",
+    "They are two names for the same training objective",
+    "CBOW uses character n-grams; skip-gram uses whole words"
+  ]}
+  correct={1}
+/>
 
 <QuizCard
   question='In "a fluffy blue creature roamed the verdant forest", self-attention lets the word "creature" absorb context from which other words?'
@@ -66,6 +126,19 @@ An RNN builds context by reading left to right, one word updating a single hidde
     "No other words — creature keeps its dictionary meaning unchanged"
   ]}
   correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about static word embeddings and their limitations are correct?"
+  options={[
+    "GloVe learns from global corpus-wide co-occurrence statistics rather than local prediction",
+    "FastText can produce a vector for a word it never saw during training",
+    "Static embeddings give a word a different vector depending on the sentence it appears in",
+    "Skip-gram generally produces better representations for rare words than CBOW",
+    "Negation and sarcasm are captured well by word-level embeddings alone",
+    "All four static-embedding limitations trace back to the vector being computed before the sentence is read"
+  ]}
+  correct={[0, 1, 3, 5]}
 />
 
 <MultiSelectQuiz

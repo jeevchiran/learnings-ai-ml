@@ -1,0 +1,116 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import VariantsWidget from '../../components/widgets/transformers/VariantsWidget.jsx'
+
+# Module 10: Variants of Transformers — BERT, GPT, and T5
+
+<Bridge>
+Modules 1 to 9 built exactly one machine: the original encoder-decoder transformer, complete with embeddings, positional information, self-attention, multi-head attention, cross-attention, and a training loop. In practice almost nobody deploys that whole machine. The field split into three families, and each family kept only the parts it needed — an encoder stack, a decoder stack, or both. You already know every piece; this module is about which subsets get assembled, and why the choice is forced by what the model is asked to do.
+</Bridge>
+
+## Three families, one parts bin
+
+<PredictReveal
+  prompt="BERT, GPT, and T5 are all transformers, but they are not the same shape. What actually distinguishes them from one another?"
+  options={["They use completely different attention mathematics invented separately", "They keep different subsets of the same encoder and decoder stacks you have already seen"]}
+  correct={1}
+>
+
+<VariantsWidget />
+
+**Encoder-only models (BERT, RoBERTa, DistilBERT)** keep the encoder stack and throw the decoder away. Every token attends to every other token at every layer — fully bidirectional self-attention — so each token's representation is refined using the full sentence context, left and right at once.
+
+**Decoder-only models (GPT, LLaMA, Falcon)** keep the decoder stack and throw the encoder away. Each token attends only to tokens before it, enforced by the causal mask from Module 2.
+
+**Encoder-decoder models (T5, BART, MarianMT)** keep both. The encoder reads the whole input bidirectionally; the decoder generates output tokens one at a time while attending back into the encoder's representations through cross-attention. Understanding and generation live in separate stacks.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What structurally separates BERT, GPT, and T5 from one another?", a: "They assemble different subsets of the same parts: BERT keeps only the encoder stack, GPT keeps only the decoder stack, and T5 keeps both an encoder stack and a decoder stack joined by cross-attention." },
+]} />
+
+## The mask decides the training objective
+
+Module 2 established why the encoder needs no causal mask while the decoder does: the encoder sees a complete input it is only trying to understand, whereas the decoder must not peek at tokens it has not produced yet. That single distinction, applied to whole models rather than to two halves of one model, is what defines the families — and it dictates how each family can be trained.
+
+<PredictReveal
+  prompt="An encoder-only model sees the entire sentence at once, in both directions. Why can it not simply be trained on the same next-token prediction objective GPT uses?"
+  options={["Next-token prediction would work fine, it is just slower to compute in an encoder", "With no causal mask, the answer is already visible — predicting the next token would be copying a token the model can already see"]}
+  correct={1}
+>
+
+Bidirectional attention makes next-token prediction trivial and therefore useless: position 5 can attend directly to position 6, so predicting position 6 teaches the model nothing. Encoder-only models are instead trained with **Masked Language Modelling (MLM)** — a fraction of the input tokens are hidden, and the model predicts each hidden token from the tokens on both sides of it. Nothing is leaked, because the target genuinely is not in the input, and the model is forced to build a representation that fuses left and right context.
+
+Decoder-only models have the opposite situation. The causal mask already hides the future, so **Causal Language Modelling (CLM)** — predict the next token from earlier tokens only — is a legitimate objective at every position simultaneously, which is exactly the parallel cross-entropy loss from Module 9. Training and inference then follow the same left-to-right rule, so there is no mismatch between how the model was taught and how it is used.
+
+Encoder-decoder models are trained on **text-to-text** pairs: an input sequence in, a target sequence out. The encoder is unmasked, the decoder is causal, and the loss is next-token cross-entropy over the target.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is Masked Language Modelling used for encoder-only models rather than next-token prediction?", a: "An encoder has no causal mask, so every token can already see every other token. Predicting the next token would just be copying something visible. Masking tokens out of the input creates a genuine prediction problem that requires combining context from both directions." },
+]} />
+
+## Picking a family for a task
+
+<PredictReveal
+  prompt="You need a model that scores how similar two sentences are, and a second model that continues a half-written paragraph. Can one BERT-style encoder-only model do both jobs?"
+  options={["Yes, an encoder-only model can generate text by running it repeatedly", "No — it produces contextual embeddings but never learns next-token prediction, so it cannot generate"]}
+  correct={1}
+>
+
+An encoder-only model outputs a contextual embedding for each input token. That is precisely what classification, tagging, and similarity scoring need — you attach a small head on top of those embeddings and you are done. But it never learns to predict a next token, and it has no mechanism for producing a sequence it was not given, so it cannot generate text.
+
+A decoder-only model is the mirror image: generation is native to it, because generation is literally its training objective. Continuation, dialogue, and code completion all fall out of the same left-to-right loop.
+
+An encoder-decoder model earns its extra cost when the task is an explicit transformation of one sequence into a different one — translation, summarisation, generative question answering — where you want the input understood in full before any output token is committed to.
+
+| Feature | Encoder-Only (Autoencoding) | Decoder-Only (Autoregressive) | Encoder-Decoder (Seq2Seq) |
+|---|---|---|---|
+| Main components | Encoder stack only | Decoder stack only | Encoder stack + decoder stack |
+| Attention pattern | Fully bidirectional self-attention | Causal (masked) self-attention | Bidirectional in encoder, causal in decoder |
+| Input visibility | Full input available at once | Only past tokens visible | Full input visible to encoder |
+| Output behaviour | No token generation | Generates tokens sequentially | Generates output conditioned on encoded input |
+| Training objective | Masked Language Modelling (MLM) | Causal Language Modelling (CLM) | Text-to-text / sequence-to-sequence |
+| Representation type | Contextual embeddings of input tokens | Contextual embeddings built during generation | Contextual input + output representations |
+| Typical models | BERT, RoBERTa, DistilBERT | GPT, LLaMA, Falcon | T5, BART, MarianMT |
+| Best suited for | Classification, tagging, similarity | Text generation, dialogue, code | Translation, summarisation, generative QA |
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can an encoder-only model not generate text?", a: "It is trained only to fill in masked positions of an input it was given, never to predict a next token, and it has no decoding loop that extends a sequence. Its output is a set of contextual embeddings over the input, not a distribution over what comes next." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- All three families are built from the same encoder and decoder blocks of Modules 1 to 9; they differ only in which stacks they keep.
+- Encoder-only (BERT) is fully bidirectional and trained with Masked Language Modelling, giving strong contextual embeddings for classification, tagging, and similarity — but no ability to generate.
+- Decoder-only (GPT) uses causal masking and Causal Language Modelling, so training and inference share the same left-to-right process, making generation and dialogue natural.
+- Encoder-decoder (T5) reads the input bidirectionally and generates causally through cross-attention, separating understanding from generation for translation and summarisation.
+</ConceptBox>
+
+<QuizCard
+  question="Why is Masked Language Modelling, rather than next-token prediction, used to train encoder-only models?"
+  options={[
+    "Next-token prediction is mathematically undefined without positional encoding",
+    "Bidirectional attention lets a token already see the next token, so predicting it would teach the model nothing",
+    "Masked Language Modelling is faster to compute than next-token prediction",
+    "Encoder-only models have no softmax layer, so they cannot predict tokens at all"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the three transformer families are correct?"
+  options={[
+    "A decoder-only model enforces causal masking so each token attends only to earlier tokens",
+    "An encoder-only model can generate text by repeatedly appending its own output",
+    "In an encoder-decoder model, the decoder reaches the encoder representations through cross-attention",
+    "Encoder-only models are well suited to classification, tagging, and similarity scoring",
+    "T5 and BART are decoder-only models",
+    "Decoder-only training and inference follow the same left-to-right process"
+  ]}
+  correct={[0, 2, 3, 5]}
+/>

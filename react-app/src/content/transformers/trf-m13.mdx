@@ -1,0 +1,149 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import SentenceEmbeddingWidget from '../../components/widgets/transformers/SentenceEmbeddingWidget.jsx'
+
+# Module 13: Sentence Transformers
+
+<Bridge>
+Module 12 put pretrained encoder-decoder models to work on translation and question answering — tasks where the output is generated text. This module goes back to the encoder-only family for a completely different job: turning a whole sentence into **one** vector you can compare cheaply against millions of others. Module 5 left an open question here. Attention produces one contextual vector *per token*, so a 14-token sentence leaves you with 14 vectors — how do you collapse those into a single sentence vector? And if the Transfer Learning track felt familiar when it covered image embeddings and metric learning, it should: this is the same "embed once, compare with cosine, retrieve fast" idea, applied to text.
+</Bridge>
+
+## The cost problem with cross-encoders
+
+Vanilla BERT is very good at judging whether two sentences mean the same thing — you feed it **both** sentences at once, separated by `[SEP]`, and read a similarity score off the `[CLS]` position. That arrangement is called a **cross-encoder**: the two sentences attend to each other inside the model, which is exactly why it scores so well.
+
+<PredictReveal
+  prompt="A cross-encoder scores a sentence PAIR, so it must run once per pair. To find the most similar pair among 10,000 sentences, roughly how long does that take on a modern GPU?"
+  options={["A few seconds — 10,000 is a small number for a GPU", "About 65 hours — the number of pairs, not the number of sentences, is what you pay for"]}
+  correct={1}
+>
+
+The trap is that a cross-encoder has no notion of "the vector for sentence A". It only produces a score for a pair, so nothing can be reused. Comparing one query against $N$ candidates costs $N$ full forward passes. Finding the most similar pair *within* a collection of $N$ sentences costs $\frac{N(N-1)}{2}$ passes — that is $O(N^2)$.
+
+For $N = 10{,}000$ that is about 50 million forward passes. The original SBERT paper measured it: roughly **65 hours** on a V100. The same task with a Sentence Transformer takes about **5 seconds**.
+
+The accuracy was never the problem. The problem is that the architecture makes precomputation impossible.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can a cross-encoder not precompute anything, and what does that cost?", a: "A cross-encoder feeds both sentences through the model together and only ever outputs a score for that specific pair — it never produces a standalone vector for a single sentence, so no work can be cached and reused. Comparing one query against N candidates therefore costs N forward passes, and finding the most similar pair inside a collection of N sentences costs O(N squared) passes, which is about 65 hours for just 10,000 sentences." },
+]} />
+
+## The bi-encoder: a siamese network over sentences
+
+<PredictReveal
+  prompt="A bi-encoder encodes each sentence separately with the same BERT weights, then compares the two resulting vectors. What has to happen to the per-token vectors from Module 5 to make this work?"
+  options={["Only the last token vector is kept and the rest are discarded", "The token vectors are pooled into one fixed-size sentence vector — mean pooling is the standard choice"]}
+  correct={1}
+>
+
+A **Sentence Transformer** (SBERT) is a **siamese**, or **bi-encoder**, architecture. Sentence A goes through BERT on its own and its token embeddings are pooled into a vector $u$. Sentence B goes through *the same BERT, with the same weights*, and its token embeddings are pooled into a vector $v$. Two towers, one set of parameters — that shared-weight arrangement is what siamese means, and it is what guarantees both sentences land in the *same* embedding space. Two separately-trained encoders would produce vectors that are not comparable at all.
+
+The pooling step is where the per-token vectors from Module 5 finally collapse. **Mean pooling** — the element-wise average of all token embeddings — is the standard choice and generally outperforms taking the `[CLS]` vector or a max over tokens.
+
+<SentenceEmbeddingWidget />
+
+Once $u$ and $v$ exist, comparing them involves no model at all — just a cosine similarity:
+
+$$\text{cosine}(u, v) = \frac{u \cdot v}{\|u\| \, \|v\|}$$
+
+That is the whole payoff. Each sentence is encoded **once**, up front. Encode 10,000 sentences with 10,000 forward passes, store the vectors in an index, and every comparison afterwards is a dot product over normalised vectors — cheap enough to run millions of them, and cheap enough that adding a new query means one forward pass, not $N$.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does siamese mean in this architecture, and why does it matter?", a: "The two encoder towers are the identical model with shared weights — sentence A and sentence B are each passed through the same BERT independently. It matters because shared weights are what put both sentence vectors in the same embedding space, so a cosine similarity between them is meaningful; two independently trained encoders would produce incomparable vectors." },
+  { q: "How does a bi-encoder turn an O(N squared) problem into a cheap one?", a: "Every sentence is encoded exactly once into a fixed-size vector and those embeddings are precomputed and indexed. All later comparisons are cosine similarities between stored vectors with no further forward passes through the model, so the expensive transformer work scales with N rather than N squared." },
+]} />
+
+## Why vanilla BERT embeddings are not enough
+
+<PredictReveal
+  prompt="Suppose you skip fine-tuning entirely: take an off-the-shelf pretrained BERT, mean-pool its token embeddings, and use cosine similarity on the result. How well does that work?"
+  options={["Very well — BERT already understands sentences, so pooling is all you need", "Poorly — sometimes worse than averaging plain GloVe word vectors, because nothing in pretraining ever asked BERT for a comparable sentence vector"]}
+  correct={1}
+>
+
+This is the result that surprises people. Mean-pooling a raw pretrained BERT gives sentence embeddings that perform badly on similarity benchmarks — in the SBERT paper, worse than simply averaging GloVe word vectors.
+
+It makes sense once you look at what pretraining optimised. Masked language modelling asks BERT to reconstruct hidden tokens from context. Nothing in that objective ever requires that two paraphrases end up near each other in vector space, or that unrelated sentences end up far apart. The geometry BERT learns is excellent for predicting tokens and simply not organised for cosine distance.
+
+So Sentence Transformers are **fine-tuned with a similarity objective** — the architecture alone is not the trick. Common setups:
+
+- **Classification / NLI objective.** Train on natural language inference pairs (entailment, contradiction, neutral) by feeding $(u, v, |u - v|)$ into a small softmax classifier. The classifier is discarded afterwards; it existed only to shape the encoder.
+- **Regression objective.** Predict a gold similarity score directly from $\text{cosine}(u, v)$ with mean squared error.
+- **Triplet objective.** Given an anchor $a$, a positive $p$, and a negative $n$, push $a$ closer to $p$ than to $n$ by at least a margin $\epsilon$.
+
+That last one should look familiar from the Transfer Learning track — it is exactly the metric-learning setup used for face and image embeddings, with sentences swapped in for images.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does mean-pooling an off-the-shelf pretrained BERT produce poor sentence similarity?", a: "Masked language modelling never asks the model to place paraphrases close together or unrelated sentences far apart, so the embedding geometry is organised for token prediction rather than for cosine distance. Fine-tuning with an explicit similarity objective — classification on NLI pairs, regression on similarity scores, or a triplet loss — is what actually creates the useful geometry." },
+]} />
+
+## Using it
+
+```python
+from sentence_transformers import SentenceTransformer, util
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+corpus = [
+    "A rabbit hops through the field.",
+    "The stock market closed lower today.",
+    "Equity indices finished the day down.",
+]
+
+# Encode once, up front — this is the only expensive step.
+corpus_emb = model.encode(corpus, convert_to_tensor=True)
+
+query_emb = model.encode("Shares fell sharply.", convert_to_tensor=True)
+
+# No forward passes here, just vector arithmetic.
+scores = util.cos_sim(query_emb, corpus_emb)[0]
+print(scores)  # low, high, high
+```
+
+`corpus_emb` is the part you persist. In production it goes into a vector index (FAISS, or any approximate-nearest-neighbour store) and the query is the only thing that ever touches the model again — which is what makes semantic search, clustering, deduplication, and question-answer retrieval feasible over millions of documents.
+
+<ConceptBox title="Bi-encoder or cross-encoder?">
+It is not either/or. A common production pattern is **retrieve then re-rank**: use the bi-encoder to pull the top 100 candidates out of millions in milliseconds, then run the slower, more accurate cross-encoder on just those 100. You pay the $O(N)$ cost only where accuracy actually decides the answer.
+</ConceptBox>
+
+<Recall items={[
+  { q: "In a retrieve-then-re-rank pipeline, which model does which job?", a: "The bi-encoder does retrieval: precomputed embeddings and cosine similarity narrow millions of documents to a small candidate set almost instantly. The cross-encoder then re-ranks only that small set, spending its expensive per-pair forward passes where the accuracy matters." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A cross-encoder scores a sentence pair by encoding both together — accurate, but it produces no reusable sentence vector, so finding the most similar pair among $N$ sentences costs $O(N^2)$ forward passes (about 65 hours for 10,000 sentences, versus 5 seconds for SBERT).
+- A Sentence Transformer is a siamese bi-encoder: each sentence passes through the **same** BERT with shared weights, and mean pooling over the token embeddings collapses them into one fixed-size vector.
+- Comparison is then just $\text{cosine}(u, v)$ — no model involved — so embeddings can be precomputed once and indexed for semantic search, clustering, and question-answer matching.
+- The architecture alone is not enough: raw pretrained BERT mean-pooled performs poorly, so Sentence Transformers are fine-tuned with a similarity objective such as an NLI classification setup or a triplet loss.
+</ConceptBox>
+
+<QuizCard
+  question="What is the main reason a cross-encoder is impractical for searching a large collection of sentences?"
+  options={[
+    "It is less accurate than a bi-encoder at judging sentence similarity",
+    "It only outputs a score for a pair, so nothing can be precomputed and the number of forward passes grows with the number of pairs",
+    "It cannot be fine-tuned on sentence-pair data",
+    "It requires a decoder stack, which is too slow to run"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about Sentence Transformers are correct?"
+  options={[
+    "Both sentences are encoded by the same transformer encoder with shared weights",
+    "Mean pooling over token embeddings is the standard way to produce the sentence vector",
+    "Sentence embeddings can be computed once in advance and reused for every later comparison",
+    "Mean-pooling a raw pretrained BERT already gives strong sentence similarity without any fine-tuning",
+    "A triplet objective pushes an anchor closer to a positive example than to a negative one by some margin",
+    "Comparing two precomputed sentence vectors requires one more forward pass through the encoder"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

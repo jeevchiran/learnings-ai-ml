@@ -228,7 +228,7 @@ export const courses = [
   {
     id: 'transformers',
     title: 'Transformers',
-    description: '9 interactive modules from intuition to a trained model. Self-attention, causal masking, multi-head attention, feed-forward layers, positional encoding, and training — one running example throughout, with runnable PyTorch/Colab demos.',
+    description: '13 interactive modules from static word embeddings to production models. Self-attention, causal masking, multi-head attention, positional encoding and training — then the BERT/GPT/T5 model families, fine-tuning, translation and question answering, and sentence embeddings. One running example throughout, with runnable PyTorch/Colab demos.',
     color: '#1e3a8a',
     trackPath: 'transformers',
     modules: [
@@ -241,7 +241,11 @@ export const courses = [
       { id: 'trf-m7', title: 'Demonstration — Self-Attention in PyTorch',  file: 'trf-m7.html', description: 'SelfAttentionHead and MultiHeadAttention from scratch, checked against torch’s own implementation.', readTime: 16 },
       { id: 'trf-m8', title: 'Feed Forward and Positional Encoding',       file: 'trf-m8.html', description: 'Per-position MLPs, residual Add & Norm, and the sinusoidal encoding formula, derived.',              readTime: 16 },
       { id: 'trf-m9', title: 'Loss Function and Training',                 file: 'trf-m9.html', description: 'Parallel next-token cross-entropy, why the causal mask makes it legitimate, and teacher forcing.',   readTime: 14 },
-      { id: 'trf-quiz', title: 'Track Quiz — Transformers',                file: 'trf-quiz.html', description: '15 questions — attention math by hand, multi-head shapes, architecture, and training.',            readTime: 22 },
+      { id: 'trf-m10', title: 'Variants of Transformers — BERT, GPT, T5',  file: 'trf-m10.html', description: 'Encoder-only, decoder-only and encoder-decoder families: attention patterns, MLM vs CLM, and what each is for.', readTime: 16 },
+      { id: 'trf-m11', title: 'Fine-Tuning BERT for Classification',       file: 'trf-m11.html', description: 'Tokenisation and attention masks, the classification head, and updating encoder plus head together.',      readTime: 18 },
+      { id: 'trf-m12', title: 'Translation and Question Answering',        file: 'trf-m12.html', description: 'MarianMT for translation and T5 text-to-text QA, via pretrained Hugging Face pipelines.',                readTime: 16 },
+      { id: 'trf-m13', title: 'Sentence Transformers',                     file: 'trf-m13.html', description: 'The bi-encoder fix for cross-encoder O(N²) cost — shared weights, pooling, and cosine similarity.',      readTime: 16 },
+      { id: 'trf-quiz', title: 'Track Quiz — Transformers',                file: 'trf-quiz.html', description: '19 questions plus 5 multi-selects — embeddings, attention math by hand, multi-head shapes, the BERT/GPT/T5 families, fine-tuning, and sentence embeddings.', readTime: 28 },
     ],
   },
   {
