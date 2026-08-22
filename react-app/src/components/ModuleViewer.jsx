@@ -7,6 +7,12 @@ import MDXRenderer from './MDXRenderer.jsx'
 
 const BASE = import.meta.env.BASE_URL;
 
+/* Tracks that opt into the long-form reading typography (see "Reading mode"
+ * in index.css). Scoped rather than global so the change can be judged on
+ * these two before it lands on all 21 tracks — to go global, drop this set
+ * and pass `reading-mode` unconditionally below. */
+const READING_MODE_TRACKS = new Set(['attention-seq2seq', 'transformers'])
+
 // Eagerly resolve all MDX files at build time
 const mdxModules = import.meta.glob('../content/**/*.mdx')
 
@@ -168,7 +174,12 @@ export default function ModuleViewer() {
       {!checked
         ? <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading…</div>
         : Content
-          ? <div className="module-mdx-wrap" style={{ flex: 1, overflowY: 'auto' }}><MDXRenderer Content={Content} /></div>
+          ? <div
+              className={`module-mdx-wrap${READING_MODE_TRACKS.has(mod.coursePath) ? ' reading-mode' : ''}`}
+              style={{ flex: 1, overflowY: 'auto' }}
+            >
+              <MDXRenderer Content={Content} />
+            </div>
           : <iframe
               ref={iframeRef}
               src={iframeSrc}

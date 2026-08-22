@@ -141,6 +141,28 @@ This quiz covers the full track: the static embedding families (Word2Vec CBOW/sk
 />
 
 <QuizCard
+  question="In cross-attention, where do queries come from and where do keys and values come from — and why that direction?"
+  options={[
+    "Q from the encoder and K/V from the decoder, because the source drives the output",
+    "Q from the decoder and K/V from the encoder output, because the thing being generated is the thing asking what is relevant in the input",
+    "Q, K and V all come from the encoder output",
+    "The direction is arbitrary and either works equally well"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="Why is it called CROSS-attention rather than just attention?"
+  options={[
+    "Because the attention scores are computed twice and averaged",
+    "Because queries and keys/values are drawn from two different sequences, rather than all from one as in self-attention",
+    "Because it crosses over between layers rather than within a layer",
+    "Because the mask crosses out future positions"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
   question="Which Word2Vec training mode predicts the surrounding context words from a given target word, and produces stronger vectors for rare words?"
   options={[
     "CBOW",
@@ -228,6 +250,28 @@ This quiz covers the full track: the static embedding families (Word2Vec CBOW/sk
     "Decoder-only models are trained with Masked Language Modelling"
   ]}
   correct={[0, 1, 2, 4]}
+/>
+
+<QuizCard
+  question="What does a decoder-only model give up relative to an encoder-decoder, and why is it tolerable?"
+  options={[
+    "It cannot attend to the prompt at all; this is tolerable because prompts are short",
+    "Prompt tokens never get a bidirectional pass over each other, so disambiguation moves downstream into more attention hops — tolerable because generation happens after the whole prompt is read, so the information stays reachable",
+    "It cannot be trained in parallel across positions; this is tolerable because inference is sequential anyway",
+    "It gives up nothing — the design is strictly superior"
+  ]}
+  correct={1}
+/>
+
+<QuizCard
+  question="Which architecture fits an email spam filter, a translation app, and a general chatbot — in that order?"
+  options={[
+    "Decoder-only, encoder-only, encoder-decoder",
+    "Encoder-only, encoder-decoder, decoder-only",
+    "Encoder-decoder, decoder-only, encoder-only",
+    "Encoder-only, decoder-only, encoder-decoder"
+  ]}
+  correct={1}
 />
 
 <MultiSelectQuiz

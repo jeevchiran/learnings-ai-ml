@@ -14,6 +14,10 @@
   --accent: #6366f1;
   --success: #10b981;
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Reading-mode families — used only inside .reading-mode (see bottom of file). */
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body: 'IBM Plex Sans', var(--font);
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
   --radius: 8px;
   --sidebar-w: 268px;
   --topbar-h: 48px;
@@ -802,4 +806,121 @@ button { font-family: inherit; }
 @keyframes lc-reveal {
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: none; }
+}
+
+/* ── FactList ────────────────────────────────────────
+   Two-column term/definition grid. The term column is fixed-width and mono so
+   the terms line up as a scannable index down the left edge. */
+.lc-facts {
+  --facts-accent: var(--accent);
+  margin: 18px 0 24px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+
+.lc-facts-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 150px) 1fr;
+  column-gap: 20px;
+  padding: 7px 0;
+}
+
+.lc-facts dt {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--facts-accent);
+  padding-top: 3px;
+}
+
+.lc-facts dd {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text);
+  max-width: 60ch;
+}
+
+@media (max-width: 560px) {
+  .lc-facts-row { grid-template-columns: 1fr; row-gap: 2px; }
+  .lc-facts dt { padding-top: 8px; }
+}
+
+/* ── Reading mode ────────────────────────────────────
+   Long-form typography for content-heavy tracks. Opted into per track by
+   READING_MODE_TRACKS in ModuleViewer.jsx — delete that guard to go global.
+
+   Three changes carry the readability win, in order of impact:
+   1. Prose is measured to ~66ch. The container stays wide so tables, figures
+      and widgets are unaffected; only running text is capped.
+   2. Body type steps up to 1rem/1.65 from 0.95rem/1.7 — larger glyphs, and a
+      slightly tighter leading that suits the shorter line length.
+   3. Headings get a serif display face and a real size jump, so section
+      boundaries are visible while scanning rather than only while reading. */
+
+.reading-mode .module-mdx {
+  max-width: 860px;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+/* Measure. Applies to running text only — a table or widget in the same
+   column still spans the full 860px. */
+.reading-mode .module-mdx p,
+.reading-mode .module-mdx li {
+  max-width: 66ch;
+}
+
+.reading-mode .module-mdx h1,
+.reading-mode .module-mdx h2,
+.reading-mode .module-mdx h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+.reading-mode .module-mdx h1 {
+  font-size: clamp(1.9rem, 1.5rem + 1.6vw, 2.4rem);
+  line-height: 1.15;
+  margin-bottom: 14px;
+}
+
+/* The rule doubles as a section divider — it is what makes a long module
+   scan as a sequence of parts instead of one undifferentiated column. */
+.reading-mode .module-mdx h2 {
+  font-size: clamp(1.3rem, 1.15rem + 0.7vw, 1.6rem);
+  line-height: 1.25;
+  margin: 36px 0 12px;
+  padding-top: 26px;
+  border-top: 1px solid var(--border);
+}
+
+/* First heading of a module has the h1 above it already — no divider needed. */
+.reading-mode .module-mdx h1 + h2 {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 24px;
+}
+
+.reading-mode .module-mdx h3 {
+  font-size: 1.08rem;
+  margin: 24px 0 8px;
+}
+
+.reading-mode .module-mdx code,
+.reading-mode .module-mdx pre {
+  font-family: var(--font-mono);
+}
+
+/* Headings inside cards are labels, not section breaks — keep them plain. */
+.reading-mode .lc-concept-box h4,
+.reading-mode .lc-recall-title {
+  font-family: var(--font-body);
+}
+
+@media (max-width: 768px) {
+  .reading-mode .module-mdx { font-size: 0.97rem; }
+  .reading-mode .module-mdx h2 { margin-top: 28px; padding-top: 20px; }
 }

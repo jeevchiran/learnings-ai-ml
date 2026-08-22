@@ -36,6 +36,8 @@ Each decoder block has *two* attention layers, not one: masked self-attention ov
 
 $$\text{Attention}(Q_{\text{decoder}}, K_{\text{encoder}}, V_{\text{encoder}})$$
 
+Note which side supplies which. Queries come from the **decoder**, keys and values from the **encoder**. That is not an arbitrary convention: a query is a question, and the thing with a question is the half-finished output asking what in the source is relevant right now. Keys and values are the material being searched, which is the source sentence the encoder already read. Swap them and the model would be treating the untranslated source as the question rather than as the thing to look answers up in — backwards from how the information actually needs to move.
+
 </PredictReveal>
 
 <ConceptBox title="The three attention layers, side by side">
@@ -48,6 +50,7 @@ $$\text{Attention}(Q_{\text{decoder}}, K_{\text{encoder}}, V_{\text{encoder}})$$
 
 <Recall items={[
   { q: "How many distinct attention layers does one decoder block contain, and what does each attend to?", a: "Two. First, masked self-attention over the decoder's own generated-so-far sequence, restricted to the current position and earlier. Second, cross-attention where the decoder's queries meet the encoder's keys and values, pulling in information about the source sentence." },
+  { q: "Why is it called CROSS-attention rather than just attention?", a: "Because the queries and the keys/values are drawn from two different sequences — the decoder's output so far versus the encoder's output — rather than all coming from one sequence, which is what self-attention does." },
 ]} />
 
 ---
