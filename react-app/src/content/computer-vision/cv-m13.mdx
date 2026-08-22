@@ -23,6 +23,8 @@ The move is simple once Module 11 is in hand. Run the backbone **once**. A propo
 
 $$(x, y, w, h)_{\text{feat}} = \left(\frac{x}{s},\, \frac{y}{s},\, \frac{w}{s},\, \frac{h}{s}\right), \qquad s = 16 \text{ for VGG16}$$
 
+Module 11's formula for five stride-2 stages gives $2^5 = 32$, not 16 — VGG16's fifth and last pooling layer is dropped in the Fast/Faster R-CNN convention specifically so the feature map stays coarse enough for small objects to survive as more than a single cell, which drops the stride to $2^4 = 16$.
+
 <PredictReveal
   prompt="Two proposals project onto very different feature-map patches — say 11x6 and 4x9. RoI pooling turns both into fixed-size output. What size?"
   options={["Whatever size they started at — RoI pooling just copies the patch", "7 x 7 x C, always, regardless of input region size", "1 x 1 x C — RoI pooling collapses every region to one vector"]}

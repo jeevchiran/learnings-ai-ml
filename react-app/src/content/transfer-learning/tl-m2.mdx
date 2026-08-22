@@ -94,14 +94,14 @@ Two things matter more than the top-1 column:
 ResNet-50, 2048-dim features, 10 target classes.
 
 <PredictReveal
-  prompt="Unfreezing ResNet-50's last block (stage4) takes trainable parameters from ~20K to ~12M. Roughly what multiple is that jump?"
-  options={["About 6×", "About 60×", "About 590×"]}
+  prompt="Unfreezing ResNet-50's last block (stage4) takes trainable parameters from ~20K to ~15M. Roughly what multiple is that jump?"
+  options={["About 6×", "About 70×", "About 730×"]}
   correct={2}
 >
 
 **Feature extraction:** trainable $= 2048 \times 10 + 10 = 20{,}490$.
 
-**Fine-tune stage4 + head:** stage4 is 12.0M of ResNet-50's 25.6M, so trainable $\approx 12.0\text{M} + 0.02\text{M} = \mathbf{12.02M}$ — a **587×** increase for one extra unfrozen block.
+**Fine-tune stage4 + head:** stage4 is 14.96M of ResNet-50's 25.6M — three bottleneck blocks, 6.04M + 4.46M + 4.46M — so trainable $\approx 14.96\text{M} + 0.02\text{M} = \mathbf{14.98M}$ — a **~731×** increase for one extra unfrozen block.
 
 That jump is why the freeze widget shows such a cliff between stage3 and stage4: ResNet's parameters are heavily back-loaded, so "just unfreeze the last block" is not a small change.
 

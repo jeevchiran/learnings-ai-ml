@@ -14,7 +14,7 @@
   --accent: #6366f1;
   --success: #10b981;
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  /* Reading-mode families — used only inside .reading-mode (see bottom of file). */
+  /* Reading-mode families — applied to every module (see bottom of file). */
   --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-body: 'IBM Plex Sans', var(--font);
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
@@ -848,8 +848,8 @@ button { font-family: inherit; }
 }
 
 /* ── Reading mode ────────────────────────────────────
-   Long-form typography for content-heavy tracks. Opted into per track by
-   READING_MODE_TRACKS in ModuleViewer.jsx — delete that guard to go global.
+   Long-form typography, applied to every module (ModuleViewer.jsx puts the
+   `reading-mode` class on `.module-mdx-wrap` unconditionally).
 
    Three changes carry the readability win, in order of impact:
    1. Prose is measured to ~66ch. The container stays wide so tables, figures
