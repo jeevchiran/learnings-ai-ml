@@ -1,0 +1,110 @@
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import KLGaussianWidget from '../../components/widgets/vae/KLGaussianWidget.jsx'
+
+# Module 4: Analytical KL Divergence for Gaussian Distributions
+
+<ConceptBox title="Closed-Form Regularizer">
+When both the variational posterior $q_\phi(z|x) = \mathcal{N}(\mu, \text{diag}(\sigma^2))$ and prior $p(z) = \mathcal{N}(0, I)$ are multivariate Gaussians with diagonal covariance, their Kullback-Leibler divergence has an **exact closed-form analytical solution**:
+
+$$D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big) = -\frac{1}{2} \sum_{j=1}^d \left( 1 + \log(\sigma_j^2) - \mu_j^2 - \sigma_j^2 \right)$$
+
+No Monte Carlo sampling is required for the KL term!
+</ConceptBox>
+
+<Bridge>
+Module 3 derived the ELBO objective. In this module, we derive the exact analytical formula used to compute the KL divergence in code, explore its component terms, and explain why encoders predict log-variance $\log \sigma^2$ instead of standard deviation $\sigma$.
+</Bridge>
+
+## Derivation for 1D Gaussians
+
+For a single latent dimension $z \in \mathbb{R}$ with $q(z) = \mathcal{N}(\mu, \sigma^2)$ and $p(z) = \mathcal{N}(0, 1)$:
+
+<DerivationSteps>
+  <DerivationStep step={1} title="Express Densities">
+    $$q(z) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\left(-\frac{(z-\mu)^2}{2\sigma^2}\right), \qquad p(z) = \frac{1}{\sqrt{2\pi}} \exp\left(-\frac{z^2}{2}\right)$$
+  </DerivationStep>
+
+  <DerivationStep step={2} title="Expand the Log-Ratio">
+    $$\log \frac{q(z)}{p(z)} = \log q(z) - \log p(z) = \left[ -\frac{1}{2}\log(2\pi\sigma^2) - \frac{(z-\mu)^2}{2\sigma^2} \right] - \left[ -\frac{1}{2}\log(2\pi) - \frac{z^2}{2} \right]$$
+    $$= -\frac{1}{2} \log(\sigma^2) - \frac{(z-\mu)^2}{2\sigma^2} + \frac{z^2}{2}$$
+  </DerivationStep>
+
+  <DerivationStep step={3} title="Take the Expectation under q(z)">
+    Taking expectation $\mathbb{E}_{q(z)}\left[\dots\right]$ over each term:
+    - $\mathbb{E}_{q(z)}\left[-\frac{1}{2}\log(\sigma^2)\right] = -\frac{1}{2}\log(\sigma^2)$ (constant)
+    - $\mathbb{E}_{q(z)}\left[\frac{(z-\mu)^2}{2\sigma^2}\right] = \frac{\text{Var}(z)}{2\sigma^2} = \frac{\sigma^2}{2\sigma^2} = \frac{1}{2}$
+    - $\mathbb{E}_{q(z)}\left[\frac{z^2}{2}\right] = \frac{1}{2}\left(\text{Var}(z) + \mathbb{E}[z]^2\right) = \frac{1}{2}(\sigma^2 + \mu^2)$
+  </DerivationStep>
+
+  <DerivationStep step={4} title="Combine and Factor Out -1/2">
+    $$D_{KL}\big(q(z) \,\|\, p(z)\big) = -\frac{1}{2}\log(\sigma^2) - \frac{1}{2} + \frac{1}{2}\sigma^2 + \frac{1}{2}\mu^2$$
+    $$D_{KL}\big(q(z) \,\|\, p(z)\big) = -\frac{1}{2} \left( 1 + \log(\sigma^2) - \mu^2 - \sigma^2 \right)$$
+  </DerivationStep>
+</DerivationSteps>
+
+For a $d$-dimensional latent vector with diagonal covariance, the dimensions are mutually independent, so the total KL divergence is simply the sum across all dimensions $j = 1, \dots, d$:
+
+$$D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big) = -\frac{1}{2} \sum_{j=1}^d \left( 1 + \log(\sigma_j^2) - \mu_j^2 - \sigma_j^2 \right)$$
+
+## Interactive Gaussian KL Explorer
+
+Use the interactive widget below to test how shifting $\mu$ and altering $\log \sigma^2$ impacts the total KL penalty:
+
+<KLGaussianWidget />
+
+<PredictReveal
+  prompt="What happens to D_KL when μ = 0 and σ² = 1 (i.e. q(z|x) is identical to p(z))?"
+  options={[
+    "D_KL = 0, because 1 + log(1) - 0² - 1 = 1 + 0 - 0 - 1 = 0.",
+    "D_KL = 1.0, because standard deviations are 1.",
+    "D_KL = -0.5, because of the leading factor."
+  ]}
+  correct={0}
+>
+
+When $\mu = 0$ and $\sigma^2 = 1$, all terms cancel:
+
+$$D_{KL} = -\frac{1}{2} (1 + 0 - 0 - 1) = 0$$
+
+KL divergence is strictly zero if and only if the encoder outputs the exact prior distribution.
+
+</PredictReveal>
+
+## Why Predict Log-Variance instead of Variance or Standard Deviation?
+
+In neural network implementations, the encoder's linear output layers produce **unconstrained real numbers** in $(-\infty, +\infty)$.
+
+Standard deviations $\sigma$ and variances $\sigma^2$ must strictly be **positive** ($\sigma > 0$). If an output layer directly predicted $\sigma$, gradient updates could easily produce negative values, causing $\sqrt{\sigma^2}$ and $\log(\sigma^2)$ to crash with NaNs.
+
+By having the network output $\log(\sigma^2)$ (log-variance, often written as `logvar`):
+
+1. `logvar` $\in (-\infty, +\infty)$ requires no clipping or activation constraints.
+2. $\sigma^2 = \exp(\text{logvar})$ is guaranteed positive for any real output.
+3. $\sigma = \exp(0.5 \times \text{logvar}) = \sqrt{\exp(\text{logvar})}$.
+
+```python
+# PyTorch implementation of analytical Gaussian KL Divergence
+def kl_divergence(mu, logvar):
+    # mu: (batch_size, latent_dim)
+    # logvar: (batch_size, latent_dim)
+    kl = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=-1)
+    return kl.mean() # Average over batch
+```
+
+<Recall items={[
+  { q: "What is the analytical formula for D_KL(𝒩(μ, σ²) || 𝒩(0, 1))?", a: "D_KL = -0.5 * ∑ (1 + log(σ²) - μ² - σ²)." },
+  { q: "Why is predicting log(σ²) preferred over directly predicting σ in PyTorch?", a: "Because log(σ²) can take any real value in (-∞, +∞) without constraint, avoiding invalid negative variances during optimization. The variance exp(logvar) is automatically strictly positive." }
+]} />
+
+## Summary Check
+
+<QuizCard
+  question="If the encoder outputs μ = 2.0 and log(σ²) = 0.0 (so σ² = 1.0), what is the single-dimension KL divergence?"
+  options={[
+    "2.0",
+    "0.5",
+    "4.0"
+  ]}
+  correctIndex={0}
+  explanation="D_KL = -0.5 * (1 + 0 - (2.0)² - 1) = -0.5 * (1 - 4 - 1) = -0.5 * (-4) = 2.0."
+/>

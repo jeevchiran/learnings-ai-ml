@@ -413,6 +413,26 @@ export const courses = [
       { id: 'tl-quiz', title: 'Track Quiz — Transfer Learning & U-Net',   file: 'tl-quiz.html', description: '16 questions plus 3 multi-selects — transferability, freeze budgets, embedding memory, triplet regimes, conv arithmetic, skips, and Dice/IoU conversions.', readTime: 25 },
     ],
   },
+  {
+    id: 'vae',
+    title: 'Variational Autoencoders (VAE)',
+    description: '11 interactive modules from probabilistic generative foundations to the Evidence Lower Bound (ELBO), Gaussian KL divergence derivation, the reparameterization trick, reconstruction likelihoods, end-to-end PyTorch implementation, 2D latent space manifolds, β-VAE disentanglement, and Conditional VAEs. With an interactive latent geometry inspector, an analytical Gaussian KL explorer, a live reparameterization computational graph, a 2D meshgrid generator, and a β-tuner simulator.',
+    color: '#6366f1',
+    trackPath: 'vae',
+    modules: [
+      { id: 'vae-m1',   title: 'From Autoencoders to Variational Autoencoders',  file: 'vae-m1.html',  description: 'Why standard autoencoders fail as generative models: holes, dead zones, and the need for continuous probabilistic latent spaces.', readTime: 14 },
+      { id: 'vae-m2',   title: 'The Probabilistic Framework & Generative Modeling', file: 'vae-m2.html', description: 'Prior p(z), conditional likelihood p(x|z), intractable marginal evidence p(x), and variational inference with q(z|x).', readTime: 15 },
+      { id: 'vae-m3',   title: 'The Evidence Lower Bound (ELBO) Derivation',      file: 'vae-m3.html', description: 'Full step-by-step mathematical derivation of the ELBO, decomposition into reconstruction likelihood and KL prior regularizer.', readTime: 18 },
+      { id: 'vae-m4',   title: 'Analytical KL Divergence for Gaussians',          file: 'vae-m4.html', description: 'Closed-form derivation of Gaussian KL divergence, and why neural network encoders predict log-variance log(σ²).', readTime: 16 },
+      { id: 'vae-m5',   title: 'The Reparameterization Trick',                    file: 'vae-m5.html', description: 'The stochastic bottleneck, pathwise derivatives z = μ + σ ⊙ ε, and backpropagating gradients through latent distributions.', readTime: 16 },
+      { id: 'vae-m6',   title: 'Reconstruction Loss & Likelihood Assumptions',   file: 'vae-m6.html', description: 'Bernoulli likelihood with BCE vs Gaussian likelihood with MSE, and avoiding the sum-vs-mean reduction scaling trap.', readTime: 15 },
+      { id: 'vae-m7',   title: 'Demonstration — Variational Autoencoder in PyTorch', file: 'vae-m7.html', description: 'End-to-end PyTorch implementation: Encoder, Reparameterize, Decoder, custom ELBO loss, and training loop — Colab lab linked.', readTime: 18 },
+      { id: 'vae-m8',   title: 'Latent Space Exploration & Manifold Generation',  file: 'vae-m8.html', description: '2D grid sampling, linear (lerp) vs spherical (slerp) interpolation, and vector arithmetic in latent space.', readTime: 16 },
+      { id: 'vae-m9',   title: 'β-VAE & Disentangled Representations',           file: 'vae-m9.html', description: 'The information bottleneck principle, forcing independent generative factors, and diagnosing/preventing posterior collapse.', readTime: 18 },
+      { id: 'vae-m10',  title: 'Conditional VAE (CVAE) & Modern Frontiers',       file: 'vae-m10.html', description: 'Targeted class generation p(x|z, y), discrete codebooks with VQ-VAE, and comparing VAEs vs GANs vs Diffusion models.', readTime: 18 },
+      { id: 'vae-quiz', title: 'Track Quiz — Variational Autoencoders',          file: 'vae-quiz.html', description: '15 questions plus 3 multi-selects — latent geometry, ELBO derivation, Gaussian KL numericals, loss scaling, β-VAE, and CVAE.', readTime: 25 },
+    ],
+  },
 ];
 
 /* ── Derived lookups (built once at module load) ── */

@@ -1,0 +1,90 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 6: Reconstruction Loss & Likelihood Assumptions
+
+<ConceptBox title="Likelihood Dictates Loss">
+In the ELBO, the reconstruction term is $\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]$. The specific loss function you use (e.g. Binary Cross-Entropy or Mean Squared Error) is not an arbitrary design choice — it is directly determined by the **probabilistic distribution assumed for the decoder's output** $p_\theta(x|z)$.
+</ConceptBox>
+
+<Bridge>
+Module 5 derived how gradients propagate from the reconstruction loss through the latent variables. This module examines how different data types (normalized pixel intensities, continuous values, audio spectrograms) correspond to different decoder likelihood distributions and their resulting loss formulas.
+</Bridge>
+
+## Case 1: Bernoulli Likelihood → Binary Cross-Entropy (BCE)
+
+When data $x \in [0, 1]^D$ consists of pixel intensities treated as independent probabilities (common for MNIST or black-and-white images), we model $p_\theta(x|z)$ as a **multivariate Bernoulli distribution**:
+
+$$p_\theta(x|z) = \prod_{i=1}^D \hat{x}_i^{x_i} (1 - \hat{x}_i)^{1 - x_i}, \qquad \text{where } \hat{x} = \text{Sigmoid}(\text{Decoder}_\theta(z))$$
+
+Taking the logarithm:
+
+$$\log p_\theta(x|z) = \sum_{i=1}^D \left[ x_i \log \hat{x}_i + (1 - x_i) \log(1 - \hat{x}_i) \right] = -\text{BCE}(x, \hat{x})$$
+
+Therefore, maximizing the expected log-Bernoulli likelihood is exactly equivalent to **minimizing the Binary Cross-Entropy (BCE) loss** summed over all pixels:
+
+$$\mathcal{L}_{\text{recon}}(x, \hat{x}) = \sum_{i=1}^D \text{BCE}(x_i, \hat{x}_i)$$
+
+## Case 2: Gaussian Likelihood → Mean Squared Error (MSE)
+
+When data $x \in \mathbb{R}^D$ is continuous (e.g. normalized real-world RGB photographs or audio), we model $p_\theta(x|z)$ as an **isotropic Gaussian** with fixed variance $\sigma_x^2$:
+
+$$p_\theta(x|z) = \mathcal{N}\big(x; \hat{x}, \sigma_x^2 I\big) = \frac{1}{(2\pi\sigma_x^2)^{D/2}} \exp\left( -\frac{\|x - \hat{x}\|^2}{2\sigma_x^2} \right)$$
+
+Taking the logarithm:
+
+$$\log p_\theta(x|z) = -\frac{D}{2}\log(2\pi\sigma_x^2) - \frac{1}{2\sigma_x^2} \|x - \hat{x}\|^2$$
+
+Dropping the constant term, maximizing this log-likelihood is equivalent to **minimizing Mean Squared Error (MSE)** scaled by the assumed observation variance:
+
+$$\mathcal{L}_{\text{recon}}(x, \hat{x}) \propto \frac{1}{2\sigma_x^2} \sum_{i=1}^D (x_i - \hat{x}_i)^2$$
+
+| Likelihood Assumption $p_\theta(x|z)$ | Target Data Range | Decoder Final Layer | Resulting Loss Function |
+|---|---|---|---|
+| **Bernoulli** | $x_i \in [0, 1]$ (e.g. MNIST) | `nn.Sigmoid()` | `F.binary_cross_entropy(recon_x, x, reduction='sum')` |
+| **Gaussian (Fixed $\sigma_x^2$)** | $x_i \in \mathbb{R}$ (e.g. RGB) | Linear / Tanh | `F.mse_loss(recon_x, x, reduction='sum')` |
+| **Gaussian (Learned $\sigma_x^2$)** | $x_i \in \mathbb{R}$ | Two output heads: $\hat{\mu}, \hat{\sigma}^2$ | Heteroscedastic Gaussian NLL |
+
+## The Reduction Trap: `sum` vs `mean` in PyTorch
+
+<PredictReveal
+  prompt="In PyTorch, if you compute KL divergence summed over latent dimensions (e.g. D_z = 20) and compute MSE loss averaged over all pixels (reduction='mean', e.g. 28x28 = 784 pixels), what happens to the loss balance?"
+  options={[
+    "Nothing; PyTorch automatically re-weights both terms.",
+    "The KL term will overpower the reconstruction term by a factor of hundreds (e.g. KL ~ 15 vs MSE_mean ~ 0.05), causing the encoder to ignore the data and collapse latents.",
+    "The reconstruction term will overpower the KL term."
+  ]}
+  correct={1}
+>
+
+**The reduction mismatch is the most common bug in VAE implementations.**
+
+Mathematically, the ELBO sums both $\log p_\theta(x|z)$ over all $D$ observable dimensions and $D_{KL}$ over all $d$ latent dimensions for each sample:
+
+```python
+# CORRECT: Consistent sum over dimensions, mean over batch
+recon_loss = F.binary_cross_entropy(recon_x, x, reduction='sum') / batch_size
+kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / batch_size
+total_loss = recon_loss + kl_loss
+```
+
+If you accidentally use `reduction='mean'` for reconstruction loss, the reconstruction term is divided by 784 (for MNIST), making it 784× too small relative to the KL penalty!
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What decoder likelihood corresponds to using Binary Cross-Entropy (BCE) as the reconstruction loss?", a: "A multivariate Bernoulli likelihood distribution p_θ(x|z), where each output pixel represents the independent probability of that pixel being active (white)." },
+  { q: "Why must reconstruction loss and KL divergence use matching reductions (sum over features, mean over batch)?", a: "Because in the mathematical ELBO, log p(x|z) is the total log-probability across all observed dimensions. Dividing reconstruction by number of pixels without scaling KL causes massive over-regularization and latent collapse." }
+]} />
+
+## Summary Check
+
+<QuizCard
+  question="Why are reconstructions from VAEs trained with Gaussian likelihood / MSE loss often slightly blurrier than real images?"
+  options={[
+    "MSE penalizes pixel-wise Euclidean distance; when uncertain between multiple crisp edges, the conditional expectation that minimizes MSE is the pixel average (a blurry edge).",
+    "Because latent dimensions must always be less than 10.",
+    "Because the encoder uses max pooling."
+  ]}
+  correctIndex={0}
+  explanation="Minimizing L2 pixel distance under uncertainty results in predicting the expected value over the posterior distribution, which averages high-frequency details and produces smooth, blurry transitions."
+/>

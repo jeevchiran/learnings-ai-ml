@@ -1,0 +1,79 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import BetaVAETunableWidget from '../../components/widgets/vae/BetaVAETunableWidget.jsx'
+
+# Module 9: β-VAE & Disentangled Representations
+
+<ConceptBox title="The Disentanglement Objective">
+In a truly **disentangled representation**, each single latent dimension $z_j$ controls exactly one independent, human-interpretable generative factor (e.g. azimuth rotation, stroke thickness, lighting angle, scale) while remaining completely invariant to all other factors. **$\beta$-VAE** achieves this by placing an adjustable information bottleneck on the latent channel.
+</ConceptBox>
+
+<Bridge>
+Module 8 showed that latent dimensions can represent high-level concepts. However, in standard VAEs ($\beta=1$), factors often remain entangled across multiple correlated dimensions. This module introduces $\beta$-VAE and analyzes the trade-off between disentanglement and reconstruction fidelity.
+</Bridge>
+
+## The $\beta$-VAE Formulation
+
+Introduced by Higgins et al. (ICLR 2017), $\beta$-VAE modifies the standard ELBO objective by introducing a hyperparameter $\beta > 0$ weighting the KL divergence term:
+
+$$\mathcal{L}_{\beta\text{-VAE}}(\theta, \phi; x) = \mathbb{E}_{q_\phi(z|x)}\big[\log p_\theta(x|z)\big] - \beta \, D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big)$$
+
+- When $\beta = 1$: Standard VAE (exact ELBO).
+- When $\beta > 1$: Stronger information bottleneck, encouraging statistical independence and axis alignment.
+- When $\beta < 1$: Weaker regularization, prioritizing sharp reconstructions at the expense of latent structure.
+
+## Why Does $\beta > 1$ Force Disentanglement?
+
+The standard prior $p(z) = \mathcal{N}(0, I) = \prod_{j=1}^d \mathcal{N}(z_j; 0, 1)$ is **factorized** (all dimensions are statistically independent).
+
+Under the **Information Bottleneck Principle**:
+1. When $\beta > 1$, the encoder is severely restricted in the total number of nats/bits it can transmit through the latent channel $z$.
+2. To reconstruct $x$ with minimal channel capacity, the network must discover the most efficient representation possible: the true, orthogonal, independent generative factors of the data.
+3. Because the prior has diagonal covariance, the model aligns these independent factors with single coordinate axes.
+
+## Interactive $\beta$ Tuner & Trade-Off Simulator
+
+Adjust $\beta$ to observe the fundamental trade-off between reconstruction sharpness, factor disentanglement, and the danger of posterior collapse:
+
+<BetaVAETunableWidget />
+
+## The Hazard of $\beta \gg 1$: Posterior Collapse
+
+<PredictReveal
+  prompt="What happens if β is set too high (e.g. β = 20 or 50) during training?"
+  options={[
+    "The model achieves perfect disentanglement across all dimensions.",
+    "Posterior Collapse occurs: the encoder outputs q_ϕ(z|x) ≈ p(z) for all inputs (KL → 0), and the decoder completely ignores z, outputting the blurry average of the entire dataset.",
+    "The model overfits to the training set."
+  ]}
+  correct={1}
+>
+
+When $\beta$ is excessively large, minimizing the KL divergence dominates the entire optimization. The easiest way for gradient descent to reduce loss is to set $\mu = 0$ and $\sigma^2 = 1$ everywhere.
+
+When $q_\phi(z|x) = \mathcal{N}(0, I)$ contains zero mutual information about $x$, the decoder receives no input signal and simply learns to output the unconditional mean image $\bar{x}$. This failure mode is known as **Posterior Collapse**.
+
+</PredictReveal>
+
+## Strategies to Prevent Posterior Collapse
+
+1. **KL Annealing / Warm-up**: Start training with $\beta = 0$, gradually increasing $\beta \to 1$ or $\beta_{\text{target}}$ over the first $N$ epochs.
+2. **Free Bits / Minimum KL Constraint**: Replace $D_{KL}$ with $\max(\tau, D_{KL})$, giving each dimension a budget of $\tau$ bits for free before applying regularization.
+3. **Controlled Capacity Increase ($C$-VAE)**: Gradually increase a target capacity $C$: $\mathcal{L} = \mathcal{L}_{\text{recon}} - \gamma |D_{KL} - C|$.
+
+<Recall items={[
+  { q: "What is the primary motivation for using β > 1 in β-VAE?", a: "To impose a tighter information bottleneck that forces the network to learn statistically independent, axis-aligned, disentangled generative factors." },
+  { q: "What is posterior collapse and how does KL annealing prevent it?", a: "Posterior collapse occurs when the KL penalty is so strong that the encoder sets q(z|x) = p(z) for all inputs, causing the decoder to ignore the latent code. KL annealing prevents this by starting with β=0 so the encoder-decoder first learns to reconstruct before gradually introducing the KL regularizer." }
+]} />
+
+## Summary Check
+
+<QuizCard
+  question="In a disentangled latent space, changing the value of z₁ from -2 to +2 while keeping all other z_j fixed will:"
+  options={[
+    "Modify exactly one isolated semantic attribute (e.g. rotation angle) without changing unrelated attributes (e.g. object size, color, or shape).",
+    "Completely randomize the entire decoded image.",
+    "Cause the decoder to output an all-black image."
+  ]}
+  correctIndex={0}
+  explanation="Disentanglement means single latent dimensions map directly to independent real-world factors of variation."
+/>

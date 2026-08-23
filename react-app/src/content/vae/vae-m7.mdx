@@ -1,0 +1,138 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 7: Demonstration — Variational Autoencoder in PyTorch
+
+<ConceptBox title="Run the Code">
+This module's complete VAE model, custom loss function, training loop, 2D latent grid manifold visualizer, and interpolation scripts are collected into an end-to-end runnable notebook:
+
+**[Open the Variational Autoencoders lab in Google Colab](https://colab.research.google.com/github/jeevchiran/learnings-ai-ml/blob/main/notebook/vae/vae-lab.ipynb)**.
+
+Read through the modular architecture below, then open the Colab notebook to run it directly on GPU/CPU!
+</ConceptBox>
+
+<Bridge>
+Modules 1 through 6 assembled the theory: probabilistic encodings, the ELBO objective, Gaussian KL divergence, the reparameterization trick, and proper loss scaling. Now, we put all pieces together into a clean, complete PyTorch implementation.
+</Bridge>
+
+## The Complete VAE Module Architecture
+
+```python
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class VAE(nn.Module):
+    def __init__(self, input_dim=784, hidden_dim=400, latent_dim=20):
+        super().__init__()
+        self.latent_dim = latent_dim
+
+        # Encoder Network
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc_mu = nn.Linear(hidden_dim, latent_dim)     # Mean μ
+        self.fc_logvar = nn.Linear(hidden_dim, latent_dim) # Log-variance log(σ²)
+
+        # Decoder Network
+        self.fc3 = nn.Linear(latent_dim, hidden_dim)
+        self.fc4 = nn.Linear(hidden_dim, input_dim)
+
+    def encode(self, x):
+        h = F.relu(self.fc1(x))
+        mu = self.fc_mu(h)
+        logvar = self.fc_logvar(h)
+        return mu, logvar
+
+    def reparameterize(self, mu, logvar):
+        if self.training:
+            std = torch.exp(0.5 * logvar)
+            eps = torch.randn_like(std)
+            return mu + eps * std
+        else:
+            # During evaluation, deterministic mean is often used for reconstructions
+            return mu
+
+    def decode(self, z):
+        h = F.relu(self.fc3(z))
+        return torch.sigmoid(self.fc4(h)) # Output in [0, 1]
+
+    def forward(self, x):
+        mu, logvar = self.encode(x)
+        z = self.reparameterize(mu, logvar)
+        recon_x = self.decode(z)
+        return recon_x, mu, logvar
+```
+
+## The VAE Loss Function
+
+The loss function implements the negative ELBO: $\mathcal{L} = \text{BCE} + D_{KL}$.
+
+```python
+def vae_loss_function(recon_x, x, mu, logvar):
+    # Reconstruction loss (summed over all input pixels)
+    BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
+    
+    # Analytical Gaussian KL Divergence: -0.5 * sum(1 + log(σ²) - μ² - σ²)
+    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    
+    # Total loss normalized by batch size
+    batch_size = x.size(0)
+    return (BCE + KLD) / batch_size, BCE / batch_size, KLD / batch_size
+```
+
+## The End-to-End Training Loop
+
+```python
+def train_epoch(model, dataloader, optimizer, device):
+    model.train()
+    total_loss, total_bce, total_kld = 0, 0, 0
+
+    for batch_idx, (data, _) in enumerate(dataloader):
+        data = data.view(data.size(0), -1).to(device) # Flatten (B, 784)
+        
+        optimizer.zero_grad()
+        recon_batch, mu, logvar = model(data)
+        
+        loss, bce, kld = vae_loss_function(recon_batch, data, mu, logvar)
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item() * len(data)
+        total_bce += bce.item() * len(data)
+        total_kld += kld.item() * len(data)
+
+    n = len(dataloader.dataset)
+    return total_loss / n, total_bce / n, total_kld / n
+```
+
+## Generating Novel Samples from the Prior
+
+To sample completely new images from scratch, we skip the encoder entirely:
+
+```python
+@torch.no_grad()
+def generate_samples(model, num_samples=16, device='cpu'):
+    model.eval()
+    # 1. Sample z directly from the standard normal prior p(z) = N(0, I)
+    z = torch.randn(num_samples, model.latent_dim).to(device)
+    
+    # 2. Decode into generated images
+    samples = model.decode(z)
+    return samples.view(num_samples, 28, 28)
+```
+
+<Recall items={[
+  { q: "Why do we call model.eval() and skip the encoder during sample generation?", a: "Because generative synthesis samples directly from the prior distribution p(z) = 𝒩(0, I). The encoder is only used during training and when inferring latent codes for specific existing images." },
+  { q: "Why does the decoder end with a Sigmoid activation?", a: "Because input pixel values are normalized to [0, 1]. Sigmoid bounds the output intensities to (0, 1), which matches the Bernoulli likelihood interpretation required by Binary Cross-Entropy." }
+]} />
+
+## Summary Check
+
+<QuizCard
+  question="In the reparameterize() function, why do we use `torch.randn_like(std)`?"
+  options={[
+    "To ensure the random noise tensor ε matches both the shape and the CUDA/CPU device of the standard deviation tensor std automatically.",
+    "To prevent gradient updates from reaching the decoder.",
+    "Because standard normal sampling requires integer dimensions."
+  ]}
+  correctIndex={0}
+  explanation="`randn_like` guarantees that the generated noise has identical shape, data type, and execution device (GPU vs CPU) as `std`, avoiding device mismatches in PyTorch."
+/>

@@ -1,0 +1,76 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import LatentSpaceWidget from '../../components/widgets/vae/LatentSpaceWidget.jsx'
+
+# Module 1: From Autoencoders to Variational Autoencoders
+
+<ConceptBox title="The Central Problem">
+A standard autoencoder compresses inputs into a deterministic latent code $z = f_\phi(x)$ and reconstructs them via $\hat{x} = g_\theta(z)$. While effective for dimensionality reduction and denoising, **standard autoencoders fail as generative models**. Why? Because their latent spaces contain empty gaps, disconnected clusters, and unregularized coordinates where the decoder outputs noise.
+</ConceptBox>
+
+<Bridge>
+Generative modeling requires sampling new, unseen data points from a known probability distribution. This module examines why deterministic autoencoders fail at generation and how variational autoencoders convert point encodings into continuous probability distributions.
+</Bridge>
+
+## Why Standard Autoencoders Cannot Generate
+
+<PredictReveal
+  prompt="Suppose you train a standard autoencoder on handwritten digits (0 to 9) with a 2D latent space. What happens if you sample a random coordinate z ~ N(0, I) and pass it to the decoder?"
+  options={[
+    "It produces a clean, realistic new digit that blends features smoothly.",
+    "It often produces an unrealistic, noisy, or corrupted image because that latent region was never mapped during training.",
+    "The decoder throws a runtime error because latent dimensions must be strictly positive."
+  ]}
+  correct={1}
+>
+
+In a standard autoencoder, the encoder is free to place embeddings anywhere in latent space to minimize reconstruction error $\mathcal{L}(x, \hat{x}) = \|x - g_\theta(f_\phi(x))\|^2$.
+
+This leads to three failure modes for generative tasks:
+
+1. **Gaps and Holes in Latent Space**: The training objective only penalizes poor reconstruction of training points. Latent regions between clusters receive no gradient supervision, creating "dead zones".
+2. **Lack of Compactness**: Clusters for different classes can be pushed arbitrarily far apart. There is no force pulling them toward the origin or bounding their variance.
+3. **No Smooth Interpolation**: Traversing the latent line between a digit "0" and digit "1" encounters disjoint jumps rather than smooth, semantically meaningful morphing.
+
+</PredictReveal>
+
+## Interactive Latent Geometry Explorer
+
+Interact with the widget below to compare how a deterministic autoencoder versus a variational autoencoder arranges representations in the 2D latent plane:
+
+<LatentSpaceWidget />
+
+<Recall items={[
+  { q: "What is the primary architectural difference in output between a standard autoencoder encoder and a VAE encoder?", a: "A standard autoencoder encoder outputs a single deterministic vector z = f(x). A VAE encoder outputs the parameters of a probability distribution — specifically a mean vector μ and a log-variance vector log(σ²)." },
+  { q: "Why doesn't minimizing only reconstruction loss produce a good generative latent space?", a: "Reconstruction loss only penalizes reconstruction at exact training coordinates. It does not enforce smoothness, continuity, or completeness across the latent space, leaving empty regions where random samples decode into nonsensical noise." }
+]} />
+
+## The Variational Solution: Probabilistic Encodings
+
+Instead of mapping an input $x$ to a single fixed point $z$, the VAE maps $x$ to a **probability distribution** $q_\phi(z|x)$:
+
+$$\mu, \log \sigma^2 = \text{Encoder}_\phi(x)$$
+
+$$q_\phi(z|x) = \mathcal{N}(\mu, \text{diag}(\sigma^2))$$
+
+To enforce that these distributions fill the latent space without holes and stay centered, the VAE introduces a **regularization penalty** (the Kullback-Leibler divergence) forcing $q_\phi(z|x)$ to resemble a standard normal prior $p(z) = \mathcal{N}(0, I)$.
+
+| Property | Standard Autoencoder | Variational Autoencoder (VAE) |
+|---|---|---|
+| **Encoder Mapping** | Deterministic point $z = f_\phi(x)$ | Distribution parameters $\mu, \sigma^2 = f_\phi(x)$ |
+| **Latent Space Structure** | Irregular, disjoint, unbounded | Smooth, continuous, centered at origin |
+| **Generative Sampling** | Not possible (no known prior distribution) | Sample $z \sim \mathcal{N}(0, I)$, decode $\hat{x} = g_\theta(z)$ |
+| **Loss Objective** | Reconstruction Loss only ($\text{MSE}$ / $\text{BCE}$) | $\text{ELBO} = \text{Reconstruction Loss} + \text{KL Divergence}$ |
+| **Interpolation** | Jagged, transitions through nonsensical states | Smooth, gradual semantic morphing |
+
+## Summary Check
+
+<QuizCard
+  question="Why does standard autoencoder latent space allow clusters to drift arbitrarily far apart during training?"
+  options={[
+    "Because standard autoencoders lack any loss term that penalizes large latent magnitudes or divergence from a centered prior.",
+    "Because the encoder uses non-linear activations which always push weights to infinity.",
+    "Because reconstruction loss is strictly minimized when latents are orthogonal."
+  ]}
+  correctIndex={0}
+  explanation="Without a prior regularization term (like KL divergence), the optimization objective only cares about reconstruction fidelity, which allows the network to separate clusters arbitrarily far to avoid overlap."
+/>

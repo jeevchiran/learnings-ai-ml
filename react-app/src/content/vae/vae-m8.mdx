@@ -1,0 +1,94 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import LatentManifoldWidget from '../../components/widgets/vae/LatentManifoldWidget.jsx'
+
+# Module 8: Latent Space Exploration & Manifold Generation
+
+<ConceptBox title="Navigating the Latent Manifold">
+A well-trained VAE transforms complex, non-linear pixel manifolds into a compact, continuous Gaussian latent space. Because the space is regularized and smooth, we can systematically explore it through **grid sampling**, **continuous interpolation**, and **semantic vector arithmetic**.
+</ConceptBox>
+
+<Bridge>
+Module 7 built and trained the VAE in PyTorch. This module explores how to inspect the learned representation: sweeping 2D coordinates to produce continuous manifolds, interpolating between two distinct samples, and manipulating high-level semantic attributes.
+</Bridge>
+
+## Generating 2D Latent Manifolds
+
+When a VAE is trained with a 2D latent space ($z = [z_1, z_2]$), we can visualize the entire learned data manifold by creating a uniform grid across the prior domain (e.g. $z_1, z_2 \in [-2.5, +2.5]$) and decoding each coordinate:
+
+<LatentManifoldWidget />
+
+```python
+# Code snippet: Creating a 2D Manifold Grid in PyTorch
+@torch.no_grad()
+def plot_latent_manifold(model, grid_size=15, z_range=2.5):
+    model.eval()
+    # Create coordinate grid
+    z1 = torch.linspace(-z_range, z_range, grid_size)
+    z2 = torch.linspace(-z_range, z_range, grid_size)
+    grid_x, grid_y = torch.meshgrid(z1, z2, indexing='xy')
+    
+    # Flatten into (grid_size^2, 2)
+    z = torch.stack([grid_x.flatten(), grid_y.flatten()], dim=-1)
+    
+    # Decode full meshgrid in one forward pass
+    reconstructions = model.decode(z).view(-1, 28, 28)
+    return reconstructions
+```
+
+## Latent Space Interpolation: Lerp vs Slerp
+
+How should we traverse the path between two encoded images $x_A$ and $x_B$?
+
+### 1. Linear Interpolation (Lerp)
+
+The simplest trajectory is a straight line:
+
+$$z(\alpha) = (1 - \alpha) z_A + \alpha z_B, \qquad \alpha \in [0, 1]$$
+
+While effective in 2D or low dimensions, in high dimensions (e.g. $d = 64$ or $128$), the straight line between two points passes close to the origin $z = 0$, where the density is much higher than the spherical shell where high-dimensional Gaussians naturally concentrate (the **Gaussian Annulus Theorem**).
+
+### 2. Spherical Linear Interpolation (Slerp)
+
+In high-dimensional Gaussian spaces, points sampled from $\mathcal{N}(0, I_d)$ have Euclidean norm concentrated near $\|z\| \approx \sqrt{d}$. **Slerp** moves along the constant-radius hypersphere arc:
+
+$$z(\alpha) = \frac{\sin((1-\alpha)\Omega)}{\sin(\Omega)} z_A + \frac{\sin(\alpha\Omega)}{\sin(\Omega)} z_B, \qquad \text{where } \cos(\Omega) = \frac{z_A \cdot z_B}{\|z_A\| \|z_B\|}$$
+
+Slerp preserves vector norm and prevents the interpolation from traveling through atypical low-norm regimes.
+
+## Vector Arithmetic in Latent Space
+
+Because representations are continuous and linearly aligned, we can discover **semantic attribute vectors** by averaging latent codes:
+
+$$v_{\text{smile}} = \frac{1}{N_{\text{smile}}} \sum_{i \in \text{smiling}} z_i - \frac{1}{N_{\text{neutral}}} \sum_{j \in \text{neutral}} z_j$$
+
+Adding this attribute vector to a new face code modifies the feature predictably:
+
+$$z_{\text{new}} = z_{\text{input}} + \gamma \cdot v_{\text{smile}}$$
+
+```
+  [ Neutral Face x ] ──► Encoder ──► z_neutral
+                                         │
+                                         ▼  + γ · v_smile
+                                      z_smiling
+                                         │
+                                         ▼  Decoder
+                                  [ Smiling Face x̂ ]
+```
+
+<Recall items={[
+  { q: "What is the difference between Linear Interpolation (lerp) and Spherical Linear Interpolation (slerp)?", a: "Lerp connects two latent vectors along a straight chord, which cuts through low-norm space near the origin. Slerp interpolates along the surface of a constant-radius hypersphere, maintaining realistic vector norms in high dimensions." },
+  { q: "How is a semantic attribute vector (e.g. smile vector) computed in latent space?", a: "By taking the difference between the mean latent vector of samples possessing the attribute and the mean latent vector of samples lacking it." }
+]} />
+
+## Summary Check
+
+<QuizCard
+  question="In high-dimensional latent space (e.g. d = 100), why is Slerp often preferred over Lerp for traversing between two sampled vectors?"
+  options={[
+    "Because high-dimensional Gaussian probability mass concentrates in a thin spherical shell (annulus); Slerp stays on this shell, whereas Lerp passes through the uncharacteristically dense center.",
+    "Because Lerp causes division by zero.",
+    "Because Slerp ignores the decoder weights."
+  ]}
+  correctIndex={0}
+  explanation="In high dimensions, the volume of a sphere is concentrated near its surface. Slerp preserves the norm ||z|| ≈ √d throughout the traversal, maintaining typical sample quality."
+/>
