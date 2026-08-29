@@ -1,0 +1,80 @@
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import DCGANArchitectureWidget from '../../components/widgets/gan/DCGANArchitectureWidget.jsx'
+
+# Module 5: DCGAN — Convolutional Architecture Guidelines
+
+<Bridge>
+Modules 1 to 4 covered the game itself, independent of what G and D are made of. Early GANs used plain fully-connected networks and were notoriously hard to train on images. DCGAN (Radford et al., 2015) is the specific set of architectural choices that made convolutional GANs stable enough to actually use.
+</Bridge>
+
+## Learn the upsampling, don't hand-pick it
+
+<PredictReveal
+  prompt="A generator needs to go from a small spatial tensor to a full-resolution image — the opposite of what pooling does. Why does DCGAN avoid pooling layers entirely, in both G and D, rather than just using unpooling to reverse it?"
+  options={["Pooling and unpooling are fixed, non-learned operations — replacing them with strided convolutions lets the network learn its own spatial resizing filters", "Pooling layers are simply too slow to run on a GPU"]}
+  correct={0}
+>
+
+<DCGANArchitectureWidget />
+
+Max pooling and its reverse are fixed rules — "take the max" or "spread the value back out" — with no learnable parameters. DCGAN replaces every pooling layer with a **strided convolution** in D (learned downsampling) and a **fractionally-strided (transposed) convolution** in G (learned upsampling, the same operation covered in the Transfer Learning track's U-Net modules). The network decides how to resize, rather than being told a fixed rule, which gives it far more capacity to shape what detail survives at each resolution.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does DCGAN replace pooling with strided and transposed convolutions instead of pooling and unpooling?", a: "Pooling and unpooling are fixed, non-learned resizing rules. Strided convolutions (for downsampling in D) and transposed convolutions (for upsampling in G) have learnable weights, so the network can shape what spatial detail is kept or synthesized at each resolution instead of following a fixed rule." },
+]} />
+
+## The rest of the recipe
+
+<PredictReveal
+  prompt="DCGAN applies BatchNorm to almost every layer of both G and D — except two specific layers: G's output layer and D's input layer. What's the shared reason for both exceptions?"
+  options={["BatchNorm is too slow at those two specific layers", "Those are the layers touching the actual image pixels, and normalizing them would distort the real data distribution or the desired output range"]}
+  correct={1}
+>
+
+BatchNorm stabilizes training by keeping activations well-scaled through the network, but at the two layers that touch real image values directly, that normalization would work against the goal: D's input layer should see the true pixel statistics of real vs. fake images unmodified, and G's output layer needs to land in a fixed range (typically $[-1, 1]$ via Tanh) matching the normalized real images, not a batch-dependent one.
+
+<FactList accent="#a21caf" items={[
+  { t: 'No pooling', d: 'Strided convolutions replace pooling in D; fractionally-strided (transposed) convolutions replace unpooling in G.' },
+  { t: 'BatchNorm', d: 'Applied throughout both networks, except G\'s output layer and D\'s input layer, which touch real pixel values directly.' },
+  { t: 'No fully-connected layers', d: 'Only the very first projection in G and the very last flatten-to-logit in D use a dense layer — everything else is convolutional.' },
+  { t: 'Activations', d: 'ReLU in every G layer except the output (Tanh). LeakyReLU in every D layer, which keeps a small gradient alive for negative inputs.' },
+]} />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does DCGAN skip BatchNorm specifically on G's output layer and D's input layer?", a: "Both layers touch real pixel values directly. D's input layer needs to see the true statistics of real vs. fake images unmodified to classify correctly, and G's output layer needs to land in a fixed range (via Tanh) matching the normalized real data, not a range that shifts with each batch's statistics." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- DCGAN is a specific set of architectural guidelines, not a new training objective — it made convolutional GANs on images train reliably.
+- Pooling is replaced everywhere: **strided convolutions** for learned downsampling in D, **transposed convolutions** for learned upsampling in G.
+- BatchNorm is used almost everywhere except the two layers touching real pixel values (G's output, D's input); fully-connected layers are removed except at the very first/last stage; ReLU drives G, LeakyReLU drives D.
+</ConceptBox>
+
+<QuizCard
+  question="What is the shared motivation for replacing pooling with strided/transposed convolutions in DCGAN?"
+  options={[
+    "It reduces the total parameter count of the network",
+    "It replaces a fixed, non-learned resizing rule with a learned one, giving the network control over what detail is kept or synthesized",
+    "It removes the need for a discriminator entirely",
+    "It is required to make backpropagation mathematically valid"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which of these are DCGAN architectural guidelines?"
+  options={[
+    "Replace pooling with strided (D) and transposed (G) convolutions",
+    "Use BatchNorm on every single layer of both networks with no exceptions",
+    "Remove fully-connected hidden layers, keeping dense layers only at the very first/last stage",
+    "Use ReLU throughout G and LeakyReLU throughout D",
+    "Skip BatchNorm on G's output layer and D's input layer"
+  ]}
+  correct={[0, 2, 3, 4]}
+/>

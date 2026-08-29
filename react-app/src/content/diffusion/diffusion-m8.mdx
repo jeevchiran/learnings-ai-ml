@@ -1,0 +1,75 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import GuidanceScaleWidget from '../../components/widgets/diffusion/GuidanceScaleWidget.jsx'
+
+# Module 8: Classifier-Free Guidance
+
+<Bridge>
+Everything so far generates unconditional samples — some plausible image, with no control over which one. The GAN track's Module 7 solved the analogous problem by conditioning both networks on a label. Diffusion needs its own version of that idea.
+</Bridge>
+
+## One network, two behaviors
+
+<PredictReveal
+  prompt="To make a diffusion model generate specifically 'a photo of a cat' rather than a random image, the simplest approach conditions ε_θ on a text/label embedding y: ε_θ(x_t, t, y). Is that alone enough to get strong prompt-following behavior in practice?"
+  options={["Yes — conditioning the network on y is sufficient on its own", "Not strongly enough — the model needs to be pushed further toward y than a single conditional prediction naturally goes"]}
+  correct={1}
+>
+
+Simply conditioning on $y$ produces a model that pays *some* attention to the prompt, but not as strongly as most applications want. **Classifier-free guidance** trains a single network to produce both a conditional prediction $\epsilon_\theta(x_t, t, y)$ and an unconditional one $\epsilon_\theta(x_t, t, \varnothing)$ — by randomly dropping the conditioning during training some fraction of the time — and then, at sampling time, extrapolates *away* from the unconditional prediction and *toward* the conditional one:
+
+$$\hat\epsilon = \epsilon_\theta(x_t, t, \varnothing) + w \cdot \big(\epsilon_\theta(x_t, t, y) - \epsilon_\theta(x_t, t, \varnothing)\big)$$
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why isn't simply conditioning ε_θ on y sufficient for strong prompt-following in practice?", a: "A single conditional prediction only pays some attention to the prompt, not as strongly as most applications need. Classifier-free guidance instead extrapolates past the conditional prediction, away from the unconditional one, which pushes the result further toward the prompt than the conditional model alone would go." },
+]} />
+
+## What the guidance scale w actually does
+
+<PredictReveal
+  prompt="w=1 recovers the plain conditional prediction with no extrapolation. As w increases past 1, what happens to the trade-off between how closely samples follow the prompt and how varied they are?"
+  options={["Both prompt-adherence and diversity increase together with no trade-off", "Prompt-adherence increases, but diversity decreases — pushed too far, samples over-saturate and start looking alike"]}
+  correct={1}
+>
+
+<GuidanceScaleWidget />
+
+$w$ is a single dial controlling how far to extrapolate past the conditional prediction. Larger $w$ pushes samples to match the prompt more closely — but that same extrapolation narrows the range of outputs the model is willing to produce, since it's amplifying the *direction* the label points in rather than sampling more broadly around it. This is a direct, deliberate trade-off, not a bug: most production systems pick a fixed $w$ (commonly somewhere in the single digits) that balances the two, informed by exactly this trade-off curve.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does increasing the guidance scale w improve prompt adherence at the cost of sample diversity?", a: "Larger w extrapolates further in the direction from the unconditional prediction toward the conditional one, amplifying alignment with the prompt. That same amplification narrows the range of outputs the model produces, since it's pushing samples further along one specific direction rather than sampling broadly — trading diversity for adherence." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Classifier-free guidance** trains one network to produce both a conditional prediction $\epsilon_\theta(x_t,t,y)$ and an unconditional one $\epsilon_\theta(x_t,t,\varnothing)$, by randomly dropping conditioning during training.
+- At sampling time, the guidance scale $w$ **extrapolates** past the conditional prediction, away from the unconditional one — pushing results further toward the prompt than plain conditioning alone would.
+- Increasing $w$ trades **diversity for prompt adherence**: too high, and samples over-saturate and lose variety; the right value balances the two.
+</ConceptBox>
+
+<QuizCard
+  question="What does the guidance scale w control in classifier-free guidance?"
+  options={[
+    "How many diffusion timesteps T are used during sampling",
+    "How far the final prediction extrapolates past the conditional prediction, away from the unconditional one — trading diversity for prompt adherence",
+    "Whether the model uses DDPM or DDIM sampling",
+    "The learning rate used during training"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about classifier-free guidance are correct?"
+  options={[
+    "A single network is trained to produce both conditional and unconditional predictions, by randomly dropping the conditioning during training",
+    "w = 1 recovers the plain conditional prediction, with no extrapolation",
+    "Increasing w past 1 always increases both prompt adherence and sample diversity together",
+    "Classifier-free guidance requires training a completely separate classifier network",
+    "Pushing w too high causes samples to over-saturate and lose diversity"
+  ]}
+  correct={[0, 1, 4]}
+/>

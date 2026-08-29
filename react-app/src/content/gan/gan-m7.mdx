@@ -1,0 +1,70 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 7: Conditional GANs
+
+<Bridge>
+Every generator so far turns noise into *some* plausible sample, with no control over which one. Conditional GANs add exactly that control — generate a specific class, not a random one from the whole distribution.
+</Bridge>
+
+## Both networks need the label, not just one
+
+<PredictReveal
+  prompt="To make a GAN generate specifically the digit '7' on demand, rather than a random digit, which network needs to receive the class label y as an extra input?"
+  options={["Only the generator — the discriminator's job of spotting fakes doesn't change", "Both the generator and the discriminator"]}
+  correct={1}
+>
+
+A **conditional GAN (cGAN)** conditions both networks on $y$: the generator becomes $G(z, y)$, producing a sample meant to be a realistic *y*. The discriminator becomes $D(x, y)$, judging whether $x$ is both realistic **and** a plausible instance of class $y$. If only G saw the label, D would have no way to penalize G for ignoring it — G could satisfy an unconditional D by generating any realistic digit at all, whichever one was easiest, regardless of the requested class.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does a conditional GAN need the discriminator to see the label too, not just the generator?", a: "If only the generator saw the label, the discriminator would only ever check general realism, not class-correctness. G could then satisfy D by generating any realistic sample regardless of the requested class, since nothing would penalize ignoring y. D must also see y so it can judge whether the sample is a plausible instance of that specific class." },
+]} />
+
+## What the label buys you architecturally
+
+<PredictReveal
+  prompt="In practice, how is the label y typically fed into G and D — as a completely separate network path, or folded into the existing input?"
+  options={["A completely separate specialized subnetwork trained independently for each class", "y is embedded or one-hot encoded and concatenated with the existing input (z for G, x for D) before the usual layers"]}
+  correct={1}
+>
+
+No separate architecture is needed. $y$ is typically turned into an embedding (or a one-hot vector) and concatenated with $z$ before G's first layer, and concatenated with $x$ (or with an intermediate feature map) before D's classification layers. The rest of the network — the convolutional stack from DCGAN, for instance — is unchanged. This is also the conceptual seed of **image-to-image translation** models like pix2pix: instead of conditioning on a class label, condition on an entire input image, and the same "both networks see the condition" logic still applies.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How is the class label typically incorporated into a conditional GAN's architecture?", a: "As an embedding or one-hot vector concatenated with the existing input — with z before G's first layer, and with x (or an intermediate feature map) before D's classification layers — rather than as a separate specialized subnetwork." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A **conditional GAN** conditions both networks on a label $y$: $G(z, y)$ generates a specific class, $D(x, y)$ judges realism **and** class-correctness together.
+- The label must reach **both** networks — if only G sees it, D has no way to penalize G for ignoring the requested class.
+- In practice $y$ is just concatenated (as an embedding or one-hot vector) with the existing input to each network; no separate architecture is needed. Conditioning on a whole image instead of a class label is the same idea behind pix2pix-style image-to-image translation.
+</ConceptBox>
+
+<QuizCard
+  question="What goes wrong in a conditional GAN if only the generator receives the class label y, and the discriminator does not?"
+  options={[
+    "Nothing — the generator alone can enforce class-correctness",
+    "The discriminator can only judge general realism, so G could satisfy it by generating any realistic sample regardless of the requested class",
+    "Training becomes faster because the discriminator has less to learn",
+    "The generator would be unable to produce any output at all"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about conditional GANs are correct?"
+  options={[
+    "The generator becomes G(z, y) and the discriminator becomes D(x, y)",
+    "Only the generator needs to see the class label for conditioning to work correctly",
+    "The label y is typically concatenated with the existing input rather than requiring a separate subnetwork",
+    "Conditioning on a whole image instead of a class label is the same underlying idea behind pix2pix-style translation",
+    "D(x, y) in a cGAN judges realism only, ignoring whether x matches class y"
+  ]}
+  correct={[0, 2, 3]}
+/>

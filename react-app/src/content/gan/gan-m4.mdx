@@ -1,0 +1,73 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ModeCollapseWidget from '../../components/widgets/gan/ModeCollapseWidget.jsx'
+
+# Module 4: Mode Collapse & Training Instability
+
+<Bridge>
+Module 3 fixed one specific gradient problem. It did not fix GAN training generally — GANs remain notoriously unstable, and the single most common failure has a name of its own: mode collapse.
+</Bridge>
+
+## When G finds one answer and stops looking
+
+<PredictReveal
+  prompt="Suppose the real data has four distinct clusters, and G discovers that outputs resembling just one of them reliably fool D. If G's gradient only ever rewards fooling D on the current minibatch, what's the likely outcome?"
+  options={["G keeps exploring and eventually covers all four clusters, since fooling D on only one is a weaker overall strategy", "G collapses onto that one cluster and stops producing the other three, since there's no direct penalty for the missing variety"]}
+  correct={1}
+>
+
+<ModeCollapseWidget />
+
+This is **mode collapse**: G finds one (or a few) outputs that reliably fool D and keeps producing near-identical variations of them, regardless of the input noise $z$. Nothing in the per-sample discriminator loss directly penalizes a lack of diversity — D judges each generated sample on its own, and a collapsed generator can still produce individually convincing samples. The failure is invisible to a discriminator that only ever sees one sample at a time.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can a discriminator fail to notice that a generator has collapsed onto a single mode?", a: "A standard discriminator scores each generated sample independently. A collapsed generator can still produce individually realistic samples, so per-sample realism gives D no signal about whether G is covering the full diversity of the real data." },
+]} />
+
+## Fixing it by looking at batches, not samples
+
+<PredictReveal
+  prompt="If the problem is that D judges samples one at a time, what's the natural fix?"
+  options={["Make D deeper so it can spot fakes more accurately", "Let D look at statistics across a whole minibatch of samples at once, so it can penalize low diversity directly"]}
+  correct={1}
+>
+
+**Minibatch discrimination** gives D access to a summary of how similar the generated samples in a batch are to each other, alongside each individual sample. A batch of near-identical fakes now looks suspicious even if any single one of them is convincing, which gives G a gradient that rewards diversity directly rather than hoping it emerges as a side effect of fooling D sample-by-sample. Other mitigations tackle the same root cause from different angles — feature matching (match statistics of an intermediate D layer instead of the raw output) and simply using a more stable loss (Module 6's Wasserstein objective) both reduce how often collapse happens in the first place.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does minibatch discrimination give the discriminator access to that a standard per-sample discriminator lacks?", a: "A summary of how similar the samples within one minibatch are to each other. This lets D penalize a batch of near-identical generated samples directly, giving G a gradient that rewards diversity instead of only rewarding individual realism." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Mode collapse**: G finds one (or a few) outputs that reliably fool D and stops producing the rest of the data's diversity, regardless of the noise input.
+- It happens because a standard discriminator judges each sample independently — individually convincing fakes give it no signal about missing variety.
+- **Minibatch discrimination** and feature matching fix this by giving D (or G's loss) access to batch-level statistics, so a lack of diversity becomes directly detectable and penalizable.
+</ConceptBox>
+
+<QuizCard
+  question="Why does standard per-sample discrimination fail to catch mode collapse on its own?"
+  options={[
+    "Because the discriminator's learning rate is too high",
+    "Because D scores each sample independently, so a collapsed generator's individually realistic outputs give it no signal about missing diversity",
+    "Because mode collapse only happens when the generator has too few parameters",
+    "Because D cannot be trained on more than one sample at a time by design"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about mode collapse and its mitigations are correct?"
+  options={[
+    "Mode collapse means the generator produces near-identical outputs regardless of the sampled z",
+    "A discriminator that only judges samples one at a time can be fully fooled by a collapsed generator",
+    "Minibatch discrimination gives the discriminator access to batch-level diversity statistics",
+    "Mode collapse is impossible once the non-saturating generator loss from Module 3 is used",
+    "Feature matching is another mitigation that targets the same root cause as minibatch discrimination"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

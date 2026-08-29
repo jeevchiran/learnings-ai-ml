@@ -1,0 +1,72 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 6: Wasserstein GAN & Gradient Penalty
+
+<Bridge>
+Module 3 fixed one gradient problem with a loss rewrite. This module asks a bigger question: is the Jensen-Shannon-style divergence underlying the original minimax loss the right thing to be minimizing at all?
+</Bridge>
+
+## A divergence that goes flat on disjoint supports
+
+<PredictReveal
+  prompt="Early in training — and often for a long time after — the real data and the generator's output occupy almost non-overlapping regions of image space. In that regime, what happens to the gradient the original GAN loss provides?"
+  options={["It stays informative, since the loss is designed for exactly this case", "It can vanish or become erratic, because the underlying divergence is locally flat or undefined when the two distributions barely overlap"]}
+  correct={1}
+>
+
+The original GAN objective corresponds to minimizing the Jensen-Shannon divergence between $p_{data}$ and $p_g$. When the two distributions have little or no overlapping support — the normal state of affairs for high-dimensional image data early in training — JS divergence is either flat or saturates, giving little useful gradient regardless of which loss variant (Module 2's or Module 3's) is used. The problem is not the loss rewrite; it is the divergence underneath it.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the deeper problem with JS-divergence-based GAN training that the non-saturating loss from Module 3 does not fix?", a: "JS divergence itself provides little useful gradient when the real and generated distributions have little or no overlapping support, which is the normal state early in training for high-dimensional data. The non-saturating rewrite changes gradient magnitude for a fixed divergence, but does not change which divergence is being minimized." },
+]} />
+
+## Wasserstein distance and the Lipschitz constraint
+
+<PredictReveal
+  prompt="The Wasserstein (Earth Mover's) distance measures the minimum 'cost' to move probability mass from one distribution to match the other. Unlike JS divergence, does it stay meaningful and provide gradient even when the two distributions have disjoint support?"
+  options={["No — it also goes flat on disjoint supports, for the same underlying reason", "Yes — it varies smoothly with how far apart the distributions are, even with no overlap at all"]}
+  correct={1}
+>
+
+Wasserstein distance is smooth even for distributions with no overlap at all: it directly measures a notion of "how far" one distribution is from another, not "how much do they overlap." A **Wasserstein GAN (WGAN)** trains a network — called a **critic**, not a discriminator, because it no longer outputs a probability — to approximate this distance, and trains G to minimize it.
+
+There is a catch: the Wasserstein distance's dual formulation only holds if the critic is constrained to be **1-Lipschitz** (its output cannot change faster than its input, in a precise sense). The original WGAN paper enforced this crudely, by clipping every weight to a small fixed range after each update. **WGAN-GP** replaces that with a **gradient penalty**: an extra loss term that pushes the critic's gradient norm toward 1 on points sampled between real and fake data, enforcing the same constraint far more gently and reliably than hard clipping.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why must a WGAN's critic be constrained to be 1-Lipschitz, and how does WGAN-GP enforce that constraint?", a: "The dual formulation of Wasserstein distance that the critic approximates is only valid under a 1-Lipschitz constraint on the critic function. WGAN-GP enforces it by adding a gradient penalty term that pushes the critic's gradient norm toward 1 on interpolated points between real and fake samples, rather than clipping weights directly." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The original GAN loss corresponds to Jensen-Shannon divergence, which gives little gradient when real and fake distributions barely overlap — the normal case early in training.
+- **Wasserstein distance** stays meaningful and smooth even on disjoint supports, so a **critic** trained to approximate it (rather than classify real/fake) gives useful gradient throughout training.
+- The critic must be **1-Lipschitz** for the Wasserstein dual to hold. **WGAN** enforced this with weight clipping; **WGAN-GP** does it far more reliably with a **gradient penalty** on the critic's gradient norm.
+</ConceptBox>
+
+<QuizCard
+  question="Why does WGAN train a 'critic' instead of a discriminator?"
+  options={[
+    "Because the critic is a larger network with more parameters",
+    "Because the critic approximates the Wasserstein distance directly rather than outputting a real/fake probability, and must satisfy a Lipschitz constraint to do so validly",
+    "Because critics train faster than discriminators on any dataset",
+    "There is no real difference — it is purely a naming convention"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about WGAN and WGAN-GP are correct?"
+  options={[
+    "Wasserstein distance can stay smooth and informative even when two distributions have disjoint support",
+    "The original GAN loss's underlying JS divergence gives little gradient when distributions barely overlap",
+    "The WGAN critic must be constrained to be 1-Lipschitz for its Wasserstein-distance approximation to be valid",
+    "WGAN-GP enforces the Lipschitz constraint by clipping every weight to a fixed range after each update",
+    "WGAN-GP's gradient penalty pushes the critic's gradient norm toward 1 on interpolated real/fake points"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

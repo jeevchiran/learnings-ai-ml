@@ -1,0 +1,79 @@
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ISFIDWidget from '../../components/widgets/gan/ISFIDWidget.jsx'
+
+# Module 9: Evaluating GANs — Inception Score & FID
+
+<Bridge>
+A VAE reports an ELBO you can track epoch over epoch. A GAN has no likelihood at all — so how does anyone say one GAN is "better" than another, or that training has actually improved?
+</Bridge>
+
+## Borrowing a pretrained classifier's opinion
+
+<PredictReveal
+  prompt="With no tractable p(x) for a GAN to report, what do the standard GAN evaluation metrics actually measure instead?"
+  options={["They estimate the discriminator's final loss value directly", "They run generated images through a separate, pretrained image classifier and measure properties of its predictions"]}
+  correct={1}
+>
+
+Both major metrics reuse a network trained for something else entirely — an Inception classifier trained on ImageNet — and read signal off its predictions rather than off anything internal to the GAN. That reuse is what makes them applicable to any generator, regardless of architecture or training objective.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Since a GAN has no tractable likelihood, what do Inception Score and FID measure instead?", a: "They pass generated images through a separate pretrained image classifier (Inception, trained on ImageNet) and measure properties of its output — not anything internal to the GAN's own training objective." },
+]} />
+
+## Two metrics that disagree on purpose
+
+<PredictReveal
+  prompt="Inception Score rewards two things at once: each image getting a confident, low-entropy class prediction (quality), and the set of predicted classes across many images being diverse (coverage). FID instead compares the full distribution of Inception features for real vs. generated images. Which metric is more likely to miss a generator that memorized a handful of sharp, high-quality modes?"
+  options={["FID, because it doesn't look at individual images at all", "Inception Score, because its diversity term is comparatively weak next to its per-image confidence term"]}
+  correct={1}
+>
+
+<ISFIDWidget />
+
+**Inception Score** combines per-image confidence with cross-image class diversity into a single number, but a handful of very sharp, confidently-classified modes can still produce a respectable score even with real diversity missing. **FID** instead fits a Gaussian to real-image Inception features and to generated-image Inception features, and reports the distance between the two Gaussians (the Fréchet distance) — directly comparing whole distributions rather than scoring images one at a time. Missing modes show up as real feature statistics the generated distribution simply does not reproduce, which FID is built to catch.
+
+<FactList accent="#0369a1" items={[
+  { t: 'Inception Score (IS)', d: 'Higher is better. Rewards per-image classifier confidence and cross-image class diversity together. Comparatively insensitive to intra-class mode collapse.' },
+  { t: 'FID', d: 'Lower is better. Compares Gaussian fits of real vs. generated Inception features directly. Sensitive to missing modes, since they show up as a distributional gap.' },
+  { t: 'Shared limitation', d: 'Both depend on the same ImageNet-trained Inception network, so neither is fully meaningful on data far outside natural images (e.g. medical scans, satellite imagery).' },
+]} />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is FID generally better than Inception Score at catching mode collapse?", a: "FID compares the full distribution of Inception features between real and generated images (via a Fréchet distance between fitted Gaussians), so missing modes show up directly as a distributional gap. Inception Score scores confidence and diversity per-image and can stay respectable even when a generator has collapsed onto a handful of sharp modes." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- With no tractable likelihood, GAN quality is measured by running generated images through a separate pretrained (ImageNet) classifier and reading signal off its predictions.
+- **Inception Score** (higher is better) combines per-image confidence with cross-image class diversity, but can understate mode collapse.
+- **FID** (lower is better) compares the full distribution of real vs. generated Inception features directly, which makes it more sensitive to missing modes than IS.
+</ConceptBox>
+
+<QuizCard
+  question="Why can Inception Score stay respectable even when a generator has partially collapsed onto a few sharp modes?"
+  options={[
+    "Because IS ignores per-image confidence entirely",
+    "Because IS combines per-image confidence with diversity into one score, and strong per-image confidence can offset a real loss of diversity",
+    "Because IS is computed without ever running the Inception network",
+    "Because mode collapse always increases Inception Score by definition"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about GAN evaluation metrics are correct?"
+  options={[
+    "Both Inception Score and FID reuse a pretrained ImageNet classifier rather than measuring anything from the GAN's own training loss",
+    "Higher Inception Score is better; lower FID is better",
+    "FID compares full feature distributions between real and generated images, not individual images",
+    "Inception Score is generally more sensitive to mode collapse than FID",
+    "Neither metric is fully meaningful on data very different from natural images, since both rely on an ImageNet-trained network"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

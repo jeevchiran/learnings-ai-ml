@@ -1,0 +1,93 @@
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 8: CycleGAN — Unpaired Image-to-Image Translation
+
+<Bridge>
+Module 7 conditioned both networks on a class label, and mentioned in passing that conditioning can also be a whole image — pix2pix-style translation. Pix2pix needs paired before/after photos of the exact same scene to supervise that translation. For a task like "make this horse look like a zebra," no such pair has ever existed. CycleGAN removes the pairing requirement entirely.
+</Bridge>
+
+## Two coupled generators instead of one
+
+<PredictReveal
+  prompt="With no paired photo of the same animal as both a horse and a zebra, how can a model learn to translate between an unpaired domain X (horses) and domain Y (zebras) at all?"
+  options={["It can't, without first generating synthetic paired examples through a separate preprocessing step", "Train two generators, G: X→Y and F: Y→X, and require that translating there and back returns (approximately) the original image"]}
+  correct={1}
+>
+
+CycleGAN trains **two** generator/discriminator pairs at once: $G: X \to Y$ with discriminator $D_Y$ judging whether an image looks like domain $Y$, and $F: Y \to X$ with discriminator $D_X$ judging domain $X$. Each pair on its own is an ordinary unconditional GAN — nothing new yet. The new ingredient is a **cycle-consistency loss** that requires $F(G(x)) \approx x$ for every real $x \in X$, and $G(F(y)) \approx y$ for every real $y \in Y$: translating to the other domain and back should recover something close to the original, even though no ground-truth pair ever told the model what "correct" looks like.
+
+```
+   Domain X (horses)                          Domain Y (zebras)
+
+   x ──► [ G: X→Y ] ──► G(x) ──► [ F: Y→X ] ──► F(G(x)) ≈ x
+                           │
+                           ▼
+                     [ D_Y ] judges: does G(x) look like a real zebra photo?
+
+   y ──► [ F: Y→X ] ──► F(y) ──► [ G: X→Y ] ──► G(F(y)) ≈ y
+                           │
+                           ▼
+                     [ D_X ] judges: does F(y) look like a real horse photo?
+```
+
+<FactList accent="#be185d" items={[
+  { t: 'G: X → Y', d: 'Generator translating domain X into domain Y, trained adversarially against D_Y.' },
+  { t: 'F: Y → X', d: 'The reverse generator, trained adversarially against D_X. Shares no weights with G.' },
+  { t: 'Cycle-consistency loss', d: 'Penalizes ||F(G(x)) - x|| and ||G(F(y)) - y||, an L1 reconstruction loss with no paired ground truth — just the model\'s own round trip.' },
+  { t: 'No paired data required', d: 'X and Y can be two completely unrelated, unaligned image collections — only the two domains need to be specified, not example-by-example correspondences.' },
+]} />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does CycleGAN's cycle-consistency loss actually penalize, and why does that not require paired training data?", a: "It penalizes the distance between F(G(x)) and the original x (and symmetrically G(F(y)) and y) — a round trip through both generators. This only requires each domain's own images, since the target of the round trip is the input itself, not a separately-collected paired example." },
+]} />
+
+## What cycle-consistency alone does not guarantee
+
+<PredictReveal
+  prompt="Suppose G and F were trained with only the cycle-consistency loss, no adversarial loss (no D_X, D_Y) at all. What is the trivially optimal solution to that loss on its own?"
+  options={["G and F both learn the identity function — the round trip is perfect, but no image ever actually gets translated into looking like the other domain", "A genuinely realistic horse-to-zebra translation, since round-trip accuracy already implies realism"]}
+  correct={0}
+>
+
+If $G(x) = x$ and $F(y) = y$ for every input, the cycle-consistency loss is exactly zero — a perfect round trip that accomplishes nothing. Cycle-consistency loss constrains the *relationship* between the two directions; it says nothing about whether either direction's output actually resembles the target domain. That job belongs entirely to the adversarial losses on $D_X$ and $D_Y$, which push $G(x)$ to look like a genuine member of $Y$ and $F(y)$ to look like a genuine member of $X$.
+
+The two loss types are doing genuinely different, complementary jobs: **adversarial loss enforces realism** (does this look like domain $Y$?), while **cycle-consistency enforces content preservation** (does the translation still correspond to the same underlying image, given that no direct supervision says what "correct" content-preservation looks like). Neither loss alone is sufficient; together, they are what makes an unpaired, non-trivial, content-preserving translation possible.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is the adversarial loss still necessary in CycleGAN, given that the cycle-consistency loss already constrains the model?", a: "Cycle-consistency loss is trivially satisfied by the identity function (G(x) = x, F(y) = y), which achieves a perfect round trip while performing no translation at all. The adversarial losses on D_X and D_Y are what force G(x) and F(y) to actually resemble the target domain — cycle-consistency alone only constrains the relationship between the two directions, not whether either one does anything useful." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **CycleGAN** learns image-to-image translation between two **unpaired** domains by training two coupled generator/discriminator pairs, $G: X\to Y$ and $F: Y\to X$.
+- The **cycle-consistency loss** requires $F(G(x)) \approx x$ and $G(F(y)) \approx y$, giving the model a training signal without ever needing a paired ground-truth example.
+- Cycle-consistency alone is trivially satisfied by the identity function, so it cannot do the job on its own — the **adversarial losses** on $D_X$/$D_Y$ are what force genuine, realistic translation, while cycle-consistency keeps that translation faithful to the original content.
+</ConceptBox>
+
+<QuizCard
+  question="Why can't CycleGAN be trained with cycle-consistency loss alone, dropping the adversarial discriminators entirely?"
+  options={[
+    "Because the identity function trivially minimizes cycle-consistency loss while performing no actual translation",
+    "Because cycle-consistency loss cannot be computed without labeled data",
+    "Because PyTorch does not support training two generators simultaneously",
+    "Because dropping the discriminators would make training faster with no downside"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about CycleGAN are correct?"
+  options={[
+    "CycleGAN requires two generators (G: X→Y and F: Y→X) and two discriminators (D_X and D_Y)",
+    "CycleGAN needs paired before/after images of the same scene to train, just like pix2pix",
+    "The cycle-consistency loss penalizes the distance between a round-trip translation and the original image",
+    "Cycle-consistency loss alone is trivially satisfied by the identity mapping, performing no real translation",
+    "The adversarial losses on D_X and D_Y are what force each generator's output to resemble its target domain"
+  ]}
+  correct={[0, 2, 3, 4]}
+/>

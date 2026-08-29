@@ -1,0 +1,73 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ReverseDenoisingWidget from '../../components/widgets/diffusion/ReverseDenoisingWidget.jsx'
+
+# Module 3: The Reverse (Denoising) Process
+
+<Bridge>
+Module 2 fixed the forward process completely — nothing in it is learned. Generation needs the opposite direction: starting from noise and working back to something that looks like real data. That direction is not fixed, and has to be learned.
+</Bridge>
+
+## Why the reverse step is tractable at all
+
+<PredictReveal
+  prompt="Reversing an arbitrary noising process exactly would require inverting q(x_0 | x_t) — a distribution over every possible clean image that could have produced this particular noisy one. Why is a single reverse step still tractable to approximate, when the forward process adds noise in small steps?"
+  options={["It isn't tractable — reverse diffusion is only possible with an exact, closed-form inverse", "For a small enough forward step β_t, the true reverse step q(x_{t-1}|x_t) is itself approximately Gaussian, so a Gaussian is a good model for it"]}
+  correct={1}
+>
+
+<ReverseDenoisingWidget />
+
+This is the key theoretical fact diffusion models depend on: for a sufficiently small forward step, the true reverse distribution $q(x_{t-1} | x_t)$ is well-approximated by a Gaussian. That is why the model doesn't need to represent the reverse process exactly, or handle the full, complicated $q(x_0|x_t)$ — it only needs to approximate a small local reverse step, and a Gaussian is a good local approximation exactly when the forward step it's undoing was small.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a Gaussian a reasonable model for the reverse process, given that reversing noise exactly is intractable?", a: "For a small enough forward noise step, the true reverse conditional q(x_{t-1}|x_t) is itself approximately Gaussian. Since each individual forward step is small (that's what makes many steps necessary in the first place), a Gaussian is a good local approximation for undoing it, even though the full reverse of the entire chain is not simple." },
+]} />
+
+## What the reverse model actually predicts
+
+<PredictReveal
+  prompt="If p_θ(x_{t-1} | x_t) is modeled as a Gaussian with a learned mean and (often) a fixed variance, what does 'training the reverse process' mean in practice?"
+  options={["Training a classifier to distinguish real from generated images at each step", "Training a network to predict the mean of that Gaussian (or equivalently, the noise that was added) at each timestep t"]}
+  correct={1}
+>
+
+$p_\theta(x_{t-1} \mid x_t) = \mathcal{N}\big(x_{t-1};\ \mu_\theta(x_t, t),\ \Sigma_t\big)$ — a single neural network $\mu_\theta$, shared across all timesteps and conditioned on $t$, predicts the mean of the reverse step. Module 4 shows that predicting this mean turns out to be mathematically equivalent to predicting the noise $\epsilon$ that the forward process added — which is the form the actual training loss takes.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does the reverse process's neural network actually output, and how many networks are needed across all T timesteps?", a: "A single network, conditioned on the timestep t, predicts the mean of the Gaussian reverse step (equivalently, the noise added at that step). One shared network handles every timestep — there is no separate network per t." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Reversing an arbitrary noising process exactly is intractable, but for a **small** forward step, the true reverse step $q(x_{t-1}|x_t)$ is itself approximately Gaussian — which is exactly what makes it learnable.
+- $p_\theta(x_{t-1}|x_t)$ is modeled as a Gaussian with a **learned mean** $\mu_\theta(x_t, t)$, produced by a single network shared across every timestep.
+- Training this network turns out to be equivalent to predicting the noise added at each step — the subject of Module 4.
+</ConceptBox>
+
+<QuizCard
+  question="Why does the reverse process's Gaussian approximation depend on the forward process's steps being small?"
+  options={[
+    "It doesn't — the approximation holds regardless of step size",
+    "The true reverse conditional q(x_{t-1}|x_t) is only well-approximated by a Gaussian when the forward step being reversed is small",
+    "Small steps make the network converge faster, unrelated to the Gaussian approximation",
+    "Small steps remove the need for a variance schedule entirely"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the reverse (denoising) process are correct?"
+  options={[
+    "The reverse process is modeled as a Gaussian with a learned mean at each timestep",
+    "A single shared network, conditioned on t, predicts the reverse step across all timesteps",
+    "The Gaussian approximation for the reverse step relies on each individual forward step being small",
+    "The reverse process is fixed and requires no learning, just like the forward process",
+    "A separate, independently trained network is needed for every timestep t"
+  ]}
+  correct={[0, 1, 2]}
+/>

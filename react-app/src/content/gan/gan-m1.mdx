@@ -1,0 +1,72 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 1: From Explicit to Implicit Density
+
+<Bridge>
+The VAE track ended by putting a name on what a VAE actually is: a likelihood-based generative model, trained by maximizing the ELBO — an explicit, if approximate, statement of how probable the data is under the model. GANs get to the same destination, generating new samples, by refusing to write that statement down at all.
+</Bridge>
+
+## No density, just a game
+
+<PredictReveal
+  prompt="A VAE's decoder defines an explicit p(x|z) and trains by maximizing a likelihood bound. A GAN's generator has no p(x) formula anywhere in it. So how does a GAN's generator know whether an output is any good?"
+  options={["It still computes a likelihood, just implicitly, via a hidden formula", "A second network is trained to tell real data from generated data, and that judgment is the only training signal"]}
+  correct={1}
+>
+
+There is no reconstruction loss, no KL term, no formula for p(x) at all. Instead, two networks are trained against each other: a **generator** G that turns noise into candidate data, and a **discriminator** D that tries to tell real examples apart from G's output. G's only feedback is whether it fooled D. That is an **implicit density model** — it can produce samples from a distribution it never writes down.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the fundamental training signal for a GAN's generator, given that it has no explicit p(x)?", a: "Whether a second network, the discriminator, was fooled into classifying the generator's output as real. There is no likelihood term anywhere — the adversarial classification signal is the only feedback G receives." },
+]} />
+
+## Why not just minimize pixel distance to real images?
+
+<PredictReveal
+  prompt="Suppose instead we train G to directly minimize the average pixel-wise distance to real training images, like an autoencoder without an encoder. For an ambiguous input (say, a digit that could plausibly continue two different ways), what does that objective push G toward?"
+  options={["A sharp, plausible completion matching one specific valid continuation", "A blurry average of every plausible continuation"]}
+  correct={1}
+>
+
+Minimizing expected pixel-wise distance is minimized, on average, by predicting the **mean** of all the plausible outputs — which for images means a blurry average, not any single sharp, realistic one. This is exactly the failure mode that motivated the VAE track's reconstruction-loss discussion, and it does not go away just because the model is unsupervised.
+
+A discriminator sidesteps this. D does not ask "how close is this to the average real image?" — it asks "does this look like it could have come from the real data distribution at all?" A sharp but different-looking output can fool D just as well as a pixel-perfect match, so G is never pushed toward averaging away detail.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does minimizing average pixel-wise reconstruction error tend to produce blurry outputs for ambiguous inputs?", a: "Because the pointwise loss is minimized by the statistical mean of the plausible outputs, and averaging several sharp but different images produces a blurry result. An adversarial loss instead asks whether the output is plausible at all, so it does not reward hedging toward an average." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A GAN is an **implicit density model**: it can sample from a data distribution without ever writing down a formula for that distribution's probability.
+- Training is a two-network game: a **generator** G maps noise to candidate data, a **discriminator** D classifies real vs. generated, and G's only feedback is whether it fooled D.
+- A pixel-wise reconstruction loss is minimized by averaging over plausible outputs, which produces blur. An adversarial loss instead rewards *plausibility*, so it does not push G toward the average.
+</ConceptBox>
+
+<QuizCard
+  question="What distinguishes a GAN's generator from a VAE's decoder in terms of what each optimizes?"
+  options={[
+    "The generator maximizes an explicit likelihood lower bound just like the decoder does",
+    "The generator has no explicit density formula at all — its only signal is whether it fooled a discriminator network",
+    "The generator minimizes pixel-wise reconstruction error against paired real images",
+    "The generator and decoder optimize identical objectives, just with different network architectures"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about implicit vs. explicit density generative models are correct?"
+  options={[
+    "A GAN is called an implicit density model because it can sample without ever computing p(x)",
+    "A VAE writes down an explicit, if approximate, objective related to the likelihood of the data",
+    "Minimizing pixel-wise distance to real images is immune to the blurry-average failure mode",
+    "An adversarial loss rewards plausibility rather than closeness to an average of valid outputs",
+    "GANs and VAEs are both trained with the exact same loss function"
+  ]}
+  correct={[0, 1, 3]}
+/>

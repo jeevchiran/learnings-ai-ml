@@ -1,0 +1,76 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import NoiseScheduleWidget from '../../components/widgets/diffusion/NoiseScheduleWidget.jsx'
+import DDPMvsDDIMWidget from '../../components/widgets/diffusion/DDPMvsDDIMWidget.jsx'
+
+# Module 7: Noise Schedules & DDIM
+
+<Bridge>
+Module 6 identified the exact cost: one sequential network evaluation per timestep. This module covers the two standard levers for managing that cost — one shapes what the chain learns, the other shrinks the chain at sampling time without retraining anything.
+</Bridge>
+
+## Where the schedule spends its steps
+
+<PredictReveal
+  prompt="The linear β schedule increases variance evenly across all T steps. Near t=0, does a linear schedule destroy the original signal quickly or gradually?"
+  options={["Gradually — most of the destruction is saved for later steps", "Relatively quickly — a meaningful fraction of signal is already lost within the first several steps"]}
+  correct={1}
+>
+
+<NoiseScheduleWidget />
+
+A **linear** schedule spends its early steps almost as aggressively as its later ones, which means a chunk of the chain's steps go to waste on further degrading an image that is already noisy, rather than doing careful work on fine detail near $t=0$. The **cosine** schedule (Nichol & Dhariwal, 2021) instead keeps $\bar\alpha_t$ close to 1 for longer near $t=0$, spending more of the chain's steps preserving fine detail before ramping up destruction later — which empirically improves sample quality for the same total number of steps $T$.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does the cosine noise schedule tend to produce better samples than a linear schedule for the same number of steps T?", a: "The cosine schedule keeps ᾱ_t closer to 1 for longer near t=0, spending more of the chain's steps preserving fine detail before destroying it, rather than degrading the signal roughly evenly across all steps the way a linear schedule does. This means the fixed step budget T is used more effectively." },
+]} />
+
+## Skipping steps without retraining
+
+<PredictReveal
+  prompt="DDIM samples using far fewer steps than the T the model was trained on — say, 50 steps instead of 1000. Does this require retraining the network on a new, shorter schedule?"
+  options={["Yes — the network must be retrained specifically for the shorter number of sampling steps", "No — the same trained network is reused; only the sampling procedure changes to a non-Markovian formulation that can skip intermediate timesteps"]}
+  correct={1}
+>
+
+<DDPMvsDDIMWidget />
+
+**DDIM** (Song et al., 2020) is a reformulation of the sampling procedure — not the model — using a non-Markovian family of reverse processes that share the same training objective as DDPM but allow deterministic, larger jumps between timesteps. The trained $\epsilon_\theta$ network is used completely unchanged; only how it's called during sampling changes. This is why DDIM is such a widely-used trick: it's a free speedup applied at inference time, not a change requiring any retraining.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can DDIM speed up sampling without retraining the underlying network?", a: "DDIM changes the sampling procedure — a non-Markovian reverse process that shares the same training objective as DDPM but permits deterministic jumps between timesteps — not the model itself. The exact same trained ε_θ network is reused; only how many times and at which timesteps it gets called during sampling changes." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The **linear** noise schedule spends steps roughly evenly; the **cosine** schedule preserves signal longer near $t=0$, using the fixed step budget more effectively for the same $T$.
+- **DDIM** is a change to the *sampling* procedure, not the model — a non-Markovian reverse process that allows deterministic, larger jumps between timesteps.
+- Because DDIM reuses the exact same trained network, it is a **free speedup at inference time**: fewer sequential evaluations, no retraining required.
+</ConceptBox>
+
+<QuizCard
+  question="What does DDIM actually change compared to standard DDPM sampling?"
+  options={[
+    "It requires training an entirely new network from scratch",
+    "It changes only the sampling procedure — a non-Markovian reverse process letting the same trained network skip timesteps",
+    "It replaces the U-Net architecture with a Transformer",
+    "It removes the need for a noise schedule entirely"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about noise schedules and DDIM are correct?"
+  options={[
+    "The cosine schedule keeps ᾱ_t closer to 1 for longer near t=0 than a linear schedule does",
+    "DDIM requires retraining the denoising network on a shorter schedule",
+    "DDIM reuses the exact same trained ε_θ network, changing only the sampling procedure",
+    "A better noise schedule can improve sample quality without changing the total number of steps T",
+    "The linear schedule spends its step budget more effectively than the cosine schedule for preserving fine detail"
+  ]}
+  correct={[0, 2, 3]}
+/>

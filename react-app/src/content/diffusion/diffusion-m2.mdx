@@ -1,0 +1,83 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ForwardNoisingWidget from '../../components/widgets/diffusion/ForwardNoisingWidget.jsx'
+
+# Module 2: The Forward (Noising) Process
+
+<Bridge>
+Module 1 called the corruption process "fixed and known." This module writes it down, and finds a shortcut that turns what looks like a T-step loop into a single formula.
+</Bridge>
+
+## A Markov chain of tiny Gaussian steps
+
+The forward process adds a small amount of Gaussian noise at each of $T$ steps:
+
+$$q(x_t \mid x_{t-1}) = \mathcal{N}\big(x_t;\ \sqrt{1-\beta_t}\, x_{t-1},\ \beta_t I\big)$$
+
+$\beta_t$ is a small, fixed variance schedule (Module 7 covers how it's chosen). Each step only depends on the previous one — a Markov chain — and after enough steps, $x_T$ is indistinguishable from pure Gaussian noise, regardless of what $x_0$ started as.
+
+<PredictReveal
+  prompt="To get a noised sample x_100 for training, does the forward process need to be simulated step by step from x_0 through x_1, x_2, ... up to x_100?"
+  options={["Yes — each step depends on the previous one, so all 100 steps must be computed in sequence", "No — a closed-form shortcut gives x_100 directly from x_0 in one calculation"]}
+  correct={1}
+>
+
+<ForwardNoisingWidget />
+
+Because each step just adds independent Gaussian noise, the reparameterization trick (from the VAE track) applies here too: the composition of $t$ Gaussian steps is itself Gaussian, with a closed form
+
+$$q(x_t \mid x_0) = \mathcal{N}\big(x_t;\ \sqrt{\bar\alpha_t}\, x_0,\ (1-\bar\alpha_t) I\big), \qquad \bar\alpha_t = \prod_{s=1}^{t} (1-\beta_s)$$
+
+which means $x_t$ can be sampled in a **single step**: $x_t = \sqrt{\bar\alpha_t}\, x_0 + \sqrt{1-\bar\alpha_t}\, \epsilon$, for $\epsilon \sim \mathcal{N}(0, I)$. Training never needs to simulate the chain — it just picks a random $t$, draws one $\epsilon$, and computes $x_t$ directly.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can x_t be sampled directly from x_0 without simulating every intermediate step?", a: "Composing t Gaussian forward steps is itself Gaussian, giving a closed form q(x_t | x_0) = N(√ᾱ_t x_0, (1-ᾱ_t) I). This lets x_t be computed in one step as x_t = √ᾱ_t x_0 + √(1-ᾱ_t) ε for a single noise draw ε, instead of iterating through x_1, x_2, ..., x_t." },
+]} />
+
+## What ᾱ_t means
+
+<PredictReveal
+  prompt="ᾱ_t is the product of (1 - β_s) for every step up to t. As t increases toward T, what happens to ᾱ_t, and what does that mean for how much of x_0 remains visible in x_t?"
+  options={["ᾱ_t increases toward 1, so more and more of the original signal remains", "ᾱ_t decreases toward 0, so x_t becomes almost entirely noise with very little signal left"]}
+  correct={1}
+>
+
+Each factor $(1-\beta_s)$ is slightly less than 1, so the product $\bar\alpha_t$ shrinks toward 0 as $t$ grows. Since $x_t = \sqrt{\bar\alpha_t}\, x_0 + \sqrt{1-\bar\alpha_t}\, \epsilon$, a small $\bar\alpha_t$ means the $x_0$ term is scaled down to almost nothing while the noise term's coefficient approaches 1 — exactly the "$x_T$ is indistinguishable from pure noise" property the chain is designed to have.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does ᾱ_t represent, and why does it approach 0 as t approaches T?", a: "ᾱ_t is the product of (1 - β_s) across all steps up to t, representing the fraction of the original signal's variance retained at step t. Since each factor is slightly less than 1, the product shrinks toward 0 as t grows, which is why x_T ends up statistically indistinguishable from pure Gaussian noise." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The forward process is a fixed Markov chain adding small Gaussian noise at each step: $q(x_t|x_{t-1}) = \mathcal{N}(\sqrt{1-\beta_t}\,x_{t-1}, \beta_t I)$.
+- Composing $t$ Gaussian steps is itself Gaussian, giving a **closed form** $x_t = \sqrt{\bar\alpha_t}\,x_0 + \sqrt{1-\bar\alpha_t}\,\epsilon$ — any $x_t$ can be sampled directly, with no need to simulate the chain step by step.
+- $\bar\alpha_t = \prod_{s\le t}(1-\beta_s)$ shrinks toward 0 as $t \to T$, which is exactly why $x_T$ ends up indistinguishable from pure noise regardless of $x_0$.
+</ConceptBox>
+
+<QuizCard
+  question="Why is the closed-form expression for q(x_t | x_0) useful for training a diffusion model?"
+  options={[
+    "It lets any noised sample x_t be generated in one step from x_0, without simulating the intermediate chain",
+    "It removes the need for the network to ever see noisy images during training",
+    "It proves that diffusion models require no randomness at all",
+    "It eliminates the need for a variance schedule β_t entirely"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the forward (noising) process are correct?"
+  options={[
+    "The forward process is a Markov chain: each x_t depends only on x_{t-1}, not on earlier steps directly",
+    "ᾱ_t is the product of (1 - β_s) over all steps up to t",
+    "As t approaches T, ᾱ_t approaches 1, keeping most of the original signal",
+    "x_t can be sampled directly from x_0 in closed form using a single noise draw ε",
+    "The forward process has no learned parameters — β_t is fixed ahead of time"
+  ]}
+  correct={[0, 1, 3, 4]}
+/>

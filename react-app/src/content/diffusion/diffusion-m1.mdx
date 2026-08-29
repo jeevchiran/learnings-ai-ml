@@ -1,0 +1,70 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 1: From Adversarial Games to Iterative Denoising
+
+<Bridge>
+The GAN track closed by noting that diffusion models now lead on sample fidelity for large-scale image generation, at the cost of far slower sampling. This track opens by asking what diffusion actually trades away, and why that trade turned out to be worth it.
+</Bridge>
+
+## No game, no single fast pass
+
+<PredictReveal
+  prompt="A GAN trains two competing networks against a shared adversarial objective. A diffusion model has no discriminator and no minimax game at all. What does it train instead?"
+  options={["A single network trained with an ordinary regression loss to reverse a fixed, known corruption process", "Two generators translating between domains, the same as CycleGAN"]}
+  correct={0}
+>
+
+A diffusion model defines a fixed, mathematically known process that gradually destroys an image into pure noise — no learning involved in that direction at all. It then trains a single network to reverse one small step of that destruction at a time, using an ordinary supervised regression loss. There is no adversary to fool and no saddle point to search for, which sidesteps the entire training-instability story from the GAN track: no mode collapse, no vanishing-gradient race between two networks, no Nash equilibrium to hope for.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does a diffusion model avoid the GAN track's training-instability problems (mode collapse, vanishing gradients, saddle points)?", a: "It trains a single network with an ordinary supervised regression loss against a fixed, known corruption process, rather than two networks competing in an adversarial game. There is no discriminator, no saddle point, and therefore none of the instabilities that come specifically from a two-player minimax objective." },
+]} />
+
+## The trade: one fast pass for many slow ones
+
+<PredictReveal
+  prompt="A GAN's generator turns noise into an image in a single forward pass. If a diffusion model instead reverses corruption one small step at a time, how many network evaluations does producing one image typically take?"
+  options={["Exactly one, the same as a GAN", "Many — often hundreds to thousands of sequential network evaluations"]}
+  correct={1}
+>
+
+Because the reverse process only reliably undoes *small* corruption steps, generating a sample means applying the learned denoising step repeatedly, in sequence — each step depends on the output of the previous one, so they cannot be parallelized away. This is the central cost of diffusion models, and it is a direct, mechanical consequence of the same design choice that removes the adversarial instability: reversing a large corruption in one shot is hard to learn reliably, but reversing many tiny corruptions, one at a time, is comparatively easy to get right.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does a diffusion model need many sequential network evaluations to generate one sample, unlike a GAN's single forward pass?", a: "The reverse process is only designed to reliably undo small corruption steps, so producing a sample means applying that small step repeatedly, each one depending on the previous step's output. This sequential dependency is the direct cost of the same design choice — small, easy-to-learn steps — that removes GAN-style adversarial instability." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A diffusion model has **no adversarial game**: a fixed, known process gradually destroys data into noise, and a single network is trained with an ordinary regression loss to reverse one small step of that destruction.
+- This sidesteps GAN-style training instability entirely — no discriminator, no saddle point, no mode collapse.
+- The cost is sampling speed: generating one sample requires many **sequential** network evaluations (undoing corruption one small step at a time), unlike a GAN's single forward pass.
+</ConceptBox>
+
+<QuizCard
+  question="What is the fundamental structural difference between how a GAN and a diffusion model are trained?"
+  options={[
+    "A GAN trains two networks in an adversarial game; a diffusion model trains one network with an ordinary regression loss against a fixed corruption process",
+    "A diffusion model also uses a discriminator, just with a different loss function",
+    "Both are trained identically — the only difference is at sampling time",
+    "A diffusion model requires labeled data while a GAN does not"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about diffusion models vs. GANs are correct?"
+  options={[
+    "Diffusion models train a single network with a supervised regression loss, not an adversarial game",
+    "Diffusion models avoid mode collapse and saddle-point training dynamics because there is no discriminator",
+    "Generating one sample from a diffusion model typically requires many sequential network evaluations",
+    "Diffusion models generate images in a single forward pass, just like GANs",
+    "The sequential nature of diffusion sampling is a direct consequence of only reversing small corruption steps at a time"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

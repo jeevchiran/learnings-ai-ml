@@ -1,0 +1,137 @@
+import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+
+# Module 10: Demonstration — DCGAN in PyTorch
+
+<ConceptBox title="Run the code">
+This module's Generator, Discriminator, training loop, and sample-generation code are collected into an end-to-end runnable notebook:
+
+**[Open the GAN lab in Google Colab](https://colab.research.google.com/github/jeevchiran/learnings-ai-ml/blob/main/notebook/gan/gan-lab.ipynb)**.
+
+It trains a DCGAN on Fashion-MNIST end to end, and reruns the module-6 gradient-penalty check and the module-9 IS/FID proxy metrics against the trained model.
+</ConceptBox>
+
+<Bridge>
+Modules 1 through 9 built the theory: the minimax game, its training pathologies and fixes, the DCGAN architecture, conditional and unpaired translation variants, and how to evaluate the result. This module assembles the core pieces into a single, runnable PyTorch DCGAN.
+</Bridge>
+
+## Generator and Discriminator
+
+Both follow the DCGAN guidelines from Module 5 — strided/transposed convolutions instead of pooling, BatchNorm everywhere except the two pixel-facing layers, ReLU in G, LeakyReLU in D.
+
+```python
+import torch
+import torch.nn as nn
+
+LATENT_DIM = 100
+
+class Generator(nn.Module):
+    def __init__(self, latent_dim=LATENT_DIM):
+        super().__init__()
+        self.net = nn.Sequential(
+            # z: (B, latent_dim, 1, 1) -> (B, 256, 7, 7)
+            nn.ConvTranspose2d(latent_dim, 256, kernel_size=7, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(True),
+            # (B, 256, 7, 7) -> (B, 128, 14, 14)
+            nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.ReLU(True),
+            # (B, 128, 14, 14) -> (B, 1, 28, 28)
+            nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.Tanh(),  # output in [-1, 1], no BatchNorm on this layer
+        )
+
+    def forward(self, z):
+        return self.net(z.view(z.size(0), -1, 1, 1))
+
+
+class Discriminator(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            # x: (B, 1, 28, 28) -> (B, 128, 14, 14) -- no BatchNorm on this input-facing layer
+            nn.Conv2d(1, 128, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # (B, 128, 14, 14) -> (B, 256, 7, 7)
+            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.2, inplace=True),
+            # (B, 256, 7, 7) -> (B, 1, 1, 1) logit
+            nn.Conv2d(256, 1, kernel_size=7, stride=1, padding=0, bias=False),
+        )
+
+    def forward(self, x):
+        return self.net(x).view(-1)  # raw logit, BCEWithLogitsLoss applies the sigmoid
+```
+
+## The Non-Saturating Training Loop
+
+D is trained on real and fake batches separately; G is trained against the non-saturating loss from Module 3.
+
+```python
+import torch.optim as optim
+
+criterion = nn.BCEWithLogitsLoss()
+G = Generator().to(device)
+D = Discriminator().to(device)
+opt_G = optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+opt_D = optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+
+def train_step(real_images):
+    batch_size = real_images.size(0)
+    real_labels = torch.ones(batch_size, device=device)
+    fake_labels = torch.zeros(batch_size, device=device)
+
+    # --- Train D: maximize log D(x) + log(1 - D(G(z))) ---
+    opt_D.zero_grad()
+    d_real = D(real_images)
+    loss_d_real = criterion(d_real, real_labels)
+
+    z = torch.randn(batch_size, LATENT_DIM, device=device)
+    fake_images = G(z)
+    d_fake = D(fake_images.detach())  # detach: this step only updates D
+    loss_d_fake = criterion(d_fake, fake_labels)
+
+    loss_d = loss_d_real + loss_d_fake
+    loss_d.backward()
+    opt_D.step()
+
+    # --- Train G: maximize log D(G(z)) (non-saturating, Module 3) ---
+    opt_G.zero_grad()
+    d_on_fake = D(fake_images)  # no detach: gradient must flow into G this time
+    loss_g = criterion(d_on_fake, real_labels)  # trick: label fakes as "real" to get the non-saturating gradient
+    loss_g.backward()
+    opt_G.step()
+
+    return loss_d.item(), loss_g.item()
+```
+
+<Recall items={[
+  { q: "Why is fake_images.detach() used when training D, but not when training G?", a: "When training D, gradients should only flow into D's own parameters — detaching cuts the graph at G's output so backward() doesn't waste time computing gradients into G. When training G, the whole point is to backpropagate through D into G's parameters, so the graph must stay attached." },
+  { q: "Why does the generator's training step label fake images as real_labels (1) rather than fake_labels (0)?", a: "This is exactly the non-saturating trick from Module 3: computing BCE against a target of 1 for D's output on fake images is mathematically the same as maximizing log(D(G(z))), which supplies a steep, useful gradient early in training instead of the flat gradient the original minimax form would give." },
+]} />
+
+## Generating New Samples
+
+```python
+@torch.no_grad()
+def generate_samples(G, num_samples=16, device='cpu'):
+    G.eval()
+    z = torch.randn(num_samples, LATENT_DIM, device=device)
+    samples = G(z)
+    G.train()
+    return samples  # in [-1, 1]; rescale to [0, 1] with (samples + 1) / 2 before plotting
+```
+
+## Summary Check
+
+<QuizCard
+  question="In the training loop above, why is D trained on a real batch and a fake batch as two separate forward/backward passes rather than one combined batch?"
+  options={[
+    "It is purely a stylistic choice with no effect on training",
+    "Separate passes make it straightforward to track and log the real-loss and fake-loss components independently, and BatchNorm statistics stay cleaner when real and fake batches aren't mixed within one forward pass",
+    "PyTorch does not support concatenating real and fake tensors",
+    "It doubles the effective batch size seen by the optimizer"
+  ]}
+  correct={1}
+/>

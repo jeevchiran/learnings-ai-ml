@@ -1,0 +1,74 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 4: Training Objective — From ELBO to Simple Noise Prediction
+
+<Bridge>
+Module 3 said the network learns to predict a Gaussian mean. This module shows where that objective actually comes from — and it is not a new idea. It is the VAE track's ELBO, applied to a chain instead of a single latent step.
+</Bridge>
+
+## A diffusion model is a hierarchical VAE
+
+<PredictReveal
+  prompt="A VAE has one latent variable z and one encoder/decoder pair, trained by maximizing an ELBO. A diffusion model has T latent variables x_1...x_T and a fixed 'encoder' (the forward process) with a learned 'decoder' (the reverse process). Does the same ELBO machinery apply?"
+  options={["No — diffusion models require an entirely different objective, unrelated to the ELBO", "Yes — a diffusion model's training objective is a variational lower bound on log p(x_0), exactly the ELBO idea extended to a chain of T latent variables"]}
+  correct={1}
+>
+
+The forward process plays the role of the VAE's fixed approximate posterior $q(z|x)$ — except here it has no learned parameters at all, and it is a chain of $T$ steps instead of one. The reverse process plays the role of the decoder $p_\theta(x|z)$. Maximizing a variational lower bound on $\log p(x_0)$ in this setting decomposes into a sum of $T$ terms, each one a KL divergence between the true (small) reverse step and the model's approximation of it — structurally the same ELBO decomposition from the VAE track, just with $T$ latent variables chained together instead of one.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What role does the forward process play in the ELBO view of diffusion models, and how does it differ from a VAE's encoder?", a: "It plays the role of the approximate posterior q(z|x) in the ELBO decomposition, just as a VAE's encoder does. The key difference is that the forward process has no learned parameters at all — it's a fixed, known chain of T Gaussian steps, rather than a trained network." },
+]} />
+
+## The bound simplifies to a single MSE loss
+
+<PredictReveal
+  prompt="Since each term in the decomposed bound is a KL divergence between two Gaussians (the true reverse step and the model's Gaussian approximation), and KL divergence between two Gaussians has a closed form (from the VAE track's analytical KL derivation) — does the final training loss end up looking like the VAE's complicated ELBO, or something simpler?"
+  options={["It stays as complicated as the full ELBO — no further simplification is possible", "It simplifies dramatically to a simple mean-squared-error loss between the true noise ε and the network's predicted noise"]}
+  correct={1}
+>
+
+Because both distributions being compared are Gaussian, and because $\mu_\theta$ can be reparameterized in terms of predicting the noise $\epsilon$ directly (rather than predicting $x_{t-1}$'s mean directly), the KL terms collapse to a simple, re-weighted squared-error form. The DDPM paper found that dropping the theoretically-derived weighting entirely and just using unweighted MSE works better in practice:
+
+$$L_{\text{simple}} = \mathbb{E}_{t, x_0, \epsilon}\Big[\big\| \epsilon - \epsilon_\theta(x_t, t) \big\|^2\Big]$$
+
+Train by picking a random $x_0$, a random timestep $t$, a random noise $\epsilon$, forming $x_t$ with Module 2's closed form, and asking the network to predict $\epsilon$ from $x_t$ and $t$. No adversary, no discriminator, no KL annealing schedule to babysit — just regression.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does the simplified DDPM training loss L_simple actually ask the network to predict, and from what inputs?", a: "It asks the network ε_θ to predict the noise ε that was added to produce x_t from x_0, given x_t and the timestep t as input. Training is an ordinary mean-squared-error regression between the true noise and the predicted noise, with no adversarial component." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A diffusion model is a **hierarchical VAE**: the fixed forward process plays the encoder's role (with no learned parameters), the learned reverse process plays the decoder's role, and training maximizes a variational lower bound on $\log p(x_0)$ — the same ELBO idea from the VAE track, chained across $T$ steps.
+- Because every term compares two Gaussians, the bound collapses to a closed-form KL, which further simplifies (via the noise-prediction reparameterization) to an ordinary regression loss.
+- The **simple loss** $L_{\text{simple}} = \mathbb{E}[\|\epsilon - \epsilon_\theta(x_t, t)\|^2]$ just asks the network to predict the noise added at a random timestep — no adversarial component, no annealing schedule.
+</ConceptBox>
+
+<QuizCard
+  question="How does a diffusion model's training objective relate to the VAE track's ELBO?"
+  options={[
+    "They are unrelated — diffusion models use an entirely different mathematical framework",
+    "A diffusion model's objective is the same variational lower bound idea, extended to a chain of T latent variables instead of one, with a fixed rather than learned forward process",
+    "The ELBO only applies to diffusion models, not VAEs",
+    "Diffusion models use the ELBO only during sampling, not during training"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the diffusion training objective are correct?"
+  options={[
+    "The forward process has no learned parameters, unlike a VAE's encoder",
+    "The variational bound decomposes into a sum of KL-divergence terms between Gaussians, one per timestep",
+    "The simplified loss trains the network to predict the noise ε added at a randomly sampled timestep",
+    "Training a diffusion model requires an adversarial discriminator, just like a GAN",
+    "The simple loss is an ordinary mean-squared-error regression, not an adversarial objective"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

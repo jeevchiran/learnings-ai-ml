@@ -1,0 +1,72 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 3: Training Dynamics & the Non-Saturating Loss
+
+<Bridge>
+Module 2 wrote down the theoretical fixed point of GAN training. This module looks at what actually happens on the very first few steps, when G is still bad and D can tell real from fake almost perfectly.
+</Bridge>
+
+## Vanishing gradients from an early, confident D
+
+G's half of the value function is $\log(1 - D(G(z)))$, minimized over G's parameters.
+
+<PredictReveal
+  prompt="Early in training, G produces obvious fakes, so D(G(z)) is close to 0 for almost every z. In that regime, how large is the gradient of log(1 - D(G(z))) with respect to G's parameters?"
+  options={["Large — early mistakes give G its strongest learning signal", "Very small — the function is nearly flat exactly where G needs gradient most"]}
+  correct={1}
+>
+
+Plot $\log(1-y)$ for $y$ near 0: the curve is nearly flat there. Its derivative with respect to $y$ is $\frac{-1}{1-y}$, which is close to $-1$ when $y \approx 0$ — small in magnitude, not the strong corrective push the intuition "G is failing badly, so it should learn fast" would suggest. A discriminator that gets good quickly (which is easy, since telling early garbage from real data is an easy classification problem) leaves G with almost no gradient to climb out of that garbage with.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does an early, highly confident discriminator create a problem for the generator's gradient?", a: "G's loss term log(1 - D(G(z))) is nearly flat when D(G(z)) is close to 0, which is exactly the regime an early, bad generator sits in. A confident discriminator therefore gives G almost no useful gradient right when G needs it most." },
+]} />
+
+## The non-saturating fix
+
+<PredictReveal
+  prompt="Instead of minimizing log(1 - D(G(z))), Goodfellow et al.'s original paper proposes G maximize log(D(G(z))) instead — same fixed point, different early-training gradient. Which region of the curve does this rewrite move G's gradient into?"
+  options={["The same flat region as before, just relabeled", "The steep region near D(G(z)) ≈ 0, where the new objective has its strongest gradient"]}
+  correct={1}
+>
+
+$\log(y)$ near $y=0$ is steep — its derivative $\frac{1}{y}$ blows up as $y \to 0$. Maximizing $\log(D(G(z)))$ gives exactly the same direction of improvement as minimizing $\log(1-D(G(z)))$ — both push $D(G(z))$ toward 1 — but the **non-saturating** version supplies a large, useful gradient in precisely the regime where the original formulation goes flat. This is why almost every practical GAN implementation trains G against $-\log D(G(z))$ rather than the textbook minimax form.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What changes between the original minimax generator loss and the non-saturating generator loss, and what stays the same?", a: "Both push D(G(z)) toward 1, so they share the same fixed point and direction of improvement. What changes is the gradient magnitude early in training: log(D(G(z))) is steep near D(G(z)) ≈ 0, supplying a strong gradient exactly where log(1 - D(G(z))) was nearly flat." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- G's original loss $\log(1-D(G(z)))$ is nearly flat when D(G(z)) ≈ 0 — exactly the regime a fresh, untrained generator starts in — so it supplies almost no gradient when G needs it most.
+- The **non-saturating loss** has G maximize $\log(D(G(z)))$ instead. Same fixed point, same direction of improvement, but a steep, useful gradient in that same early regime.
+- Nearly every practical GAN implementation trains G against the non-saturating form, not the textbook minimax objective from Module 2.
+</ConceptBox>
+
+<QuizCard
+  question="Why does the original minimax loss for G give a weak gradient early in training?"
+  options={[
+    "Because D(G(z)) is close to 1 early on, saturating the loss",
+    "Because log(1 - D(G(z))) is nearly flat when D(G(z)) is close to 0, which is where an untrained G starts",
+    "Because the learning rate is always too small for the first few epochs",
+    "Because early gradients are clipped by default in every GAN implementation"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the non-saturating GAN loss are correct?"
+  options={[
+    "It has G maximize log(D(G(z))) instead of minimizing log(1 - D(G(z)))",
+    "It changes the theoretical fixed point of the game compared to the original minimax formulation",
+    "It supplies a steeper, more useful gradient exactly when D(G(z)) is close to 0",
+    "It is the loss almost every practical GAN implementation actually trains G with",
+    "It removes the discriminator from training entirely"
+  ]}
+  correct={[0, 2, 3]}
+/>

@@ -1,0 +1,77 @@
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 5: The U-Net Denoiser & Timestep Conditioning
+
+<Bridge>
+Module 4 left one detail unspecified: what architecture is ε_θ(x_t, t)? It needs to take a noisy image in and produce a same-sized noise estimate out — and the Transfer Learning track already built exactly that kind of network, for a different reason.
+</Bridge>
+
+## Reusing U-Net, for a different task
+
+<PredictReveal
+  prompt="U-Net (Transfer Learning track) was built for pixel-wise segmentation — mapping an image to a same-sized label mask. A diffusion denoiser needs to map a noisy image to a same-sized noise estimate. Does U-Net's core architecture transfer to this new task?"
+  options={["No — segmentation and noise prediction are different enough tasks to need entirely different architectures", "Yes — both tasks need a dense, same-resolution image-to-image mapping, which is exactly what U-Net's encoder-decoder-with-skip-connections shape provides"]}
+  correct={1}
+>
+
+Both tasks share the same underlying requirement: take an image, extract features at multiple scales, and produce a full-resolution output the same size as the input. U-Net's downsampling path builds a multi-scale feature hierarchy, its upsampling path (Transfer Learning track's transposed convolutions) reconstructs full resolution, and its skip connections carry fine spatial detail across the bottleneck — all useful regardless of whether the final output is a segmentation mask or a noise estimate.
+
+<FactList accent="#7c2d12" items={[
+  { t: 'Downsampling path', d: 'Same as segmentation U-Net: strided convolutions build a multi-scale feature hierarchy.' },
+  { t: 'Upsampling path', d: 'Transposed convolutions (Transfer Learning track, Module 8) restore full resolution.' },
+  { t: 'Skip connections', d: 'Carry fine spatial detail across the bottleneck, needed because the output must match the input\'s resolution exactly.' },
+  { t: 'What\'s new here', d: 'A timestep embedding is injected into every block, so the same network can denoise any noise level, not just one.' },
+]} />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does U-Net's architecture transfer from image segmentation to diffusion noise prediction, despite the tasks being different?", a: "Both tasks require a dense, same-resolution image-to-image mapping: multi-scale feature extraction via downsampling, full-resolution reconstruction via upsampling, and skip connections preserving fine spatial detail across the bottleneck. That structural requirement doesn't depend on whether the output is a segmentation mask or a noise estimate." },
+]} />
+
+## One network, every noise level
+
+<PredictReveal
+  prompt="The same U-Net must denoise x_t whether t = 1 (barely noisy) or t = 900 (almost pure noise) — very different tasks in practice. How does a single set of weights handle both?"
+  options={["It doesn't — a separate network is trained for each timestep", "The timestep t is embedded into a vector (typically via sinusoidal position encoding, the same idea from the Transformers track) and injected into every block of the network"]}
+  correct={1}
+>
+
+$t$ is converted into a vector using **sinusoidal timestep embeddings** — the same positional-encoding idea from the Transformers track, repurposed here to encode a scalar timestep instead of a sequence position. That embedding is added into the feature maps at every resolution level of the U-Net, usually after a small MLP. This lets one shared network condition its behavior on how much noise it should expect to see, rather than needing $T$ separate networks.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How does a single U-Net handle denoising at every timestep from 1 to T, without training a separate network per timestep?", a: "The timestep t is converted into a vector via sinusoidal embeddings (the same idea as Transformer positional encodings) and injected into every block of the U-Net. This conditions the shared network's behavior on the current noise level, so one set of weights handles all timesteps." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The diffusion denoiser reuses **U-Net** (Transfer Learning track): downsampling for multi-scale features, upsampling for full resolution, skip connections for detail — the same shape a dense image-to-image task needs, regardless of what the output represents.
+- The new ingredient is **timestep conditioning**: a sinusoidal embedding of $t$ (the same idea as Transformer positional encodings) is injected into every block.
+- This lets a **single shared network** handle every noise level from $t=1$ to $t=T$, instead of requiring $T$ separately trained networks.
+</ConceptBox>
+
+<QuizCard
+  question="Why does the diffusion denoiser need timestep conditioning at all, if U-Net can already map an image to a same-sized output?"
+  options={[
+    "It doesn't — timestep conditioning is an optional optimization with no functional necessity",
+    "Denoising behavior needs to differ depending on how much noise is present, and a single shared network needs some signal to know which noise level it's currently handling",
+    "Timestep conditioning replaces the need for skip connections entirely",
+    "It is only needed during sampling, never during training"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the U-Net denoiser and timestep conditioning are correct?"
+  options={[
+    "U-Net's skip connections preserve fine spatial detail needed because the output must match the input's resolution",
+    "A separate U-Net is trained independently for each timestep t",
+    "Sinusoidal timestep embeddings are conceptually the same idea as Transformer positional encodings",
+    "The timestep embedding is injected into every block of the network, not just the input layer",
+    "U-Net's upsampling path uses the same transposed-convolution idea covered in the Transfer Learning track"
+  ]}
+  correct={[0, 2, 3, 4]}
+/>

@@ -1,0 +1,79 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import MinimaxGameWidget from '../../components/widgets/gan/MinimaxGameWidget.jsx'
+
+# Module 2: The Minimax Game — Generator & Discriminator
+
+<Bridge>
+Module 1 established that a GAN's only training signal comes from a discriminator's judgment. This module writes that judgment down as a single equation, and asks what it means for both networks to optimize it at once.
+</Bridge>
+
+## The value function
+
+Both networks share one scalar objective, the **minimax value function**:
+
+$$\min_G \max_D V(D, G) = \mathbb{E}_{x \sim p_{data}}[\log D(x)] + \mathbb{E}_{z \sim p_z}[\log(1 - D(G(z)))]$$
+
+D outputs a probability that its input is real. It is trained to **maximize** V: push $D(x)$ toward 1 for real data and $D(G(z))$ toward 0 for generated data. G is trained to **minimize** the same V: push $D(G(z))$ toward 1, i.e. make the discriminator believe its output is real.
+
+<PredictReveal
+  prompt="As training proceeds toward the game's ideal fixed point — where G has learned the real data distribution exactly — what does D(x) converge to, for every input x, real or generated?"
+  options={["1 for every real x and 0 for every generated x, same as at the start", "1/2, everywhere — the discriminator can no longer tell them apart"]}
+  correct={1}
+>
+
+<MinimaxGameWidget />
+
+At the Nash equilibrium of this game, $p_g = p_{data}$: the generator's distribution exactly matches the real data distribution. At that point there is no feature left that distinguishes a real sample from a generated one, so the best D can do anywhere is guess — $D(x) = \tfrac{1}{2}$ for every $x$. A discriminator stuck at 50% accuracy is not a training failure here; for a perfectly-trained GAN, it is the goal.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "At the theoretical fixed point of GAN training, what value does the optimal discriminator take everywhere, and why?", a: "D(x) = 1/2 everywhere, because at that point p_g = p_data — the generator's distribution exactly matches the real one, so there is no statistical difference left for D to exploit. A discriminator reduced to a coin flip is the sign of success, not failure." },
+]} />
+
+## A saddle point, not a single minimum
+
+<PredictReveal
+  prompt="Ordinary supervised training finds a minimum of one loss function. GAN training alternates gradient ascent on D and gradient descent on G against the same V(D, G). What kind of point is the training actually looking for?"
+  options={["A single global minimum of V, the same way a classifier finds a minimum of cross-entropy", "A saddle point of V — a maximum along D's direction and a minimum along G's direction, simultaneously"]}
+  correct={1}
+>
+
+There is no single loss surface with one minimum here. $V(D,G)$ is maximized over D's parameters and minimized over G's parameters at the same time — the target is a **saddle point**, stable in one direction and unstable in the other. In practice this is approximated by alternating steps: hold G fixed and take a gradient step to improve D, then hold D fixed and take a gradient step to improve G, repeat. Nothing guarantees this alternation converges the way gradient descent on a single convex loss does — that instability is the subject of the next two modules.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is GAN training described as searching for a saddle point rather than a minimum?", a: "Because V(D, G) is maximized with respect to D's parameters and minimized with respect to G's parameters at the same time. A saddle point is stable along one of those directions and unstable along the other, unlike the single minimum an ordinary loss function has." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Both networks share one value function $V(D,G) = \mathbb{E}[\log D(x)] + \mathbb{E}[\log(1-D(G(z)))]$: D maximizes it, G minimizes it.
+- At the theoretical fixed point, $p_g = p_{data}$ and the optimal discriminator sits at $D(x) = \tfrac{1}{2}$ everywhere — it can no longer distinguish real from fake.
+- Training alternates gradient steps on D and G against the shared objective, searching for a **saddle point**, not a minimum — which is why GAN training does not behave like ordinary supervised optimization.
+</ConceptBox>
+
+<QuizCard
+  question="What does the optimal discriminator D*(x) equal once the generator has matched the real data distribution exactly?"
+  options={[
+    "1 for real data and 0 for generated data, unchanged from initialization",
+    "1/2 for every input, because there is no longer any statistical difference to exploit",
+    "It oscillates unpredictably and never settles",
+    "It equals the generator's loss value"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the GAN minimax game are correct?"
+  options={[
+    "D is trained to maximize V(D, G); G is trained to minimize the same V(D, G)",
+    "GAN training searches for a saddle point of the shared value function, not a single minimum",
+    "At the Nash equilibrium, p_g equals p_data and D(x) = 1/2 everywhere",
+    "GAN training is guaranteed to converge the same way gradient descent on a convex loss does",
+    "The discriminator outputs a probability that its input came from the real data distribution"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

@@ -1,0 +1,77 @@
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 9: Latent Diffusion
+
+<Bridge>
+The VAE track's closing module mentioned VQ-VAE as "the foundation of modern Latent Diffusion Models," without saying how. Every module in this track so far has run the forward and reverse processes directly on pixels. Latent diffusion changes exactly one thing: which space that happens in.
+</Bridge>
+
+## Diffusing in a smaller space
+
+<PredictReveal
+  prompt="Running T sequential U-Net passes on a 1024x1024 pixel image is expensive — every single step processes the full-resolution tensor. What does latent diffusion change to reduce this cost?"
+  options={["It reduces T, running fewer denoising steps on the same pixel-resolution images", "It runs the entire forward/reverse process in a pretrained autoencoder's compressed latent space instead of pixel space, then decodes back to pixels only once at the end"]}
+  correct={1}
+>
+
+A pretrained autoencoder (VAE track) first compresses a $1024\times1024$ image into a much smaller latent tensor — commonly downsampled by a factor of 8 per side, so roughly $64\times$ fewer values overall. Every diffusion step from Modules 2–8 — forward noising, the U-Net denoiser, reverse sampling — runs entirely on that compact latent, not on pixels. Only at the very end does a single decoder pass turn the final denoised latent back into a full-resolution image.
+
+<FactList accent="#7c2d12" items={[
+  { t: 'Encoder (frozen)', d: 'Pretrained autoencoder (VAE-style or VQ-VAE), compresses pixels to a small latent — run once, before diffusion starts.' },
+  { t: 'Diffusion process', d: 'Every forward/reverse step from this track runs on the compact latent, not on full-resolution pixels.' },
+  { t: 'Decoder (frozen)', d: 'Turns the final denoised latent back into a pixel image — run once, after diffusion finishes.' },
+  { t: 'Why it works', d: 'Perceptually irrelevant pixel-level detail is already discarded by the autoencoder, so nothing diffusion-relevant is lost by working in the compressed space.' },
+]} />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What exactly does latent diffusion change compared to running diffusion directly on pixels?", a: "It runs the entire forward and reverse diffusion process inside a pretrained autoencoder's much smaller latent space instead of pixel space, decoding back to full-resolution pixels only once, after the reverse process finishes — rather than at every one of the T steps." },
+]} />
+
+## Why this doesn't just trade one cost for another
+
+<PredictReveal
+  prompt="Doesn't compressing to a latent space just move the computational cost into the encoder/decoder instead of removing it?"
+  options={["Yes — the total cost stays roughly the same either way", "No — the encoder and decoder each run exactly once per image, while the expensive part (the T sequential denoising steps) is what shrinks, since every one of those T steps now operates on a much smaller tensor"]}
+  correct={1}
+>
+
+The encoder and decoder are each a **single** pass, run once per image, regardless of $T$. The part that gets multiplied by $T$ — the sequential denoising steps — is exactly the part now operating on a far smaller tensor. Since sampling cost scales with (tensor size) × (number of steps), shrinking the tensor size shrinks the dominant cost directly, while the one-time encode/decode overhead stays fixed and small by comparison. This is the practical reason Stable Diffusion and similar systems can run on consumer hardware at all.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does moving diffusion into latent space reduce total compute rather than just relocating the same cost?", a: "The encoder and decoder each run only once per image, independent of T. The part multiplied by T — the sequential denoising steps — is what shrinks, since it now operates on a much smaller latent tensor instead of full-resolution pixels. Since sampling cost scales with tensor size times number of steps, shrinking the tensor size directly reduces the dominant cost." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Latent diffusion** runs the entire forward/reverse process from this track inside a pretrained autoencoder's compact latent space, not on pixels directly.
+- A frozen encoder compresses the image once before diffusion starts; a frozen decoder reconstructs pixels once after it finishes — everything in between (Modules 2–8) is unchanged, just operating on smaller tensors.
+- Because sampling cost scales with tensor size × number of steps, and only the encode/decode are one-time costs, this shrinks the dominant, $T$-multiplied cost directly — the practical reason models like Stable Diffusion are tractable at consumer scale.
+</ConceptBox>
+
+<QuizCard
+  question="Why does running diffusion in latent space reduce compute rather than simply relocating the cost elsewhere?"
+  options={[
+    "Because the encoder and decoder run only once per image, while the T sequential denoising steps — the part that dominates cost — now operate on a much smaller tensor",
+    "Because latent diffusion uses fewer timesteps T than pixel-space diffusion by definition",
+    "Because the U-Net architecture changes entirely in latent space",
+    "Because latent diffusion removes the need for a noise schedule"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about latent diffusion are correct?"
+  options={[
+    "The encoder and decoder are pretrained and frozen with respect to the diffusion training process",
+    "The forward and reverse diffusion processes run on the compressed latent, not on pixels directly",
+    "The decoder runs once per image, not once per diffusion timestep",
+    "Latent diffusion requires retraining the entire denoising process from scratch on pixels first",
+    "Sampling cost scales with tensor size times number of steps, so shrinking the tensor reduces the dominant cost"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>
