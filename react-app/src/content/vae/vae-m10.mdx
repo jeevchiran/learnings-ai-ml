@@ -1,84 +1,91 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import BetaVAETunableWidget from '../../components/widgets/vae/BetaVAETunableWidget.jsx'
 
-# Module 10: Conditional VAE (CVAE) & Modern Frontiers
+# Module 10: β-VAE & Disentangled Representations
 
-<ConceptBox title="Targeted Generation & Discrete Latents">
-Standard VAEs sample randomly from the entire dataset distribution. **Conditional VAEs (CVAEs)** introduce class labels or condition vectors $y$, allowing directed, targeted generation of specific categories (e.g. "generate digit 7 with style $z$"). Modern evolutions like **VQ-VAE** replace continuous Gaussian latents with discrete codebooks, forming the backbone of modern visual tokenizers (such as Stable Diffusion's autoencoder).
+<ConceptBox title="The Disentanglement Objective">
+In a truly **disentangled representation**, each single latent dimension $z_j$ controls exactly one independent, human-interpretable generative factor (e.g. azimuth rotation, stroke thickness, lighting angle, scale) while remaining completely invariant to all other factors. **$\beta$-VAE** achieves this by placing an adjustable information bottleneck on the latent channel.
 </ConceptBox>
 
 <Bridge>
-Module 9 explored unsupervised disentanglement. This module expands VAEs to supervised conditional generation (CVAE), examines discrete latent quantization (VQ-VAE), and benchmarks VAEs against GANs, Normalizing Flows, and Diffusion Models.
+Module 9 showed that latent dimensions can represent high-level concepts. However, in standard VAEs ($\beta=1$), factors often remain entangled across multiple correlated dimensions. This module introduces $\beta$-VAE and analyzes the trade-off between disentanglement and reconstruction fidelity.
 </Bridge>
 
-## The Conditional VAE (CVAE)
+## The $\beta$-VAE Formulation
 
-In a CVAE (Sohn et al., NeurIPS 2015), both the encoder and decoder are conditioned on an auxiliary label $y$ (represented as a one-hot vector or embedding):
+Introduced by Higgins et al. (ICLR 2017), $\beta$-VAE modifies the standard ELBO objective by introducing a hyperparameter $\beta > 0$ weighting the KL divergence term:
 
-- **Encoder**: $q_\phi(z|x, y) = \mathcal{N}(\mu(x, y), \text{diag}(\sigma^2(x, y)))$
-- **Decoder**: $p_\theta(x|z, y)$
-- **Prior**: $p(z|y) = \mathcal{N}(0, I)$ (assumed independent of class or learned per class)
+$$\mathcal{L}_{\beta\text{-VAE}}(\theta, \phi; x) = \mathbb{E}_{q_\phi(z|x)}\big[\log p_\theta(x|z)\big] - \beta \, D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big)$$
 
-```
-        Training:                           Targeted Generation:
-        
-   x ──┐                                         y (e.g. "Digit 7")
-       ├─► [ Encoder ϕ ] ──► z                       │
-   y ──┘                     │                       ▼
-                             ▼             z ~ 𝒩(0, I) ──► [ Decoder θ ] ──► x̂ (Generated 7)
-   y ───────────────► [ Decoder θ ] ──► x̂
-```
+- When $\beta = 1$: Standard VAE (exact ELBO).
+- When $\beta > 1$: Stronger information bottleneck, encouraging statistical independence and axis alignment.
+- When $\beta < 1$: Weaker regularization, prioritizing sharp reconstructions at the expense of latent structure.
 
-The CVAE ELBO objective is:
+## Why Does $\beta > 1$ Force Disentanglement?
 
-$$\text{ELBO}_{\text{CVAE}} = \mathbb{E}_{q_\phi(z|x, y)}\big[ \log p_\theta(x|z, y) \big] - D_{KL}\big( q_\phi(z|x, y) \,\|\, p(z|y) \big)$$
+The standard prior $p(z) = \mathcal{N}(0, I) = \prod_{j=1}^d \mathcal{N}(z_j; 0, 1)$ is **factorized** (all dimensions are statistically independent).
 
-### What Does the Latent Code $z$ Capture in a CVAE?
+Under the **Information Bottleneck Principle**:
+1. When $\beta > 1$, the encoder is severely restricted in the total number of nats/bits it can transmit through the latent channel $z$.
+2. To reconstruct $x$ with minimal channel capacity, the network must discover the most efficient representation possible: the true, orthogonal, independent generative factors of the data.
+3. Because the prior has diagonal covariance, the model aligns these independent factors with single coordinate axes.
 
-In a CVAE, the class identity is provided by $y$. Therefore, the latent variable $z$ no longer needs to encode *which* digit it is. Instead, $z$ learns only the **intra-class style and variation** (e.g. stroke thickness, tilt, slant, curvature).
+## Interactive $\beta$ Tuner & Trade-Off Simulator
 
-## Discrete Latents: Vector Quantized VAE (VQ-VAE)
+Adjust $\beta$ to observe the fundamental trade-off between reconstruction sharpness, factor disentanglement, and the danger of posterior collapse:
 
-Standard VAEs use continuous Gaussian distributions. However, language, reasoning, and conceptual abstractions are naturally **discrete**.
+<BetaVAETunableWidget />
 
-**VQ-VAE** (van den Oord et al., NeurIPS 2017) passes the encoder output $z_e(x)$ through a learned discrete codebook $e \in \mathbb{R}^{K \times D}$:
+## The Hazard of $\beta \gg 1$: Posterior Collapse
 
-$$z_q(x) = e_k \quad \text{where} \quad k = \arg\min_j \|z_e(x) - e_j\|_2$$
+<PredictReveal
+  prompt="What happens if β is set too high (e.g. β = 20 or 50) during training?"
+  options={[
+    "The model achieves perfect disentanglement across all dimensions.",
+    "Posterior Collapse occurs: the encoder outputs q_ϕ(z|x) ≈ p(z) for all inputs (KL → 0), and the decoder completely ignores z, outputting the blurry average of the entire dataset.",
+    "The model overfits to the training set."
+  ]}
+  correct={1}
+>
 
-```
-   Image x ──► Encoder ──► Continuous z_e(x)
-                                 │
-                                 ▼  Vector Quantization (Nearest Codebook Entry)
-                           Discrete z_q(x) = e_k
-                                 │
-                                 ▼  Straight-Through Estimator (STE)
-                           Decoder ──► x̂
-```
+When $\beta$ is excessively large, minimizing the KL divergence dominates the entire optimization. The easiest way for gradient descent to reduce loss is to set $\mu = 0$ and $\sigma^2 = 1$ everywhere.
 
-Because discrete codebooks completely eliminate the Gaussian KL term, **VQ-VAEs never suffer from posterior collapse or Gaussian blurriness**. They are the foundation of modern Latent Diffusion Models (LDMs).
+When $q_\phi(z|x) = \mathcal{N}(0, I)$ contains zero mutual information about $x$, the decoder receives no input signal and simply learns to output the unconditional mean image $\bar{x}$. This failure mode is known as **Posterior Collapse**.
 
-## Generative Model Family Comparison
+</PredictReveal>
 
-| Model Family | Training Objective | Latent Space | Sampling Speed | Sample Quality / Fidelity | Mode Coverage / Stability |
-|---|---|---|---|---|---|
-| **VAE** | Likelihood-based (ELBO) | Continuous Gaussian / Smooth | Instant (1 forward pass) | Moderate (can be slightly blurry due to pixel MSE/BCE) | Excellent (stable, no mode collapse) |
-| **GAN** | Adversarial Minimax Game | Continuous Noise | Instant (1 forward pass) | High (crisp, sharp textures) | Poor / Fragile (mode collapse, training instability) |
-| **Normalizing Flows** | Exact Log-Likelihood $\log p(x)$ | Invertible Bijective Map | Instant | Moderate to High | High (exact density, but huge memory footprint) |
-| **Diffusion Models** | Denoising Score Matching | Multi-step Gaussian Markov Chain | Slow (requires 20–50 iterative denoising steps) | State of the art | Excellent (stable, outstanding diversity) |
+## Strategies to Prevent Posterior Collapse
+
+1. **KL Annealing / Warm-up**: Start training with $\beta = 0$, gradually increasing $\beta \to 1$ or $\beta_{\text{target}}$ over the first $N$ epochs.
+2. **Free Bits / Minimum KL Constraint**: Replace $D_{KL}$ with $\max(\tau, D_{KL})$, giving each dimension a budget of $\tau$ bits for free before applying regularization.
+3. **Controlled Capacity Increase ($C$-VAE)**: Gradually increase a target capacity $C$: $\mathcal{L} = \mathcal{L}_{\text{recon}} - \gamma |D_{KL} - C|$.
 
 <Recall items={[
-  { q: "What does the latent vector z represent in a Conditional VAE (CVAE)?", a: "Since the class label y specifies what object/digit to generate, the latent code z learns intra-class style variations such as slant, stroke thickness, and handwriting quirks." },
-  { q: "Why do VQ-VAEs avoid the posterior collapse and blurriness issues of standard VAEs?", a: "Because VQ-VAEs replace the continuous Gaussian prior and KL divergence with a discrete vector-quantized codebook trained with a straight-through estimator, avoiding variance collapse." }
+  { q: "What is the primary motivation for using β > 1 in β-VAE?", a: "To impose a tighter information bottleneck that forces the network to learn statistically independent, axis-aligned, disentangled generative factors." },
+  { q: "What is posterior collapse and how does KL annealing prevent it?", a: "Posterior collapse occurs when the KL penalty is so strong that the encoder sets q(z|x) = p(z) for all inputs, causing the decoder to ignore the latent code. KL annealing prevents this by starting with β=0 so the encoder-decoder first learns to reconstruct before gradually introducing the KL regularizer." }
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **$eta$-VAE** simply weights the KL term: $\mathcal{L} = 	ext{reconstruction} - eta \, D_{KL}$. $eta = 1$ is the ordinary ELBO.
+- $eta > 1$ tightens the information bottleneck, forcing the encoder to spend limited capacity on the few genuinely independent factors — and because the prior is diagonal, those factors line up with individual axes (**disentanglement**).
+- The cost is reconstruction sharpness, so $eta$ is a **dial between disentanglement and fidelity**, not a free improvement.
+- Push $eta$ too far and you get **posterior collapse**: the encoder outputs the prior for every input, carrying zero information, and the decoder falls back to the dataset average. **KL annealing** and **free bits** are the standard defences.
+</ConceptBox>
 
 ## Summary Check
 
 <QuizCard
-  question="Compared to GANs, what is the primary structural advantage of VAEs in probabilistic machine learning?"
+  question="In a disentangled latent space, changing the value of z₁ from -2 to +2 while keeping all other z_j fixed will:"
   options={[
-    "VAEs provide a principled probabilistic framework with a smooth, bidirectional encoder (inference) that maps real images to structured latent vectors without mode collapse.",
-    "VAEs produce higher resolution images than any other model.",
-    "VAEs do not require backpropagation."
+    "Modify exactly one isolated semantic attribute (e.g. rotation angle) without changing unrelated attributes (e.g. object size, color, or shape).",
+    "Completely randomize the entire decoded image.",
+    "Cause the decoder to output an all-black image."
   ]}
-  correctIndex={0}
-  explanation="VAEs maximize a lower bound on data log-likelihood, guaranteeing comprehensive mode coverage without the adversarial instability or mode collapse common in GANs, while providing an explicit encoder for posterior inference."
+  correct={0}
 />
+
+<Recall items={[
+  { q: "Check your reasoning", a: "Disentanglement means single latent dimensions map directly to independent real-world factors of variation." }
+]} />

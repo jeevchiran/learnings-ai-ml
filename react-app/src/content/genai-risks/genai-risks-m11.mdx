@@ -1,0 +1,110 @@
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 11: Layered Mitigation in Responsible Design
+
+<ConceptBox title="Run the code">
+The defensive utilities discussed in this module — a spotlighting encoder, a tool-permission allowlist checker, and a claim-citation verifier — are implemented and tested in a runnable notebook:
+
+**[Open the GenAI Risks lab in Google Colab](https://colab.research.google.com/github/jeevchiran/learnings-ai-ml/blob/main/notebook/genai-risks/genai-risks-lab.ipynb)**.
+
+It runs entirely offline with no API keys — pure deterministic Python over canned model outputs, so every claim in this module can be checked directly.
+</ConceptBox>
+
+<Bridge>
+Module 10 ended on a formula: risk is untrusted-input exposure multiplied by unsupervised capability. Both factors are things a system designer controls, which is what makes this tractable — even though, as Module 7 established, no amount of prompt wording will ever make it airtight.
+</Bridge>
+
+## Attack the capability factor, not just the text
+
+<PredictReveal
+  prompt="A team is deciding where to invest defensive effort: better detection of hostile text entering the model, or tighter limits on what the model is allowed to do with tools. Which yields the more durable guarantee?"
+  options={["Detection — stopping the attack at the input is always preferable to containing it later", "Capability limits — they hold regardless of whether any given payload was detected, whereas detection fails open on the first phrasing nobody anticipated"]}
+  correct={1}
+>
+
+Both matter, but only one degrades gracefully. Text detection (Module 9) is probabilistic against an unbounded input space, and when it misses, nothing else stops the action. Capability constraints are deterministic and enforced outside the model, so they hold even against a payload nobody has seen. This is the same reasoning that puts a database permission model underneath application input validation rather than relying on validation alone.
+
+<FactList accent="#b91c1c" items={[
+  { t: 'Least privilege for tools', d: 'Grant the narrowest scope that supports the task — read-only where reads suffice, one mailbox rather than the mail account, a scoped API token rather than an admin one. Caps the blast radius of any successful injection.' },
+  { t: 'Privilege separation', d: 'Do not let one context hold both untrusted content and high-privilege capability. Summarising a hostile document is safe if the summarising context has no tools; the planning context that does have tools should not ingest raw external text.' },
+  { t: 'Human confirmation on consequential actions', d: 'Irreversible or externally-visible actions — sending, deleting, paying, publishing — require explicit approval showing the concrete action, not a general "the agent may proceed" consent.' },
+  { t: 'Egress control', d: 'Allowlist the domains rendered output and tool calls may reach. Directly closes the markdown-image exfiltration channel from Module 10.' },
+  { t: 'Provenance tracking', d: 'Tag content by trust level as it enters the system, and let downstream policy depend on those tags — the enforced boundary the model itself does not have.' },
+]} />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are capability constraints a more durable defence than input detection?", a: "Detection is probabilistic against an unbounded natural-language input space, and it fails open — the first unanticipated phrasing gets through with nothing behind it. Capability constraints are deterministic and enforced outside the model, so they hold regardless of whether any particular payload was recognised, capping the damage instead of trying to prevent every input." },
+]} />
+
+## The text-layer defences still earn their place
+
+<PredictReveal
+  prompt="Given that no prompt-level defence is categorical, is there still value in spotlighting — clearly marking where untrusted content begins and ends and instructing the model to treat it as data?"
+  options={["No — since it is not a guarantee, it provides no meaningful protection", "Yes — it measurably shifts the statistical competition from Module 7, and layers that reduce probability are worth having even when they cannot eliminate it"]}
+  correct={1}
+>
+
+The Module 7 conclusion is that wording cannot be *categorical*, not that it is useless. Spotlighting — delimiting untrusted spans, marking them explicitly as data, and instructing the model to treat any instructions inside them as content to report rather than commands to follow — meaningfully raises the bar, and combines with everything else.
+
+The text-layer stack worth having: spotlight and delimit untrusted content; strip or neutralise invisible text, comments, and metadata before ingestion, so hidden payloads lose their asymmetry; filter output for exfiltration patterns before rendering; and constrain output format where possible, since a response required to be structured JSON has less room to carry an attacker's free text.
+
+None of these is a boundary. All of them lower probability, and they sit on top of controls that hold when they fail.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is spotlighting worth implementing even though Module 7 showed prompt wording cannot create a guarantee?", a: "Because 'not categorical' is different from 'not useful'. Delimiting untrusted spans and instructing the model to treat instructions inside them as data to report shifts the statistical competition in the model's favour, measurably lowering success rates. It belongs as a probability-reducing layer stacked on top of capability controls that hold when it fails." },
+]} />
+
+## Operating it, not just building it
+
+<PredictReveal
+  prompt="A system passes an injection red-team exercise before launch. How long does that result remain valid?"
+  options={["Indefinitely for that architecture, as long as the code does not change", "Only until the inputs, tools, model version, or attack techniques change — which is continuously"]}
+  correct={1}
+>
+
+Injection resistance is not a property that can be established once. The corpus gains documents, a tool gains a new scope, the model is upgraded and its instruction-following tendencies shift slightly, and public technique catalogues advance. The operational layer is therefore part of the design: automated injection test suites in CI, red-teaming that includes indirect vectors rather than only typed prompts, logging of every tool call with its triggering context so an incident can be reconstructed, and monitoring for the shapes that indicate exfiltration attempts.
+
+Closing the loop with the first half of this track: both hallucination and injection resist elimination and both are managed by stacking imperfect layers around a model whose behaviour is probabilistic. The difference is the threat model — accidental failure versus an adversary who adapts to your defences — which is exactly why the injection stack leans on deterministic controls outside the model rather than on the model behaving well.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a pre-launch red-team result an insufficient basis for ongoing injection resistance?", a: "The system and its threat environment both keep changing: new documents enter the corpus, tools gain scopes, model upgrades shift instruction-following behaviour, and public attack techniques advance. Resistance therefore needs continuous operational support — injection tests in CI, red-teaming covering indirect vectors, tool-call logging with triggering context, and monitoring for exfiltration patterns." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Risk is **untrusted input × unsupervised capability**, and the capability factor is where durable guarantees live — least privilege, privilege separation, human confirmation for consequential actions, egress allowlists, provenance tagging.
+- Capability controls **degrade gracefully**; text detection **fails open**, because natural language offers an unbounded space of phrasings.
+- Text-layer defences — spotlighting, stripping hidden text and metadata, output filtering, constrained formats — are still worth stacking: they lower probability even though they cannot create a boundary.
+- Injection resistance is **operational, not one-time**: CI injection tests, red-teaming that covers indirect vectors, tool-call logging, and exfiltration monitoring.
+- Both halves of this track end the same way — imperfect layers around a probabilistic model — but injection adds an **adversary who adapts**, which is why its controls sit outside the model.
+</ConceptBox>
+
+<QuizCard
+  question="Why does privilege separation defend against injection more reliably than improved input filtering?"
+  options={[
+    "Because it is enforced outside the model and holds even against payloads that were never detected, whereas filtering fails open on unanticipated phrasings",
+    "Because privilege separation makes the model incapable of reading untrusted text",
+    "Because input filtering is computationally too expensive to deploy",
+    "Because privilege separation eliminates the need for any human review"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which practices meaningfully reduce prompt-injection risk in production systems?"
+  options={[
+    "Granting tools the narrowest scope that still supports the task",
+    "Keeping high-privilege capability out of any context that ingests raw untrusted content",
+    "Requiring explicit human confirmation for irreversible or externally-visible actions",
+    "Relying on a comprehensive list of known injection phrasings as the primary control",
+    "Allowlisting the domains that rendered output and tool calls may reach"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

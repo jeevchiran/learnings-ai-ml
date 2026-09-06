@@ -1,0 +1,96 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import CalibrationGapWidget from '../../components/widgets/genai-risks/CalibrationGapWidget.jsx'
+
+# Module 5: The Risks — Trust and Real-World Impact
+
+<Bridge>
+Modules 3 and 4 explained the mechanism. This module covers why that mechanism translates into disproportionate real-world harm — which comes down to a single property: the signal users rely on to judge an answer is uncorrelated with whether the answer is right.
+</Bridge>
+
+## The user cannot see the failure rate
+
+<PredictReveal
+  prompt="A model answers a question it knows well and one it has almost no data on. What differs between the two responses from the user's point of view?"
+  options={["The uncertain answer is noticeably more hesitant, hedged, and less fluent", "Very little — the register, fluency, and confidence are largely the same in both"]}
+  correct={1}
+>
+
+<CalibrationGapWidget />
+
+This is the core of the harm. In every other tool people rely on, degraded reliability comes with a visible signal — a search engine returns worse-looking results, a calculator errors out, a sensor reads out of range. Here the presentation is essentially invariant to the reliability, so the heuristic every user brings ("it sounds sure, it is probably right") is precisely the one that fails.
+
+Worse, the failure correlates with the cases where the user is least able to check. Users ask about obscure things *because* they do not know them — so the highest-hallucination regime is also the lowest-verification-capability regime.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is the calibration gap more damaging than a comparable error rate in a conventional tool?", a: "Conventional tools signal degraded reliability — worse-looking results, an error, an out-of-range reading. A language model's fluency and confidence stay roughly constant regardless of whether it knows the answer, so the natural heuristic for judging trustworthiness fails exactly where it is most needed. The gap is widest on obscure questions, which are also the ones users are least equipped to verify." },
+]} />
+
+## Automation bias and the erosion of the human check
+
+<PredictReveal
+  prompt="A reviewer is asked to check model outputs that are correct roughly 95% of the time. Over weeks of reviewing, what typically happens to the thoroughness of their checking?"
+  options={["It stays constant, since the reviewer knows errors occur 5% of the time", "It degrades — sustained high accuracy trains the reviewer to expect correctness, so scrutiny drops precisely because the system is usually right"]}
+  correct={1}
+>
+
+**Automation bias** is the well-documented tendency to over-trust automated output and under-apply independent judgement. It has a perverse structure here: the better the system performs, the faster the human check erodes. A system correct 70% of the time keeps reviewers alert. One correct 97% of the time trains them, over hundreds of interactions, to approve by default — so the rare failure passes through the exact control that was supposed to catch it.
+
+This is why "a human reviews the output" is a weaker control than it appears on an architecture diagram, and why Module 6 treats human review as one layer among several rather than the answer.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does a more accurate system make human review less effective, rather than more?", a: "Automation bias: sustained high accuracy trains reviewers to expect correctness, so scrutiny declines over time. A system that is right 97% of the time conditions approval-by-default far more strongly than one that is right 70% of the time — meaning the rare error passes through the control specifically designed to catch it." },
+]} />
+
+## Compounding in chained systems
+
+<PredictReveal
+  prompt="An agent pipeline runs five sequential steps, each of which independently produces a well-supported output 95% of the time. Roughly how often is the whole chain clean?"
+  options={["About 95%, since each step is individually reliable", "About 77% — the per-step rates multiply, and a hallucination early in the chain becomes an input the later steps treat as fact"]}
+  correct={1}
+>
+
+$0.95^5 \approx 0.77$. Independent per-step reliability multiplies, so a chain of individually-good steps is substantially worse than any step in it. And the steps are not really independent: an error in step 2 becomes the input to step 3, which treats it as given — the same snowballing from Module 4, now operating across an entire system rather than within a single generation.
+
+The practical consequences that follow are the ones that reach the news: fabricated legal citations submitted to courts, invented product or policy details presented to customers as authoritative, incorrect medical or financial claims delivered in the same confident register as correct ones. The pattern in each case is identical — output that was fluent enough to pass the check a human would normally apply, in a context where being wrong carried real cost.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does chaining several individually-reliable model steps produce a system substantially less reliable than any single step?", a: "Per-step success rates multiply — five steps at 95% each gives roughly 77% end to end. The steps are also not independent: an error in an early step becomes an input that later steps treat as established fact, so failures compound rather than merely accumulating." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The **calibration gap** is the core harm: fluency and confidence stay roughly constant regardless of accuracy, so the heuristic users rely on to judge answers fails exactly where reliability is worst — on obscure questions they are least able to verify.
+- **Automation bias** inverts the usual intuition: the more accurate a system is, the faster human scrutiny erodes, so the rare error passes through the control meant to catch it.
+- In chained or agentic systems, per-step rates **multiply**, and an early error becomes an input later steps treat as fact — five 95% steps give roughly 77% end to end.
+- Real-world incidents share one shape: output fluent enough to pass ordinary human checking, in a context where being wrong was expensive.
+</ConceptBox>
+
+<QuizCard
+  question="Why does automation bias make human review a weaker control than it appears?"
+  options={[
+    "Because sustained high accuracy trains reviewers toward approval-by-default, degrading scrutiny precisely because the system is usually right",
+    "Because human reviewers cannot understand model outputs at all",
+    "Because review is only ever applied to a random sample of outputs",
+    "Because reviewers deliberately approve outputs they know to be wrong"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about the risks hallucination poses are correct?"
+  options={[
+    "Fluency and confidence remain roughly constant regardless of whether the model knows the answer",
+    "The hallucination rate is highest on exactly the questions users are least equipped to verify",
+    "Chaining five 95%-reliable steps yields roughly 77% end-to-end reliability, not 95%",
+    "A more accurate system makes human review more effective over time, not less",
+    "An early error in an agent chain becomes an input that later steps treat as established fact"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

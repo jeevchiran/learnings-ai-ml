@@ -1,0 +1,98 @@
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 4: Why Hallucinations Occur — Model & Inference
+
+<Bridge>
+Module 3 covered everything fixed before deployment. This module covers what happens at the moment of generation — decisions made per request, which is also where the cheapest mitigations live.
+</Bridge>
+
+## Sampling introduces claims nobody selected
+
+<PredictReveal
+  prompt="At each step the model produces a probability distribution over next tokens, and the sampler draws from it. If a fabricated citation has 3% probability at some step, how often does it get chosen under ordinary temperature sampling?"
+  options={["Never — low-probability tokens are excluded from sampling", "About 3% of the time, by construction — that is what sampling from the distribution means"]}
+  correct={1}
+>
+
+Sampling settings directly trade diversity against reliability, exactly as the guidance-scale dial did in the Diffusion track. Higher temperature flattens the distribution and makes low-probability tokens more reachable — better for creative writing, worse for factual answering. Nucleus (top-p) and top-k sampling truncate the tail, which reduces the reachable fabrication space, but does not remove it: a wrong token that the model considers *likely* survives every truncation strategy.
+
+That last point is the important one. Decoding controls help with fabrications the model itself considered unlikely. They do nothing for confident errors — the model's distribution is simply concentrated on the wrong answer, and greedy decoding will pick it every time.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why do decoding controls like lower temperature and top-p truncation only partially reduce hallucination?", a: "They shrink the reachable space of low-probability tokens, which suppresses fabrications the model itself considered unlikely. They cannot help when the model's distribution is concentrated on a wrong answer — a confident error survives every truncation strategy and greedy decoding picks it every time." },
+]} />
+
+## Errors compound down the sequence
+
+<PredictReveal
+  prompt="A model states a fabricated premise early in a long answer, then continues for several more paragraphs. What does the next-token objective do with that fabricated premise on the following tokens?"
+  options={["It treats the premise as suspect and works to correct it later in the answer", "It conditions on it as established context and builds consistently on top of it, compounding the error"]}
+  correct={1}
+>
+
+Autoregressive generation conditions each token on everything already produced. A fabricated premise does not stay isolated — it becomes context, and the model's drive toward coherence means subsequent text is built to be consistent *with the fabrication*. This is **error snowballing**, and it is why a hallucinated answer is often internally consistent and elaborately supported: the elaboration was generated to fit the error.
+
+<FactList accent="#b91c1c" items={[
+  { t: 'Sampling stochasticity', d: 'Low-probability tokens get selected at their probability. Temperature and top-p shift how reachable the tail is, but never eliminate it.' },
+  { t: 'Error snowballing', d: 'Autoregressive conditioning turns an early fabrication into established context, and coherence pressure builds the rest of the answer to fit it.' },
+  { t: 'Context degradation', d: 'Retrieval and long-context performance is uneven across position. Supporting evidence sitting in the middle of a long context is more likely to be under-weighted than the same text at either end.' },
+  { t: 'No abstention path', d: 'The generation loop always produces a next token. Not answering is a behaviour that has to be trained and prompted for — it is not a default state the architecture can fall into.' },
+]} />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is error snowballing, and why does it make hallucinated answers look well-supported?", a: "Autoregressive generation conditions each new token on everything already generated, so an early fabrication becomes established context. Coherence pressure then builds the remainder of the answer to be consistent with that fabrication — producing elaborate supporting detail that exists precisely because it was generated to fit the error." },
+]} />
+
+## The architecture has no abstention state
+
+<PredictReveal
+  prompt="Where in a transformer's forward pass does the model decide it does not know enough to answer?"
+  options={["In a dedicated confidence head that gates the output when knowledge is insufficient", "Nowhere — the loop always emits a next token; abstention is text the model has to be trained and prompted to produce, not an architectural state"]}
+  correct={1}
+>
+
+There is no null output. The forward pass yields a distribution, the sampler draws from it, and the loop continues. Saying "I do not know" is just another token sequence, competing on probability with every other continuation — so it happens only if training and prompting made that sequence probable in this context. Combined with Module 3's finding that preference tuning pushes *away* from hedging, this explains why abstention is rare by default and has to be deliberately engineered back in.
+
+It also explains the ordering of mitigations in Module 6: because the model cannot detect its own knowledge gap architecturally, the reliable interventions live outside the model — supplying sources, checking outputs, and constraining what the system is allowed to assert.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is abstention not something a transformer can do by default?", a: "The architecture has no null output — the forward pass always produces a distribution and the loop always emits a next token. 'I do not know' is simply another token sequence competing on probability, so it appears only when training and prompting have made it likely. There is no architectural state corresponding to insufficient knowledge." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Sampling** selects low-probability tokens at their probability; temperature and top-p change how reachable the tail is but never close it, and neither touches a **confident** error where the distribution is concentrated on the wrong answer.
+- **Error snowballing**: autoregressive conditioning turns an early fabrication into established context, and coherence pressure builds the rest of the answer to fit it — which is why hallucinations come elaborately supported.
+- **Long-context degradation** means supporting evidence in the middle of a long prompt is more easily under-weighted than the same text at either end.
+- There is **no architectural abstention state**. Not answering is text that must be trained and prompted for, which is why the reliable mitigations in Module 6 sit outside the model.
+</ConceptBox>
+
+<QuizCard
+  question="Why does an early fabrication tend to produce an elaborately supported wrong answer rather than an isolated error?"
+  options={[
+    "Because autoregressive generation conditions on it as established context, and coherence pressure builds subsequent text to fit it",
+    "Because the model deliberately defends its earlier claims when challenged",
+    "Because sampling temperature increases as generation proceeds",
+    "Because the error is corrected internally but not in the visible output"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which inference-stage factors contribute to hallucination?"
+  options={[
+    "Sampling selects low-probability tokens at their probability, making fabrications reachable",
+    "Error snowballing, where an early fabrication becomes context that later tokens are built to fit",
+    "Uneven use of long contexts, under-weighting evidence positioned in the middle",
+    "The absence of any architectural abstention state — the loop always emits a next token",
+    "Lower temperature fully eliminates hallucination by removing all sampling randomness"
+  ]}
+  correct={[0, 1, 2, 3]}
+/>

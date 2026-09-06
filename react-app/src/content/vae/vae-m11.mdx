@@ -1,0 +1,113 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 11: Conditional VAE (CVAE) & Modern Frontiers
+
+<ConceptBox title="Targeted Generation & Discrete Latents">
+Standard VAEs sample randomly from the entire dataset distribution. **Conditional VAEs (CVAEs)** introduce class labels or condition vectors $y$, allowing directed, targeted generation of specific categories (e.g. "generate digit 7 with style $z$"). Modern evolutions like **VQ-VAE** replace continuous Gaussian latents with discrete codebooks, forming the backbone of modern visual tokenizers (such as Stable Diffusion's autoencoder).
+</ConceptBox>
+
+<Bridge>
+Module 10 explored unsupervised disentanglement. This module expands VAEs to supervised conditional generation (CVAE), examines discrete latent quantization (VQ-VAE), and benchmarks VAEs against GANs, Normalizing Flows, and Diffusion Models.
+</Bridge>
+
+## The Conditional VAE (CVAE)
+
+In a CVAE (Sohn et al., NeurIPS 2015), both the encoder and decoder are conditioned on an auxiliary label $y$ (represented as a one-hot vector or embedding):
+
+- **Encoder**: $q_\phi(z|x, y) = \mathcal{N}(\mu(x, y), \text{diag}(\sigma^2(x, y)))$
+- **Decoder**: $p_\theta(x|z, y)$
+- **Prior**: $p(z|y) = \mathcal{N}(0, I)$ (assumed independent of class or learned per class)
+
+```
+        Training:                           Targeted Generation:
+        
+   x ──┐                                         y (e.g. "Digit 7")
+       ├─► [ Encoder ϕ ] ──► z                       │
+   y ──┘                     │                       ▼
+                             ▼             z ~ 𝒩(0, I) ──► [ Decoder θ ] ──► x̂ (Generated 7)
+   y ───────────────► [ Decoder θ ] ──► x̂
+```
+
+The CVAE ELBO objective is:
+
+$$\text{ELBO}_{\text{CVAE}} = \mathbb{E}_{q_\phi(z|x, y)}\big[ \log p_\theta(x|z, y) \big] - D_{KL}\big( q_\phi(z|x, y) \,\|\, p(z|y) \big)$$
+
+### What Does the Latent Code $z$ Capture in a CVAE?
+
+In a CVAE, the class identity is provided by $y$. Therefore, the latent variable $z$ no longer needs to encode *which* digit it is. Instead, $z$ learns only the **intra-class style and variation** (e.g. stroke thickness, tilt, slant, curvature).
+
+## What z Is Left to Learn
+
+<PredictReveal
+  prompt="In a conditional VAE the label y already tells the decoder which digit to draw. So what does the latent code z end up representing?"
+  options={[
+    "Which digit it is — the same information as y, learned redundantly",
+    "Everything about the image EXCEPT which digit it is: slant, thickness, and other style variation within the class"
+  ]}
+  correct={1}
+>
+
+Latent capacity is scarce (Module 10), so the model has no reason to spend it re-encoding something it is handed for free. With class identity supplied by $y$, the remaining job for $z$ is all the *within-class* variation — how this particular 7 differs from other 7s.
+
+That split is the practical appeal of a CVAE: $y$ becomes a control for **what** to generate, and $z$ becomes a control for **how** it looks. Fix $y$ and resample $z$ to get many stylistic variants of one class; fix $z$ and sweep $y$ to render the same handwriting style across every digit.
+
+</PredictReveal>
+
+## Discrete Latents: Vector Quantized VAE (VQ-VAE)
+
+Standard VAEs use continuous Gaussian distributions. However, language, reasoning, and conceptual abstractions are naturally **discrete**.
+
+**VQ-VAE** (van den Oord et al., NeurIPS 2017) passes the encoder output $z_e(x)$ through a learned discrete codebook $e \in \mathbb{R}^{K \times D}$:
+
+$$z_q(x) = e_k \quad \text{where} \quad k = \arg\min_j \|z_e(x) - e_j\|_2$$
+
+```
+   Image x ──► Encoder ──► Continuous z_e(x)
+                                 │
+                                 ▼  Vector Quantization (Nearest Codebook Entry)
+                           Discrete z_q(x) = e_k
+                                 │
+                                 ▼  Straight-Through Estimator (STE)
+                           Decoder ──► x̂
+```
+
+Because discrete codebooks completely eliminate the Gaussian KL term, **VQ-VAEs never suffer from posterior collapse or Gaussian blurriness**. They are the foundation of modern Latent Diffusion Models (LDMs).
+
+## Generative Model Family Comparison
+
+| Model Family | Training Objective | Latent Space | Sampling Speed | Sample Quality / Fidelity | Mode Coverage / Stability |
+|---|---|---|---|---|---|
+| **VAE** | Likelihood-based (ELBO) | Continuous Gaussian / Smooth | Instant (1 forward pass) | Moderate (can be slightly blurry due to pixel MSE/BCE) | Excellent (stable, no mode collapse) |
+| **GAN** | Adversarial Minimax Game | Continuous Noise | Instant (1 forward pass) | High (crisp, sharp textures) | Poor / Fragile (mode collapse, training instability) |
+| **Normalizing Flows** | Exact Log-Likelihood $\log p(x)$ | Invertible Bijective Map | Instant | Moderate to High | High (exact density, but huge memory footprint) |
+| **Diffusion Models** | Denoising Score Matching | Multi-step Gaussian Markov Chain | Slow (requires 20–50 iterative denoising steps) | State of the art | Excellent (stable, outstanding diversity) |
+
+<Recall items={[
+  { q: "What does the latent vector z represent in a Conditional VAE (CVAE)?", a: "Since the class label y specifies what object/digit to generate, the latent code z learns intra-class style variations such as slant, stroke thickness, and handwriting quirks." },
+  { q: "Why do VQ-VAEs avoid the posterior collapse and blurriness issues of standard VAEs?", a: "Because VQ-VAEs replace the continuous Gaussian prior and KL divergence with a discrete vector-quantized codebook trained with a straight-through estimator, avoiding variance collapse." }
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A **conditional VAE** feeds a label $y$ to both encoder and decoder, so generation can be *directed* — "produce a 7" rather than "produce something".
+- Once $y$ carries the class, $z$ stops needing to and instead learns **intra-class style**: slant, thickness, stroke quirks.
+- **VQ-VAE** swaps the continuous Gaussian latent for a discrete **codebook**, sidestepping both posterior collapse and Gaussian blur — the design underneath modern latent diffusion.
+- Across the generative families: VAEs give stable training and a real encoder, **GANs** give sharpness without a likelihood, and **diffusion** gives the best fidelity at the cost of slow multi-step sampling. The next two tracks take these in turn.
+</ConceptBox>
+
+## Summary Check
+
+<QuizCard
+  question="Compared to GANs, what is the primary structural advantage of VAEs in probabilistic machine learning?"
+  options={[
+    "VAEs provide a principled probabilistic framework with a smooth, bidirectional encoder (inference) that maps real images to structured latent vectors without mode collapse.",
+    "VAEs produce higher resolution images than any other model.",
+    "VAEs do not require backpropagation."
+  ]}
+  correct={0}
+/>
+
+<Recall items={[
+  { q: "Check your reasoning", a: "VAEs maximize a lower bound on data log-likelihood, guaranteeing comprehensive mode coverage without the adversarial instability or mode collapse common in GANs, while providing an explicit encoder for posterior inference." }
+]} />

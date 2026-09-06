@@ -1,76 +1,115 @@
-import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
-import LatentSpaceWidget from '../../components/widgets/vae/LatentSpaceWidget.jsx'
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
-# Module 1: From Autoencoders to Variational Autoencoders
-
-<ConceptBox title="The Central Problem">
-A standard autoencoder compresses inputs into a deterministic latent code $z = f_\phi(x)$ and reconstructs them via $\hat{x} = g_\theta(z)$. While effective for dimensionality reduction and denoising, **standard autoencoders fail as generative models**. Why? Because their latent spaces contain empty gaps, disconnected clusters, and unregularized coordinates where the decoder outputs noise.
-</ConceptBox>
+# Module 1: Compression, Autoencoders & Latent Space
 
 <Bridge>
-Generative modeling requires sampling new, unseen data points from a known probability distribution. This module examines why deterministic autoencoders fail at generation and how variational autoencoders convert point encodings into continuous probability distributions.
+Every track so far has trained networks to produce a *label* — a class, a box, a mask. This track trains networks to produce *data itself*. Before any of the probability machinery, this module builds the one structure the entire track rests on: a network that squeezes data through a narrow gap and rebuilds it on the other side.
 </Bridge>
 
-## Why Standard Autoencoders Cannot Generate
+## Why force data through a bottleneck?
 
 <PredictReveal
-  prompt="Suppose you train a standard autoencoder on handwritten digits (0 to 9) with a 2D latent space. What happens if you sample a random coordinate z ~ N(0, I) and pass it to the decoder?"
-  options={[
-    "It produces a clean, realistic new digit that blends features smoothly.",
-    "It often produces an unrealistic, noisy, or corrupted image because that latent region was never mapped during training.",
-    "The decoder throws a runtime error because latent dimensions must be strictly positive."
-  ]}
+  prompt="You train a network to copy a 784-pixel image to an identical 784-pixel output, but every value must pass through a middle layer of just 2 numbers. What does the network have to learn to do this well?"
+  options={["To memorise each training image and index them by the 2 numbers", "To find the handful of underlying factors that actually vary across the data, and describe each image by those"]}
   correct={1}
 >
 
-In a standard autoencoder, the encoder is free to place embeddings anywhere in latent space to minimize reconstruction error $\mathcal{L}(x, \hat{x}) = \|x - g_\theta(f_\phi(x))\|^2$.
+Two numbers cannot store 784 pixels. So the network cannot memorise — it has to discover what genuinely *varies* across the dataset and spend its tiny budget on that. For handwritten digits, that might be stroke thickness and slant; for faces, pose and expression. Everything else — the exact value of pixel 400 — gets reconstructed approximately from those few factors.
 
-This leads to three failure modes for generative tasks:
-
-1. **Gaps and Holes in Latent Space**: The training objective only penalizes poor reconstruction of training points. Latent regions between clusters receive no gradient supervision, creating "dead zones".
-2. **Lack of Compactness**: Clusters for different classes can be pushed arbitrarily far apart. There is no force pulling them toward the origin or bounding their variance.
-3. **No Smooth Interpolation**: Traversing the latent line between a digit "0" and digit "1" encounters disjoint jumps rather than smooth, semantically meaningful morphing.
+This is the central bargain: **a narrow bottleneck forces the network to learn structure instead of storage.** Widen the bottleneck to 784 and the pressure disappears — the network can just learn the identity function, passing pixels straight through, and learn nothing about the data at all.
 
 </PredictReveal>
 
-## Interactive Latent Geometry Explorer
-
-Interact with the widget below to compare how a deterministic autoencoder versus a variational autoencoder arranges representations in the 2D latent plane:
-
-<LatentSpaceWidget />
-
 <Recall items={[
-  { q: "What is the primary architectural difference in output between a standard autoencoder encoder and a VAE encoder?", a: "A standard autoencoder encoder outputs a single deterministic vector z = f(x). A VAE encoder outputs the parameters of a probability distribution — specifically a mean vector μ and a log-variance vector log(σ²)." },
-  { q: "Why doesn't minimizing only reconstruction loss produce a good generative latent space?", a: "Reconstruction loss only penalizes reconstruction at exact training coordinates. It does not enforce smoothness, continuity, or completeness across the latent space, leaving empty regions where random samples decode into nonsensical noise." }
+  { q: "Why does a narrow bottleneck force a network to learn something meaningful, while a wide one does not?", a: "A narrow bottleneck cannot physically hold the input, so the network must spend its limited capacity on the factors that actually vary across the dataset. If the bottleneck is as wide as the input, the network can simply learn the identity function — copying values straight through — which satisfies the objective while learning nothing about the structure of the data." },
 ]} />
 
-## The Variational Solution: Probabilistic Encodings
+## The three pieces of an autoencoder
 
-Instead of mapping an input $x$ to a single fixed point $z$, the VAE maps $x$ to a **probability distribution** $q_\phi(z|x)$:
+An **autoencoder** is exactly that architecture, and it has three named parts:
 
-$$\mu, \log \sigma^2 = \text{Encoder}_\phi(x)$$
+<FactList accent="#6366f1" items={[
+  { t: 'Encoder', d: 'A network that compresses the input x down to a small vector. Written z = f(x). Its job is to decide what is worth keeping.' },
+  { t: 'Latent code (z)', d: 'The compressed vector itself — the bottleneck. Also called the latent representation or the code. This is what the whole track is ultimately about.' },
+  { t: 'Decoder', d: 'A network that expands z back to full size, producing a reconstruction written x-hat. Its job is to rebuild the input from only what the encoder kept.' },
+]} />
 
-$$q_\phi(z|x) = \mathcal{N}(\mu, \text{diag}(\sigma^2))$$
+Training needs no labels at all. The target *is* the input: push $x$ through both networks and penalise the difference between what came out and what went in. That penalty is the **reconstruction loss**, typically squared error:
 
-To enforce that these distributions fill the latent space without holes and stay centered, the VAE introduces a **regularization penalty** (the Kullback-Leibler divergence) forcing $q_\phi(z|x)$ to resemble a standard normal prior $p(z) = \mathcal{N}(0, I)$.
+$$\mathcal{L}_{\text{recon}} = \| x - \hat{x} \|^2$$
 
-| Property | Standard Autoencoder | Variational Autoencoder (VAE) |
-|---|---|---|
-| **Encoder Mapping** | Deterministic point $z = f_\phi(x)$ | Distribution parameters $\mu, \sigma^2 = f_\phi(x)$ |
-| **Latent Space Structure** | Irregular, disjoint, unbounded | Smooth, continuous, centered at origin |
-| **Generative Sampling** | Not possible (no known prior distribution) | Sample $z \sim \mathcal{N}(0, I)$, decode $\hat{x} = g_\theta(z)$ |
-| **Loss Objective** | Reconstruction Loss only ($\text{MSE}$ / $\text{BCE}$) | $\text{ELBO} = \text{Reconstruction Loss} + \text{KL Divergence}$ |
-| **Interpolation** | Jagged, transitions through nonsensical states | Smooth, gradual semantic morphing |
+In words: *take the reconstruction, subtract the original, square the differences, add them up.* A loss of zero means a perfect copy. Because the target is the input, no human ever has to label anything — which is why autoencoders are called **self-supervised**.
 
-## Summary Check
+<Recall items={[
+  { q: "What are the three components of an autoencoder, and what supervision signal does training require?", a: "An encoder that compresses x into a latent code z, the latent code itself (the bottleneck), and a decoder that reconstructs x-hat from z. Training requires no labels at all — the target is the input itself, and the loss measures the difference between the reconstruction and the original. This makes it self-supervised." },
+]} />
+
+## Latent space is a map
+
+<PredictReveal
+  prompt="Train an autoencoder on digits with a 2-number bottleneck, and plot where every training image lands on those two axes. Would you expect two images of the digit 3 to land near each other, or far apart?"
+  options={["Near each other — similar inputs need similar codes to reconstruct similarly", "Far apart — the encoder has no reason to group anything"]}
+  correct={0}
+>
+
+Because the decoder is a continuous function, two codes that sit close together decode to similar images. Run that backwards: for two similar images to reconstruct correctly, their codes generally end up close together too. So the 2D plane of possible $z$ values becomes a **map** of the data, with related things clustered.
+
+That map is called the **latent space**, and it is the object of interest for the rest of this track. "Latent" just means hidden or not directly observed — nobody labelled these axes, and the network was never told what they should mean. They emerged from the pressure to compress.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does the word 'latent' mean here, and why does similar data end up close together in latent space?", a: "Latent means hidden or not directly observed — the axes emerged from the pressure to compress rather than being designed or labelled. Similar inputs land near each other because the decoder is a continuous function: nearby codes decode to similar images, so similar images need nearby codes in order to reconstruct correctly." },
+]} />
+
+## Comparing two distributions, informally
+
+One more idea is needed before the next module, and it is worth meeting gently now because the formal version arrives quickly.
+
+Sometimes we need to say **how different one probability distribution is from another** — not how far apart two points are, but how far apart two entire *spreads* are. The standard tool for this is **KL divergence**, written $D_{KL}(q \,\|\, p)$.
+
+For now, three properties are enough:
+
+<FactList accent="#6366f1" items={[
+  { t: 'It is zero when they match', d: 'If distribution q is identical to distribution p, the divergence is exactly 0. Any difference makes it positive.' },
+  { t: 'It is never negative', d: 'The value only ever goes up from 0 as the distributions grow further apart. There is no such thing as a negative divergence.' },
+  { t: 'It is not symmetric', d: 'The divergence from q to p is generally not the same number as from p to q, which is why it is called a divergence rather than a distance.' },
+]} />
+
+That is the whole intuition: **a non-negative number measuring how far one distribution sits from another, hitting zero only when they match.** Module 5 derives the exact formula for the Gaussian case; until then, reading $D_{KL}$ as "how far apart these two distributions are" is enough to follow the argument.
+
+<Recall items={[
+  { q: "What does KL divergence measure, and what value does it take when two distributions are identical?", a: "It measures how different one probability distribution is from another — a comparison of entire spreads rather than of two points. It equals exactly 0 when the distributions are identical, is never negative, and is not symmetric (the divergence from q to p is generally not the same as from p to q), which is why it is called a divergence rather than a distance." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A narrow **bottleneck** forces a network to learn the factors that genuinely vary in the data, because it physically cannot store the input. Widen it too far and the network just learns the identity function.
+- An **autoencoder** is encoder → latent code $z$ → decoder, trained with a **reconstruction loss** comparing the output to the input. It needs **no labels** — the target is the input itself.
+- The space of possible $z$ values is the **latent space**, a map on which similar inputs land near each other because the decoder is continuous.
+- **KL divergence** $D_{KL}(q \,\|\, p)$ measures how far one distribution is from another: zero when they match, never negative, and not symmetric. The exact formula comes in Module 5.
+</ConceptBox>
 
 <QuizCard
-  question="Why does standard autoencoder latent space allow clusters to drift arbitrarily far apart during training?"
+  question="Why does an autoencoder need no labelled data to train?"
   options={[
-    "Because standard autoencoders lack any loss term that penalizes large latent magnitudes or divergence from a centered prior.",
-    "Because the encoder uses non-linear activations which always push weights to infinity.",
-    "Because reconstruction loss is strictly minimized when latents are orthogonal."
+    "Because the target is the input itself — the loss measures the difference between the reconstruction and the original",
+    "Because it only trains the decoder, which requires no supervision",
+    "Because labels are generated automatically by a second network",
+    "Because reconstruction loss ignores the target entirely"
   ]}
-  correctIndex={0}
-  explanation="Without a prior regularization term (like KL divergence), the optimization objective only cares about reconstruction fidelity, which allows the network to separate clusters arbitrarily far to avoid overlap."
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about autoencoders and latent space are correct?"
+  options={[
+    "A bottleneck as wide as the input allows the network to learn the identity function and learn nothing useful",
+    "The latent code z is produced by the encoder and consumed by the decoder",
+    "Similar inputs tend to land near each other in latent space because the decoder is continuous",
+    "The axes of latent space are labelled by hand before training begins",
+    "KL divergence is zero exactly when the two distributions being compared are identical"
+  ]}
+  correct={[0, 1, 2, 4]}
 />

@@ -1,90 +1,136 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ReparameterizationWidget from '../../components/widgets/vae/ReparameterizationWidget.jsx'
 
-# Module 6: Reconstruction Loss & Likelihood Assumptions
+# Module 6: The Reparameterization Trick
 
-<ConceptBox title="Likelihood Dictates Loss">
-In the ELBO, the reconstruction term is $\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]$. The specific loss function you use (e.g. Binary Cross-Entropy or Mean Squared Error) is not an arbitrary design choice — it is directly determined by the **probabilistic distribution assumed for the decoder's output** $p_\theta(x|z)$.
+<ConceptBox title="The Core Engineering Breakthrough">
+The reparameterization trick makes backpropagation through stochastic latent layers possible. By expressing the random variable $z \sim \mathcal{N}(\mu, \sigma^2)$ as a deterministic function with an external noise input:
+
+$$z = g_\phi(x, \epsilon) = \mu + \sigma \odot \epsilon, \qquad \text{where } \epsilon \sim \mathcal{N}(0, I)$$
+
+gradients $\nabla_\phi \mathbb{E}_{q_\phi(z|x)}[f(z)]$ can flow smoothly through $\mu$ and $\sigma$ into the encoder parameters $\phi$.
 </ConceptBox>
 
 <Bridge>
-Module 5 derived how gradients propagate from the reconstruction loss through the latent variables. This module examines how different data types (normalized pixel intensities, continuous values, audio spectrograms) correspond to different decoder likelihood distributions and their resulting loss formulas.
+Module 5 derived the analytical KL loss. However, to evaluate and backpropagate through the reconstruction loss $\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]$, the model must sample a latent vector $z$. This module solves the fundamental problem of backpropagating through random sampling.
 </Bridge>
 
-## Case 1: Bernoulli Likelihood → Binary Cross-Entropy (BCE)
+## The Problem: Stochastic Bottleneck
 
-When data $x \in [0, 1]^D$ consists of pixel intensities treated as independent probabilities (common for MNIST or black-and-white images), we model $p_\theta(x|z)$ as a **multivariate Bernoulli distribution**:
+Suppose we implement sampling directly:
 
-$$p_\theta(x|z) = \prod_{i=1}^D \hat{x}_i^{x_i} (1 - \hat{x}_i)^{1 - x_i}, \qquad \text{where } \hat{x} = \text{Sigmoid}(\text{Decoder}_\theta(z))$$
+```python
+# Non-differentiable direct sampling
+z = torch.normal(mean=mu, std=sigma) # ❌ Breaks computational graph!
+```
 
-Taking the logarithm:
+During the forward pass, this works fine. But during backpropagation, autograd needs to compute:
 
-$$\log p_\theta(x|z) = \sum_{i=1}^D \left[ x_i \log \hat{x}_i + (1 - x_i) \log(1 - \hat{x}_i) \right] = -\text{BCE}(x, \hat{x})$$
+$$\frac{\partial \mathcal{L}_{\text{recon}}}{\partial \phi} = \frac{\partial \mathcal{L}_{\text{recon}}}{\partial z} \cdot \frac{\partial z}{\partial \phi}$$
 
-Therefore, maximizing the expected log-Bernoulli likelihood is exactly equivalent to **minimizing the Binary Cross-Entropy (BCE) loss** summed over all pixels:
+What is $\frac{\partial z}{\partial \mu}$ when $z$ is drawn from a random number generator? **It is undefined!** The random sampling operation is a non-differentiable stochastic node that severs the gradient path.
 
-$$\mathcal{L}_{\text{recon}}(x, \hat{x}) = \sum_{i=1}^D \text{BCE}(x_i, \hat{x}_i)$$
+```
+       Non-Differentiable Graph:
+       
+       x ──► [ Encoder ϕ ] ──► (μ, σ²) ──► [ Random Sample z ] ──► [ Decoder θ ] ──► x̂
+                                                │
+                                    ❌ Gradient cannot cross here
+```
 
-## Case 2: Gaussian Likelihood → Mean Squared Error (MSE)
+## The Score-Function Estimator Alternative (and Why It Fails)
 
-When data $x \in \mathbb{R}^D$ is continuous (e.g. normalized real-world RGB photographs or audio), we model $p_\theta(x|z)$ as an **isotropic Gaussian** with fixed variance $\sigma_x^2$:
+One classical alternative is the **REINFORCE / Score-Function estimator**:
 
-$$p_\theta(x|z) = \mathcal{N}\big(x; \hat{x}, \sigma_x^2 I\big) = \frac{1}{(2\pi\sigma_x^2)^{D/2}} \exp\left( -\frac{\|x - \hat{x}\|^2}{2\sigma_x^2} \right)$$
+$$\nabla_\phi \mathbb{E}_{q_\phi(z|x)}[f(z)] = \mathbb{E}_{q_\phi(z|x)}\big[ f(z) \nabla_\phi \log q_\phi(z|x) \big]$$
 
-Taking the logarithm:
+While mathematically unbiased, the variance of this estimator is **extremely high**. In deep neural networks, REINFORCE gradients are so noisy that training a VAE takes millions of iterations or fails to converge entirely.
 
-$$\log p_\theta(x|z) = -\frac{D}{2}\log(2\pi\sigma_x^2) - \frac{1}{2\sigma_x^2} \|x - \hat{x}\|^2$$
-
-Dropping the constant term, maximizing this log-likelihood is equivalent to **minimizing Mean Squared Error (MSE)** scaled by the assumed observation variance:
-
-$$\mathcal{L}_{\text{recon}}(x, \hat{x}) \propto \frac{1}{2\sigma_x^2} \sum_{i=1}^D (x_i - \hat{x}_i)^2$$
-
-| Likelihood Assumption $p_\theta(x|z)$ | Target Data Range | Decoder Final Layer | Resulting Loss Function |
-|---|---|---|---|
-| **Bernoulli** | $x_i \in [0, 1]$ (e.g. MNIST) | `nn.Sigmoid()` | `F.binary_cross_entropy(recon_x, x, reduction='sum')` |
-| **Gaussian (Fixed $\sigma_x^2$)** | $x_i \in \mathbb{R}$ (e.g. RGB) | Linear / Tanh | `F.mse_loss(recon_x, x, reduction='sum')` |
-| **Gaussian (Learned $\sigma_x^2$)** | $x_i \in \mathbb{R}$ | Two output heads: $\hat{\mu}, \hat{\sigma}^2$ | Heteroscedastic Gaussian NLL |
-
-## The Reduction Trap: `sum` vs `mean` in PyTorch
+## The Reparameterization Solution
 
 <PredictReveal
-  prompt="In PyTorch, if you compute KL divergence summed over latent dimensions (e.g. D_z = 20) and compute MSE loss averaged over all pixels (reduction='mean', e.g. 28x28 = 784 pixels), what happens to the loss balance?"
+  prompt="The randomness is what breaks the gradient path. We cannot remove it — the model genuinely needs to sample. What is the one remaining option?"
   options={[
-    "Nothing; PyTorch automatically re-weights both terms.",
-    "The KL term will overpower the reconstruction term by a factor of hundreds (e.g. KL ~ 15 vs MSE_mean ~ 0.05), causing the encoder to ignore the data and collapse latents.",
-    "The reconstruction term will overpower the KL term."
+    "Approximate the derivative of the sampling operation numerically",
+    "Keep the randomness but move it OUT of the path, so it enters as an external input rather than as a step inside the computation"
   ]}
   correct={1}
 >
 
-**The reduction mismatch is the most common bug in VAE implementations.**
-
-Mathematically, the ELBO sums both $\log p_\theta(x|z)$ over all $D$ observable dimensions and $D_{KL}$ over all $d$ latent dimensions for each sample:
-
-```python
-# CORRECT: Consistent sum over dimensions, mean over batch
-recon_loss = F.binary_cross_entropy(recon_x, x, reduction='sum') / batch_size
-kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / batch_size
-total_loss = recon_loss + kl_loss
-```
-
-If you accidentally use `reduction='mean'` for reconstruction loss, the reconstruction term is divided by 784 (for MNIST), making it 784× too small relative to the KL penalty!
+If the random draw happens *outside* the network and arrives as just another input value, then everything inside the network is an ordinary deterministic calculation — and ordinary deterministic calculations are exactly what autograd handles. The sampling still happens on every forward pass; it simply stops sitting between the encoder and the loss.
 
 </PredictReveal>
 
+The reparameterization trick isolates the stochasticity into an **independent, parameter-free noise variable** $\epsilon \sim \mathcal{N}(0, I)$:
+
+$$z = \mu(x) + \sigma(x) \odot \epsilon$$
+
+```
+       Reparameterized Differentiable Graph:
+       
+                 ε ~ 𝒩(0, I)  (Independent noise)
+                     │
+                     ▼
+       x ──► [ Encoder ϕ ] ──► (μ, σ) ──► [ z = μ + σ ⊙ ε ] ──► [ Decoder θ ] ──► x̂
+                                                 ▲
+                                                 │
+                                 ✓ Differentiable deterministic node
+```
+
+Now, $z$ is a completely deterministic, differentiable function of $\mu$ and $\sigma$:
+
+$$\frac{\partial z}{\partial \mu} = 1, \qquad \frac{\partial z}{\partial \sigma} = \epsilon$$
+
+Since $\sigma = \exp(0.5 \times \text{logvar})$, the derivative with respect to `logvar` is:
+
+$$\frac{\partial z}{\partial \text{logvar}} = \frac{\partial z}{\partial \sigma} \cdot \frac{\partial \sigma}{\partial \text{logvar}} = \epsilon \cdot \left(0.5 \cdot \exp(0.5 \times \text{logvar})\right) = 0.5 \cdot \sigma \cdot \epsilon$$
+
+## Interactive Computational Graph
+
+Explore the interactive graph below. Toggle between direct sampling and the reparameterization trick, then simulate the backward pass:
+
+<ReparameterizationWidget />
+
+## PyTorch Implementation
+
+In PyTorch, the reparameterization trick is implemented in just three lines:
+
+```python
+def reparameterize(mu, logvar):
+    """
+    Reparameterization trick: sample eps ~ N(0, I), return z = mu + std * eps
+    """
+    std = torch.exp(0.5 * logvar) # sigma = sqrt(exp(logvar))
+    eps = torch.randn_like(std)    # sample noise with same shape and device
+    return mu + eps * std          # pathwise differentiable latent code
+```
+
 <Recall items={[
-  { q: "What decoder likelihood corresponds to using Binary Cross-Entropy (BCE) as the reconstruction loss?", a: "A multivariate Bernoulli likelihood distribution p_θ(x|z), where each output pixel represents the independent probability of that pixel being active (white)." },
-  { q: "Why must reconstruction loss and KL divergence use matching reductions (sum over features, mean over batch)?", a: "Because in the mathematical ELBO, log p(x|z) is the total log-probability across all observed dimensions. Dividing reconstruction by number of pixels without scaling KL causes massive over-regularization and latent collapse." }
+  { q: "What is the reparameterization trick formula?", a: "z = μ + σ ⊙ ε, where ε ~ 𝒩(0, I) is standard Gaussian noise." },
+  { q: "Why is the pathwise reparameterization trick preferred over REINFORCE?", a: "Because pathwise gradients exploit the exact derivative of the decoder with respect to z, yielding dramatically lower gradient variance and enabling rapid, stable gradient descent training." }
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Sampling $z$ is required to evaluate the reconstruction term, but a raw sampling operation is a **dead end for gradients** — there is no derivative of "draw a random number" with respect to $\mu$.
+- The **reparameterisation trick** moves the randomness out of the path: draw $\epsilon \sim \mathcal{N}(0, I)$ *outside* the network, then compute $z = \mu + \sigma \odot \epsilon$, which is an ordinary differentiable expression.
+- Gradients now flow: $\partial z / \partial \mu = 1$ and $\partial z / \partial \sigma = \epsilon$. The sampling still happens, but it happens to an input rather than inside the computation.
+- The alternative (REINFORCE / score-function estimator) is unbiased but so high-variance that VAE training effectively fails with it.
+</ConceptBox>
 
 ## Summary Check
 
 <QuizCard
-  question="Why are reconstructions from VAEs trained with Gaussian likelihood / MSE loss often slightly blurrier than real images?"
+  question="During evaluation or inference (generating new images from the prior), is the reparameterization trick used?"
   options={[
-    "MSE penalizes pixel-wise Euclidean distance; when uncertain between multiple crisp edges, the conditional expectation that minimizes MSE is the pixel average (a blurry edge).",
-    "Because latent dimensions must always be less than 10.",
-    "Because the encoder uses max pooling."
+    "No, during pure generation we directly sample z ~ 𝒩(0, I) and pass it to the decoder; encoder and reparameterization are bypassed.",
+    "Yes, reparameterization is always required for every forward pass.",
+    "No, the decoder outputs a random seed instead."
   ]}
-  correctIndex={0}
-  explanation="Minimizing L2 pixel distance under uncertainty results in predicting the expected value over the posterior distribution, which averages high-frequency details and produces smooth, blurry transitions."
+  correct={0}
 />
+
+<Recall items={[
+  { q: "Check your reasoning", a: "During generation, we sample z directly from the standard normal prior p(z) = 𝒩(0, I) and pass it through the decoder p_θ(x|z). The encoder and reparameterization trick are only used during training and posterior inference." }
+]} />

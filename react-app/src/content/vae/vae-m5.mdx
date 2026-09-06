@@ -1,111 +1,122 @@
-import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
-import ReparameterizationWidget from '../../components/widgets/vae/ReparameterizationWidget.jsx'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import KLGaussianWidget from '../../components/widgets/vae/KLGaussianWidget.jsx'
 
-# Module 5: The Reparameterization Trick
+# Module 5: Analytical KL Divergence for Gaussian Distributions
 
-<ConceptBox title="The Core Engineering Breakthrough">
-The reparameterization trick makes backpropagation through stochastic latent layers possible. By expressing the random variable $z \sim \mathcal{N}(\mu, \sigma^2)$ as a deterministic function with an external noise input:
+<ConceptBox title="Closed-Form Regularizer">
+When both the variational posterior $q_\phi(z|x) = \mathcal{N}(\mu, \text{diag}(\sigma^2))$ and prior $p(z) = \mathcal{N}(0, I)$ are multivariate Gaussians with diagonal covariance, their Kullback-Leibler divergence has an **exact closed-form analytical solution**:
 
-$$z = g_\phi(x, \epsilon) = \mu + \sigma \odot \epsilon, \qquad \text{where } \epsilon \sim \mathcal{N}(0, I)$$
+$$D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big) = -\frac{1}{2} \sum_{j=1}^d \left( 1 + \log(\sigma_j^2) - \mu_j^2 - \sigma_j^2 \right)$$
 
-gradients $\nabla_\phi \mathbb{E}_{q_\phi(z|x)}[f(z)]$ can flow smoothly through $\mu$ and $\sigma$ into the encoder parameters $\phi$.
+No Monte Carlo sampling is required for the KL term!
 </ConceptBox>
 
 <Bridge>
-Module 4 derived the analytical KL loss. However, to evaluate and backpropagate through the reconstruction loss $\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]$, the model must sample a latent vector $z$. This module solves the fundamental problem of backpropagating through random sampling.
+Module 4 derived the ELBO objective. In this module, we derive the exact analytical formula used to compute the KL divergence in code, explore its component terms, and explain why encoders predict log-variance $\log \sigma^2$ instead of standard deviation $\sigma$.
 </Bridge>
 
-## The Problem: Stochastic Bottleneck
+## Derivation for 1D Gaussians
 
-Suppose we implement sampling directly:
+For a single latent dimension $z \in \mathbb{R}$ with $q(z) = \mathcal{N}(\mu, \sigma^2)$ and $p(z) = \mathcal{N}(0, 1)$:
+
+<DerivationSteps>
+  <DerivationStep step={1} title="Express Densities">
+    $$q(z) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\left(-\frac{(z-\mu)^2}{2\sigma^2}\right), \qquad p(z) = \frac{1}{\sqrt{2\pi}} \exp\left(-\frac{z^2}{2}\right)$$
+  </DerivationStep>
+
+  <DerivationStep step={2} title="Expand the Log-Ratio">
+    $$\log \frac{q(z)}{p(z)} = \log q(z) - \log p(z) = \left[ -\frac{1}{2}\log(2\pi\sigma^2) - \frac{(z-\mu)^2}{2\sigma^2} \right] - \left[ -\frac{1}{2}\log(2\pi) - \frac{z^2}{2} \right]$$
+    $$= -\frac{1}{2} \log(\sigma^2) - \frac{(z-\mu)^2}{2\sigma^2} + \frac{z^2}{2}$$
+  </DerivationStep>
+
+  <DerivationStep step={3} title="Take the Expectation under q(z)">
+    Taking expectation $\mathbb{E}_{q(z)}\left[\dots\right]$ over each term:
+    - $\mathbb{E}_{q(z)}\left[-\frac{1}{2}\log(\sigma^2)\right] = -\frac{1}{2}\log(\sigma^2)$ (constant)
+    - $\mathbb{E}_{q(z)}\left[\frac{(z-\mu)^2}{2\sigma^2}\right] = \frac{\text{Var}(z)}{2\sigma^2} = \frac{\sigma^2}{2\sigma^2} = \frac{1}{2}$
+    - $\mathbb{E}_{q(z)}\left[\frac{z^2}{2}\right] = \frac{1}{2}\left(\text{Var}(z) + \mathbb{E}[z]^2\right) = \frac{1}{2}(\sigma^2 + \mu^2)$
+  </DerivationStep>
+
+  <DerivationStep step={4} title="Combine and Factor Out -1/2">
+    $$D_{KL}\big(q(z) \,\|\, p(z)\big) = -\frac{1}{2}\log(\sigma^2) - \frac{1}{2} + \frac{1}{2}\sigma^2 + \frac{1}{2}\mu^2$$
+    $$D_{KL}\big(q(z) \,\|\, p(z)\big) = -\frac{1}{2} \left( 1 + \log(\sigma^2) - \mu^2 - \sigma^2 \right)$$
+  </DerivationStep>
+</DerivationSteps>
+
+For a $d$-dimensional latent vector with diagonal covariance, the dimensions are mutually independent, so the total KL divergence is simply the sum across all dimensions $j = 1, \dots, d$:
+
+$$D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big) = -\frac{1}{2} \sum_{j=1}^d \left( 1 + \log(\sigma_j^2) - \mu_j^2 - \sigma_j^2 \right)$$
+
+## Interactive Gaussian KL Explorer
+
+Use the interactive widget below to test how shifting $\mu$ and altering $\log \sigma^2$ impacts the total KL penalty:
+
+<KLGaussianWidget />
+
+<PredictReveal
+  prompt="What happens to D_KL when μ = 0 and σ² = 1 (i.e. q(z|x) is identical to p(z))?"
+  options={[
+    "D_KL = 0, because 1 + log(1) - 0² - 1 = 1 + 0 - 0 - 1 = 0.",
+    "D_KL = 1.0, because standard deviations are 1.",
+    "D_KL = -0.5, because of the leading factor."
+  ]}
+  correct={0}
+>
+
+When $\mu = 0$ and $\sigma^2 = 1$, all terms cancel:
+
+$$D_{KL} = -\frac{1}{2} (1 + 0 - 0 - 1) = 0$$
+
+KL divergence is strictly zero if and only if the encoder outputs the exact prior distribution.
+
+</PredictReveal>
+
+## Why Predict Log-Variance instead of Variance or Standard Deviation?
+
+In neural network implementations, the encoder's linear output layers produce **unconstrained real numbers** in $(-\infty, +\infty)$.
+
+Standard deviations $\sigma$ and variances $\sigma^2$ must strictly be **positive** ($\sigma > 0$). If an output layer directly predicted $\sigma$, gradient updates could easily produce negative values, causing $\sqrt{\sigma^2}$ and $\log(\sigma^2)$ to crash with NaNs.
+
+By having the network output $\log(\sigma^2)$ (log-variance, often written as `logvar`):
+
+1. `logvar` $\in (-\infty, +\infty)$ requires no clipping or activation constraints.
+2. $\sigma^2 = \exp(\text{logvar})$ is guaranteed positive for any real output.
+3. $\sigma = \exp(0.5 \times \text{logvar}) = \sqrt{\exp(\text{logvar})}$.
 
 ```python
-# Non-differentiable direct sampling
-z = torch.normal(mean=mu, std=sigma) # ❌ Breaks computational graph!
-```
-
-During the forward pass, this works fine. But during backpropagation, autograd needs to compute:
-
-$$\frac{\partial \mathcal{L}_{\text{recon}}}{\partial \phi} = \frac{\partial \mathcal{L}_{\text{recon}}}{\partial z} \cdot \frac{\partial z}{\partial \phi}$$
-
-What is $\frac{\partial z}{\partial \mu}$ when $z$ is drawn from a random number generator? **It is undefined!** The random sampling operation is a non-differentiable stochastic node that severs the gradient path.
-
-```
-       Non-Differentiable Graph:
-       
-       x ──► [ Encoder ϕ ] ──► (μ, σ²) ──► [ Random Sample z ] ──► [ Decoder θ ] ──► x̂
-                                                │
-                                    ❌ Gradient cannot cross here
-```
-
-## The Score-Function Estimator Alternative (and Why It Fails)
-
-One classical alternative is the **REINFORCE / Score-Function estimator**:
-
-$$\nabla_\phi \mathbb{E}_{q_\phi(z|x)}[f(z)] = \mathbb{E}_{q_\phi(z|x)}\big[ f(z) \nabla_\phi \log q_\phi(z|x) \big]$$
-
-While mathematically unbiased, the variance of this estimator is **extremely high**. In deep neural networks, REINFORCE gradients are so noisy that training a VAE takes millions of iterations or fails to converge entirely.
-
-## The Reparameterization Solution
-
-The reparameterization trick isolates the stochasticity into an **independent, parameter-free noise variable** $\epsilon \sim \mathcal{N}(0, I)$:
-
-$$z = \mu(x) + \sigma(x) \odot \epsilon$$
-
-```
-       Reparameterized Differentiable Graph:
-       
-                 ε ~ 𝒩(0, I)  (Independent noise)
-                     │
-                     ▼
-       x ──► [ Encoder ϕ ] ──► (μ, σ) ──► [ z = μ + σ ⊙ ε ] ──► [ Decoder θ ] ──► x̂
-                                                 ▲
-                                                 │
-                                 ✓ Differentiable deterministic node
-```
-
-Now, $z$ is a completely deterministic, differentiable function of $\mu$ and $\sigma$:
-
-$$\frac{\partial z}{\partial \mu} = 1, \qquad \frac{\partial z}{\partial \sigma} = \epsilon$$
-
-Since $\sigma = \exp(0.5 \times \text{logvar})$, the derivative with respect to `logvar` is:
-
-$$\frac{\partial z}{\partial \text{logvar}} = \frac{\partial z}{\partial \sigma} \cdot \frac{\partial \sigma}{\partial \text{logvar}} = \epsilon \cdot \left(0.5 \cdot \exp(0.5 \times \text{logvar})\right) = 0.5 \cdot \sigma \cdot \epsilon$$
-
-## Interactive Computational Graph
-
-Explore the interactive graph below. Toggle between direct sampling and the reparameterization trick, then simulate the backward pass:
-
-<ReparameterizationWidget />
-
-## PyTorch Implementation
-
-In PyTorch, the reparameterization trick is implemented in just three lines:
-
-```python
-def reparameterize(mu, logvar):
-    """
-    Reparameterization trick: sample eps ~ N(0, I), return z = mu + std * eps
-    """
-    std = torch.exp(0.5 * logvar) # sigma = sqrt(exp(logvar))
-    eps = torch.randn_like(std)    # sample noise with same shape and device
-    return mu + eps * std          # pathwise differentiable latent code
+# PyTorch implementation of analytical Gaussian KL Divergence
+def kl_divergence(mu, logvar):
+    # mu: (batch_size, latent_dim)
+    # logvar: (batch_size, latent_dim)
+    kl = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=-1)
+    return kl.mean() # Average over batch
 ```
 
 <Recall items={[
-  { q: "What is the reparameterization trick formula?", a: "z = μ + σ ⊙ ε, where ε ~ 𝒩(0, I) is standard Gaussian noise." },
-  { q: "Why is the pathwise reparameterization trick preferred over REINFORCE?", a: "Because pathwise gradients exploit the exact derivative of the decoder with respect to z, yielding dramatically lower gradient variance and enabling rapid, stable gradient descent training." }
+  { q: "What is the analytical formula for D_KL(𝒩(μ, σ²) || 𝒩(0, 1))?", a: "D_KL = -0.5 * ∑ (1 + log(σ²) - μ² - σ²)." },
+  { q: "Why is predicting log(σ²) preferred over directly predicting σ in PyTorch?", a: "Because log(σ²) can take any real value in (-∞, +∞) without constraint, avoiding invalid negative variances during optimization. The variance exp(logvar) is automatically strictly positive." }
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- When both distributions are Gaussian, the KL term needs **no sampling at all** — it has an exact closed form: $D_{KL} = -	frac{1}{2}\sum_j (1 + \log\sigma_j^2 - \mu_j^2 - \sigma_j^2)$.
+- Read it as two pressures: $\mu_j^2$ pushes each cloud's centre toward the origin, and the $\log\sigma_j^2 - \sigma_j^2$ pair pushes its width toward 1.
+- The divergence is exactly **0** when $\mu = 0$ and $\sigma^2 = 1$ — the encoder has reproduced the prior precisely.
+- Encoders predict **log-variance**, not variance or standard deviation, because a linear layer outputs any real number and $\exp$ of that is always positive — no clipping, no risk of a negative variance crashing training.
+</ConceptBox>
 
 ## Summary Check
 
 <QuizCard
-  question="During evaluation or inference (generating new images from the prior), is the reparameterization trick used?"
+  question="If the encoder outputs μ = 2.0 and log(σ²) = 0.0 (so σ² = 1.0), what is the single-dimension KL divergence?"
   options={[
-    "No, during pure generation we directly sample z ~ 𝒩(0, I) and pass it to the decoder; encoder and reparameterization are bypassed.",
-    "Yes, reparameterization is always required for every forward pass.",
-    "No, the decoder outputs a random seed instead."
+    "2.0",
+    "0.5",
+    "4.0"
   ]}
-  correctIndex={0}
-  explanation="During generation, we sample z directly from the standard normal prior p(z) = 𝒩(0, I) and pass it through the decoder p_θ(x|z). The encoder and reparameterization trick are only used during training and posterior inference."
+  correct={0}
 />
+
+<Recall items={[
+  { q: "Check your reasoning", a: "D_KL = -0.5 * (1 + 0 - (2.0)² - 1) = -0.5 * (1 - 4 - 1) = -0.5 * (-4) = 2.0." }
+]} />

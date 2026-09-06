@@ -1,138 +1,102 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
-# Module 7: Demonstration — Variational Autoencoder in PyTorch
+# Module 7: Reconstruction Loss & Likelihood Assumptions
 
-<ConceptBox title="Run the Code">
-This module's complete VAE model, custom loss function, training loop, 2D latent grid manifold visualizer, and interpolation scripts are collected into an end-to-end runnable notebook:
-
-**[Open the Variational Autoencoders lab in Google Colab](https://colab.research.google.com/github/jeevchiran/learnings-ai-ml/blob/main/notebook/vae/vae-lab.ipynb)**.
-
-Read through the modular architecture below, then open the Colab notebook to run it directly on GPU/CPU!
+<ConceptBox title="Likelihood Dictates Loss">
+In the ELBO, the reconstruction term is $\mathbb{E}_{q_\phi(z|x)}[\log p_\theta(x|z)]$. The specific loss function you use (e.g. Binary Cross-Entropy or Mean Squared Error) is not an arbitrary design choice — it is directly determined by the **probabilistic distribution assumed for the decoder's output** $p_\theta(x|z)$.
 </ConceptBox>
 
 <Bridge>
-Modules 1 through 6 assembled the theory: probabilistic encodings, the ELBO objective, Gaussian KL divergence, the reparameterization trick, and proper loss scaling. Now, we put all pieces together into a clean, complete PyTorch implementation.
+Module 6 derived how gradients propagate from the reconstruction loss through the latent variables. This module examines how different data types (normalized pixel intensities, continuous values, audio spectrograms) correspond to different decoder likelihood distributions and their resulting loss formulas.
 </Bridge>
 
-## The Complete VAE Module Architecture
+## Case 1: Bernoulli Likelihood → Binary Cross-Entropy (BCE)
+
+When data $x \in [0, 1]^D$ consists of pixel intensities treated as independent probabilities (common for MNIST or black-and-white images), we model $p_\theta(x|z)$ as a **multivariate Bernoulli distribution**:
+
+$$p_\theta(x|z) = \prod_{i=1}^D \hat{x}_i^{x_i} (1 - \hat{x}_i)^{1 - x_i}, \qquad \text{where } \hat{x} = \text{Sigmoid}(\text{Decoder}_\theta(z))$$
+
+Taking the logarithm:
+
+$$\log p_\theta(x|z) = \sum_{i=1}^D \left[ x_i \log \hat{x}_i + (1 - x_i) \log(1 - \hat{x}_i) \right] = -\text{BCE}(x, \hat{x})$$
+
+Therefore, maximizing the expected log-Bernoulli likelihood is exactly equivalent to **minimizing the Binary Cross-Entropy (BCE) loss** summed over all pixels:
+
+$$\mathcal{L}_{\text{recon}}(x, \hat{x}) = \sum_{i=1}^D \text{BCE}(x_i, \hat{x}_i)$$
+
+## Case 2: Gaussian Likelihood → Mean Squared Error (MSE)
+
+When data $x \in \mathbb{R}^D$ is continuous (e.g. normalized real-world RGB photographs or audio), we model $p_\theta(x|z)$ as an **isotropic Gaussian** with fixed variance $\sigma_x^2$:
+
+$$p_\theta(x|z) = \mathcal{N}\big(x; \hat{x}, \sigma_x^2 I\big) = \frac{1}{(2\pi\sigma_x^2)^{D/2}} \exp\left( -\frac{\|x - \hat{x}\|^2}{2\sigma_x^2} \right)$$
+
+Taking the logarithm:
+
+$$\log p_\theta(x|z) = -\frac{D}{2}\log(2\pi\sigma_x^2) - \frac{1}{2\sigma_x^2} \|x - \hat{x}\|^2$$
+
+Dropping the constant term, maximizing this log-likelihood is equivalent to **minimizing Mean Squared Error (MSE)** scaled by the assumed observation variance:
+
+$$\mathcal{L}_{\text{recon}}(x, \hat{x}) \propto \frac{1}{2\sigma_x^2} \sum_{i=1}^D (x_i - \hat{x}_i)^2$$
+
+| Likelihood Assumption $p_\theta(x|z)$ | Target Data Range | Decoder Final Layer | Resulting Loss Function |
+|---|---|---|---|
+| **Bernoulli** | $x_i \in [0, 1]$ (e.g. MNIST) | `nn.Sigmoid()` | `F.binary_cross_entropy(recon_x, x, reduction='sum')` |
+| **Gaussian (Fixed $\sigma_x^2$)** | $x_i \in \mathbb{R}$ (e.g. RGB) | Linear / Tanh | `F.mse_loss(recon_x, x, reduction='sum')` |
+| **Gaussian (Learned $\sigma_x^2$)** | $x_i \in \mathbb{R}$ | Two output heads: $\hat{\mu}, \hat{\sigma}^2$ | Heteroscedastic Gaussian NLL |
+
+## The Reduction Trap: `sum` vs `mean` in PyTorch
+
+<PredictReveal
+  prompt="In PyTorch, if you compute KL divergence summed over latent dimensions (e.g. D_z = 20) and compute MSE loss averaged over all pixels (reduction='mean', e.g. 28x28 = 784 pixels), what happens to the loss balance?"
+  options={[
+    "Nothing; PyTorch automatically re-weights both terms.",
+    "The KL term will overpower the reconstruction term by a factor of hundreds (e.g. KL ~ 15 vs MSE_mean ~ 0.05), causing the encoder to ignore the data and collapse latents.",
+    "The reconstruction term will overpower the KL term."
+  ]}
+  correct={1}
+>
+
+**The reduction mismatch is the most common bug in VAE implementations.**
+
+Mathematically, the ELBO sums both $\log p_\theta(x|z)$ over all $D$ observable dimensions and $D_{KL}$ over all $d$ latent dimensions for each sample:
 
 ```python
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-class VAE(nn.Module):
-    def __init__(self, input_dim=784, hidden_dim=400, latent_dim=20):
-        super().__init__()
-        self.latent_dim = latent_dim
-
-        # Encoder Network
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc_mu = nn.Linear(hidden_dim, latent_dim)     # Mean μ
-        self.fc_logvar = nn.Linear(hidden_dim, latent_dim) # Log-variance log(σ²)
-
-        # Decoder Network
-        self.fc3 = nn.Linear(latent_dim, hidden_dim)
-        self.fc4 = nn.Linear(hidden_dim, input_dim)
-
-    def encode(self, x):
-        h = F.relu(self.fc1(x))
-        mu = self.fc_mu(h)
-        logvar = self.fc_logvar(h)
-        return mu, logvar
-
-    def reparameterize(self, mu, logvar):
-        if self.training:
-            std = torch.exp(0.5 * logvar)
-            eps = torch.randn_like(std)
-            return mu + eps * std
-        else:
-            # During evaluation, deterministic mean is often used for reconstructions
-            return mu
-
-    def decode(self, z):
-        h = F.relu(self.fc3(z))
-        return torch.sigmoid(self.fc4(h)) # Output in [0, 1]
-
-    def forward(self, x):
-        mu, logvar = self.encode(x)
-        z = self.reparameterize(mu, logvar)
-        recon_x = self.decode(z)
-        return recon_x, mu, logvar
+# CORRECT: Consistent sum over dimensions, mean over batch
+recon_loss = F.binary_cross_entropy(recon_x, x, reduction='sum') / batch_size
+kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / batch_size
+total_loss = recon_loss + kl_loss
 ```
 
-## The VAE Loss Function
+If you accidentally use `reduction='mean'` for reconstruction loss, the reconstruction term is divided by 784 (for MNIST), making it 784× too small relative to the KL penalty!
 
-The loss function implements the negative ELBO: $\mathcal{L} = \text{BCE} + D_{KL}$.
-
-```python
-def vae_loss_function(recon_x, x, mu, logvar):
-    # Reconstruction loss (summed over all input pixels)
-    BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
-    
-    # Analytical Gaussian KL Divergence: -0.5 * sum(1 + log(σ²) - μ² - σ²)
-    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    
-    # Total loss normalized by batch size
-    batch_size = x.size(0)
-    return (BCE + KLD) / batch_size, BCE / batch_size, KLD / batch_size
-```
-
-## The End-to-End Training Loop
-
-```python
-def train_epoch(model, dataloader, optimizer, device):
-    model.train()
-    total_loss, total_bce, total_kld = 0, 0, 0
-
-    for batch_idx, (data, _) in enumerate(dataloader):
-        data = data.view(data.size(0), -1).to(device) # Flatten (B, 784)
-        
-        optimizer.zero_grad()
-        recon_batch, mu, logvar = model(data)
-        
-        loss, bce, kld = vae_loss_function(recon_batch, data, mu, logvar)
-        loss.backward()
-        optimizer.step()
-
-        total_loss += loss.item() * len(data)
-        total_bce += bce.item() * len(data)
-        total_kld += kld.item() * len(data)
-
-    n = len(dataloader.dataset)
-    return total_loss / n, total_bce / n, total_kld / n
-```
-
-## Generating Novel Samples from the Prior
-
-To sample completely new images from scratch, we skip the encoder entirely:
-
-```python
-@torch.no_grad()
-def generate_samples(model, num_samples=16, device='cpu'):
-    model.eval()
-    # 1. Sample z directly from the standard normal prior p(z) = N(0, I)
-    z = torch.randn(num_samples, model.latent_dim).to(device)
-    
-    # 2. Decode into generated images
-    samples = model.decode(z)
-    return samples.view(num_samples, 28, 28)
-```
+</PredictReveal>
 
 <Recall items={[
-  { q: "Why do we call model.eval() and skip the encoder during sample generation?", a: "Because generative synthesis samples directly from the prior distribution p(z) = 𝒩(0, I). The encoder is only used during training and when inferring latent codes for specific existing images." },
-  { q: "Why does the decoder end with a Sigmoid activation?", a: "Because input pixel values are normalized to [0, 1]. Sigmoid bounds the output intensities to (0, 1), which matches the Bernoulli likelihood interpretation required by Binary Cross-Entropy." }
+  { q: "What decoder likelihood corresponds to using Binary Cross-Entropy (BCE) as the reconstruction loss?", a: "A multivariate Bernoulli likelihood distribution p_θ(x|z), where each output pixel represents the independent probability of that pixel being active (white)." },
+  { q: "Why must reconstruction loss and KL divergence use matching reductions (sum over features, mean over batch)?", a: "Because in the mathematical ELBO, log p(x|z) is the total log-probability across all observed dimensions. Dividing reconstruction by number of pixels without scaling KL causes massive over-regularization and latent collapse." }
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The reconstruction loss is **not a free choice** — it follows from what distribution you assume the decoder outputs.
+- Assume **Bernoulli** (pixels in $[0,1]$, sigmoid output) and the log-likelihood *is* negative **BCE**. Assume **Gaussian** (continuous values, fixed variance) and it *is* negative **MSE**.
+- MSE reconstructions look blurry for a principled reason: under uncertainty the L2-minimising prediction is the *average* of the plausible outputs, and averaging sharp alternatives gives a soft edge.
+- The **reduction trap** is the most common VAE bug: sum reconstruction over pixels and KL over latent dimensions, then divide both by batch size. Using `reduction='mean'` on reconstruction shrinks it ~784× against the KL term and collapses the latents.
+</ConceptBox>
 
 ## Summary Check
 
 <QuizCard
-  question="In the reparameterize() function, why do we use `torch.randn_like(std)`?"
+  question="Why are reconstructions from VAEs trained with Gaussian likelihood / MSE loss often slightly blurrier than real images?"
   options={[
-    "To ensure the random noise tensor ε matches both the shape and the CUDA/CPU device of the standard deviation tensor std automatically.",
-    "To prevent gradient updates from reaching the decoder.",
-    "Because standard normal sampling requires integer dimensions."
+    "MSE penalizes pixel-wise Euclidean distance; when uncertain between multiple crisp edges, the conditional expectation that minimizes MSE is the pixel average (a blurry edge).",
+    "Because latent dimensions must always be less than 10.",
+    "Because the encoder uses max pooling."
   ]}
-  correctIndex={0}
-  explanation="`randn_like` guarantees that the generated noise has identical shape, data type, and execution device (GPU vs CPU) as `std`, avoiding device mismatches in PyTorch."
+  correct={0}
 />
+
+<Recall items={[
+  { q: "Check your reasoning", a: "Minimizing L2 pixel distance under uncertainty results in predicting the expected value over the posterior distribution, which averages high-frequency details and produces smooth, blurry transitions." }
+]} />

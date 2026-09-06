@@ -39,7 +39,7 @@ DCGAN itself is orthogonal to all three dials — it is an architecture, not a l
 
 <LatentInterpolationWidget />
 
-A generator is trained on random $z \sim \mathcal{N}(0, I)$ every step, which means it is exposed to the *entire* latent space during training, not a fixed set of points — unlike an autoencoder's latent space (VAE track, Module 8), which can develop unmapped gaps without the KL regularizer pulling it toward a smooth prior. G's smoothness here comes from a different source: it is a single, ordinary neural network mapping a continuous input to a continuous output space, and it never sees a reconstruction target to overfit to, so nothing in its training pushes it toward memorizing discrete points instead of learning a continuous function.
+A generator is trained on random $z \sim \mathcal{N}(0, I)$ every step, which means it is exposed to the *entire* latent space during training, not a fixed set of points — unlike an autoencoder's latent space (VAE track, Module 9), which can develop unmapped gaps without the KL regularizer pulling it toward a smooth prior. G's smoothness here comes from a different source: it is a single, ordinary neural network mapping a continuous input to a continuous output space, and it never sees a reconstruction target to overfit to, so nothing in its training pushes it toward memorizing discrete points instead of learning a continuous function.
 
 </PredictReveal>
 

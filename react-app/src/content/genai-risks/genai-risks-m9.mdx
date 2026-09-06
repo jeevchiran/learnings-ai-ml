@@ -1,0 +1,110 @@
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 9: Direct and Indirect Injection Techniques
+
+<Bridge>
+Module 8 split the attack classes by who the adversary is. This module splits injection itself by how the payload arrives — the distinction that determines which part of your architecture has to defend against it. The goal here is recognition and defence: what the categories are and why they work, not a set of ready-made payloads.
+</Bridge>
+
+## Direct: the payload arrives in the user turn
+
+<PredictReveal
+  prompt="In direct injection, hostile instructions are typed into the user field by the person using the system. If the user is the one supplying them, how is this different from jailbreaking?"
+  options={["It is not different — direct injection and jailbreaking are the same thing", "It differs by target: jailbreaking targets the model's own policy, while direct injection targets the surrounding application's instructions and data"]}
+  correct={1}
+>
+
+Direct injection is user-supplied text aimed at the *application* wrapped around the model rather than at the model's content policy. The typical objectives are overriding the operator's task instructions (making a customer-service bot do something unrelated), extracting the system prompt and any business logic or data embedded in it, or reaching tools the application exposes in ways the operator did not intend.
+
+The broad families are worth recognising by shape:
+
+<FactList accent="#b91c1c" items={[
+  { t: 'Instruction override', d: 'Text asserting that prior instructions are cancelled or superseded. Works because priority is a learned tendency (Module 7), so a sufficiently emphatic later instruction can win the competition.' },
+  { t: 'Context reframing', d: 'Recasting the interaction as fiction, a test, a debugging session, or a hypothetical, so the model treats policy as inapplicable to the frame rather than violating it directly.' },
+  { t: 'Role reassignment', d: 'Asserting a new persona or set of operating rules for the model to adopt, displacing the operator-supplied role.' },
+  { t: 'Encoding and obfuscation', d: 'Expressing the request in a form that evades surface-level input filters — another language, an encoding, an unusual formatting — while remaining interpretable to the model.' },
+]} />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What distinguishes direct prompt injection from jailbreaking, given that in both the user supplies the hostile text?", a: "The target. Jailbreaking aims at the model's own content policy, seeking output the model is trained to refuse. Direct injection aims at the surrounding application — overriding the operator's task instructions, extracting the system prompt and its embedded logic or data, or misusing tools the application exposes." },
+]} />
+
+## Indirect: the payload arrives in content the model reads
+
+<PredictReveal
+  prompt="An assistant summarises a web page. The page contains instructions in white-on-white text, invisible to any human viewer. Does the model see them?"
+  options={["No — the model receives the rendered visual page, so invisible text is excluded", "Yes — the model receives extracted text, where visual styling that hides content from a human viewer has no effect"]}
+  correct={1}
+>
+
+This is the crux of indirect injection: **what a human sees and what the model receives are different artefacts**. Text hidden by CSS, placed in HTML comments, tucked into image alt attributes, buried in document metadata, or embedded in the middle of a long file all reach the model's context while being invisible or unnoticed in normal human review.
+
+The delivery channels follow from wherever a system ingests external content:
+
+<FactList accent="#b91c1c" items={[
+  { t: 'Retrieved documents', d: 'Anything in a RAG corpus. If an attacker can get a document indexed — an uploaded file, a public wiki, a shared drive — its text reaches every prompt that retrieves it.' },
+  { t: 'Fetched web pages', d: 'A page the agent browses is entirely attacker-controlled if the attacker owns the domain, including content styled to be invisible to a human reader.' },
+  { t: 'Email and messages', d: 'An inbox assistant reads text written by anyone who can send mail to that address — an unauthenticated write path into the model context.' },
+  { t: 'Tool and API results', d: 'Any response a tool returns becomes context. A compromised or hostile upstream service injects through its normal, expected output channel.' },
+  { t: 'Files and metadata', d: 'Code comments, PDF metadata, spreadsheet cells outside the visible range, filenames — all read by the model, all rarely reviewed by a human.' },
+]} />
+
+The asymmetry that makes this severe: the attacker needs to place text in only *one* location the system will eventually read, and does not need any access to the system itself.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is hidden text on a web page effective against an agent but invisible to a person reviewing the same page?", a: "The human sees the rendered visual page while the model receives extracted text. Styling that hides content visually — white-on-white, CSS positioning, HTML comments, alt attributes, metadata — removes it from human view without removing it from the extracted text that enters the model's context." },
+]} />
+
+## Why these keep working
+
+<PredictReveal
+  prompt="A team adds a filter blocking known injection phrasings from all ingested content. How durable is that defence on its own?"
+  options={["Durable — enumerating hostile phrasings covers the attack surface", "Fragile — the space of ways to express an instruction in natural language is unbounded, so pattern matching is a bar to clear rather than a boundary"]}
+  correct={1}
+>
+
+Signature-based filtering fails for the same reason it struggles elsewhere in security, but worse: the input language is natural language, where an instruction can be paraphrased, translated, split across a document, implied rather than stated, or encoded and still be understood by the model. There is no finite grammar to enumerate.
+
+This is also why the two halves of this track converge. The model cannot reliably distinguish instruction from data (Module 7), and no text-level filter can reliably distinguish hostile text from benign text. Both facts point at the same conclusion, which Module 11 develops: the durable controls are not about detecting bad text — they are about limiting what the system is permitted to *do* once text has been read.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is filtering for known injection phrasings a weak primary defence?", a: "The attack surface is natural language, where an instruction can be paraphrased, translated, implied, split across a document, or encoded while remaining interpretable to the model. There is no finite grammar to enumerate, so pattern matching raises the bar without forming a boundary — which is why durable defences constrain what the system may do rather than trying to detect hostile text." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Direct injection**: hostile text in the user turn, aimed at the surrounding *application* — overriding task instructions, extracting the system prompt, or reaching exposed tools. Families include instruction override, context reframing, role reassignment, and obfuscation.
+- **Indirect injection**: the payload rides in on ingested content — retrieved documents, fetched pages, email, tool results, file metadata. The attacker needs no system access at all, only one location the system will read.
+- The enabling asymmetry is that **what a human sees and what the model receives are different artefacts**: hidden text, comments, alt attributes, and metadata pass human review untouched.
+- Signature filtering is a bar, not a boundary — natural language has no finite grammar of hostile phrasings to enumerate.
+</ConceptBox>
+
+<QuizCard
+  question="Why is indirect injection considered more severe than direct injection in most deployed systems?"
+  options={[
+    "Because the attacker needs no access to the system and no interaction with the user — placing text in one location the system will read is sufficient",
+    "Because indirect injection requires compromising the model's weights",
+    "Because direct injection cannot affect tool calls at all",
+    "Because indirect injection is only possible against open-source models"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about injection techniques are correct?"
+  options={[
+    "Direct injection targets the surrounding application's instructions and exposed tools",
+    "Text hidden with CSS or placed in HTML comments still reaches the model's context",
+    "Email assistants expose an unauthenticated write path into the model's context",
+    "Filtering known injection phrasings is a sufficient primary defence on its own",
+    "Tool and API responses become context and can carry injected instructions from a compromised upstream service"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

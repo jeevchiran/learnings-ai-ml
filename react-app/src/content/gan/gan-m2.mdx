@@ -47,6 +47,30 @@ There is no single loss surface with one minimum here. $V(D,G)$ is maximized ove
   { q: "Why is GAN training described as searching for a saddle point rather than a minimum?", a: "Because V(D, G) is maximized with respect to D's parameters and minimized with respect to G's parameters at the same time. A saddle point is stable along one of those directions and unstable along the other, unlike the single minimum an ordinary loss function has." },
 ]} />
 
+## Optional depth — where D(x) = 1/2 actually comes from
+
+The claim above was asserted; it is worth seeing that it falls out of the value function in three lines. Nothing later in the track depends on having followed this.
+
+Write the value function as integrals over $x$ rather than expectations, using $p_g$ for the distribution of $G(z)$:
+
+$$V(D, G) = \int_x p_{data}(x) \log D(x) \, dx + \int_x p_g(x) \log(1 - D(x)) \, dx$$
+
+For a **fixed** G, the discriminator can be optimised independently at each $x$ — nothing couples one input to another. So at a single point, writing $a = p_{data}(x)$, $b = p_g(x)$ and $y = D(x)$, we are maximising:
+
+$$a \log y + b \log(1 - y)$$
+
+Differentiate and set to zero:
+
+$$\frac{a}{y} - \frac{b}{1-y} = 0 \quad \Longrightarrow \quad a(1-y) = by \quad \Longrightarrow \quad y = \frac{a}{a + b}$$
+
+which is the optimal discriminator:
+
+$$D^*(x) = \frac{p_{data}(x)}{p_{data}(x) + p_g(x)}$$
+
+Now set $p_g = p_{data}$, the condition the generator is driving toward. Every $x$ gives $D^*(x) = \frac{p_{data}}{2p_{data}} = \tfrac{1}{2}$ — the equilibrium value, derived rather than assumed. The widget above plots exactly this formula.
+
+Substituting $D^*$ back into $V$ gives $V = -\log 4 + 2 \cdot \text{JSD}(p_{data} \,\|\, p_g)$, where JSD is the Jensen-Shannon divergence. That identity is the reason Module 6 can say the original GAN loss "is" JS divergence in disguise — and it is what Module 6 then argues is the wrong thing to be minimising.
+
 ---
 
 <ConceptBox title="TL;DR">

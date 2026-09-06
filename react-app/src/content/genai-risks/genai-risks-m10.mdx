@@ -1,0 +1,102 @@
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import InjectionSurfaceWidget from '../../components/widgets/genai-risks/InjectionSurfaceWidget.jsx'
+
+# Module 10: Why It Is Serious, and Where It Arises
+
+<Bridge>
+Modules 8 and 9 covered the mechanism and the delivery channels. On their own, injected instructions only change text a model produces. This module covers what turns that into a security incident — which is entirely a question of what the system was allowed to do next.
+</Bridge>
+
+## The confused deputy
+
+<PredictReveal
+  prompt="An attacker cannot access a company's internal database. The company's AI assistant can, and it summarises documents the attacker is able to place in the shared drive. What has the attacker effectively obtained?"
+  options={["Nothing — they still have no credentials of their own", "The assistant's access, exercised on their behalf: the model holds the credentials and acts on instructions the attacker supplied"]}
+  correct={1}
+>
+
+<InjectionSurfaceWidget />
+
+This is the **confused deputy** problem, an old idea in security with a new and unusually sharp instance. The deputy — here, the model — holds authority the attacker lacks, and can be induced to exercise it. What makes the LLM version severe is the combination Module 7 identified: the deputy cannot distinguish an instruction from its principal from an instruction embedded in the data it was handed.
+
+The severity therefore tracks capability, not text. An assistant that only summarises can be made to produce a misleading summary. The same assistant with database access, an email tool, and the ability to browse can be made to read records, exfiltrate them, and do it without the user noticing — from the same injected text.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the confused-deputy problem as it applies to LLM agents?", a: "The model holds authority — credentials, tool access — that the attacker does not, and can be induced to exercise that authority on the attacker's behalf. It is especially sharp for LLMs because, as Module 7 established, the model cannot distinguish an instruction from its legitimate principal from one embedded in data it was handed to process." },
+]} />
+
+## Exfiltration does not require a tool call
+
+<PredictReveal
+  prompt="An assistant has no tools at all — it can only read context and produce text rendered in a chat interface. Can injected instructions still leak the contents of that context to an attacker?"
+  options={["No — with no tools, there is no channel out", "Yes — rendered output is itself a channel: a markdown image or link pointing at an attacker-controlled URL can carry data in the request"]}
+  correct={1}
+>
+
+If the interface renders markdown, an image reference causes the client to fetch a URL. Injected text can induce the model to construct that URL with context contents embedded in the query string — and the fetch happens automatically when the response renders, with no user click and no tool invocation. Link-based variants need a click but are otherwise the same shape.
+
+The general principle: **any path from model output to a network request is an exfiltration channel**, whether or not it was designed as a tool. This is why output rendering is a security surface and not merely a presentation concern, and why content security policies and URL allowlists on the rendering client matter to LLM system design.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How can a tool-less assistant still leak context contents to an attacker?", a: "Through rendered output. If the client renders markdown, an image reference triggers an automatic fetch of the referenced URL — so injected text can induce the model to build a URL containing context data in its query string, exfiltrating it with no user click and no tool call. Any path from model output to a network request is an exfiltration channel." },
+]} />
+
+## Where the risk concentrates
+
+<PredictReveal
+  prompt="Across these deployment shapes — a closed chatbot with no external data, a RAG assistant over a curated corpus, and an autonomous agent that browses and acts — where does injection risk rise fastest?"
+  options={["Evenly across all three, since all use the same underlying model", "It rises with two factors multiplied together: how untrusted the ingested content is, and how much the system can do without human confirmation"]}
+  correct={1}
+>
+
+<FactList accent="#b91c1c" items={[
+  { t: 'Closed chatbot', d: 'No external content ingested. Jailbreaking applies; classic injection largely does not, because there is no third-party text path in.' },
+  { t: 'RAG over a curated corpus', d: 'Risk depends entirely on who can write to the index. A vetted, read-only corpus is low risk; one accepting user uploads is an open write path into every retrieving prompt.' },
+  { t: 'Inbox and document assistants', d: 'Ingest content from arbitrary external senders by design. The write path is unauthenticated and cannot be closed without breaking the product.' },
+  { t: 'Browsing agents', d: 'Fetch attacker-controlled pages as a core function. Every visited page is untrusted input by construction.' },
+  { t: 'Autonomous tool-using agents', d: 'Highest risk: untrusted input, privileged capability, and long action chains with no human in the loop per step — Module 5 compounding, now with an adversary choosing the inputs.' },
+]} />
+
+The two factors multiply rather than add. Untrusted input with no capability is a content problem; privileged capability with no untrusted input is manageable; the two together are where incidents happen. That framing is what Module 11 builds its defences on — because if the risk is a product of two factors, so is the mitigation.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What two factors determine how much injection risk a deployment carries, and why does their combination matter?", a: "How untrusted the ingested content is, and how much the system can do without human confirmation. They multiply rather than add: untrusted input with no capability is only a content-quality problem, and privileged capability with no untrusted input is manageable. Incidents occur where both are present — which is also why mitigation can attack either factor." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Injection becomes a security incident through the **confused deputy** problem: the model holds authority the attacker lacks and can be induced to exercise it, while being unable to tell its principal's instructions from instructions in the data.
+- Severity tracks **capability, not text** — the same injected content is a bad summary in one system and data exfiltration in another.
+- **Exfiltration needs no tool call**: rendered markdown images or links can carry context contents to an attacker-controlled URL, so output rendering is a security surface.
+- Risk is the product of **untrusted-input exposure × unsupervised capability**. Autonomous tool-using agents maximise both; closed chatbots minimise both.
+</ConceptBox>
+
+<QuizCard
+  question="Why can an assistant with no tools at all still leak its context to an attacker?"
+  options={[
+    "Because rendered output is a channel — a markdown image pointing at an attacker URL triggers an automatic fetch carrying data in the request",
+    "Because all models transmit their context to external servers by default",
+    "It cannot — without tools there is no exfiltration path",
+    "Because the attacker can read the model's weights directly"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about injection risk in deployed systems are correct?"
+  options={[
+    "The confused-deputy problem describes the model exercising authority the attacker lacks, on the attacker's behalf",
+    "Severity depends on what capabilities the system holds, not on the injected text alone",
+    "A RAG system's risk depends heavily on who is able to write into the retrieval index",
+    "Browsing agents treat fetched pages as trusted input by construction",
+    "Risk scales with untrusted-input exposure multiplied by unsupervised capability"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

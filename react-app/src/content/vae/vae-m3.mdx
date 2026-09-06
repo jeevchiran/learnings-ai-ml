@@ -1,116 +1,146 @@
-import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
-# Module 3: The Evidence Lower Bound (ELBO) Derivation
-
-<ConceptBox title="The Core Equation of Variational Inference">
-We cannot directly maximize the marginal data log-likelihood $\log p_\theta(x)$ because it involves an intractable integral. Instead, we maximize a tractable surrogate called the **Evidence Lower Bound (ELBO)**, which serves as a rigorous lower bound on $\log p_\theta(x)$:
-
-$$\log p_\theta(x) \ge \text{ELBO}(\theta, \phi; x) = \mathbb{E}_{q_\phi(z|x)}\big[\log p_\theta(x|z)\big] - D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big)$$
-</ConceptBox>
+# Module 3: The Probabilistic Framework
 
 <Bridge>
-Module 2 showed why the true posterior $p_\theta(z|x)$ cannot be evaluated. This module walks through the complete mathematical derivation that converts an impossible optimization problem into a tractable, differentiable neural network loss function.
+Module 2 described the fix in words: encode a cloud instead of a point, and pull every cloud toward a standard region. Turning that into something trainable needs the language of probability — and, along the way, it runs into a wall that the next module exists to get around.
 </Bridge>
 
-## Step-by-Step Mathematical Derivation
-
-We start from the definition of the KL divergence between our approximate posterior $q_\phi(z|x)$ and the true posterior $p_\theta(z|x)$:
-
-<DerivationSteps>
-  <DerivationStep step={1} title="Definition of KL Divergence">
-    By definition of the Kullback-Leibler divergence:
-    $$D_{KL}\big(q_\phi(z|x) \,\|\, p_\theta(z|x)\big) = \int q_\phi(z|x) \log \frac{q_\phi(z|x)}{p_\theta(z|x)} \, dz = \mathbb{E}_{q_\phi(z|x)}\left[ \log \frac{q_\phi(z|x)}{p_\theta(z|x)} \right]$$
-  </DerivationStep>
-
-  <DerivationStep step={2} title="Apply Bayes' Rule to True Posterior">
-    Substitute $p_\theta(z|x) = \frac{p_\theta(x, z)}{p_\theta(x)}$:
-    $$D_{KL}\big(q_\phi(z|x) \,\|\, p_\theta(z|x)\big) = \mathbb{E}_{q_\phi(z|x)}\left[ \log \frac{q_\phi(z|x) \cdot p_\theta(x)}{p_\theta(x, z)} \right]$$
-  </DerivationStep>
-
-  <DerivationStep step={3} title="Split the Logarithm">
-    Expand the logarithm into separate additive terms:
-    $$D_{KL}\big(q_\phi(z|x) \,\|\, p_\theta(z|x)\big) = \mathbb{E}_{q_\phi(z|x)}\left[ \log q_\phi(z|x) - \log p_\theta(x, z) + \log p_\theta(x) \right]$$
-  </DerivationStep>
-
-  <DerivationStep step={4} title="Factor Out Evidence log p(x)">
-    Since $\log p_\theta(x)$ has no dependence on the latent variable $z$, its expectation with respect to $q_\phi(z|x)$ is simply itself:
-    $$D_{KL}\big(q_\phi(z|x) \,\|\, p_\theta(z|x)\big) = \mathbb{E}_{q_\phi(z|x)}\left[ \log q_\phi(z|x) - \log p_\theta(x, z) \right] + \log p_\theta(x)$$
-  </DerivationStep>
-
-  <DerivationStep step={5} title="Rearrange for Evidence log p(x)">
-    Isolating $\log p_\theta(x)$ on the left-hand side yields:
-    $$\log p_\theta(x) = \mathbb{E}_{q_\phi(z|x)}\left[ \log p_\theta(x, z) - \log q_\phi(z|x) \right] + D_{KL}\big(q_\phi(z|x) \,\|\, p_\theta(z|x)\big)$$
-    $$\log p_\theta(x) = \text{ELBO}(\theta, \phi; x) + D_{KL}\big(q_\phi(z|x) \,\|\, p_\theta(z|x)\big)$$
-  </DerivationStep>
-</DerivationSteps>
-
-## Why is it called a "Lower Bound"?
-
-Because KL divergence is strictly non-negative ($D_{KL} \ge 0$), we have:
-
-$$\log p_\theta(x) \ge \text{ELBO}(\theta, \phi; x)$$
-
-with equality if and only if $q_\phi(z|x) = p_\theta(z|x)$ almost everywhere.
-
-```
- Total Log-Evidence: log p_θ(x)
- ┌───────────────────────────────────────────────┬───────────────────────────┐
- │               ELBO(θ, ϕ; x)                   │  D_KL(q_ϕ(z|x) || p_θ(z|x))│
- │           (Maximized via SGD)                 │    (Approximation Gap)    │
- └───────────────────────────────────────────────┴───────────────────────────┘
- ▲                                               ▲
- 0                                             Bound becomes exact when gap → 0
-```
+## The generative story
 
 <PredictReveal
-  prompt="What happens to the approximation gap D_KL(q_ϕ(z|x) || p_θ(z|x)) as we maximize the ELBO with respect to encoder parameters ϕ while holding decoder parameters θ fixed?"
+  prompt="You want a model that can invent new handwritten digits. Which description better matches how a generative latent-variable model produces one?"
   options={[
-    "The gap increases because the encoder gains capacity.",
-    "The gap decreases! Since log p_θ(x) does not depend on ϕ, increasing ELBO directly shrinks the KL divergence between q_ϕ(z|x) and the true posterior.",
-    "The gap remains constant because variational families are fixed."
+    "Look up the closest training image and modify a few pixels",
+    "Roll dice to pick a hidden code describing what to draw, then let a network turn that code into an image"
   ]}
   correct={1}
 >
 
-Because $\log p_\theta(x)$ does not depend on $\phi$ at all, maximizing $\text{ELBO}(\theta, \phi; x)$ with respect to $\phi$ is mathematically identical to **minimizing the KL divergence to the true posterior**:
+The model assumes data comes into existence in two steps, and this assumption is called the **generative story**:
 
-$$\arg\max_\phi \text{ELBO}(\theta, \phi; x) \equiv \arg\min_\phi D_{KL}\big(q_\phi(z|x) \,\|\, p_\theta(z|x)\big)$$
+1. Draw a hidden code from a simple, fixed distribution — the **prior**:
+   $$z \sim p(z) = \mathcal{N}(0, I)$$
+2. Turn that code into data using a network with weights $\theta$ — the **likelihood**:
+   $$x \sim p_\theta(x|z)$$
 
-This resolves the intractability problem: we can fit the recognition model $q_\phi(z|x)$ to the unknown true posterior without ever computing $p_\theta(z|x)$ directly!
+```
+     p(z) = 𝒩(0, I)          Step 1: roll dice for a hidden code
+         │
+         ▼
+     ┌───────┐
+     │   z   │               The latent code from Module 1
+     └───────┘
+         │
+         ▼  Decoder network p_θ(x|z)    Step 2: turn the code into data
+     ┌───────┐
+     │   x   │               A generated image
+     └───────┘
+```
+
+Nothing here is new machinery — step 2 is the decoder, and $p(z)$ is the standard normal region Module 2 wanted every code pulled toward. The probability notation just makes the assumption explicit enough to optimise against.
 
 </PredictReveal>
 
-## Decomposing the ELBO: Two Competing Forces
-
-By substituting $p_\theta(x, z) = p_\theta(x|z) p(z)$ into the ELBO definition, we obtain the standard two-term VAE objective:
-
-$$\text{ELBO}(\theta, \phi; x) = \mathbb{E}_{q_\phi(z|x)}\left[ \log \frac{p_\theta(x|z) p(z)}{q_\phi(z|x)} \right]$$
-
-$$\text{ELBO}(\theta, \phi; x) = \underbrace{\mathbb{E}_{q_\phi(z|x)}\big[\log p_\theta(x|z)\big]}_{\text{Reconstruction Log-Likelihood}} - \underbrace{D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big)}_{\text{Latent Prior Regularizer}}$$
-
-The training loss minimized by gradient descent is the negative ELBO:
-
-$$\mathcal{L}_{\text{VAE}}(\theta, \phi; x) = -\text{ELBO}(\theta, \phi; x) = \mathcal{L}_{\text{recon}}(x, \hat{x}) + D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big)$$
-
-| Term | Role in VAE | What it rewards |
-|---|---|---|
-| **Reconstruction Likelihood** | Decoder quality | Sharp, accurate reconstruction of $x$ from sampled latents $z \sim q_\phi(z|x)$. |
-| **KL Divergence to Prior** | Latent space regularity | Prevents overfitting by pulling $q_\phi(z|x)$ toward the standard normal prior $\mathcal{N}(0, I)$. |
-
 <Recall items={[
-  { q: "State the two components of the ELBO and their intuitive meanings.", a: "1) Reconstruction Likelihood: measures how well the decoder reconstructs the input from sampled latent codes. 2) KL Divergence to Prior: penalizes deviation of the encoder distribution from the standard normal prior p(z) = 𝒩(0, I), preventing gaps and clustering." },
-  { q: "Why is maximizing the ELBO equivalent to minimizing the variational approximation gap?", a: "Because log p(x) = ELBO + D_KL(q(z|x) || p(z|x)). Since log p(x) does not depend on encoder parameters ϕ, increasing ELBO with respect to ϕ directly decreases D_KL(q(z|x) || p(z|x))." }
+  { q: "What are the two steps of the generative story, and which parts of the autoencoder do they correspond to?", a: "First draw a latent code z from a simple fixed prior p(z) = N(0, I); then generate data from p_θ(x|z), a network conditioned on that code. The second step is the decoder, and the prior is the standard normal region Module 2 wanted every encoded cloud pulled toward." },
 ]} />
 
-## Summary Check
+## The quantity we want, and why we cannot have it
+
+To fit $\theta$, the natural target is the probability the model assigns to the real training data — high probability on real data means a good model. Because $z$ is hidden, getting that probability means accounting for *every* code that could have produced $x$:
+
+$$\log p_\theta(x) = \log \int p_\theta(x|z) p(z) \, dz$$
+
+Read the integral as: *"add up, over every possible hidden code, the chance of drawing that code times the chance it produces $x$."*
+
+<PredictReveal
+  prompt="Why can we not just approximate that integral by sampling a few thousand random z values and averaging p(x|z) over them?"
+  options={[
+    "Because the normal distribution has infinite support",
+    "Because in high dimensions almost every randomly drawn z produces something nothing like this specific x, so nearly every term in the average is essentially zero",
+    "Because autograd cannot differentiate through an integral sign"
+  ]}
+  correct={1}
+>
+
+Random codes decode to random-looking outputs. For one *specific* target image, the overwhelming majority of sampled $z$ values give $p_\theta(x|z) \approx 0$, so the average is dominated by the vanishingly rare sample that happens to be relevant. Getting a usable estimate needs exponentially many samples as the latent dimension grows.
+
+$$\int p_\theta(x|z) p(z) \, dz \approx \frac{1}{N} \sum_{i=1}^N p_\theta(x|z^{(i)}) \qquad \text{— useless unless } N \text{ is astronomically large}$$
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does naive Monte Carlo sampling fail to estimate the marginal likelihood?", a: "In a high-dimensional latent space, almost every randomly drawn z decodes to something unlike the one specific target image x, so p(x|z) is essentially zero for nearly every sample. The estimate is dominated by rare relevant samples, and the number needed for a usable estimate grows exponentially with latent dimension." },
+]} />
+
+## The same wall, from the other side
+
+If we cannot get $p_\theta(x)$ directly, the obvious alternative is to ask which codes *actually* produced a given $x$ — the **posterior** $p_\theta(z|x)$. Bayes' rule gives it:
+
+$$p_\theta(z|x) = \frac{p_\theta(x|z) p(z)}{p_\theta(x)}$$
+
+But the denominator is the same integral we just failed to compute. **The posterior is intractable for exactly the reason the evidence is**, so this route is closed too.
+
+<PredictReveal
+  prompt="Given that the true posterior cannot be computed, what is the pragmatic move?"
+  options={[
+    "Abandon latent-variable models entirely",
+    "Train a second network to output an approximation of the posterior, and find some way to improve it without ever seeing the true one"
+  ]}
+  correct={1}
+>
+
+This is **variational inference**: replace the intractable $p_\theta(z|x)$ with a tractable stand-in $q_\phi(z|x)$ — a Gaussian whose mean and variance are produced by a network. That network is the **encoder** from Module 2, and this is what it was for all along.
+
+```
+   Target:        p_θ(z|x)   — intractable, unknown shape
+                     ▲
+                     │  make these as close as possible
+                     ▼
+   Approximation: q_ϕ(z|x) = 𝒩(μ_ϕ(x), Σ_ϕ(x))   — a network output, fully tractable
+```
+
+Which leaves one obvious problem: closeness is measured by $D_{KL}(q_\phi(z|x) \,\|\, p_\theta(z|x))$, and that formula contains the very posterior we cannot compute. Module 4 resolves this — and the resolution turns out to be the VAE's loss function.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is variational inference, and what obstacle does it immediately run into?", a: "It replaces the intractable true posterior p_θ(z|x) with a tractable approximation q_ϕ(z|x) produced by a network — the encoder. The obstacle is that measuring how close the approximation is requires the KL divergence to the true posterior, which contains the same incomputable quantity. Module 4 gets around this." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The **generative story**: draw a hidden code $z$ from a fixed prior $\mathcal{N}(0, I)$, then generate $x$ from $p_\theta(x|z)$. Step 2 is just the decoder.
+- Fitting the model means maximising $\log p_\theta(x) = \log \int p_\theta(x|z)p(z)\,dz$, but that integral is **intractable** — random codes almost never produce a given target image, so sampling estimates it uselessly.
+- The **posterior** $p_\theta(z|x)$ is blocked by the same integral in its denominator, so that route is closed too.
+- **Variational inference** substitutes a network-produced approximation $q_\phi(z|x)$ — the encoder — leaving one problem: measuring its quality seems to require the very posterior we cannot compute.
+</ConceptBox>
 
 <QuizCard
-  question="If a model has perfect reconstruction loss = 0, but its KL divergence is very large, what behavior is observed?"
+  question="What role does the variational distribution q_ϕ(z|x) play?"
   options={[
-    "The model behaves like a deterministic autoencoder: it memorizes training points, but sampling from p(z) produces unrealistic artifacts because q_ϕ(z|x) did not match the prior.",
-    "The model fails to decode anything.",
-    "The ELBO achieves its theoretical maximum."
+    "It is a tractable, network-produced approximation to the intractable true posterior p_θ(z|x) — the encoder",
+    "It replaces the prior p(z) when generating samples",
+    "It is a discriminator predicting whether an image is real or generated",
+    "It computes the marginal likelihood exactly"
   ]}
-  correctIndex={0}
-  explanation="When KL divergence is ignored or very high, the latents collapse to isolated points without standard Gaussian geometry, degrading random sampling and interpolation quality."
+  correct={0}
+/>
+
+<Recall items={[
+  { q: "Check your reasoning", a: "q_ϕ(z|x) is the variational approximation to the true posterior p_θ(z|x), mapping observed inputs x to probability distributions over latent codes. It is exactly the encoder network introduced in Module 2." },
+]} />
+
+<MultiSelectQuiz
+  question="Which statements about the probabilistic framework are correct?"
+  options={[
+    "The prior p(z) is a simple fixed distribution, typically the standard normal",
+    "The marginal likelihood integral is intractable because almost every sampled z is irrelevant to a given x",
+    "The true posterior p_θ(z|x) is blocked by the same integral appearing in its denominator",
+    "Monte Carlo sampling solves the marginal likelihood problem efficiently in high dimensions",
+    "The encoder q_ϕ(z|x) is a tractable stand-in for the intractable true posterior"
+  ]}
+  correct={[0, 1, 2, 4]}
 />

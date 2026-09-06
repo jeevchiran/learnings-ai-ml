@@ -1,110 +1,171 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
-import KLGaussianWidget from '../../components/widgets/vae/KLGaussianWidget.jsx'
 
-# Module 4: Analytical KL Divergence for Gaussian Distributions
-
-<ConceptBox title="Closed-Form Regularizer">
-When both the variational posterior $q_\phi(z|x) = \mathcal{N}(\mu, \text{diag}(\sigma^2))$ and prior $p(z) = \mathcal{N}(0, I)$ are multivariate Gaussians with diagonal covariance, their Kullback-Leibler divergence has an **exact closed-form analytical solution**:
-
-$$D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big) = -\frac{1}{2} \sum_{j=1}^d \left( 1 + \log(\sigma_j^2) - \mu_j^2 - \sigma_j^2 \right)$$
-
-No Monte Carlo sampling is required for the KL term!
-</ConceptBox>
+# Module 4: The Evidence Lower Bound (ELBO)
 
 <Bridge>
-Module 3 derived the ELBO objective. In this module, we derive the exact analytical formula used to compute the KL divergence in code, explore its component terms, and explain why encoders predict log-variance $\log \sigma^2$ instead of standard deviation $\sigma$.
+Module 3 ended on a dead end: the quantity we want to maximise, $\log p_\theta(x)$, contains an integral we cannot compute, and the posterior we would need instead is intractable for the same reason. This module gets around the dead end — and the way around it turns out to be the VAE's entire loss function.
 </Bridge>
 
-## Derivation for 1D Gaussians
-
-For a single latent dimension $z \in \mathbb{R}$ with $q(z) = \mathcal{N}(\mu, \sigma^2)$ and $p(z) = \mathcal{N}(0, 1)$:
-
-<DerivationSteps>
-  <DerivationStep step={1} title="Express Densities">
-    $$q(z) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\left(-\frac{(z-\mu)^2}{2\sigma^2}\right), \qquad p(z) = \frac{1}{\sqrt{2\pi}} \exp\left(-\frac{z^2}{2}\right)$$
-  </DerivationStep>
-
-  <DerivationStep step={2} title="Expand the Log-Ratio">
-    $$\log \frac{q(z)}{p(z)} = \log q(z) - \log p(z) = \left[ -\frac{1}{2}\log(2\pi\sigma^2) - \frac{(z-\mu)^2}{2\sigma^2} \right] - \left[ -\frac{1}{2}\log(2\pi) - \frac{z^2}{2} \right]$$
-    $$= -\frac{1}{2} \log(\sigma^2) - \frac{(z-\mu)^2}{2\sigma^2} + \frac{z^2}{2}$$
-  </DerivationStep>
-
-  <DerivationStep step={3} title="Take the Expectation under q(z)">
-    Taking expectation $\mathbb{E}_{q(z)}\left[\dots\right]$ over each term:
-    - $\mathbb{E}_{q(z)}\left[-\frac{1}{2}\log(\sigma^2)\right] = -\frac{1}{2}\log(\sigma^2)$ (constant)
-    - $\mathbb{E}_{q(z)}\left[\frac{(z-\mu)^2}{2\sigma^2}\right] = \frac{\text{Var}(z)}{2\sigma^2} = \frac{\sigma^2}{2\sigma^2} = \frac{1}{2}$
-    - $\mathbb{E}_{q(z)}\left[\frac{z^2}{2}\right] = \frac{1}{2}\left(\text{Var}(z) + \mathbb{E}[z]^2\right) = \frac{1}{2}(\sigma^2 + \mu^2)$
-  </DerivationStep>
-
-  <DerivationStep step={4} title="Combine and Factor Out -1/2">
-    $$D_{KL}\big(q(z) \,\|\, p(z)\big) = -\frac{1}{2}\log(\sigma^2) - \frac{1}{2} + \frac{1}{2}\sigma^2 + \frac{1}{2}\mu^2$$
-    $$D_{KL}\big(q(z) \,\|\, p(z)\big) = -\frac{1}{2} \left( 1 + \log(\sigma^2) - \mu^2 - \sigma^2 \right)$$
-  </DerivationStep>
-</DerivationSteps>
-
-For a $d$-dimensional latent vector with diagonal covariance, the dimensions are mutually independent, so the total KL divergence is simply the sum across all dimensions $j = 1, \dots, d$:
-
-$$D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big) = -\frac{1}{2} \sum_{j=1}^d \left( 1 + \log(\sigma_j^2) - \mu_j^2 - \sigma_j^2 \right)$$
-
-## Interactive Gaussian KL Explorer
-
-Use the interactive widget below to test how shifting $\mu$ and altering $\log \sigma^2$ impacts the total KL penalty:
-
-<KLGaussianWidget />
+## Maximising something you cannot compute
 
 <PredictReveal
-  prompt="What happens to D_KL when μ = 0 and σ² = 1 (i.e. q(z|x) is identical to p(z))?"
+  prompt="You want to maximise a quantity you have no way of evaluating. Which of these is a workable strategy?"
   options={[
-    "D_KL = 0, because 1 + log(1) - 0² - 1 = 1 + 0 - 0 - 1 = 0.",
-    "D_KL = 1.0, because standard deviations are 1.",
-    "D_KL = -0.5, because of the leading factor."
+    "Give up on that quantity and optimise something unrelated instead",
+    "Find a second quantity you CAN compute that is guaranteed never to exceed the first, and push that one up as high as possible"
+  ]}
+  correct={1}
+>
+
+If a quantity you can compute always sits at or below the one you actually care about, then raising the computable one drags the target up with it — you may not know exactly where the target is, but you know it is at least as high as where you have pushed the bound.
+
+That computable under-estimate is called a **lower bound**, and the specific one used here is the **Evidence Lower Bound**, or **ELBO** ("evidence" being the name for $\log p_\theta(x)$):
+
+$$\log p_\theta(x) \ge \text{ELBO}(\theta, \phi; x)$$
+
+The entire training procedure is: compute the ELBO, and maximise it.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is a lower bound, and why does maximising one help when the target quantity is incomputable?", a: "A lower bound is a quantity guaranteed never to exceed the target. Because it always sits at or below the target, pushing the bound up forces the target at least that high — so you can make progress on a quantity you cannot evaluate by optimising one you can." },
+]} />
+
+## What the ELBO actually says
+
+Written out, the bound has two terms, and both are things a neural network can compute:
+
+$$\text{ELBO} = \underbrace{\mathbb{E}_{q_\phi(z|x)}\big[\log p_\theta(x|z)\big]}_{\text{reconstruction}} - \underbrace{D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big)}_{\text{regulariser}}$$
+
+In plain English: **"how well does the decoder rebuild $x$ from codes the encoder produced, minus how far the encoder's cloud has drifted from the standard normal prior."**
+
+Training minimises the *negative* ELBO, which is the loss you will actually write in code:
+
+$$\mathcal{L}_{\text{VAE}} = \mathcal{L}_{\text{recon}}(x, \hat{x}) + D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big)$$
+
+These are exactly the two forces Module 2 predicted — a reconstruction term and a term shaping the latent space — now derived rather than asserted.
+
+| Term | Pulls toward | Left alone, it would |
+|---|---|---|
+| **Reconstruction** | Codes that rebuild $x$ accurately | Spread codes far apart to keep inputs distinguishable — the Module 2 failure |
+| **KL to prior** | Codes clustered in the standard normal region | Collapse every input to the same cloud, discarding the input entirely |
+
+<PredictReveal
+  prompt="Suppose training drives reconstruction loss to zero but leaves the KL term very large. What behaviour would you expect?"
+  options={[
+    "The model behaves like a plain autoencoder again — good reconstructions, but sampling from the prior gives unrealistic output",
+    "The model produces perfect samples from the prior",
+    "The model fails to decode anything at all"
   ]}
   correct={0}
 >
 
-When $\mu = 0$ and $\sigma^2 = 1$, all terms cancel:
+A large KL means the encoder's clouds never came near the prior — so the latent space is once again irregular and full of gaps. Reconstruction of *training* inputs is fine, because those codes are exactly where the decoder was trained. But drawing $z \sim \mathcal{N}(0, I)$ lands somewhere the encoder never used, and the decoder returns noise.
 
-$$D_{KL} = -\frac{1}{2} (1 + 0 - 0 - 1) = 0$$
-
-KL divergence is strictly zero if and only if the encoder outputs the exact prior distribution.
+This is Module 2's failure mode re-appearing, and it shows the two terms are genuinely in tension: each one, unopposed, breaks the model in a different direction.
 
 </PredictReveal>
 
-## Why Predict Log-Variance instead of Variance or Standard Deviation?
-
-In neural network implementations, the encoder's linear output layers produce **unconstrained real numbers** in $(-\infty, +\infty)$.
-
-Standard deviations $\sigma$ and variances $\sigma^2$ must strictly be **positive** ($\sigma > 0$). If an output layer directly predicted $\sigma$, gradient updates could easily produce negative values, causing $\sqrt{\sigma^2}$ and $\log(\sigma^2)$ to crash with NaNs.
-
-By having the network output $\log(\sigma^2)$ (log-variance, often written as `logvar`):
-
-1. `logvar` $\in (-\infty, +\infty)$ requires no clipping or activation constraints.
-2. $\sigma^2 = \exp(\text{logvar})$ is guaranteed positive for any real output.
-3. $\sigma = \exp(0.5 \times \text{logvar}) = \sqrt{\exp(\text{logvar})}$.
-
-```python
-# PyTorch implementation of analytical Gaussian KL Divergence
-def kl_divergence(mu, logvar):
-    # mu: (batch_size, latent_dim)
-    # logvar: (batch_size, latent_dim)
-    kl = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=-1)
-    return kl.mean() # Average over batch
-```
-
 <Recall items={[
-  { q: "What is the analytical formula for D_KL(𝒩(μ, σ²) || 𝒩(0, 1))?", a: "D_KL = -0.5 * ∑ (1 + log(σ²) - μ² - σ²)." },
-  { q: "Why is predicting log(σ²) preferred over directly predicting σ in PyTorch?", a: "Because log(σ²) can take any real value in (-∞, +∞) without constraint, avoiding invalid negative variances during optimization. The variance exp(logvar) is automatically strictly positive." }
+  { q: "What does each of the ELBO's two terms do, and what happens if either dominates completely?", a: "The reconstruction term rewards rebuilding x accurately from the sampled code; the KL term pulls each encoded distribution toward the standard normal prior. Reconstruction alone spreads codes far apart and recreates the gap-filled latent space of a plain autoencoder. KL alone collapses every input to the same cloud, discarding the input entirely. Training needs both in tension." },
 ]} />
 
-## Summary Check
+## Why maximising the bound also improves the encoder
+
+<PredictReveal
+  prompt="Maximise the ELBO with respect to the encoder parameters ϕ, holding the decoder fixed. What happens to the gap between the ELBO and the true log p(x)?"
+  options={[
+    "The gap grows, because the encoder gains capacity",
+    "The gap shrinks — and that gap is exactly the KL divergence to the true posterior we could not compute",
+    "The gap is unaffected by ϕ"
+  ]}
+  correct={1}
+>
+
+The exact relationship, derived in the optional section below, is:
+
+$$\log p_\theta(x) = \text{ELBO}(\theta, \phi; x) + D_{KL}\big(q_\phi(z|x) \,\|\, p_\theta(z|x)\big)$$
+
+The left side does not depend on $\phi$ at all. So if raising the ELBO cannot move $\log p_\theta(x)$, and the two right-hand terms must still sum to it, then raising the ELBO must *lower* the other term by the same amount:
+
+$$\arg\max_\phi \text{ELBO} \equiv \arg\min_\phi D_{KL}\big(q_\phi(z|x) \,\|\, p_\theta(z|x)\big)$$
+
+This is the payoff for Module 3's dead end. We wanted the encoder to approximate the intractable true posterior, but could not compute that posterior to compare against. Maximising the ELBO does it anyway — the approximation improves as a side effect, without the intractable quantity ever being evaluated.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does maximising the ELBO improve the encoder's approximation of a posterior we cannot even compute?", a: "Because log p(x) = ELBO + KL(q(z|x) || p(z|x)), and log p(x) does not depend on the encoder parameters. The two right-hand terms must sum to a value the encoder cannot change, so any increase in the ELBO forces an equal decrease in the KL to the true posterior — improving the approximation without ever evaluating the intractable posterior." },
+]} />
+
+## Optional depth — the derivation in full
+
+Everything above is enough to use, implement and reason about the ELBO. This section shows where the identity comes from. It is worth working through eventually, but nothing later in the track depends on having done so.
+
+Start from the KL divergence between the encoder and the true posterior — the thing we wish we could minimise directly:
+
+<DerivationSteps>
+  <DerivationStep step={1} title="Definition of KL divergence">
+    $$D_{KL}\big(q_\phi(z|x) \,\|\, p_\theta(z|x)\big) = \mathbb{E}_{q_\phi(z|x)}\left[ \log \frac{q_\phi(z|x)}{p_\theta(z|x)} \right]$$
+  </DerivationStep>
+
+  <DerivationStep step={2} title="Apply Bayes' rule to the true posterior">
+    Substituting $p_\theta(z|x) = \frac{p_\theta(x, z)}{p_\theta(x)}$ turns the unknown posterior into the joint distribution and the evidence:
+    $$= \mathbb{E}_{q_\phi(z|x)}\left[ \log \frac{q_\phi(z|x) \cdot p_\theta(x)}{p_\theta(x, z)} \right]$$
+  </DerivationStep>
+
+  <DerivationStep step={3} title="Split the logarithm">
+    A log of a product becomes a sum of logs:
+    $$= \mathbb{E}_{q_\phi(z|x)}\left[ \log q_\phi(z|x) - \log p_\theta(x, z) + \log p_\theta(x) \right]$$
+  </DerivationStep>
+
+  <DerivationStep step={4} title="Pull out the evidence">
+    $\log p_\theta(x)$ contains no $z$, so its expectation over $z$ is just itself and it leaves the bracket untouched:
+    $$= \mathbb{E}_{q_\phi(z|x)}\left[ \log q_\phi(z|x) - \log p_\theta(x, z) \right] + \log p_\theta(x)$$
+  </DerivationStep>
+
+  <DerivationStep step={5} title="Rearrange">
+    Moving terms across gives the identity used above, with the bracketed expectation now recognisable as the ELBO:
+    $$\log p_\theta(x) = \underbrace{\mathbb{E}_{q_\phi(z|x)}\left[ \log p_\theta(x, z) - \log q_\phi(z|x) \right]}_{\text{ELBO}} + D_{KL}\big(q_\phi(z|x) \,\|\, p_\theta(z|x)\big)$$
+  </DerivationStep>
+</DerivationSteps>
+
+Since KL divergence is never negative (Module 1), the second term can only add — so the ELBO can never exceed $\log p_\theta(x)$. That is precisely what makes it a *lower* bound, with equality only when $q_\phi(z|x)$ matches the true posterior exactly.
+
+Substituting $p_\theta(x,z) = p_\theta(x|z)p(z)$ into the ELBO and splitting the log recovers the two-term reconstruction-plus-KL form used throughout the rest of the track.
+
+---
+
+<ConceptBox title="TL;DR">
+- $\log p_\theta(x)$ cannot be computed, so training maximises a computable **lower bound** on it instead — the **ELBO**. Pushing the bound up drags the target up with it.
+- The ELBO splits into exactly two terms: a **reconstruction** term (rebuild $x$ from the sampled code) minus a **KL regulariser** (keep the encoder's cloud near the prior). The training loss is the negative of this.
+- The two terms are in genuine tension — reconstruction alone recreates the gap-filled latent space of Module 2; KL alone collapses every input to the same cloud.
+- Because $\log p_\theta(x) = \text{ELBO} + D_{KL}(q_\phi \| p_\theta(z|x))$ and the left side does not depend on $\phi$, maximising the ELBO **automatically** shrinks the gap to the intractable true posterior.
+</ConceptBox>
 
 <QuizCard
-  question="If the encoder outputs μ = 2.0 and log(σ²) = 0.0 (so σ² = 1.0), what is the single-dimension KL divergence?"
+  question="If a model reaches near-zero reconstruction loss while its KL term stays very large, what happens?"
   options={[
-    "2.0",
-    "0.5",
-    "4.0"
+    "It behaves like a plain autoencoder: training inputs reconstruct well, but sampling from the prior gives unrealistic output because the encoder never approached the prior",
+    "It fails to decode anything at all",
+    "The ELBO reaches its theoretical maximum",
+    "Interpolation becomes perfectly smooth"
   ]}
-  correctIndex={0}
-  explanation="D_KL = -0.5 * (1 + 0 - (2.0)² - 1) = -0.5 * (1 - 4 - 1) = -0.5 * (-4) = 2.0."
+  correct={0}
+/>
+
+<Recall items={[
+  { q: "Check your reasoning", a: "A large KL means the encoded distributions never came near the prior, so the latent space is irregular and gap-filled again. Reconstruction of training inputs still works because those codes are where the decoder was trained, but a draw from N(0, I) lands in unused territory and decodes to noise." },
+]} />
+
+<MultiSelectQuiz
+  question="Which statements about the ELBO are correct?"
+  options={[
+    "The ELBO is a quantity guaranteed never to exceed log p(x)",
+    "The training loss is the negative ELBO: reconstruction loss plus KL to the prior",
+    "Maximising the ELBO with respect to the encoder shrinks the KL to the true posterior",
+    "The ELBO can be maximised only after computing the true posterior explicitly",
+    "Reconstruction and KL pull the latent space in opposing directions"
+  ]}
+  correct={[0, 1, 2, 4]}
 />

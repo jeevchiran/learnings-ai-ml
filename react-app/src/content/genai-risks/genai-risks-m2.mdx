@@ -1,0 +1,85 @@
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import HallucinationTaxonomyWidget from '../../components/widgets/genai-risks/HallucinationTaxonomyWidget.jsx'
+
+# Module 2: Classifying Hallucinations
+
+<Bridge>
+Module 1 gave one word for the whole phenomenon. That word covers failures with different causes, different detection methods, and different fixes — so before diagnosing anything, it needs to be split along the dimensions that actually change what you do about it.
+</Bridge>
+
+## Three independent dimensions
+
+<PredictReveal
+  prompt="A model summarising a document invents a statistic that happens, by coincidence, to be true about the world. Is that a hallucination?"
+  options={["No — the claim is true, so nothing was hallucinated", "Yes — it is unsupported by the source it was asked to summarise, which is the standard the task is judged against"]}
+  correct={1}
+>
+
+<HallucinationTaxonomyWidget />
+
+That case is the clearest argument for splitting the term. It is a **faithfulness** failure (unsupported by the given source) without being a **factuality** failure (false about the world). A summarisation system that fabricates true-but-unsourced claims is still broken — users of a summariser are relying on it to represent the document, not to add outside knowledge.
+
+<FactList accent="#b91c1c" items={[
+  { t: 'Intrinsic', d: 'The output contradicts something present in the supplied context. Easiest class to detect automatically, because the ground truth was handed to the system.' },
+  { t: 'Extrinsic', d: 'The output adds content the context neither supports nor contradicts. Cannot be checked against the prompt alone — requires an external source of truth.' },
+  { t: 'Faithfulness failure', d: 'Unfaithful to the provided source. The relevant standard for summarisation, RAG answers, and translation.' },
+  { t: 'Factuality failure', d: 'False about the world. The relevant standard for open-ended question answering with no supplied source.' },
+  { t: 'Closed-domain task', d: 'A source is provided and the answer is judged against it. Faithfulness is the operative criterion.' },
+  { t: 'Open-domain task', d: 'No source is provided and the answer is judged against world knowledge. Factuality is the operative criterion.' },
+]} />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How can an output be a hallucination even when the claim it makes is true?", a: "In a closed-domain task like summarisation, the output is judged against the supplied source, not against the world. A claim that is true but absent from the source is a faithfulness failure — the user is relying on the system to represent the document, so unsourced additions break the contract even when they happen to be correct." },
+]} />
+
+## Severity is a separate axis again
+
+<PredictReveal
+  prompt="Two hallucinations in the same system: one misstates a historical date in a trivia answer, the other invents a drug interaction in a medical summary. Should a production system treat these as the same class of failure?"
+  options={["Yes — both are unsupported claims, so both count identically when measuring the hallucination rate", "No — consequence is an independent axis, and a single aggregate rate hides the failures that actually matter"]}
+  correct={1}
+>
+
+A single "hallucination rate" treats a wrong date and an invented drug interaction as one unit each. That aggregate is close to useless for deciding whether a system is safe to deploy, because the distribution of *consequence* matters far more than the count. Production evaluation therefore stratifies: rate per claim type, per domain, and per severity tier, with a much lower tolerance for claims that touch safety, legal, or financial decisions.
+
+This is also why detection strategy follows classification. Intrinsic failures can be caught by checking the output against the context programmatically. Extrinsic failures need an external knowledge source or a retrieval step. High-severity claims in either category are where human review gets spent — Module 6 returns to this.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a single aggregate hallucination rate insufficient for evaluating a production system?", a: "It weights a trivial misstatement and a dangerous fabrication identically, hiding the distribution of consequence that actually determines whether the system is safe to deploy. Useful evaluation stratifies by claim type, domain, and severity tier, with much lower tolerance in safety-, legal-, or financially-sensitive categories." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Intrinsic vs. extrinsic**: does the output contradict the supplied context, or add content the context is silent on? This determines whether automated detection is even possible from the prompt alone.
+- **Faithfulness vs. factuality**: unsupported by the given source, versus false about the world. A true-but-unsourced claim in a summary is a real failure — the dimensions are independent.
+- **Closed vs. open domain**: whether a source was provided sets which of those two standards applies.
+- **Severity** is a fourth, independent axis. A single aggregate rate hides the consequence distribution that actually decides deployability.
+</ConceptBox>
+
+<QuizCard
+  question="A summariser adds a statistic that is true about the world but absent from the source document. How is this classified?"
+  options={[
+    "Not a hallucination, since the claim is factually correct",
+    "A faithfulness failure but not a factuality failure — unsupported by the source it was judged against",
+    "A factuality failure but not a faithfulness failure",
+    "An intrinsic hallucination, since it contradicts the source"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about classifying hallucinations are correct?"
+  options={[
+    "Intrinsic hallucinations contradict the supplied context and are the easiest class to detect automatically",
+    "Extrinsic hallucinations require an external source of truth to verify, not just the prompt",
+    "Faithfulness and factuality always fail together — an output cannot violate one without the other",
+    "Severity is an independent axis, so a single aggregate rate hides the failures that matter most",
+    "Closed-domain tasks are judged against a provided source rather than against world knowledge"
+  ]}
+  correct={[0, 1, 3, 4]}
+/>

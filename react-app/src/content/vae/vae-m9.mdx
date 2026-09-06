@@ -1,79 +1,122 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
-import BetaVAETunableWidget from '../../components/widgets/vae/BetaVAETunableWidget.jsx'
+import LatentManifoldWidget from '../../components/widgets/vae/LatentManifoldWidget.jsx'
 
-# Module 9: β-VAE & Disentangled Representations
+# Module 9: Latent Space Exploration & Manifold Generation
 
-<ConceptBox title="The Disentanglement Objective">
-In a truly **disentangled representation**, each single latent dimension $z_j$ controls exactly one independent, human-interpretable generative factor (e.g. azimuth rotation, stroke thickness, lighting angle, scale) while remaining completely invariant to all other factors. **$\beta$-VAE** achieves this by placing an adjustable information bottleneck on the latent channel.
+<ConceptBox title="Navigating the Latent Manifold">
+A well-trained VAE transforms complex, non-linear pixel manifolds into a compact, continuous Gaussian latent space. Because the space is regularized and smooth, we can systematically explore it through **grid sampling**, **continuous interpolation**, and **semantic vector arithmetic**.
 </ConceptBox>
 
 <Bridge>
-Module 8 showed that latent dimensions can represent high-level concepts. However, in standard VAEs ($\beta=1$), factors often remain entangled across multiple correlated dimensions. This module introduces $\beta$-VAE and analyzes the trade-off between disentanglement and reconstruction fidelity.
+Module 8 built and trained the VAE in PyTorch. This module explores how to inspect the learned representation: sweeping 2D coordinates to produce continuous manifolds, interpolating between two distinct samples, and manipulating high-level semantic attributes.
 </Bridge>
 
-## The $\beta$-VAE Formulation
+## Generating 2D Latent Manifolds
 
-Introduced by Higgins et al. (ICLR 2017), $\beta$-VAE modifies the standard ELBO objective by introducing a hyperparameter $\beta > 0$ weighting the KL divergence term:
+When a VAE is trained with a 2D latent space ($z = [z_1, z_2]$), we can visualize the entire learned data manifold by creating a uniform grid across the prior domain (e.g. $z_1, z_2 \in [-2.5, +2.5]$) and decoding each coordinate:
 
-$$\mathcal{L}_{\beta\text{-VAE}}(\theta, \phi; x) = \mathbb{E}_{q_\phi(z|x)}\big[\log p_\theta(x|z)\big] - \beta \, D_{KL}\big(q_\phi(z|x) \,\|\, p(z)\big)$$
+<LatentManifoldWidget />
 
-- When $\beta = 1$: Standard VAE (exact ELBO).
-- When $\beta > 1$: Stronger information bottleneck, encouraging statistical independence and axis alignment.
-- When $\beta < 1$: Weaker regularization, prioritizing sharp reconstructions at the expense of latent structure.
+```python
+# Code snippet: Creating a 2D Manifold Grid in PyTorch
+@torch.no_grad()
+def plot_latent_manifold(model, grid_size=15, z_range=2.5):
+    model.eval()
+    # Create coordinate grid
+    z1 = torch.linspace(-z_range, z_range, grid_size)
+    z2 = torch.linspace(-z_range, z_range, grid_size)
+    grid_x, grid_y = torch.meshgrid(z1, z2, indexing='xy')
+    
+    # Flatten into (grid_size^2, 2)
+    z = torch.stack([grid_x.flatten(), grid_y.flatten()], dim=-1)
+    
+    # Decode full meshgrid in one forward pass
+    reconstructions = model.decode(z).view(-1, 28, 28)
+    return reconstructions
+```
 
-## Why Does $\beta > 1$ Force Disentanglement?
-
-The standard prior $p(z) = \mathcal{N}(0, I) = \prod_{j=1}^d \mathcal{N}(z_j; 0, 1)$ is **factorized** (all dimensions are statistically independent).
-
-Under the **Information Bottleneck Principle**:
-1. When $\beta > 1$, the encoder is severely restricted in the total number of nats/bits it can transmit through the latent channel $z$.
-2. To reconstruct $x$ with minimal channel capacity, the network must discover the most efficient representation possible: the true, orthogonal, independent generative factors of the data.
-3. Because the prior has diagonal covariance, the model aligns these independent factors with single coordinate axes.
-
-## Interactive $\beta$ Tuner & Trade-Off Simulator
-
-Adjust $\beta$ to observe the fundamental trade-off between reconstruction sharpness, factor disentanglement, and the danger of posterior collapse:
-
-<BetaVAETunableWidget />
-
-## The Hazard of $\beta \gg 1$: Posterior Collapse
+## Latent Space Interpolation: Lerp vs Slerp
 
 <PredictReveal
-  prompt="What happens if β is set too high (e.g. β = 20 or 50) during training?"
+  prompt="In a 64-dimensional Gaussian latent space, nearly all the probability mass sits in a thin shell at roughly constant distance from the origin. If you interpolate along a straight line between two codes on that shell, where does the midpoint end up?"
   options={[
-    "The model achieves perfect disentanglement across all dimensions.",
-    "Posterior Collapse occurs: the encoder outputs q_ϕ(z|x) ≈ p(z) for all inputs (KL → 0), and the decoder completely ignores z, outputting the blurry average of the entire dataset.",
-    "The model overfits to the training set."
+    "On the shell, like both endpoints",
+    "Closer to the origin than either endpoint — in the sparse interior where the model has seen almost no codes"
   ]}
   correct={1}
 >
 
-When $\beta$ is excessively large, minimizing the KL divergence dominates the entire optimization. The easiest way for gradient descent to reduce loss is to set $\mu = 0$ and $\sigma^2 = 1$ everywhere.
+A straight line between two points on a sphere cuts through the inside. In high dimensions that interior is almost empty of training mass, so midpoints of a linear interpolation are systematically more "unusual" than their endpoints — which often shows up as washed-out, low-contrast samples halfway through a morph.
 
-When $q_\phi(z|x) = \mathcal{N}(0, I)$ contains zero mutual information about $x$, the decoder receives no input signal and simply learns to output the unconditional mean image $\bar{x}$. This failure mode is known as **Posterior Collapse**.
+Spherical interpolation (**slerp**) walks *along* the shell instead, keeping the radius roughly constant so every intermediate code is as typical as the endpoints. In 2D the difference is negligible; by 64 dimensions it is very visible.
 
 </PredictReveal>
 
-## Strategies to Prevent Posterior Collapse
 
-1. **KL Annealing / Warm-up**: Start training with $\beta = 0$, gradually increasing $\beta \to 1$ or $\beta_{\text{target}}$ over the first $N$ epochs.
-2. **Free Bits / Minimum KL Constraint**: Replace $D_{KL}$ with $\max(\tau, D_{KL})$, giving each dimension a budget of $\tau$ bits for free before applying regularization.
-3. **Controlled Capacity Increase ($C$-VAE)**: Gradually increase a target capacity $C$: $\mathcal{L} = \mathcal{L}_{\text{recon}} - \gamma |D_{KL} - C|$.
+How should we traverse the path between two encoded images $x_A$ and $x_B$?
+
+### 1. Linear Interpolation (Lerp)
+
+The simplest trajectory is a straight line:
+
+$$z(\alpha) = (1 - \alpha) z_A + \alpha z_B, \qquad \alpha \in [0, 1]$$
+
+While effective in 2D or low dimensions, in high dimensions (e.g. $d = 64$ or $128$), the straight line between two points passes close to the origin $z = 0$, where the density is much higher than the spherical shell where high-dimensional Gaussians naturally concentrate (the **Gaussian Annulus Theorem**).
+
+### 2. Spherical Linear Interpolation (Slerp)
+
+In high-dimensional Gaussian spaces, points sampled from $\mathcal{N}(0, I_d)$ have Euclidean norm concentrated near $\|z\| \approx \sqrt{d}$. **Slerp** moves along the constant-radius hypersphere arc:
+
+$$z(\alpha) = \frac{\sin((1-\alpha)\Omega)}{\sin(\Omega)} z_A + \frac{\sin(\alpha\Omega)}{\sin(\Omega)} z_B, \qquad \text{where } \cos(\Omega) = \frac{z_A \cdot z_B}{\|z_A\| \|z_B\|}$$
+
+Slerp preserves vector norm and prevents the interpolation from traveling through atypical low-norm regimes.
+
+## Vector Arithmetic in Latent Space
+
+Because representations are continuous and linearly aligned, we can discover **semantic attribute vectors** by averaging latent codes:
+
+$$v_{\text{smile}} = \frac{1}{N_{\text{smile}}} \sum_{i \in \text{smiling}} z_i - \frac{1}{N_{\text{neutral}}} \sum_{j \in \text{neutral}} z_j$$
+
+Adding this attribute vector to a new face code modifies the feature predictably:
+
+$$z_{\text{new}} = z_{\text{input}} + \gamma \cdot v_{\text{smile}}$$
+
+```
+  [ Neutral Face x ] ──► Encoder ──► z_neutral
+                                         │
+                                         ▼  + γ · v_smile
+                                      z_smiling
+                                         │
+                                         ▼  Decoder
+                                  [ Smiling Face x̂ ]
+```
 
 <Recall items={[
-  { q: "What is the primary motivation for using β > 1 in β-VAE?", a: "To impose a tighter information bottleneck that forces the network to learn statistically independent, axis-aligned, disentangled generative factors." },
-  { q: "What is posterior collapse and how does KL annealing prevent it?", a: "Posterior collapse occurs when the KL penalty is so strong that the encoder sets q(z|x) = p(z) for all inputs, causing the decoder to ignore the latent code. KL annealing prevents this by starting with β=0 so the encoder-decoder first learns to reconstruct before gradually introducing the KL regularizer." }
+  { q: "What is the difference between Linear Interpolation (lerp) and Spherical Linear Interpolation (slerp)?", a: "Lerp connects two latent vectors along a straight chord, which cuts through low-norm space near the origin. Slerp interpolates along the surface of a constant-radius hypersphere, maintaining realistic vector norms in high dimensions." },
+  { q: "How is a semantic attribute vector (e.g. smile vector) computed in latent space?", a: "By taking the difference between the mean latent vector of samples possessing the attribute and the mean latent vector of samples lacking it." }
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A trained decoder maps *any* latent coordinate to an image, so the latent space can be explored directly — sweep a 2D grid and every cell decodes to a valid sample.
+- **Interpolating** between two codes produces a smooth semantic morph rather than a pixel crossfade, because the path passes through regions the KL term kept populated.
+- In higher dimensions prefer **slerp** over **lerp**: Gaussian mass concentrates on a shell at roughly constant radius, and a straight line cuts through the sparse low-density interior.
+- Latent directions can carry consistent meaning, so **vector arithmetic** on codes can add or remove an attribute.
+</ConceptBox>
 
 ## Summary Check
 
 <QuizCard
-  question="In a disentangled latent space, changing the value of z₁ from -2 to +2 while keeping all other z_j fixed will:"
+  question="In high-dimensional latent space (e.g. d = 100), why is Slerp often preferred over Lerp for traversing between two sampled vectors?"
   options={[
-    "Modify exactly one isolated semantic attribute (e.g. rotation angle) without changing unrelated attributes (e.g. object size, color, or shape).",
-    "Completely randomize the entire decoded image.",
-    "Cause the decoder to output an all-black image."
+    "Because high-dimensional Gaussian probability mass concentrates in a thin spherical shell (annulus); Slerp stays on this shell, whereas Lerp passes through the uncharacteristically dense center.",
+    "Because Lerp causes division by zero.",
+    "Because Slerp ignores the decoder weights."
   ]}
-  correctIndex={0}
-  explanation="Disentanglement means single latent dimensions map directly to independent real-world factors of variation."
+  correct={0}
 />
+
+<Recall items={[
+  { q: "Check your reasoning", a: "In high dimensions, the volume of a sphere is concentrated near its surface. Slerp preserves the norm ||z|| ≈ √d throughout the traversal, maintaining typical sample quality." }
+]} />

@@ -40,6 +40,26 @@ There is a catch: the Wasserstein distance's dual formulation only holds if the 
   { q: "Why must a WGAN's critic be constrained to be 1-Lipschitz, and how does WGAN-GP enforce that constraint?", a: "The dual formulation of Wasserstein distance that the critic approximates is only valid under a 1-Lipschitz constraint on the critic function. WGAN-GP enforces it by adding a gradient penalty term that pushes the critic's gradient norm toward 1 on interpolated points between real and fake samples, rather than clipping weights directly." },
 ]} />
 
+## Optional depth — the two-line example that settles it
+
+The claim "JS goes flat, Wasserstein does not" is easiest to believe on the smallest possible case (Arjovsky et al., 2017).
+
+Let the real distribution put all its mass at the single point $x = 0$, and let the generator put all its mass at $x = \theta$. One parameter, $\theta$, controls how wrong the generator is — and we want a loss whose gradient tells us to move $\theta$ toward 0.
+
+**Under Jensen-Shannon.** For any $\theta \neq 0$ the two distributions share no support at all — there is no $x$ where both place mass. Every such configuration is equally non-overlapping, whether $\theta$ is $100$ or $0.001$:
+
+$$\text{JSD}(p_{data} \,\|\, p_g) = \begin{cases} \log 2 & \theta \neq 0 \\ 0 & \theta = 0 \end{cases}$$
+
+The function is **constant** everywhere except a single discontinuity at the origin. Its derivative with respect to $\theta$ is zero wherever it is defined, so gradient descent gets no information about which way to move — even though $\theta = 0.001$ is obviously nearly correct and $\theta = 100$ is obviously terrible.
+
+**Under Wasserstein.** The Earth Mover's distance asks how much mass must move how far — here, all of it, a distance $|\theta|$:
+
+$$W(p_{data}, p_g) = |\theta|$$
+
+This is continuous, and its derivative is $\text{sign}(\theta)$: a usable gradient pointing straight at the answer for every $\theta$. Same two distributions, same disjoint supports — the difference is entirely in what the divergence measures.
+
+That is the whole argument in miniature. JS asks *"do these overlap?"* and gets a yes/no that stops being informative the moment the answer is no. Wasserstein asks *"how far apart are they?"* and keeps answering usefully no matter how far apart they are.
+
 ---
 
 <ConceptBox title="TL;DR">

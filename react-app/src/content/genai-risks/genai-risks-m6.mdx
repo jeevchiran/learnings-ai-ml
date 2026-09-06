@@ -1,0 +1,87 @@
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import MitigationLayersWidget from '../../components/widgets/genai-risks/MitigationLayersWidget.jsx'
+
+# Module 6: Layered Mitigation in Production
+
+<Bridge>
+Module 1 framed hallucination as a rate to manage rather than a bug to fix. This module is what managing it actually looks like — and the organising principle is that no single technique is close to sufficient, because each one addresses a different cause from Modules 3 and 4.
+</Bridge>
+
+## Why layers, and why they compose
+
+<PredictReveal
+  prompt="Retrieval grounding supplies real source text with every query. Does adding it convert an open-domain factuality problem into a solved problem?"
+  options={["Largely yes — with real sources in context, the remaining failure rate is negligible", "No — it converts the problem into a faithfulness problem, which is easier to check but still fails when retrieval misses or the model misreads what it retrieved"]}
+  correct={1}
+>
+
+<MitigationLayersWidget />
+
+Grounding is the highest-leverage single intervention, and it is worth being precise about why: it changes the *class* of the problem. An open-domain factuality question (Module 2) becomes a closed-domain faithfulness question, which is checkable against supplied text rather than against all of world knowledge. That is a large win. But it introduces its own failure modes — retrieval returning nothing relevant, retrieving something outdated, or the model under-weighting a passage sitting in the middle of a long context (Module 4).
+
+Each subsequent layer targets a residue the previous one leaves:
+
+<FactList accent="#b91c1c" items={[
+  { t: 'Retrieval grounding', d: 'Supplies source text, converting factuality into checkable faithfulness. Fails when retrieval misses, returns stale text, or the passage is under-weighted in a long context.' },
+  { t: 'Decoding constraints', d: 'Lower temperature and constrained output formats suppress low-probability fabrications. No help against confident errors (Module 4).' },
+  { t: 'Self-consistency', d: 'Sample several times and compare; disagreement flags instability. Catches unstable fabrications, misses errors the model makes consistently.' },
+  { t: 'Citation verification', d: 'Programmatically check every claim resolves to real supporting text. Strong against fabricated references, weaker against subtle misreadings of real ones.' },
+  { t: 'Guardrails and refusal paths', d: 'Detect out-of-scope queries and route to an explicit abstention — supplying the behaviour the architecture has no state for (Module 4).' },
+  { t: 'Human review', d: 'Effective per-instance, and degraded over time by automation bias (Module 5). Spend it on the high-severity tier from Module 2, not uniformly.' },
+]} />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is retrieval grounding described as changing the class of the problem rather than solving it?", a: "It converts an open-domain factuality question, checkable only against all world knowledge, into a closed-domain faithfulness question checkable against the supplied text. That makes verification tractable, but introduces its own failures — retrieval missing, returning stale content, or the model under-weighting a passage buried in a long context." },
+]} />
+
+## Designing for the residue
+
+<PredictReveal
+  prompt="Every mitigation layer is enabled and the measured hallucination rate is low but non-zero. What does responsible design do with that remaining rate?"
+  options={["Treat the system as solved and remove the surrounding controls, since the rate is now small", "Design the product around it — disclosure, visible sources, reversible actions, logging, and a path for users to challenge an output"]}
+  correct={1}
+>
+
+Because the residue never reaches zero, the last layer is not a filter at all — it is product design. Concretely: show sources next to claims so verification is cheap rather than aspirational; prefer reversible actions and require confirmation before irreversible ones; log inputs and outputs so an error can be traced after the fact; give users an obvious way to report a wrong answer; and scope the deployment away from decisions where the severity tier from Module 2 exceeds what the measured rate can support.
+
+That last point is the one most often skipped. Deciding *not* to deploy into a particular decision — or to deploy in an assistive rather than authoritative role — is a legitimate and frequently correct mitigation, and it is the only one that addresses the residue directly rather than shrinking it.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Since layered mitigation never drives the hallucination rate to zero, what does responsible design do about the remainder?", a: "It designs the product around a known failure rate: sources displayed next to claims, reversible actions preferred and confirmation required for irreversible ones, logging for after-the-fact tracing, an easy path to report errors, and scoping the deployment away from decisions whose severity exceeds what the measured rate supports — including deciding not to deploy, or to deploy assistively rather than authoritatively." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Layers compose because each targets a **different cause** from Modules 3 and 4 — they are not redundant copies of one control.
+- **Grounding** is the highest-leverage single layer because it changes the problem class: open-domain factuality becomes checkable closed-domain faithfulness. It does not eliminate failure — it relocates it to retrieval quality and context handling.
+- Decoding constraints, self-consistency, citation verification, guardrails, and human review each catch a residue the others leave; **human review is a scarce resource**, best spent on the high-severity tier rather than uniformly.
+- The rate never reaches zero, so the final layer is **product design**: visible sources, reversible actions, logging, user challenge paths, and scoping deployment away from decisions the measured rate cannot support.
+</ConceptBox>
+
+<QuizCard
+  question="Why do multiple mitigation layers reduce risk more than investing everything in the single best one?"
+  options={[
+    "Because each layer addresses a different underlying cause, so their coverage composes rather than overlapping",
+    "Because running more layers slows the system down, which reduces usage",
+    "Because a single layer can be made perfect if given enough resources",
+    "Because layers are redundant copies, so failures become statistically independent"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about layered hallucination mitigation are correct?"
+  options={[
+    "Retrieval grounding converts an open-domain factuality problem into a checkable faithfulness problem",
+    "Self-consistency sampling catches unstable fabrications but misses consistently-repeated errors",
+    "Guardrails with explicit refusal paths supply abstention behaviour the architecture has no state for",
+    "With enough layers stacked, the residual hallucination rate reaches zero",
+    "Choosing not to deploy into a high-severity decision is itself a legitimate mitigation"
+  ]}
+  correct={[0, 1, 2, 4]}
+/>

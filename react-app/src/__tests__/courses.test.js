@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { courses, moduleById, allModules, getPrevNext } from '../data/courses.js'
 
 describe('courses data', () => {
-  it('has 24 tracks', () => {
-    expect(courses).toHaveLength(24)
+  it('has 25 tracks', () => {
+    expect(courses).toHaveLength(25)
   })
 
-  it('has 260 modules total', () => {
-    expect(allModules).toHaveLength(260)
+  it('has 273 modules total', () => {
+    expect(allModules).toHaveLength(273)
   })
 
   it('every module has required fields', () => {

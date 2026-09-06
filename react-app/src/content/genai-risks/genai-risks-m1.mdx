@@ -1,0 +1,79 @@
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 1: What Hallucination Means in a GenAI Context
+
+<Bridge>
+Every previous track in this curriculum asked how to make a model work. This one asks what happens when it works exactly as designed and still produces something false — and why that is a predictable property of the design rather than a defect in it.
+</Bridge>
+
+## Fluency and truth are separate systems
+
+<PredictReveal
+  prompt="A language model produces a fluent, well-structured, confident paragraph containing a fabricated statistic. Which part of its training objective was violated?"
+  options={["The factual-accuracy term — the model failed at what it was optimised for", "None of it — the objective never contained a term for truth in the first place"]}
+  correct={1}
+>
+
+The training objective covered in the Transformers track is next-token prediction: given a context, assign high probability to plausible continuations. Nothing in that loss function evaluates whether a claim corresponds to reality. A model that produces a fluent fabrication has not failed at its objective — it has succeeded at it, on an input where the fluent continuation and the true one diverge.
+
+This is why the framing matters. **Hallucination** is the standard term for output that is fluent and confident but unsupported — either false about the world, or unsupported by the sources the model was given. It is a term of art, and a somewhat unfortunate one: it borrows a word implying perception gone wrong, when the underlying process is the same statistical continuation that produces correct answers.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a fluent fabrication not a failure of the model's training objective?", a: "The next-token prediction objective rewards plausible continuations, and contains no term evaluating whether a claim is true. On inputs where the fluent continuation diverges from the true one, producing the fluent falsehood is the objective working as specified — not a departure from it." },
+]} />
+
+## What hallucination is not
+
+<PredictReveal
+  prompt="Is a hallucination best understood as a bug — something that could in principle be patched out of the system with enough engineering?"
+  options={["Yes — it is a defect in the implementation, fixable like any other bug", "No — it is a structural property of generating text from a probability distribution, which can be reduced and managed but not patched away"]}
+  correct={1}
+>
+
+Three distinctions worth being precise about:
+
+- **Not lying.** Lying requires knowing the truth and choosing to state otherwise. The model has no separate internal store of "what is true" that it is contradicting.
+- **Not a bug.** A bug is a defect in an implementation that behaves differently from its specification. Hallucination arises *from* the specification: sample plausible text. There is no line of code to fix.
+- **Not random noise.** Hallucinations are typically coherent, internally consistent, and plausible — that is exactly what makes them hard to spot and dangerous downstream.
+
+The practical consequence runs through the rest of this half of the track: hallucination is a failure *rate* to be measured, reduced, and designed around, not a defect to be eliminated. Module 6 covers what that looks like in production.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is 'bug' the wrong mental model for hallucination, and what is the practical consequence of that?", a: "A bug is behaviour departing from a specification, but hallucination arises directly from the specification — sample plausible continuations — so there is no defect to patch. The practical consequence is that it must be treated as a measurable failure rate to reduce and design around, rather than a problem that can be fixed once and closed." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Hallucination** is fluent, confident output that is false about the world or unsupported by the provided sources.
+- It does not violate the training objective — next-token prediction rewards plausibility and contains **no term for truth**, so a fluent fabrication is that objective working as specified.
+- It is not lying (no internal truth being contradicted), not a bug (no departure from spec), and not noise (outputs are coherent and plausible, which is what makes them dangerous).
+- The practical framing for everything that follows: a failure **rate** to measure and manage, not a defect to eliminate.
+</ConceptBox>
+
+<QuizCard
+  question="Why does a next-token prediction objective produce confident falsehoods rather than expressions of uncertainty?"
+  options={[
+    "Because the objective rewards plausible continuations and contains no term evaluating truth",
+    "Because the model deliberately withholds what it knows to be true",
+    "Because random noise in sampling corrupts otherwise correct outputs",
+    "Because the training data contained no true statements about the topic"
+  ]}
+  correct={0}
+/>
+
+<MultiSelectQuiz
+  question="Which statements about hallucination in a GenAI context are correct?"
+  options={[
+    "It describes fluent, confident output that is false or unsupported by the provided sources",
+    "It represents a violation of the model's next-token training objective",
+    "It is best treated as a measurable failure rate rather than a patchable bug",
+    "Hallucinated content is typically coherent and plausible rather than obviously garbled",
+    "It constitutes lying, since the model knows the truth and states otherwise"
+  ]}
+  correct={[0, 2, 3]}
+/>

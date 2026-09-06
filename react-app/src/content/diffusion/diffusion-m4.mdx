@@ -42,6 +42,32 @@ Train by picking a random $x_0$, a random timestep $t$, a random noise $\epsilon
   { q: "What does the simplified DDPM training loss L_simple actually ask the network to predict, and from what inputs?", a: "It asks the network ε_θ to predict the noise ε that was added to produce x_t from x_0, given x_t and the timestep t as input. Training is an ordinary mean-squared-error regression between the true noise and the predicted noise, with no adversarial component." },
 ]} />
 
+## Optional depth — how the bound collapses to noise prediction
+
+"It simplifies to an MSE on the noise" is a large claim to accept on trust. Here is the shape of the argument; the main thread does not depend on following it.
+
+**Step 1 — the bound becomes a sum of Gaussian KLs.** Expanding the variational bound over the chain gives one term per timestep, each comparing the true reverse step against the model's:
+
+$$D_{KL}\big(q(x_{t-1} \mid x_t, x_0) \,\|\, p_\theta(x_{t-1} \mid x_t)\big)$$
+
+Note the true reverse step is conditioned on $x_0$. That extra conditioning is what makes it tractable — unlike $q(x_{t-1}|x_t)$ alone, it has a closed-form Gaussian solution with a known mean $\tilde{\mu}_t(x_t, x_0)$.
+
+**Step 2 — Gaussian KL is a squared distance between means.** Both distributions are Gaussian, and DDPM fixes the reverse variance rather than learning it. The Gaussian KL formula (VAE track, Module 5) then reduces to a scaled squared difference of the means, with everything else constant:
+
+$$D_{KL} = \frac{1}{2\sigma_t^2}\big\| \tilde{\mu}_t(x_t, x_0) - \mu_\theta(x_t, t) \big\|^2 + \text{const}$$
+
+**Step 3 — rewrite the target mean in terms of the noise.** Module 2's closed form, $x_t = \sqrt{\bar\alpha_t}\,x_0 + \sqrt{1-\bar\alpha_t}\,\epsilon$, can be rearranged to express $x_0$ using $x_t$ and $\epsilon$. Substituting that into $\tilde{\mu}_t$ gives a mean written in terms of quantities the network already has ($x_t$, $t$) plus the one thing it does not: the noise $\epsilon$.
+
+**Step 4 — parameterise the model the same way.** Since $\mu_\theta$ only has to match $\tilde\mu_t$, give it the identical algebraic form but with a predicted $\epsilon_\theta(x_t, t)$ in place of the true $\epsilon$. Every shared term then cancels in the subtraction, and the squared difference of means becomes a squared difference of *noises*:
+
+$$\big\| \tilde{\mu}_t - \mu_\theta \big\|^2 \;\propto\; \big\| \epsilon - \epsilon_\theta(x_t, t) \big\|^2$$
+
+**Step 5 — drop the weights.** Each timestep's term carries a coefficient depending on $\bar\alpha_t$ and $\sigma_t$. Ho et al. found that simply setting every coefficient to 1 trains better than the theoretically-derived weighting — it up-weights the harder, noisier timesteps — leaving:
+
+$$L_{\text{simple}} = \mathbb{E}_{t, x_0, \epsilon}\Big[\big\| \epsilon - \epsilon_\theta(x_t, t) \big\|^2\Big]$$
+
+So the final loss is not an approximation of the bound but a deliberately **re-weighted** version of it: the same per-timestep terms, weighted for training convenience rather than for tightness.
+
 ---
 
 <ConceptBox title="TL;DR">

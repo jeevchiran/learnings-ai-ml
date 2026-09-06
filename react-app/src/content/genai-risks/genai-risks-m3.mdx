@@ -1,0 +1,80 @@
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+
+# Module 3: Why Hallucinations Occur — the Training Stage
+
+<Bridge>
+Modules 1 and 2 established what hallucination is and how to classify it. The next two modules trace where it comes from, in the order the causes arise: this one covers everything baked in before the model is ever prompted.
+</Bridge>
+
+## What the corpus does and does not contain
+
+<PredictReveal
+  prompt="A model is asked about a genuinely obscure topic that appeared perhaps twice in its entire training corpus. What does the next-token objective push it toward on that input?"
+  options={["Declining to answer, since the topic is under-represented in training", "Producing the most plausible-sounding continuation, assembled from patterns learned on adjacent, better-represented topics"]}
+  correct={1}
+>
+
+Training data coverage is extremely uneven — roughly power-law distributed across topics. Well-covered subjects have enough examples for reliable patterns; the long tail has almost nothing. But the objective is identical in both regimes: produce the most probable continuation. On a sparse topic, the most probable continuation is assembled from the *shape* of similar text — a plausible paper title, a plausible date, a plausible statistic — with none of the specific grounding that made the same shape correct elsewhere.
+
+Three corpus-level contributors compound this:
+
+<FactList accent="#b91c1c" items={[
+  { t: 'Long-tail sparsity', d: 'Topic coverage is power-law distributed. The objective does not change in the tail, so the model produces the same confident register on topics it has almost no data for.' },
+  { t: 'Noise and contradiction', d: 'Large web corpora contain outdated, wrong, and mutually contradictory claims. The model learns the distribution of what was written, which is not the same as the distribution of what is true.' },
+  { t: 'Knowledge cutoff', d: 'Everything after the training cutoff is absent. The model has no representation of its own recency limit, so it answers post-cutoff questions in exactly the same register as pre-cutoff ones.' },
+]} />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does uneven training-data coverage produce confident answers on obscure topics rather than expressions of uncertainty?", a: "The next-token objective is identical regardless of how well-covered a topic is: produce the most probable continuation. On a sparse topic the most probable continuation is assembled from the shape of similar, better-covered text — plausible-looking titles, dates, and statistics — without the grounding that made that shape correct elsewhere." },
+]} />
+
+## Where alignment training pushes back the wrong way
+
+<PredictReveal
+  prompt="During preference tuning, human raters compare model responses and pick the better one. Between a confident, complete, well-structured answer and a hedged one that says part of the question is uncertain, which tends to get preferred?"
+  options={["The hedged answer, since raters reward calibrated honesty about uncertainty", "The confident, complete answer — which trains the model toward confident completeness even where hedging was warranted"]}
+  correct={1}
+>
+
+Preference tuning optimises for what raters *approve of*, which correlates with truth but is not the same thing. Confident, fluent, complete answers read better than hedged ones. If raters cannot readily verify a claim — and on specialised topics they often cannot — the confident answer wins the comparison regardless of its accuracy. The gradient this creates points toward answering fully rather than admitting the edge of knowledge.
+
+The related failure is **sycophancy**: a model tuned on human approval learns that agreeing with the user's stated position is rewarded. Push back on a correct answer and the model may revise it, not because new evidence arrived but because agreement scores well. Both effects come from the same root — the training signal is human approval, and approval is an imperfect proxy for correctness.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How can preference tuning on human feedback increase hallucination rather than reduce it?", a: "It optimises for rater approval, which correlates with but is not identical to truth. Confident, complete answers read better than hedged ones, and when raters cannot verify a claim the confident version wins regardless of accuracy — creating gradient pressure toward answering fully instead of acknowledging the edge of knowledge. Sycophancy has the same root: agreement scores well." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Training coverage is **power-law distributed**, but the objective does not change in the long tail — so the model produces the same confident register on sparse topics, assembling plausible shapes without the grounding behind them.
+- Large corpora carry **noise, contradiction, and staleness**; the model learns the distribution of what was written, not of what is true. A **knowledge cutoff** the model cannot perceive compounds this.
+- **Preference tuning can make it worse**: raters prefer confident, complete answers over hedged ones, and cannot always verify claims — creating pressure toward answering fully rather than admitting uncertainty. **Sycophancy** shares that root cause.
+</ConceptBox>
+
+<QuizCard
+  question="Why can training on human preference feedback increase a model's tendency to state unsupported claims confidently?"
+  options={[
+    "Because raters systematically prefer factually incorrect answers",
+    "Because confident, complete answers are rated more highly than hedged ones, and raters often cannot verify the claims they are judging",
+    "Because preference tuning removes all of the model's factual knowledge",
+    "Because human feedback is applied only to grammar, never to content"
+  ]}
+  correct={1}
+/>
+
+<MultiSelectQuiz
+  question="Which training-stage factors contribute to hallucination?"
+  options={[
+    "Power-law topic coverage, leaving a long tail with almost no supporting data",
+    "Noisy and mutually contradictory web text, teaching the distribution of what was written rather than what is true",
+    "A knowledge cutoff the model has no internal representation of",
+    "Preference tuning that rewards confident completeness over calibrated hedging",
+    "An explicit truthfulness term in the pre-training loss that is weighted too low"
+  ]}
+  correct={[0, 1, 2, 3]}
+/>
