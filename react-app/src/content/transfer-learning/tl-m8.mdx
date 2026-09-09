@@ -105,7 +105,9 @@ bad = nn.ConvTranspose2d(1024, 512, kernel_size=3, stride=2, padding=1, output_p
 print(bad(x).shape)         # also [1, 512, 56, 56] — same shape, worse geometry
 ```
 
-## Worked example — U-Net's up-conv
+## Optional depth — worked example: U-Net's up-conv
+
+Everything above is enough to use transposed convolution correctly and to recognise checkerboarding when you see it. This section runs the arithmetic on a real U-Net layer, shape by shape. It is worth doing once, but nothing later in the track assumes you have.
 
 Bottleneck $28 \times 28 \times 1024$, up-conv with $k=2$, $s=2$, $p=0$:
 

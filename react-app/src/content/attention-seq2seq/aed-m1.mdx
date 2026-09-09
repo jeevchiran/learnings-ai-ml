@@ -3,7 +3,7 @@ import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } 
 # Module 1: Word Embeddings — Strengths and Limits
 
 <Bridge>
-The RNN track's final module ended on a teaser: translation needs an encoder and a decoder, the whole source sentence gets squeezed into one fixed-size vector, and that squeeze is "the through-line that motivated attention, and from there transformers." This track cashes that promise in — properly this time, with the architecture, the math, the training loop, and runnable code. Before any of that: every word going into these models first has to become a vector, so start there.
+This track picks up a thread the **RNN track** left open. Its final module ended on a teaser: translation needs an encoder and a decoder, the whole source sentence gets squeezed into one fixed-size vector, and that squeeze is "the through-line that motivated attention, and from there transformers." Everything here builds on that RNN machinery — hidden states carried step by step, and the vanishing-influence problem that comes with them — so if it has been a while, the RNN track's Modules 9 and 14 are the two worth skimming first. This track cashes the promise in properly: the architecture, the math, the training loop, and runnable code. Before any of that, every word going into these models has to become a vector, so start there.
 </Bridge>
 
 A word embedding is a dense vector that stands in for a word — learned so that words used in similar contexts end up with similar vectors. "coffee" and "tea" land close together; "coffee" and "bicycle" don't. That single idea — distributional similarity, encoded as geometry — is what every model in this track builds on top of.

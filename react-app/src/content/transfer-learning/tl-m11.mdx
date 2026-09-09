@@ -109,7 +109,9 @@ Computing Dice **per image** and averaging makes every image count equally, whic
   { q: "Why compute Dice per image and average, rather than over the whole batch at once?", a: "Because a batch-level sum lets a large well-segmented object in one image mask a completely missed small object in another — the pooled intersection barely changes, so the network is never punished. Per-image reduction then averaging weights every image equally, which is what you want when object sizes vary. The same argument extends to per-class reduction for multi-class macro-Dice." },
 ]} />
 
-## The alternatives, and when they matter
+## Optional depth — the alternatives, and when they matter
+
+Dice plus BCE is the default that ships in most pipelines, and knowing why it works is the core of this module. This section is the reference shelf: the other segmentation losses, what each one buys, and the situations that call for them. Read it when a default stops being good enough rather than before.
 
 <PredictReveal
   prompt="For a typical imbalanced segmentation task, which loss setup ships as the default in most practical pipelines?"

@@ -107,7 +107,9 @@ That is the diagnostic. Blurry-but-correct output means missing detail path (ski
   { q: "A U-Net trains fine but its masks have soft, thick boundaries and thin structures vanish. What is the likely cause, and what is NOT?", a: "The likely cause is a missing or broken detail path — the long concatenative skips. It is not a gradient problem: the network is training, the loss is falling, the masks are recognisable. Failure to train at all would point at gradients, normalisation or learning rate. Distinguishing the two symptoms stops you tuning the wrong mechanism." },
 ]} />
 
-## Worked example — what concatenation costs
+## Optional depth — worked example: what concatenation costs
+
+The argument above — concatenation preserves detail, addition preserves gradient flow — is the part that decides architectures. This section prices the choice out in parameters and FLOPs. Useful when you are budgeting a model, skippable on a first pass.
 
 <PredictReveal
   prompt="U-Net decoder level 1: a 128-channel upsampled tensor meets a 128-channel skip, feeding a 3×3 conv that outputs 128 channels. Compared to adding the two tensors, how much more expensive is concatenating them at that conv?"
