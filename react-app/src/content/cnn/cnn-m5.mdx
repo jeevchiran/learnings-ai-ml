@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import CNNParamsWidget from '../../components/widgets/cnn/CNNParamsWidget.jsx'
 
 # Module 5: CNN Architecture & Parameter Numericals
@@ -46,6 +46,12 @@ The three conv layers together use only $896 + 18{,}496 + 73{,}856 = 93{,}248$ p
 
 ## Classic architectures — parameter summary
 
+<PredictReveal
+  prompt="In a classic convolutional network the convolution layers do almost all the computation. Where do most of the parameters live?"
+  options={["In the convolution layers, naturally", "In the first fully connected layer after flattening, which alone can hold more weights than every convolution combined"]}
+  correct={1}
+>
+
 | Architecture | Year | Params | Depth | Key Innovation |
 |-------------|------|--------|-------|----------------|
 | LeNet-5 | 1998 | 61K | 5 | First conv net for digits |
@@ -56,6 +62,12 @@ The three conv layers together use only $896 + 18{,}496 + 73{,}856 = 93{,}248$ p
 | EfficientNet-B0 | 2019 | 5.3M | — | Compound scaling |
 
 Note VGG-16's 138M: $3 \times 3 \times 512 \times 512 = 2{,}359{,}296$ per conv layer in the deepest block, repeated 3 times, plus three FC layers of 4096×4096×1000. Modern architectures use GAP to avoid the giant FC layers.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Where do most parameters sit in a classic convolutional network, and what removed them?", a: "In the first dense layer after flattening, because it connects every position of the final feature map to every unit. Global average pooling replaced flattening in later architectures, collapsing each channel to one number and deleting the overwhelming majority of the parameters." },
+]} />
 
 ## Worked numericals
 

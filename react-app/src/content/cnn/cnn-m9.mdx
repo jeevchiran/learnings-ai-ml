@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import ActivationMapWidget from '../../components/widgets/cnn/ActivationMapWidget.jsx'
 
 # Module 9: Visualising & Interpreting CNN Activations
@@ -45,6 +45,12 @@ Visualise each channel as a heatmap. Early channels (conv1) show Gabor-like patt
 
 ## Method 2: GradCAM
 
+<PredictReveal
+  prompt="A network classifies an image of a boat with 99% confidence. Its attention map highlights the water, not the boat. Is the model correct?"
+  options={["Yes, the answer was right", "The answer was right for the wrong reason, and it will fail on a boat out of water"]}
+  correct={1}
+>
+
 **Gradient-weighted Class Activation Mapping** (Selvaraju et al., 2017) answers: "which spatial regions most influenced the class score?"
 
 Algorithm:
@@ -74,6 +80,12 @@ cam = torch.relu(cam)
 ```
 
 Upsample the resulting $H_{conv} \times W_{conv}$ map to the input resolution and overlay on the original image.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why visualise a network's attention even when its accuracy is high?", a: "Accuracy only checks the answer, not the reason. A model can reach the right label by keying on background context that happens to correlate with the class in the training data, and that shortcut fails as soon as the correlation breaks. The attention map is what exposes the shortcut." },
+]} />
 
 ## Interactive: visualise activation regions
 

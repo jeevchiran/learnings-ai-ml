@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import FeatureMapWidget from '../../components/widgets/cnn/FeatureMapWidget.jsx'
 
 # Module 3: Feature Maps & Filters
@@ -29,6 +29,12 @@ Each filter captures a different aspect of the same input. In trained CNNs, earl
 
 ## Receptive field grows with depth
 
+<PredictReveal
+  prompt="Every kernel in a network is 3 by 3, looking at a tiny patch. How can such a network recognise a whole object?"
+  options={["It cannot, which is why large kernels are needed", "Each layer sees a patch of the layer below, so the region of the original image influencing one unit grows with depth"]}
+  correct={1}
+>
+
 Each conv layer's output value depends on a $K \times K$ region of its input. But that input is itself the output of the previous layer, which also had a $K \times K$ receptive field. Receptive fields compound:
 
 | Depth | Receptive field (3×3 kernels, stride 1, no pool) |
@@ -44,7 +50,19 @@ With pooling (stride 2), the effective receptive field grows much faster. After 
 A single wide (large K) filter sees a large region but detects only one pattern. Stacking narrow (3×3) filters builds a hierarchy: layer 1 detects edges, layer 2 composes edges into corners, layer 3 composes corners into shapes. This compositional structure matches how visual features actually exist in natural images.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is a receptive field and why does it grow with depth?", a: "It is the region of the original image that influences one unit's value. A unit in the second layer sees a small patch of the first layer, and each of those first-layer units already summarised its own patch of the image, so the reach compounds layer by layer even though every kernel stays small." },
+]} />
+
 ## Parameter count for multi-channel conv layers
+
+<PredictReveal
+  prompt="A convolution layer has 32 filters of size 3 by 3, applied to an input with 64 channels. Does each filter see one channel or all of them?"
+  options={["One channel each", "All 64 — a filter spans the full depth, so it is really 3 by 3 by 64"]}
+  correct={1}
+>
 
 For a conv layer:
 - Input channels: $C_{in}$
@@ -53,6 +71,12 @@ For a conv layer:
 - One bias per output filter
 
 $$\text{params} = K^2 \times C_{in} \times C_{out} + C_{out}$$
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How many weights does one convolution filter hold?", a: "Its spatial size multiplied by the number of input channels, since every filter spans the full depth of its input. A 3 by 3 filter over a 64-channel input holds 576 weights plus one bias, and the layer holds that many times the number of filters." },
+]} />
 
 ## Worked numericals
 

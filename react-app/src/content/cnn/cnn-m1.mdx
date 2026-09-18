@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import CNNParamsWidget from '../../components/widgets/cnn/CNNParamsWidget.jsx'
 
 # Module 1: Why CNNs? MLP Fails for Images
@@ -7,13 +7,29 @@ import CNNParamsWidget from '../../components/widgets/cnn/CNNParamsWidget.jsx'
 **Coming from Foundations of Deep Learning:** you know how to build, train, and regularise a multi-layer perceptron. An MLP can approximate any continuous function — so why can't it just learn to classify images? It can, technically. The question is whether it will, and at what cost. This module exposes the three structural mismatches between fully-connected networks and image data, and shows exactly how the convolutional design pattern fixes each one.
 </Bridge>
 
+<ConceptBox title="Before you start">
+You need the Foundations of Deep Learning track: how a dense layer works, how backpropagation flows through a stack, and what a parameter count means. This track changes one thing about that picture — the layer — and everything else carries over unchanged.
+</ConceptBox>
+
 ## What is the problem?
+
+<PredictReveal
+  prompt="A 224 by 224 colour image is flattened and fed to a dense layer with 1,000 units. Roughly how many weights is that one layer?"
+  options={["About 150,000", "About 150 million — the flattened input alone is over 150,000 values"]}
+  correct={1}
+>
 
 An image is a 3-D tensor — height × width × colour channels. A $32 \times 32$ RGB image has $32 \times 32 \times 3 = 3{,}072$ values. Feeding this into a fully-connected layer with 1,000 hidden units requires:
 
 $$3{,}072 \times 1{,}000 + 1{,}000 = 3{,}073{,}000 \text{ parameters in one layer}$$
 
 For a $224 \times 224 \times 3$ ImageNet image that becomes $224 \times 224 \times 3 \times 1{,}000 = 150{,}528{,}000$ parameters — just in the first layer. But parameter count is only one symptom.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a dense layer impractical as the first layer for images?", a: "Flattening a modest colour image gives over 150,000 inputs, and a fully connected layer needs one weight per input per unit, which reaches hundreds of millions of parameters for a single layer. That is more parameters than any realistic dataset can constrain." },
+]} />
 
 ## Three structural mismatches
 
@@ -37,6 +53,12 @@ Shift the cat in the image one pixel to the right and the MLP sees a completely 
 
 ## How CNNs solve all three
 
+<PredictReveal
+  prompt="An edge detector that works in the top-left corner of an image. Should the network learn a separate one for the bottom-right?"
+  options={["Yes, different regions need different detectors", "No — an edge is an edge anywhere, so one detector should be reused across every position"]}
+  correct={1}
+>
+
 | Problem | MLP | CNN |
 |---------|-----|-----|
 | Locality | Every pixel to every neuron | Local receptive field (e.g. 3×3) |
@@ -44,6 +66,12 @@ Shift the cat in the image one pixel to the right and the MLP sees a completely 
 | Translation | None | Equivariance + pooling → invariance |
 
 A $3 \times 3$ convolutional layer with 32 output filters on a $32 \times 32 \times 3$ image needs just $3 \times 3 \times 3 \times 32 + 32 = 896$ parameters regardless of image spatial size.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is weight sharing and what does it buy?", a: "The same small set of weights is applied at every spatial position rather than learning separate weights per location. It cuts the parameter count enormously, and it encodes the fact that a visual pattern means the same thing wherever it appears, so the network does not have to learn that from data." },
+]} />
 
 ## Numerical comparison: MLP vs CNN for CIFAR-10
 
