@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import TensorShapeWidget from '../../components/widgets/deep-learning/TensorShapeWidget.jsx'
 
 # Module 3: PyTorch — Tensors & Operations
 
@@ -150,6 +151,8 @@ y = x @ x.T                # GPU matmul
 <Recall items={[
   { q: "What is broadcasting and where does it appear in a neural network?", a: "It is the rule that lets tensors of different shapes combine by stretching size-one or missing dimensions to match. Adding a bias vector to a batch of activations relies on it: one bias per unit is applied to every row of the batch without materialising a copy per row." },
 ]} />
+
+<TensorShapeWidget />
 
 ## Mathematics: Forward Propagation — Matrix Perspective
 

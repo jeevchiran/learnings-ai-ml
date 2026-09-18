@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
+import ShapAdditivityWidget from '../../components/widgets/xai/ShapAdditivityWidget.jsx'
 
 # Module 8: SHAP in Practice — Numerical & Image
 
@@ -49,6 +50,8 @@ When features are strongly correlated, marginalising one "absent" feature can pr
 <Recall items={[
   { q: "Which SHAP explainer should be used on a gradient boosting model, and why?", a: "The tree explainer. It computes exact Shapley values by traversing the trees rather than approximating them by sampling, which is both more accurate and far faster than the model-agnostic alternative on the same model." },
 ]} />
+
+<ShapAdditivityWidget />
 
 ## Image Data: A "Feature" Is a Region
 

@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import LrScheduleWidget from '../../components/widgets/cnn/LrScheduleWidget.jsx'
 
 # Module 10: CIFAR-10 with PyTorch — End-to-End
 
@@ -193,6 +194,8 @@ These confusions reflect genuine visual ambiguity — not model bugs.
 | Data augmentation (crop+flip+jitter) | +5–8% |
 
 The single biggest lever is **augmentation**. Regularisation (Dropout, BatchNorm, label smoothing) prevents overfitting but cannot substitute for data diversity.
+
+<LrScheduleWidget />
 
 ## Improving further
 

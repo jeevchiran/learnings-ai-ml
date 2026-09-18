@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
+import PermutationImportanceWidget from '../../components/widgets/xai/PermutationImportanceWidget.jsx'
 
 # Module 6: Kernel SHAP & Tree SHAP
 
@@ -44,6 +45,8 @@ shap.summary_plot(shap_values, X_test[:20])
 <ConceptBox title="The background dataset matters">
 "Absent" doesn't mean zero — it means *unknown*, so SHAP replaces the feature with typical values from a **background set** and averages. Choose it deliberately: the whole training set, a representative sample, or a single reference row. Change the background and you change what "absent" means — and thus the SHAP values. It's the analogue of DeepLIFT's baseline.
 </ConceptBox>
+
+<PermutationImportanceWidget />
 
 ## Tree SHAP — Exact and Fast, Trees Only
 

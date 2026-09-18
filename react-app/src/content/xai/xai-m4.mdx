@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
+import LimeLocalFitWidget from '../../components/widgets/xai/LimeLocalFitWidget.jsx'
 
 # Module 4: LIME in Practice
 
@@ -59,6 +60,8 @@ Each line is a coefficient of the local linear surrogate. **Positive** pushes to
 <Recall items={[
   { q: "Why does LIME sample from the training distribution rather than adding noise?", a: "Perturbations have to be inputs the model could plausibly receive. Adding arbitrary noise produces combinations that never occur in reality, and the model's behaviour there says nothing useful about its behaviour on real data. Sampling from the observed distribution keeps the probes on the data manifold." },
 ]} />
+
+<LimeLocalFitWidget />
 
 ## Text: Perturb by Deleting Words
 

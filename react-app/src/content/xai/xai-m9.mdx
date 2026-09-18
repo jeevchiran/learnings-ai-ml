@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, DerivationSteps, DerivationStep, Recall } from '../../components/learning/index.js'
+import DeepLiftReferenceWidget from '../../components/widgets/xai/DeepLiftReferenceWidget.jsx'
 
 # Module 9: DeepLIFT Method
 
@@ -54,6 +55,8 @@ Multipliers obey a **chain rule** ($m_{\Delta x \Delta t} = \sum_j m_{\Delta x \
 <Recall items={[
   { q: "What does using a reference input buy DeepLIFT over plain gradients?", a: "It replaces an infinitesimal slope with a finite difference between the actual activation and the reference activation. That difference is non-zero even where the gradient has saturated to zero, so a feature that genuinely moved the prediction away from the baseline receives credit for it." },
 ]} />
+
+<DeepLiftReferenceWidget />
 
 ## The Rules for Splitting Credit
 
