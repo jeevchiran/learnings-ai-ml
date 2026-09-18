@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Module 12: Demonstration — U-Net in PyTorch
 
@@ -86,6 +86,12 @@ Returning **logits** (no sigmoid) is deliberate: `BCEWithLogitsLoss` is numerica
 
 ## Loss and metric
 
+<PredictReveal
+  prompt="A segmentation task has 2% foreground pixels. A model predicting background everywhere scores 98% pixel accuracy. What should the loss be instead?"
+  options={["Accuracy is fine, 98% is good", "An overlap-based loss such as Dice, which is unmoved by the huge easy background"]}
+  correct={1}
+>
+
 ```python
 def soft_dice_loss(logits, targets, eps=1.0):
     probs = torch.sigmoid(logits)
@@ -107,6 +113,12 @@ def dice_score(logits, targets, thr=0.5, eps=1e-7):
     denom = preds.sum(dims) + targets.sum(dims)
     return ((2 * inter + eps) / (denom + eps)).mean().item()
 ```
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is pixel accuracy a poor objective for segmentation?", a: "When the foreground occupies a small fraction of the image, predicting background everywhere already scores very highly, so the metric barely responds to whether the object was found at all. Overlap measures such as Dice or intersection over union compare predicted and true foreground directly and are not inflated by the background." },
+]} />
 
 ## Training loop
 
@@ -139,6 +151,12 @@ for ep in range(EPOCHS):
 
 ## The threshold sweep almost everyone skips
 
+<PredictReveal
+  prompt="Your model outputs a probability per pixel and you threshold at 0.5. Is that the right cut-off?"
+  options={["Yes, 0.5 is the natural midpoint", "Only by coincidence — the best threshold depends on class balance and on which error costs more, and it is worth sweeping"]}
+  correct={1}
+>
+
 0.5 is a default, not an answer. The optimal threshold depends on your class balance and on whether false positives or false negatives cost more:
 
 ```python
@@ -157,6 +175,12 @@ for t, d in sweep(model, val_loader).items():
 ```
 
 On imbalanced data the best threshold is routinely 0.3–0.4 rather than 0.5, and moving it is worth several points of Dice for zero training cost.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why should the segmentation threshold be swept rather than left at 0.5?", a: "The midpoint is only optimal if the classes are balanced and both error types cost the same, which is rarely true. Sweeping the threshold on a validation set and picking the value that maximises the overlap metric typically gains several points for no change to the model at all." },
+]} />
 
 ## Debugging table
 

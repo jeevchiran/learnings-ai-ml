@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import ROIWidget from '../../components/widgets/cv/ROIWidget.jsx'
 
 # Module 6: Regions of Interest
@@ -25,6 +25,12 @@ Two things about this line surprise people:
 
 ## Box formats
 
+<PredictReveal
+  prompt={"One library reports a box as x, y, width, height. Another reports it as left, top, right, bottom. You pass one to the other unchanged. What happens?"}
+  options={["A crash, caught immediately", "A silently wrong box — the numbers are all valid, so nothing errors and the mistake surfaces as bad accuracy"]}
+  correct={1}
+>
+
 | Format | Fields | Used by |
 |---|---|---|
 | `xywh` | top-left + size | OpenCV, COCO annotations |
@@ -36,6 +42,12 @@ $$\text{xywh} \to \text{xyxy}: (x,\,y,\,x{+}w,\,y{+}h) \qquad \text{xyxy} \to \t
 <ConceptBox title="Why this bug is so hard to see">
 Feed `xywh` into code expecting `xyxy` and nothing crashes — the numbers are all plausible. The box simply lands in the wrong place, IoU with the ground truth comes out low, and the model trains to a mediocre mAP that looks like an architecture problem. **Always visualise a handful of boxes on their images before training.** Ten minutes there saves a week of tuning.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are bounding-box format mismatches such a common bug?", a: "Every format uses four numbers that are individually plausible, so passing the wrong one produces a valid-looking box rather than an error. The failure appears much later as poor detection accuracy, with nothing in the stack trace pointing at the conversion." },
+]} />
 
 ## Getting regions without a network
 

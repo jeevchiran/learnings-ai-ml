@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import AffineWidget from '../../components/widgets/cv/AffineWidget.jsx'
 
 # Module 4: Image Transformations
@@ -29,6 +29,12 @@ The homogeneous coordinate is what lets **translation** — which is not linear 
 
 ## Forward versus inverse warping
 
+<PredictReveal
+  prompt="You rotate an image by mapping each source pixel to where it lands in the output. What does the output look like?"
+  options={["Correct, if slightly rotated", "Full of holes — several source pixels land on the same output pixel while others receive none"]}
+  correct={1}
+>
+
 Naively, for each *input* pixel compute its destination. This fails: scaling up by 2 writes to every other output pixel and leaves a lattice of holes; scaling down has several inputs fight for one output.
 
 So every real implementation inverts it:
@@ -53,6 +59,12 @@ Every output pixel is written exactly once. The cost is that $(x,y)$ is fraction
 
 **Bilinear when shrinking.** Downscaling 4× with `INTER_LINEAR` samples only 4 of every 16 source pixels, so thin structures alias into moiré. `INTER_AREA` averages the whole footprint. This is a real accuracy bug in detection pipelines that resize 1080p down to 640.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is warping done backwards, from output to input?", a: "Mapping forwards leaves output pixels that no source pixel landed on, producing holes, and piles several sources onto the same destination. Iterating over output pixels and asking where each came from guarantees every output pixel gets exactly one value, interpolated from its neighbours in the source." },
+]} />
 
 ## Worked example — rotate a box, and why detection cares
 

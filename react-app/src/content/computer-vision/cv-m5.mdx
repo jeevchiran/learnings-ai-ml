@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import FeatureDetectWidget from '../../components/widgets/cv/FeatureDetectWidget.jsx'
 
 # Module 5: Image Features
@@ -43,6 +43,12 @@ $R$ exists so you never have to compute eigenvalues: $\det M = \lambda_1\lambda_
 
 ## Detector versus descriptor
 
+<PredictReveal
+  prompt="You find the same physical corner in two photographs taken from different angles. What do you still need in order to match them?"
+  options={["Nothing, the positions are enough", "A description of each corner's local appearance, because positions alone cannot be compared across viewpoints"]}
+  correct={1}
+>
+
 Finding a corner is not enough — you must recognise the *same* corner in another photo taken from elsewhere.
 
 | | Detector | Descriptor | Invariance | Speed |
@@ -53,6 +59,12 @@ Finding a corner is not enough — you must recognise the *same* corner in anoth
 | **HOG** | ✗ (dense) | ✓ | none built in | fast |
 
 SIFT achieves **scale** invariance by searching a difference-of-Gaussian pyramid — the same idea as the image pyramid in Module 11 — and **rotation** invariance by rotating the descriptor window to the dominant gradient orientation before sampling it.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the difference between a feature detector and a descriptor?", a: "A detector decides where the interesting points are. A descriptor summarises the appearance around each one as a vector that stays similar under rotation, scale and lighting changes. Matching needs both: the detector finds candidates and the descriptor is what actually gets compared." },
+]} />
 
 ## HOG — the last pre-CNN detector
 

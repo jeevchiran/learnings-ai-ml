@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Module 10: Demonstration — DDPM in PyTorch
 
@@ -83,6 +83,12 @@ class SimpleUNet(nn.Module):
 
 ## The Simple Loss and Training Loop
 
+<PredictReveal
+  prompt="Training picks a random timestep for each image rather than walking through them in order. Why is that allowed?"
+  options={["It is an approximation to save time", "The closed-form forward process can jump straight to any timestep, so each one can be sampled independently"]}
+  correct={1}
+>
+
 ```python
 import torch.optim as optim
 
@@ -103,6 +109,12 @@ def train_step(x0):
     optimizer.step()
     return loss.item()
 ```
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can training sample timesteps at random while sampling must run them in order?", a: "The forward noising process has a closed form that produces the state at any timestep directly from the clean image, so any timestep can be trained in isolation. Generation has no such shortcut: each reverse step needs the output of the previous one, so it is inherently sequential." },
+]} />
 
 ## The Sampling Loop
 
@@ -135,6 +147,15 @@ def sample(model, num_samples=16, device='cpu'):
 <Recall items={[
   { q: "Why does the sampling loop add noise at every step except the final one (t_val == 0)?", a: "Each intermediate reverse step p_theta(x_{t-1}|x_t) is a Gaussian with nonzero variance (Module 3), so sampling from it requires adding noise scaled by that step's variance. At t=0 the process is finished — x_0 is the final output, so no further noise should be injected." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The whole model is a **noise predictor**: a small time-conditioned U-Net that, given a noisy image and its timestep, guesses the noise that was added.
+- Training is one line of mean squared error, because the closed-form forward process lets any timestep be sampled directly and trained independently.
+- Sampling has no such shortcut — each reverse step consumes the previous one's output, so generation is sequential and therefore slow.
+- Noise is added at every reverse step except the last, because each intermediate step samples from a distribution with non-zero variance while the final output is the image itself.
+</ConceptBox>
 
 ## Summary Check
 

@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import ImageMathWidget from '../../components/widgets/cv/ImageMathWidget.jsx'
 
 # Module 2: Math Operations on Images
@@ -20,6 +20,12 @@ Module 1 established that an image is an array. Point operations are the first t
 <ImageMathWidget />
 
 ## The operations that matter
+
+<PredictReveal
+  prompt="A pixel holds the value 250 in an 8-bit image. You add 10 to it with plain array arithmetic. What do you get?"
+  options={["255, the maximum", "4 — the value wraps around, turning a bright pixel almost black"]}
+  correct={1}
+>
 
 **Blending** — a weighted average, used for image compositing and for the Mixup augmentation:
 
@@ -59,6 +65,12 @@ $250 + 10 = 260$, and $260 \bmod 256 = 4$. Every bright pixel in your image just
 # safe manual version
 out = np.clip(a.astype(np.int16) + b.astype(np.int16), 0, 255).astype(np.uint8)
 ```
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the difference between saturating and wrapping arithmetic on 8-bit images?", a: "Saturating arithmetic clamps at the limits, so adding to a bright pixel leaves it at the maximum. Wrapping arithmetic, which is what raw array libraries do on 8-bit types, rolls past the maximum back to zero, turning the brightest pixels black. Promoting to a wider type before the operation avoids it." },
+]} />
 
 ## Frame differencing — motion in three lines
 

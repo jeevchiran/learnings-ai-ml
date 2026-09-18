@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import FilterBankWidget from '../../components/widgets/cv/FilterBankWidget.jsx'
 
 # Module 3: Image Filters
@@ -26,6 +26,12 @@ Sum the weights.
 
 ## The four families
 
+<PredictReveal
+  prompt="A blur kernel of size 15 by 15 costs 225 multiplications per pixel. A separable version splits it into two passes. What does that cost?"
+  options={["Still 225, split differently", "30 — fifteen for the horizontal pass and fifteen for the vertical, which is why separability matters"]}
+  correct={1}
+>
+
 | Family | Kernel | What it does | Cost |
 |---|---|---|---|
 | **Box blur** | all $1/k^2$ | unweighted average | separable, $2k$ |
@@ -38,6 +44,12 @@ Sobel gives you gradients in both directions; combine them for magnitude and ori
 $$\|\nabla I\| = \sqrt{G_x^2 + G_y^2}, \qquad \theta = \arctan\!\left(\frac{G_y}{G_x}\right)$$
 
 Those two quantities are the raw material for the Harris detector and for HOG in Module 5.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does separability save in a convolution?", a: "A two-dimensional kernel that factors into a row and a column can be applied as two one-dimensional passes. The cost per pixel falls from the kernel area to the sum of its sides, so a 15 by 15 blur drops from 225 multiplications to 30 without changing the result." },
+]} />
 
 ## Worked example — separability pays
 

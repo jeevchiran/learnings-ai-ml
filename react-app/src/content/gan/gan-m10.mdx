@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Module 10: Demonstration — DCGAN in PyTorch
 
@@ -66,6 +66,12 @@ class Discriminator(nn.Module):
 
 ## The Non-Saturating Training Loop
 
+<PredictReveal
+  prompt="Early in training the discriminator is nearly perfect, so its confidence that generated samples are fake is close to certainty. What does that do to the generator's original loss?"
+  options={["Produces a strong corrective signal", "Its gradient nearly vanishes, which is exactly why the non-saturating form is used instead"]}
+  correct={1}
+>
+
 D is trained on real and fake batches separately; G is trained against the non-saturating loss from Module 3.
 
 ```python
@@ -111,6 +117,12 @@ def train_step(real_images):
   { q: "Why does the generator's training step label fake images as real_labels (1) rather than fake_labels (0)?", a: "This is exactly the non-saturating trick from Module 3: computing BCE against a target of 1 for D's output on fake images is mathematically the same as maximizing log(D(G(z))), which supplies a steep, useful gradient early in training instead of the flat gradient the original minimax form would give." },
 ]} />
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is the non-saturating generator loss used instead of the original minimax form?", a: "In the minimax form the generator's gradient shrinks towards zero precisely when the discriminator is confident, which is the situation early in training. Maximising the log probability of being classified real instead gives a large gradient exactly when the generator is doing badly, so training can get started at all." },
+]} />
+
 ## Generating New Samples
 
 ```python
@@ -122,6 +134,15 @@ def generate_samples(G, num_samples=16, device='cpu'):
     G.train()
     return samples  # in [-1, 1]; rescale to [0, 1] with (samples + 1) / 2 before plotting
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- The generator and the discriminator are ordinary convolutional networks; everything distinctive lives in the **loss and the alternation**, not in the architecture.
+- The loop trains the discriminator on a real batch and a fake batch, then trains the generator through the discriminator's verdict with the **non-saturating** loss.
+- That loss exists because the original minimax form has a vanishing gradient exactly when the discriminator is winning, which is the whole of early training.
+- Sampling afterwards needs only the generator: draw a latent vector, run one forward pass, and the discriminator can be discarded entirely.
+</ConceptBox>
 
 ## Summary Check
 
