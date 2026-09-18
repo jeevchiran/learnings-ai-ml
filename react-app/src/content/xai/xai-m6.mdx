@@ -1,5 +1,7 @@
 import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 
+# Module 6: Kernel SHAP & Tree SHAP
+
 ## The Computational Wall
 
 Exact Shapley values sum over $2^{|F|}$ feature subsets. With 30 features that's a billion evaluations *per prediction* — impossible. **Kernel SHAP** and **Tree SHAP** are the two escapes: one approximates for *any* model, the other computes *exactly* for trees.

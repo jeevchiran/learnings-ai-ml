@@ -1,5 +1,11 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import GradientDescentWidget from '../../components/widgets/math-ml/GradientDescentWidget.jsx'
+
+# Module 11: Jacobians & Hessians
+
+<Bridge>
+Two loose ends are still hanging. Module 9 admitted that a zero derivative might be a minimum, a maximum or something else, and could not tell which. Module 10 said the safe learning rate is decided by "the curvature" without defining it. Both answers are the same object, and this module is it.
+</Bridge>
 
 ## Beyond the First Derivative
 
@@ -22,11 +28,39 @@ Both eigenvalues positive → **convex bowl**, a genuine local minimum. Both neg
 </DerivationStep>
 </DerivationSteps>
 
+<PredictReveal
+  prompt="A critical point in a million-parameter loss surface counts as a true local minimum only if every one of its million curvature eigenvalues is positive. How often should you expect that to happen?"
+  options={["Often — most flat points in a trained network are minima", "Almost never, so nearly every flat point is a saddle with a downhill direction still available"]}
+  correct={1}
+>
+
 <GradientDescentWidget defaultShape="Saddle point" />
+
+Start the widget from different points on the saddle preset and watch some runs stall near the centre while others slide off an edge. The flat point is not a floor — it only looks like one from the directions that curve upward.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does the saddle problem get worse as the number of parameters grows?", a: "A critical point is a minimum only if every Hessian eigenvalue is positive. Treating the signs as roughly independent, the chance that all of them are positive falls off exponentially with the number of parameters, so in a large network virtually every flat point has at least one downhill direction." },
+]} />
 
 <ConceptBox title="Common confusion — why deep learning worries more about saddles than local minima">
 In high dimensions, a critical point ($\nabla f=0$) needs *every* eigenvalue positive to be a true local minimum — increasingly unlikely by chance as dimensions grow. Most critical points in a high-dimensional loss landscape are saddles, not minima, which is a big part of why plain gradient descent can stall and why momentum-based optimizers (which carry velocity through flat/saddle regions) tend to outperform it in practice.
 </ConceptBox>
+
+<PredictReveal
+  prompt="Newton's method uses curvature as well as slope and converges in far fewer steps than gradient descent. Why does nobody train a large neural network with it?"
+  options={["It only works on convex problems", "The curvature matrix has one entry per pair of parameters, so for millions of parameters it cannot even be stored, let alone inverted"]}
+  correct={1}
+>
+
+For n parameters the Hessian holds n squared entries and costs roughly n cubed work to invert. At a million parameters that is a trillion numbers per step. Adam and the other adaptive optimisers exist because they approximate the same curvature information per-parameter, at ordinary gradient cost.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Newton's method converges in fewer steps, so why is it not used for large networks?", a: "It needs the Hessian and its inverse. For n parameters that is n squared entries and roughly n cubed work per step, so at millions of parameters the matrix cannot be formed in memory, never mind inverted every iteration." },
+]} />
 
 ## Where This Shows Up in Practice
 

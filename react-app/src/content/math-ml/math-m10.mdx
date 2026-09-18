@@ -1,7 +1,11 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import GradientDescentWidget from '../../components/widgets/math-ml/GradientDescentWidget.jsx'
 
 # Module 10: Gradient Descent
+
+<Bridge>
+Module 9 produced the gradient and noted that it points uphill. That is one step of information. This module turns it into a loop, and then spends most of its time on the one number that decides whether the loop converges or blows up.
+</Bridge>
 
 ## The Optimization Loop, Distilled
 
@@ -20,11 +24,40 @@ Too small: converges, but wastes steps. Too large: each step overshoots further 
 </DerivationStep>
 </DerivationSteps>
 
+<PredictReveal
+  prompt="Minimising f(x) = x squared from x = 4. A learning rate of 0.1 converges smoothly. What happens with a learning rate of 1.1?"
+  options={["It converges faster, since bigger steps cover more ground", "It diverges — each step overshoots by more than the last one undershot"]}
+  correct={1}
+>
+
 <GradientDescentWidget defaultShape="Convex bowl" />
+
+Push the learning-rate slider past the critical value in the widget and watch the path spiral outward instead of inward. On this function the step multiplier is the absolute value of 1 minus twice the rate; once that exceeds 1, every step lands further from the minimum than the previous one.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Training loss becomes NaN within a few steps. What is the first hyperparameter to suspect and why?", a: "The learning rate, set too high. Each step overshoots the minimum by more than the previous step undershot, so the parameters grow without bound and overflow. On f(x) = x squared this begins as soon as the step multiplier exceeds 1." },
+]} />
+
+<PredictReveal
+  prompt="A loss surface is a long narrow valley: very steep across it, almost flat along it. One learning rate is used for both directions. What does the path look like?"
+  options={["A straight line down the valley floor", "A zig-zag bouncing off the steep walls while creeping slowly along the floor"]}
+  correct={1}
+>
 
 <ConceptBox title="Common confusion — gradient descent isn't guaranteed to find THE minimum">
 On a convex bowl, yes — there's only one minimum, and descent finds it. Real loss surfaces (deep nets especially) are not convex: many local minima, saddle points, plateaus. Momentum, adaptive learning rates (Adam), and random restarts all exist to cope with that non-convex reality — plain gradient descent's convergence guarantee only holds on the convex case.
 </ConceptBox>
+
+The steep direction needs a tiny step to avoid overshooting; the shallow direction needs a large one to make progress. A single shared rate cannot serve both, so the iterate oscillates across the valley while barely advancing along it. Momentum fixes this by averaging away the oscillation and accumulating the consistent component.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does gradient descent zig-zag in an elongated valley?", a: "One learning rate is applied to directions with very different curvature. The steep direction overshoots and bounces back and forth, while the shallow direction advances only slightly per step, so the path oscillates across the valley instead of running along it." },
+  { q: "What does momentum change, and which failure does it target?", a: "It steps along a running average of past gradients rather than the raw gradient. Oscillations across a narrow valley cancel between steps while the consistent component along the floor accumulates, so it damps zig-zag and carries the iterate through plateaus and saddles." },
+]} />
 
 ## In Python
 

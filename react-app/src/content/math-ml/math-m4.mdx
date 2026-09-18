@@ -1,9 +1,19 @@
-import { ConceptBox, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import SVDPCAWidget from '../../components/widgets/math-ml/SVDPCAWidget.jsx'
 
 # Module 4: SVD & PCA Foundations
 
+<Bridge>
+Module 3 found the directions a matrix leaves unrotated and called them eigenvectors. On its own that is a fact about matrices. This module points the same question at a matrix built from data — the covariance matrix — and the answer turns out to be one of the most used techniques in the whole curriculum.
+</Bridge>
+
 ## From Eigenvectors to PCA
+
+<PredictReveal
+  prompt="A cloud of data points is stretched out like a cigar, long in one direction and thin in the others. You eigendecompose its covariance matrix. Which eigenvector points along the long axis of the cigar?"
+  options={["The one with the smallest eigenvalue", "The one with the largest eigenvalue"]}
+  correct={1}
+>
 
 Module 3 asked "what directions does a matrix leave unrotated?" Ask that question of a data cloud's **covariance matrix**, and the answer is **Principal Component Analysis**.
 
@@ -16,6 +26,14 @@ A symmetric matrix whose diagonal holds each feature's variance, and off-diagona
 
 <SVDPCAWidget />
 
+Drag the cloud in the widget into a long, thin shape and watch the first principal axis swing round to follow it. Squash the cloud into a circle and the axes stop meaning anything, because no direction has more spread than another.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "In PCA, what do the eigenvalues of the covariance matrix represent?", a: "The variance of the data along each corresponding eigenvector. The largest eigenvalue belongs to the direction of greatest spread, which is why the components come out ordered by how much variance each one captures." },
+]} />
+
 ## SVD — The General-Purpose Version
 
 **Singular Value Decomposition** factors *any* matrix (not just square/symmetric) as
@@ -24,9 +42,24 @@ $$X = U\Sigma V^\top$$
 
 where $V$'s columns are eigenvectors of $X^\top X$ (this IS the covariance-direction story above, up to a constant), $\Sigma$ holds the singular values (square roots of $X^\top X$'s eigenvalues), and $U$'s columns are eigenvectors of $XX^\top$. In practice, `sklearn.PCA` uses SVD internally rather than explicitly building the covariance matrix — same answer, better numerical stability on wide datasets.
 
+<PredictReveal
+  prompt="You run PCA on a table with columns age, income and clicks, and keep two components. Which two of the original three columns did PCA throw away?"
+  options={["Whichever two carried the least variance", "None of them — the components are mixtures of all three columns, not a shortlist"]}
+  correct={1}
+>
+
 <ConceptBox title="Common confusion — PCA is not feature selection">
 PCA doesn't pick a subset of your original features — it builds brand-new axes (linear combinations of all of them) chosen to capture the most variance. Component 1 might mix "income" and "age" in some proportion; the original features vanish into rotated new ones, which is exactly why PCA components are usually hard to name.
 </ConceptBox>
+
+One practical consequence: PCA maximises variance, and variance carries units. A column in rupees has a numerically enormous variance next to a column in years, so without standardising first, the rupee column dominates the first component purely through its scale.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "A colleague says PCA told them age and income are their two most important features. What is wrong with that?", a: "PCA never selects original features. Each component is a linear combination of every column, so the output axes are rotated mixtures rather than a shortlist. The components usually have no clean name for exactly this reason." },
+  { q: "Why must features be standardised before PCA?", a: "Because PCA maximises variance and variance carries units. A feature measured in rupees has a far larger numerical variance than one measured in years, so it would dominate the first component through its scale rather than through any real structure in the data." },
+]} />
 
 ## In Python (scikit-learn)
 

@@ -1,6 +1,8 @@
 import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import StationarityWidget from '../../components/widgets/time-series/StationarityWidget.jsx'
 
+# Module 4: Stationarity — Tests & Autocorrelation
+
 ## Why This Module Exists
 
 Autoregressive models (next module) assume the relationship between $y_t$ and its past values is the **same at every point in time**. If the series is trending or its variance is changing, that relationship keeps shifting under the model's feet — coefficients fit on one stretch stop applying to the next. Stationarity is the precondition that makes AR modelling well-posed.

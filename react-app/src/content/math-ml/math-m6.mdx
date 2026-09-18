@@ -1,5 +1,11 @@
-import { ConceptBox, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import DistributionsWidget from '../../components/widgets/math-ml/DistributionsWidget.jsx'
+
+# Module 6: Random Variables & Key Distributions
+
+<Bridge>
+Module 5 dealt in events — "rolled even", "tested positive" — and how likely they are. That works for yes-or-no questions but not for arithmetic. This module attaches numbers to outcomes so that averages, spreads and losses become computable, and then names the handful of number-patterns that keep reappearing in machine learning.
+</Bridge>
 
 ## Random Variables
 
@@ -10,7 +16,21 @@ A **random variable** $X$ maps outcomes to numbers: a coin flip → 0 or 1, a di
 - **Continuous** — a continuum of outcomes, described by a **PDF** (probability density function) $f(x)$, where $P(a\le X\le b) = \int_a^b f(x)\,dx$, and the PDF integrates to 1. A PDF value itself is *not* a probability (it can exceed 1) — only areas under it are.
 </ConceptBox>
 
+<PredictReveal
+  prompt="You evaluate a probability density function at some point and it returns 2.5. Probabilities cannot exceed 1. Is the function broken?"
+  options={["Yes, something is wrong", "No — a density is probability per unit of x, and only the area under it is a probability"]}
+  correct={1}
+>
+
 <DistributionsWidget />
+
+Narrow the distribution in the widget and watch the peak climb past 1 while the shaded area stays fixed at 1. Squeezing the same total probability into a smaller interval has to make it taller. That is why a density value is not a probability and only an interval has one.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the difference between a probability mass function and a probability density function?", a: "A mass function gives the probability of a specific discrete outcome directly, and the values sum to 1. A density function gives probability per unit of x, so a single value can exceed 1 and only its integral over an interval is a probability. The integral over everything is still 1." },
+]} />
 
 ## Four Distributions That Keep Showing Up in ML
 
@@ -23,9 +43,23 @@ A **random variable** $X$ maps outcomes to numbers: a coin flip → 0 or 1, a di
 
 $$P(X{=}k) = \binom{n}{k}p^k(1-p)^{n-k} \quad\text{(Binomial)} \qquad\qquad f(x) = \frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(x-\mu)^2}{2\sigma^2}} \quad\text{(Gaussian)}$$
 
+<PredictReveal
+  prompt="You train a regression model with mean squared error and never mention probability anywhere. Have you still made an assumption about how the noise in your data is distributed?"
+  options={["No, squared error is just a convenient distance", "Yes — choosing squared error is equivalent to assuming the residuals are Gaussian"]}
+  correct={1}
+>
+
 <ConceptBox title="Common confusion — why does MSE loss assume a Gaussian?">
 Minimizing squared error is equivalent to maximum likelihood estimation (Module 8) *under the assumption that residuals are Gaussian-distributed noise around the true value*. That's not a coincidence — it's baked into the choice of loss function, and it's why MSE is sensitive to outliers (a Gaussian assigns them very low but nonzero probability).
 </ConceptBox>
+
+That assumption has a practical edge. A Gaussian's tails fall away as exp(-x squared over 2), so a far-out point is assigned an extremely low probability and the loss punishes it enormously, dragging the whole fit towards it. Assume a heavier-tailed distribution instead and you get mean absolute error, which barely notices the same point.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is mean squared error sensitive to outliers, stated in terms of distributions?", a: "Minimising squared error is the same as maximising the likelihood of Gaussian noise. Gaussian tails decay very fast, so an extreme residual is treated as almost impossible and contributes a huge penalty. A heavier-tailed assumption such as Laplace gives mean absolute error, which treats the same point as unremarkable." },
+]} />
 
 ## In Python (SciPy)
 

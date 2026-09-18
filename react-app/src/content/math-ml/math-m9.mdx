@@ -1,7 +1,11 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import DerivativeWidget from '../../components/widgets/math-ml/DerivativeWidget.jsx'
 
 # Module 9: Derivatives & the Chain Rule
+
+<Bridge>
+Module 8 ended with a recipe that says "differentiate the log-likelihood and set it to zero" — and then used a derivative without ever defining one. This module supplies the missing tool. It is also the point where the track stops describing data and starts describing how to improve a model.
+</Bridge>
 
 ## Starting the Calculus Track
 
@@ -13,7 +17,21 @@ $$f'(x) = \lim_{h\to0}\frac{f(x+h)-f(x)}{h}$$
 
 The instantaneous rate of change — geometrically, the slope of the line tangent to $f$ at $x$. $f'(x)>0$: increasing. $f'(x)<0$: decreasing. $f'(x)=0$: flat — a candidate minimum, maximum, or saddle.
 
+<PredictReveal
+  prompt="At some point on a curve the derivative is exactly zero. Does that guarantee you have found the lowest point of the curve?"
+  options={["Yes, a zero slope means a minimum", "No — the top of a hill and a flat ledge both have zero slope too"]}
+  correct={1}
+>
+
 <DerivativeWidget />
+
+Drag the point in the widget across a peak and watch the tangent flatten there just as it does in a valley. The first derivative reports flatness and nothing else; telling the two apart needs curvature, which arrives in Module 11.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "The gradient of a loss is exactly zero. Name three things that could be true.", a: "A local minimum, a local maximum, or a saddle point. The first derivative cannot distinguish them — that requires the second derivative, which measures curvature." },
+]} />
 
 ## Partial Derivatives & the Gradient
 
@@ -22,6 +40,16 @@ Real models have many parameters, not one. A **partial derivative** $\frac{\part
 $$\nabla f = \left[\frac{\partial f}{\partial x_1}, \frac{\partial f}{\partial x_2}, \dots, \frac{\partial f}{\partial x_n}\right]$$
 
 The gradient points in the direction of **steepest ascent** — which is exactly why gradient *descent* (Module 10) moves opposite to it.
+
+<PredictReveal
+  prompt="The gradient points in the direction where the loss increases fastest. Training wants the loss to go down. So what does the update rule do with it?"
+  options={["Follows it, since it points at the best direction", "Steps in exactly the opposite direction"]}
+  correct={1}
+>
+
+Steepest ascent reversed is steepest descent, which is the entire content of the minus sign in every training update you will ever write. Module 10 builds the rest of the loop around that single subtraction.
+
+</PredictReveal>
 
 ## The Chain Rule
 
@@ -34,6 +62,20 @@ The derivative of a composition is the product of the derivatives of each piece 
 A neural network is a composition of layers: $\text{loss}(\dots f_3(f_2(f_1(x))))$. Backprop computes $\frac{\partial \text{loss}}{\partial w}$ for every weight $w$ buried inside that composition by repeatedly applying the chain rule, layer by layer, back to front — multiplying local derivatives along the way.
 </DerivationStep>
 </DerivationSteps>
+
+<PredictReveal
+  prompt="Backpropagation multiplies one local derivative per layer to reach an early weight. Sigmoid derivatives are at most 0.25. What happens to that product across forty layers?"
+  options={["It stays roughly constant, since each factor is positive", "It shrinks towards nothing, so early layers barely learn"]}
+  correct={1}
+>
+
+Multiplying forty numbers each below 1 drives the product towards zero exponentially in depth. That is the vanishing-gradient problem, and it is the single reason ReLU replaced sigmoid in deep networks. Factors above 1 produce the mirror-image failure, exploding gradients.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Where in the chain-rule product does the vanishing-gradient problem come from?", a: "Backpropagation multiplies one local derivative per layer. When those factors sit consistently below 1, as saturated sigmoid or tanh derivatives do, the product shrinks exponentially with depth and the earliest layers receive almost no learning signal. Factors above 1 give the mirror-image explosion." },
+]} />
 
 <ConceptBox title="Common confusion — a zero gradient isn't always a minimum">
 $f'(x)=0$ also happens at local maxima and saddle points. Distinguishing them needs the *second* derivative (Module 11) — positive curvature confirms a minimum, negative confirms a maximum, mixed signs (in multiple dimensions) mean a saddle.
