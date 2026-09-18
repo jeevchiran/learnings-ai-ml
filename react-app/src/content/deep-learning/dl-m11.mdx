@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import OverfittingWidget from '../../components/widgets/deep-learning/OverfittingWidget.jsx'
 
 # Module 11: Preventing Overfitting & PyTorch Examples
@@ -25,12 +25,24 @@ Prediction error = Bias² + Variance + Irreducible noise
 
 ## Why Overfitting Happens
 
+<PredictReveal
+  prompt="Training loss is still falling steadily while validation loss has been rising for ten epochs. What is happening?"
+  options={["The model needs more epochs to converge", "It is memorising the training set — the gap between the curves is overfitting in progress"]}
+  correct={1}
+>
+
 With enough parameters, a neural network can memorize any training set with loss → 0. Neural networks with millions of parameters are massively overparameterized relative to typical dataset sizes. Several forces keep them from overfitting in practice:
 
 1. **Stochastic gradient noise** — mini-batches add noise that acts as implicit regularization
 2. **Early stopping** — stop before the model starts memorizing
 3. **Explicit regularization** — L2/dropout
 4. **Data augmentation** — show more diverse training examples
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does a falling training loss alongside a rising validation loss indicate?", a: "Overfitting. The model is still improving its fit to the training examples, but what it is now learning is specific to those examples rather than general, so performance on unseen data degrades. The point where the validation curve turned is the model worth keeping." },
+]} />
 
 ## Early Stopping
 
@@ -55,6 +67,12 @@ class EarlyStopping:
 
 ## Data Augmentation
 
+<PredictReveal
+  prompt="Augmentation creates new training images by rotating and flipping existing ones. Should the same augmentations be applied to the validation set?"
+  options={["Yes, for consistency", "No — validation must measure performance on the real distribution, not a distorted one"]}
+  correct={1}
+>
+
 Artificially expand the training set by applying label-preserving transformations:
 
 ```python
@@ -69,6 +87,12 @@ train_transform = transforms.Compose([
                          std=[0.229, 0.224, 0.225]),
 ])
 ```
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is augmentation applied only to the training set?", a: "Its purpose is to expand the variety the model trains on. The validation and test sets exist to estimate performance on real data, so distorting them would measure performance on a distribution nobody cares about and make the estimate incomparable across runs." },
+]} />
 
 ## Interactive: Overfitting & Early Stopping
 

@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import RegNormWidget from '../../components/widgets/deep-learning/RegNormWidget.jsx'
 
 # Module 10: Regularization & Normalization
@@ -75,6 +75,12 @@ model.eval()    # dropout disabled
 
 ## Part 2: Normalization
 
+<PredictReveal
+  prompt="Dropout switches off a random subset of units during training. At inference time, should it keep doing that?"
+  options={["Yes, otherwise the model behaves differently", "No — it is switched off at inference, and the activations are scaled so the expected output matches training"]}
+  correct={1}
+>
+
 ### Why Normalize Activations?
 
 As training progresses, the distribution of each layer's inputs shifts as weights in lower layers change (Internal Covariate Shift). This forces later layers to continuously adapt to a new distribution — slowing training. Normalization fixes the distribution at each layer.
@@ -133,6 +139,12 @@ model = nn.Sequential(
 | Works at batch size 1? | No (statistics undefined) | Yes |
 | Training/inference difference? | Yes (running stats) | No |
 | Primary use | CNNs, MLPs | Transformers, RNNs |
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does dropout do at inference time?", a: "Nothing — every unit is active. Because the expected activation during training was reduced by the drop probability, the implementation compensates by scaling, so the inference output matches the training-time expectation. Forgetting to switch the model into evaluation mode is a common source of randomly varying predictions." },
+]} />
 
 ## Interactive: Regularization & Normalization Effects
 

@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import NeuralNetworkWidget from '../../components/widgets/deep-learning/NeuralNetworkWidget.jsx'
 
 # Module 5: Forward Propagation
@@ -16,9 +16,21 @@ Forward propagation is the process of computing a network's prediction $\hat{\ma
 
 ## Why Cache Intermediate Values?
 
+<PredictReveal
+  prompt="Forward propagation stores every layer's intermediate activation. That costs memory proportional to the batch size and depth. Why not discard them?"
+  options={["They are kept for debugging", "The backward pass needs them — each layer's gradient depends on the input that layer saw"]}
+  correct={1}
+>
+
 During backpropagation (Module 6), the gradient at layer $l$ requires both the **upstream gradient** and the **local gradient** at that layer. The local gradient depends on the activation $\mathbf{A}^{[l-1]}$ (to compute $\partial \mathbf{Z}^{[l]}/\partial W^{[l]}$) and the pre-activation $\mathbf{Z}^{[l]}$ (to compute $g'^{[l]}(\mathbf{Z}^{[l]})$).
 
 PyTorch's autograd graph stores exactly these values. This is why **inference-only code** should use `torch.no_grad()` — it skips building the graph and saves memory.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does the forward pass store its intermediate activations?", a: "Every layer's weight gradient is a product involving the input that layer received, so backpropagation cannot run without those values. This is also why training needs far more memory than inference, and why memory use scales with both depth and batch size." },
+]} />
 
 ## How Forward Propagation Works
 

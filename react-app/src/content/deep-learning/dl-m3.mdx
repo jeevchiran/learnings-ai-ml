@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
 # Module 3: PyTorch — Tensors & Operations
 
@@ -26,6 +26,12 @@ A tensor in PyTorch is a generalization of scalars, vectors, and matrices to arb
 4. **Ecosystem:** torchvision, torchaudio, HuggingFace, Lightning — the entire modern ML stack builds on PyTorch.
 
 ## How Tensors Work
+
+<PredictReveal
+  prompt="You add a tensor of shape (32, 10) to one of shape (10,). Does that fail?"
+  options={["Yes, the shapes differ", "No — broadcasting stretches the smaller one across the batch dimension, which is how a bias vector is added"]}
+  correct={1}
+>
 
 ### Creating Tensors
 
@@ -138,6 +144,12 @@ y = x @ x.T                # GPU matmul
 ```
 
 ---
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is broadcasting and where does it appear in a neural network?", a: "It is the rule that lets tensors of different shapes combine by stretching size-one or missing dimensions to match. Adding a bias vector to a batch of activations relies on it: one bias per unit is applied to every row of the batch without materialising a copy per row." },
+]} />
 
 ## Mathematics: Forward Propagation — Matrix Perspective
 

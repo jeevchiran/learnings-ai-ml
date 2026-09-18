@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import ActivationWidget from '../../components/widgets/deep-learning/ActivationWidget.jsx'
 
 # Module 7: Activation Functions
@@ -16,6 +16,12 @@ Without nonlinear activations, a composition of $L$ linear layers reduces to one
 </ConceptBox>
 
 ## The Activation Zoo
+
+<PredictReveal
+  prompt="A sigmoid's derivative peaks at 0.25 and shrinks towards zero as its input grows. Backpropagation multiplies one such factor per layer. What happens in a 30-layer network?"
+  options={["Nothing unusual", "The product collapses towards zero, so the earliest layers receive essentially no gradient"]}
+  correct={1}
+>
 
 ### Sigmoid
 
@@ -82,7 +88,19 @@ $$\text{softmax}(\mathbf{z})_k = \frac{e^{z_k}}{\sum_{j=1}^K e^{z_j}}$$
 
 Not used in hidden layers — used as the final layer for $K$-class classification. Ensures outputs sum to 1 (probability distribution). In PyTorch, use `nn.CrossEntropyLoss` which folds softmax in numerically.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why did rectified linear units replace sigmoid in deep networks?", a: "A sigmoid's derivative never exceeds 0.25 and approaches zero when saturated, so multiplying one per layer drives the gradient to nothing in a deep stack. A rectified unit has a derivative of exactly 1 wherever it is active, so the gradient passes through undiminished." },
+]} />
+
 ## Choosing an Activation Function
+
+<PredictReveal
+  prompt="A rectified unit outputs zero for all negative inputs, and its gradient there is zero too. What can go wrong with a unit that ends up always negative?"
+  options={["Nothing, it just contributes zero", "It can never recover — with no gradient it is never updated, which is the dying unit problem"]}
+  correct={1}
+>
 
 | Scenario | Recommendation |
 |----------|----------------|
@@ -92,6 +110,12 @@ Not used in hidden layers — used as the final layer for $K$-class classificati
 | Output: binary classification | Sigmoid |
 | Output: multiclass | Softmax (via CrossEntropyLoss) |
 | Output: regression | None (linear) |
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the dying rectified-unit problem and how is it addressed?", a: "A unit whose input is negative for every example outputs zero and receives zero gradient, so its weights never change and it stays dead permanently. Leaky variants give a small non-zero slope on the negative side so some gradient always flows and the unit can recover." },
+]} />
 
 ## Interactive: Activation Explorer
 

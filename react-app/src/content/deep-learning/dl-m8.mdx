@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import LossOptimizerWidget from '../../components/widgets/deep-learning/LossOptimizerWidget.jsx'
 
 # Module 8: Loss Functions & Optimizers
@@ -59,6 +59,12 @@ loss = criterion(logits, labels)  # logits: [B, K], labels: [B] integers
 </ConceptBox>
 
 ## Optimizers
+
+<PredictReveal
+  prompt="Plain gradient descent uses one learning rate for every parameter. What does Adam do differently?"
+  options={["It uses a larger rate overall", "It keeps a per-parameter running estimate of gradient scale, so rarely updated parameters get effectively larger steps"]}
+  correct={1}
+>
 
 ### What is an Optimizer?
 
@@ -125,6 +131,12 @@ optimizer.zero_grad()       # 1. clear gradients
 loss.backward()             # 2. compute gradients
 optimizer.step()            # 3. update parameters
 ```
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does Adam add over plain stochastic gradient descent?", a: "Two running averages per parameter: one of the gradient, which acts as momentum, and one of its squared magnitude, which normalises the step size. The effect is a per-parameter learning rate, so parameters with small or infrequent gradients still make progress." },
+]} />
 
 ## Interactive: Loss Functions & Optimizer Paths
 

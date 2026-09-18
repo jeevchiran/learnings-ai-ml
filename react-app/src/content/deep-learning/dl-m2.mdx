@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import NeuralNetworkWidget from '../../components/widgets/deep-learning/NeuralNetworkWidget.jsx'
 
 # Module 2: Hidden Layers & Multilayer Perceptrons
@@ -22,6 +22,12 @@ Each weight matrix $W^{[l]} \in \mathbb{R}^{n^{[l]} \times n^{[l-1]}}$ connects 
 
 ## Why Hidden Layers?
 
+<PredictReveal
+  prompt="You stack three linear layers with no activation between them. How expressive is the result compared to one linear layer?"
+  options={["Three times as expressive", "Exactly as expressive — the composition of linear maps is a single linear map"]}
+  correct={1}
+>
+
 ### Solving XOR
 
 XOR is the canonical example. A two-hidden-unit network with step activations can solve it exactly:
@@ -42,6 +48,12 @@ A feedforward network with a single hidden layer containing a **finite** number 
 1. The theorem guarantees existence, not learnability — finding the weights may require exponentially many neurons.
 2. **Depth is more efficient than width.** Deep networks can represent exponentially more functions than shallow networks of the same parameter count.
 3. The theorem tells us MLPs are expressive. Training (backpropagation) tells us how to find the right weights.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does a stack of layers need a non-linearity between them?", a: "Multiplying three weight matrices together gives one matrix, so three linear layers in sequence compute exactly what one linear layer could. The non-linearity between them is what prevents that collapse and lets depth buy genuine expressive power." },
+]} />
 
 ## How Hidden Layers Work
 
@@ -70,6 +82,12 @@ where $\mathbf{a}^{[0]} = \mathbf{x}$ is the input.
 
 ## Depth vs Width
 
+<PredictReveal
+  prompt="The universal approximation theorem says one hidden layer can approximate any continuous function. So why build deep networks?"
+  options={["The theorem is wrong in practice", "Because it says nothing about how wide that layer must be — depth reaches the same functions with exponentially fewer units"]}
+  correct={1}
+>
+
 | Aspect | Shallow (1 wide hidden layer) | Deep (many narrow layers) |
 |--------|-------------------------------|--------------------------|
 | Expressiveness | Needs exponentially more neurons | Efficient with depth |
@@ -78,6 +96,12 @@ where $\mathbf{a}^{[0]} = \mathbf{x}$ is the input.
 | Practical performance | Works for simple tasks | Dominates complex tasks |
 
 The consensus in practice: **more layers + nonlinear activations + proper training = better models.**
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "If one hidden layer suffices in theory, why is depth used?", a: "The universal approximation theorem guarantees existence but puts no bound on width, and for many functions the required single layer is exponentially wide. Depth composes simple features into complex ones, reaching the same functions with far fewer parameters and far less data." },
+]} />
 
 ## Interactive: Configure and Forward Pass
 
