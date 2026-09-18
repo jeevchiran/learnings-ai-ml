@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall, PredictReveal } from '../../components/learning/index.js'
+import WindowingWidget from '../../components/widgets/rnn/WindowingWidget.jsx'
 
 # Module 2: Why MLPs Struggle with Sequential Data
 
@@ -141,6 +142,8 @@ In an RNN, $\mathbf{h}_t = f(\mathbf{h}_{t-1}, x_t)$ means the gradient of the l
 - These are *structural*, not capacity limits. A bigger MLP has exactly the same three problems.
 - An MLP can still represent nonlinear functions and can technically process text — the failure is specifically about sequence structure.
 </ConceptBox>
+
+<WindowingWidget />
 
 ## Quiz
 

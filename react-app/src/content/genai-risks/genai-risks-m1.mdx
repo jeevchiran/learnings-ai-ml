@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import HallucinationConfidenceWidget from '../../components/widgets/genai-risks/HallucinationConfidenceWidget.jsx'
 
 # Module 1: What Hallucination Means in a GenAI Context
 
@@ -23,6 +24,8 @@ This is why the framing matters. **Hallucination** is the standard term for outp
 <Recall items={[
   { q: "Why is a fluent fabrication not a failure of the model's training objective?", a: "The next-token prediction objective rewards plausible continuations, and contains no term evaluating whether a claim is true. On inputs where the fluent continuation diverges from the true one, producing the fluent falsehood is the objective working as specified — not a departure from it." },
 ]} />
+
+<HallucinationConfidenceWidget />
 
 ## What hallucination is not
 

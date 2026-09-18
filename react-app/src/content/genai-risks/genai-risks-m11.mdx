@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import DefenceLayersWidget from '../../components/widgets/genai-risks/DefenceLayersWidget.jsx'
 
 # Module 11: Layered Mitigation in Responsible Design
 
@@ -57,6 +58,8 @@ None of these is a boundary. All of them lower probability, and they sit on top 
 <Recall items={[
   { q: "Why is spotlighting worth implementing even though Module 7 showed prompt wording cannot create a guarantee?", a: "Because 'not categorical' is different from 'not useful'. Delimiting untrusted spans and instructing the model to treat instructions inside them as data to report shifts the statistical competition in the model's favour, measurably lowering success rates. It belongs as a probability-reducing layer stacked on top of capability controls that hold when it fails." },
 ]} />
+
+<DefenceLayersWidget />
 
 ## Operating it, not just building it
 
