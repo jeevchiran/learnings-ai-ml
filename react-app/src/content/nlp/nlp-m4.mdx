@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import ParseTreeWidget from '../../components/widgets/nlp/ParseTreeWidget.jsx'
 
 <Bridge>
@@ -84,6 +84,20 @@ Parse tree for "the dog chased a big cat":
 <ParseTreeWidget />
 
 ## Structural Ambiguity
+
+<PredictReveal
+  prompt={"I saw the man with the telescope. Who has the telescope?"}
+  options={["The man, clearly", "Undecidable from the grammar — both parse trees are valid, which is what structural ambiguity means"]}
+  correct={1}
+>
+
+A grammar says which trees are legal, not which one the speaker meant. Both readings here are fully grammatical, so no additional rule can settle it — only world knowledge, or statistics about which attachment is more common in practice.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is structural ambiguity, and why can a grammar not resolve it?", a: "It is when one sentence has more than one valid parse tree, each giving a different meaning. The grammar defines which trees are legal, not which one is intended, so resolving it needs world knowledge or attachment statistics rather than more grammar rules." },
+]} />
 
 Most sentences of any length can be parsed in more than one way — this is **structural ambiguity**.
 

@@ -1,10 +1,16 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 
 <Bridge>
 TF-IDF gives each word a number — its importance in a document. But TF-IDF vectors are huge (|vocabulary| dimensions) and treat every word as orthogonal — "dog" and "cat" have zero cosine similarity, same as "dog" and "calculus". **Word embeddings** solve both: dense low-dimensional vectors that encode semantic similarity.
 </Bridge>
 
 ## From Sparse to Dense
+
+<PredictReveal
+  prompt="In a one-hot representation with a 50,000-word vocabulary, what is the similarity between the vectors for cat and kitten?"
+  options={["High, the words are closely related", "Exactly zero — every one-hot vector is orthogonal to every other, so no two words are related at all"]}
+  correct={1}
+>
 
 | Property | BoW / TF-IDF | Word Embeddings |
 |----------|-------------|-----------------|
@@ -13,7 +19,19 @@ TF-IDF gives each word a number — its importance in a document. But TF-IDF vec
 | Semantic information | None — words are orthogonal | Encoded — similar words cluster |
 | Similarity of "dog" and "cat" | 0.0 (orthogonal) | ≈ 0.82 (high cosine similarity) |
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are one-hot word representations inadequate?", a: "Every pair of distinct one-hot vectors is orthogonal, so the representation encodes no similarity whatsoever — synonyms are exactly as far apart as unrelated words. They are also enormous and sparse, one dimension per vocabulary entry." },
+]} />
+
 ## Word2Vec — The Core Idea
+
+<PredictReveal
+  prompt="Word2Vec is trained to predict context words from a target word. Once training finishes, what part of it do you keep?"
+  options={["The predictions, which are the useful output", "The weight matrix — the prediction task was only a pretext for learning good vectors"]}
+  correct={1}
+>
 
 Word2Vec (Mikolov et al., 2013) trains a shallow neural network to predict words from context, then discards the network and keeps the weights — the input-to-hidden weight matrix IS the embedding table.
 
@@ -36,6 +54,12 @@ Each word is a one-hot vector of length |V| — one dimension is 1, all others a
 
 **CBOW (Continuous Bag of Words)** — given surrounding context words, predict the missing center word. Context embeddings are averaged into one vector to predict the center. Averaging smooths noise and benefits from high-frequency co-occurrences. **Faster to train, better for frequent words.**
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the relationship between Word2Vec's training task and its output?", a: "The prediction task is a pretext. Nobody wants the predictions; the point is that a model forced to predict a word's context must encode what that word means in its weights. The learned weight matrix is the embedding table, and the output layer is discarded." },
+]} />
 
 ## Skip-gram Objective
 

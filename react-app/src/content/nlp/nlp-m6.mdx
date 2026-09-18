@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import PPMIWidget from '../../components/widgets/nlp/PPMIWidget.jsx'
 
 <Bridge>
@@ -75,6 +75,12 @@ cooc, vocab, w2i = build_cooccurrence(sentences)`}
 
 ## Pointwise Mutual Information (PMI)
 
+<PredictReveal
+  prompt="Raw co-occurrence counts rank the with almost every word as a top associate. What is wrong with using counts directly?"
+  options={["Nothing, frequent association is real association", "A frequent word co-occurs with everything, so the count measures its frequency rather than any specific association"]}
+  correct={1}
+>
+
 PMI measures how much more often two words co-occur than expected under independence:
 
 <DerivationSteps>
@@ -141,6 +147,12 @@ SVD compresses sparse PPMI vectors into dense low-dimensional ones. Word2Vec (Mo
 </ConceptBox>
 
 <PPMIWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is pointwise mutual information used instead of raw co-occurrence counts?", a: "A raw count is large for any pair involving a common word, so it reflects frequency rather than association. Pointwise mutual information divides the observed joint probability by what independence would predict, which cancels the baseline frequency and leaves only the surplus association." },
+]} />
 
 <Recall items={[
   { q: "State the distributional hypothesis and why it made large-scale semantics possible.", a: "Words that appear in similar contexts have similar meanings. It made scale possible because it needs no labels — any raw corpus works — and no language-specific engineering, so the same procedure learns meaning for English, Swahili, or a medical sub-domain." },

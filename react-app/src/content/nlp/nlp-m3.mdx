@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import POSTaggerWidget from '../../components/widgets/nlp/POSTaggerWidget.jsx'
 
 <Bridge>
@@ -61,6 +61,12 @@ A most-frequent-tag baseline achieves ~92% accuracy; resolving the remaining 8% 
 
 ## Rule-Based vs. Statistical POS Taggers
 
+<PredictReveal
+  prompt={"Consider the sentence: they can fish. Is can a verb meaning to be able, or a verb meaning to put into cans?"}
+  options={["Obviously the first", "Both readings are grammatical, which is why tagging needs context and statistics rather than a lookup table"]}
+  correct={1}
+>
+
 ### HMM Taggers — The Statistical Approach
 
 A **Hidden Markov Model (HMM)** tagger treats POS tagging as sequence labeling: observed words are the visible sequence, tags are the hidden sequence. It uses two distributions:
@@ -84,6 +90,12 @@ The HMM maximizes:
 $$P(t_1, \ldots, t_n \mid w_1, \ldots, w_n) \;\propto\; \prod_{i=1}^{n} P(w_i \mid t_i)\, P(t_i \mid t_{i-1})$$
 
 HMM taggers trained on the Penn Treebank achieve ~96–97% per-token accuracy. Modern neural taggers (BiLSTM, transformer) push this to ~97–98%.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can part-of-speech tagging not be done with a dictionary lookup?", a: "Most common words belong to several parts of speech, and which one applies depends on the surrounding words. A tagger therefore has to weigh the tag's likelihood given the word against the likelihood of the tag sequence, which is a statistical decision rather than a lookup." },
+]} />
 
 ## POS Tagging in spaCy
 

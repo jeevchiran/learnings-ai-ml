@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import WordNetWidget from '../../components/widgets/nlp/WordNetWidget.jsx'
 
 <Bridge>
@@ -59,6 +59,12 @@ print([s.name() for s in dog.hypernym_paths()[0]])
 </CodeBlock>
 
 ## Word Sense Disambiguation
+
+<PredictReveal
+  prompt="To decide which sense of bass a sentence uses, the simplest method compares the sentence's words against each sense's dictionary definition. What does it pick?"
+  options={["The most common sense", "The sense whose definition shares the most words with the surrounding context"]}
+  correct={1}
+>
 
 **Word Sense Disambiguation (WSD)** is the task of determining, given a word in context, which of its dictionary senses is intended.
 
@@ -147,6 +153,12 @@ print(result.name(), ":", result.definition())
 </CodeBlock>
 
 <WordNetWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How does the dictionary-overlap approach to word sense disambiguation work, and where does it fail?", a: "It counts how many words each sense's definition shares with the context and picks the sense with the largest overlap. It fails whenever definitions are short, because there is little to overlap with, and whenever the context uses synonyms rather than the exact words in the definition." },
+]} />
 
 <Recall items={[
   { q: "Polysemy or homonymy: 'head' (body part / company leader) and 'bank' (money / river)? Why does the difference matter?", a: "'Head' is polysemy — the senses share a core notion of topmost or primary, and they descend from one word. 'Bank' is homonymy — two etymologically unrelated words that converged in spelling. It matters because polysemous senses share conceptual structure, so evidence that resolves one often helps another, while homonyms require entirely independent evidence per sense." },

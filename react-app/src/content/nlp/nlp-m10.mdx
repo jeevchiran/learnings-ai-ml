@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 
 <Bridge>
 Module 9 gave us embeddings capturing what words *mean*. Now we ask: how probable is a *sequence* of words? A **language model** assigns a probability $P(w_1 w_2 \ldots w_n)$ to any word sequence, enabling ranking, generation, and evaluation of fluency.
@@ -13,6 +13,12 @@ Module 9 gave us embeddings capturing what words *mean*. Now we ask: how probabl
 </ConceptBox>
 
 ## N-gram Language Models — The Core Idea
+
+<PredictReveal
+  prompt="A language model needs the probability of a word given everything before it. A bigram model conditions on just the previous word. What is it assuming?"
+  options={["That word order does not matter", "That the immediately preceding word captures all the relevant history, which is obviously false but keeps the counts estimable"]}
+  correct={1}
+>
 
 <DerivationSteps>
 <DerivationStep number={1} title="Chain Rule of Probability.">
@@ -62,7 +68,19 @@ $$P(\text{"I like dogs"}) = P(I \mid \langle s\rangle) \times P(\text{like} \mid
 
 $$= \frac{2}{4} \times \frac{2}{2} \times \frac{2}{4} \times \frac{1}{2} = 0.5 \times 1.0 \times 0.5 \times 0.5 = 0.125$$
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What assumption does an n-gram model make, and why is it made?", a: "That the probability of the next word depends only on the previous n minus 1 words, discarding everything earlier. It is plainly false for real language, but conditioning on the full history would require counting sequences that appear once or never, so the assumption is what makes the probabilities estimable at all." },
+]} />
+
 ## Data Sparsity and Smoothing
+
+<PredictReveal
+  prompt="A test sentence contains a word pair that never appeared in training. What probability does an unsmoothed model give the whole sentence?"
+  options={["A small one", "Exactly zero, which makes the model claim a perfectly ordinary sentence is impossible"]}
+  correct={1}
+>
 
 <ConceptBox title="The Zero Problem">
 Unseen bigrams get probability 0 under MLE, making any sentence containing them probability 0. No corpus is large enough to observe every word pair — **smoothing** redistributes probability mass to unobserved events.
@@ -76,7 +94,19 @@ Adding 1 to the denominator for each vocabulary word ensures no zero probabiliti
 
 **Kneser-Ney Smoothing** (best in practice) — backs off to a lower-order model and uses a novel continuation probability: the number of unique left contexts a word appears in (not its raw frequency). Words like "Francisco" appear often but only after "San" — they should have low continuation probability.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why must an n-gram model be smoothed?", a: "Sentence probability is a product over n-grams, so a single unseen pair sets the whole product to zero and declares a perfectly ordinary sentence impossible. Smoothing moves a little probability mass from observed n-grams to unobserved ones so that nothing is assigned exactly zero." },
+]} />
+
 ## Perplexity — Evaluating Language Models
+
+<PredictReveal
+  prompt="A model has a perplexity of 100 on your test set. What does that number mean concretely?"
+  options={["It got 100 words wrong", "At each position it was as uncertain as if choosing uniformly among 100 words"]}
+  correct={1}
+>
 
 **Perplexity** measures how well a language model predicts a test set. Lower perplexity = better model.
 
@@ -129,6 +159,12 @@ N = 4  # number of words (excluding <s>)
 pp = np.exp(-log_prob / N)
 print(f"Perplexity: {pp:.2f}")`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does perplexity measure?", a: "The effective number of equally likely choices the model was weighing at each position. It is the exponential of the average negative log probability of the true words, so lower is better and a perplexity of 100 means the model was as uncertain as someone picking uniformly from a hundred options." },
+]} />
 
 ## Neural Language Models
 

@@ -1,10 +1,16 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 
 <Bridge>
 NLP gives us annotations — tokens, POS tags, entities, parse trees. This module turns those annotations into numbers a machine can learn from: three document representation approaches that bridge text and ML.
 </Bridge>
 
 ## Bag of Words
+
+<PredictReveal
+  prompt={"The dog bit the man and the man bit the dog produce identical bag-of-words vectors. Is that acceptable?"}
+  options={["No, the representation is useless", "Often yes — for topic classification the words carry the signal, and the cost only bites when order is the point"]}
+  correct={1}
+>
 
 The **Bag of Words (BoW)** model represents a document as a vector of word counts, ignoring word order and grammar.
 
@@ -54,7 +60,19 @@ print("BoW matrix:\n", X.toarray())`}
 Despite these limitations, BoW pairs naturally with Naive Bayes (both assume word independence), making the combination effective for text classification and spam filtering.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does a bag-of-words representation discard, and when does that matter?", a: "All word order and therefore all syntax, so sentences with opposite meanings can have identical vectors. It matters little for topic classification, where the vocabulary itself carries the signal, and a great deal for anything involving negation, relations between entities or generation." },
+]} />
+
 ## TF-IDF — The Weighting Solution
+
+<PredictReveal
+  prompt="A word appears in every document in your corpus. What weight should it get?"
+  options={["High, since it is clearly common and relevant", "Near zero — a word that appears everywhere cannot distinguish one document from another"]}
+  correct={1}
+>
 
 **TF-IDF** (Term Frequency–Inverse Document Frequency) down-weights words that appear everywhere ("the") and up-weights words that characterize specific documents ("quantum").
 
@@ -93,6 +111,12 @@ for name, score in sorted(zip(feature_names, scores), key=lambda x: -x[1]):
 # cat          0.2404  ← appears in multiple docs, lower score
 # the          0.1876  ← appears in all docs, very low score`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does the inverse document frequency factor accomplish?", a: "It down-weights words that appear in many documents and up-weights those concentrated in few. A term appearing everywhere carries no discriminating power regardless of how often it occurs in a given document, so the weighting suppresses it without needing a hand-written stop-word list." },
+]} />
 
 ## Topic Modeling (NMF)
 

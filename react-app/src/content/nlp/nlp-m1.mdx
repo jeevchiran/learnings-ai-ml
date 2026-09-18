@@ -1,7 +1,11 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LevenshteinWidget from '../../components/widgets/nlp/LevenshteinWidget.jsx'
 
 # Module 1: Text Normalization & Edit Distance
+
+<ConceptBox title="Before you start">
+You need Python and the basics of probability from the Maths for ML track, Modules 5 and 6. No linguistics is assumed. The recurring difficulty in this track is that language resists every clean rule you write, so expect each method to come with the cases it fails on.
+</ConceptBox>
 
 ## NLP Pipeline — Big Picture
 
@@ -18,6 +22,12 @@ Each module in this track covers one or more stages. Downstream tasks (sentiment
 </ConceptBox>
 
 ## Tokenization
+
+<PredictReveal
+  prompt={"Splitting text on spaces seems like a complete tokeniser. What does it do with the string don't, and with U.S.A.?"}
+  options={["Handles both correctly", "Keeps them as single tokens when they should be split, and splits on the wrong things elsewhere — punctuation and contractions break the rule immediately"]}
+  correct={1}
+>
 
 **Tokenization** splits a raw character stream into tokens — the minimal units a model processes.
 
@@ -49,7 +59,19 @@ print([token.text for token in doc])
 # ['The', 'cat', 'ca', "n't", 'sit', 'on', 'the', 'mat', '.']
 ```
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is splitting on whitespace not a sufficient tokeniser?", a: "Punctuation attaches to words, contractions hold two grammatical units in one string, abbreviations contain full stops that are not sentence boundaries, and many languages do not put spaces between words at all. Every one of those cases needs a rule that a space-split does not have." },
+]} />
+
 ## Text Normalization
+
+<PredictReveal
+  prompt="Lower-casing every word is standard normalisation. What information does it destroy?"
+  options={["Nothing important", "The distinction between a proper name and an ordinary word — Apple the company and apple the fruit become identical"]}
+  correct={1}
+>
 
 Text normalization prepares raw text for downstream processing by reducing surface variation.
 
@@ -74,7 +96,19 @@ Text normalization prepares raw text for downstream processing by reducing surfa
   </DerivationStep>
 </DerivationSteps>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does lower-casing cost, and when should it be skipped?", a: "It collapses the distinction between proper nouns and ordinary words, so the company and the fruit become the same token. It should be skipped whenever capitalisation carries the signal you need, which is the case for named entity recognition and for most tasks involving names or acronyms." },
+]} />
+
 ## Edit Distance
+
+<PredictReveal
+  prompt="Edit distance between two strings could be found by trying every sequence of edits. Why does nobody do that?"
+  options={["It would be accurate but slightly slow", "The number of edit sequences grows exponentially, which is why the problem is solved by dynamic programming over a grid instead"]}
+  correct={1}
+>
 
 **Edit distance** (Levenshtein distance) is the minimum number of single-character **insertions**, **deletions**, and **substitutions** to transform string $s$ into string $t$.
 
@@ -121,6 +155,12 @@ print(edit_distance("kitten", "sitting"))  # 3
 Start at $d[m][n]$. At each cell, follow the minimum predecessor to reconstruct the alignment and the sequence of edit operations.
 
 <LevenshteinWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is edit distance computed with a table rather than by searching edit sequences?", a: "The number of possible edit sequences grows exponentially with the string lengths. Filling a grid where each cell is the best cost of aligning two prefixes reuses every sub-answer instead of recomputing it, which reduces the work to the product of the two lengths." },
+]} />
 
 ---
 

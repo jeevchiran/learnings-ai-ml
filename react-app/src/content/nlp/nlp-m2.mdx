@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import NoisyChannelWidget from '../../components/widgets/nlp/NoisyChannelWidget.jsx'
 
 <Bridge>
@@ -19,6 +19,12 @@ Every word decomposes into **morphemes** — the smallest units of meaning.
 **Practical rule of thumb:** Inflectional morphology is almost always worth collapsing. Derivational morphology is more nuanced — "compute" and "computation" are related but distinct. This tension shapes the stemming vs. lemmatization trade-off.
 
 ## Stemming
+
+<PredictReveal
+  prompt={"A stemmer reduces running to run. What does it do with the word better?"}
+  options={["Reduces it to good", "Leaves it as better — a stemmer chops suffixes and has no dictionary to know that better relates to good"]}
+  correct={1}
+>
 
 Stemming is a **crude heuristic process** that chops word endings by fixed rules, without grammar or vocabulary knowledge. The output — the *stem* — need not be a real word.
 
@@ -77,7 +83,19 @@ for w in words:
 **Under-stemming** — strips too little, failing to merge related forms. Example: "alumnus" and "alumni" may not be conflated; irregular forms like "mice"/"mouse" require vocabulary. Damages *recall*.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the fundamental limitation of a suffix-stripping stemmer?", a: "It works purely on the surface form of a word, so it cannot handle irregular forms whose root shares no spelling with them. It also produces stems that are not real words and can conflate unrelated words that happen to end similarly." },
+]} />
+
 ## Lemmatization
+
+<PredictReveal
+  prompt={"A lemmatiser is given the word saw. Should it return see or saw?"}
+  options={["Always see, since it is the verb's root", "It depends on the part of speech — the noun saw is a tool, the verb saw is the past of see"]}
+  correct={1}
+>
 
 Lemmatization uses a **morphological lexicon** to map inflected forms to their *lemma* (canonical dictionary headword), always producing a valid word. It requires POS context:
 
@@ -106,6 +124,12 @@ for token in doc:
 # faster       POS: ADV    Lemma: fast        ← comparative resolved
 # were         POS: AUX    Lemma: be          ← same lemma as "are"`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does a lemmatiser need the part of speech?", a: "The same surface form can belong to different words with different roots. Without knowing whether a token is a noun or a verb, the lemmatiser cannot choose between them, which is why lemmatisation is slower than stemming and depends on a tagger running first." },
+]} />
 
 ## Stemming vs. Lemmatization — The Trade-off
 

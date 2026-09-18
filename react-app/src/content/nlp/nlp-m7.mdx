@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import NERWidget from '../../components/widgets/nlp/NERWidget.jsx'
 
 <Bridge>
@@ -42,6 +42,12 @@ for ent in doc.ents:
 
 ## IOB / BIO Tagging Scheme
 
+<PredictReveal
+  prompt={"New York City is one entity spanning three tokens. Tagging each token simply as a location loses something. What?"}
+  options={["Nothing, three location tokens is enough", "Where one entity ends and the next begins — two adjacent cities would be indistinguishable from one three-word city"]}
+  correct={1}
+>
+
 NER is a **span identification problem**: a single entity may span multiple tokens ("Barack Obama" = one PERSON, "New York City" = one GPE). The **BIO scheme** converts span-level annotation into per-token labels:
 
 <DerivationSteps>
@@ -80,7 +86,19 @@ Tokens not part of any named entity. Verbs, prepositions, punctuation receive O.
 # Apple's         B-ORG`}
 </CodeBlock>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What problem does the beginning-inside-outside tagging scheme solve?", a: "It marks boundaries. Labelling every token of a multi-word entity with the same type leaves no way to tell one long entity from two adjacent short ones. Marking the first token as beginning and the rest as inside makes the boundary explicit." },
+]} />
+
 ## Conditional Random Fields (CRF) for Sequence Labeling
+
+<PredictReveal
+  prompt="A classifier that tags each token independently might output an inside tag with no preceding beginning tag. Why can a sequence model avoid that?"
+  options={["It is more accurate per token", "It scores whole label sequences, so it can learn that an impossible transition should never occur"]}
+  correct={1}
+>
 
 A simple per-token classifier cannot enforce BIO structural constraints (I-PERSON must never follow O). A **CRF** models the conditional distribution of the *entire* label sequence:
 
@@ -99,6 +117,12 @@ The standard architecture combines a bidirectional LSTM (rich contextual feature
 
 Transformer-based models (BERT, RoBERTa) have largely superseded BiLSTM, but the CRF output layer is still commonly added even on top of transformers for structured prediction — it ensures globally consistent BIO sequences.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a sequence model preferred over per-token classification for entity tagging?", a: "Per-token classification chooses each label in isolation, so it can produce sequences that are structurally impossible, such as an inside tag with no beginning before it. A sequence model scores the whole label sequence including transitions, so it learns that such transitions never occur and cannot emit them." },
+]} />
 
 ## Semantic Role Labeling (SRL)
 
