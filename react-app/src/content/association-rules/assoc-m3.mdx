@@ -1,11 +1,23 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import RuleTableWidget from '../../components/widgets/association-rules/RuleTableWidget.jsx'
 
 # Module 3: Rule Generation & Evaluation
 
+<Bridge>
+Module 2 delivered frequent itemsets: groups of products that genuinely appear together often enough to matter. An itemset has no direction, though, and a merchandiser needs one — which item should be moved next to which. This module turns each itemset into directional rules and decides which of them survive.
+</Bridge>
+
 ## From Itemsets to Rules
 
+<PredictReveal
+  prompt="A frequent itemset of three items can be split into an antecedent and a consequent in six different ways, giving six rules. Do those six rules have different support values?"
+  options={["Yes, each split has its own support", "No — all six share the itemset's support, because support does not care about the direction of the arrow"]}
+  correct={1}
+>
+
 Apriori (Module 2) gives us frequent itemsets. But an itemset like $\{Bread, Milk, Diaper\}$ is not yet a rule — it says these three are bought together, not that one *implies* the others. **Rule generation** turns each frequent itemset into directional rules and keeps only the confident ones.
+
+</PredictReveal>
 
 For a frequent itemset $I$, every way of splitting it into a non-empty antecedent $A$ and non-empty consequent $B = I \setminus A$ is a candidate rule $A \Rightarrow B$. An itemset of size $k$ yields $2^k - 2$ such rules.
 
@@ -20,6 +32,20 @@ $$\text{if } A' \subset A, \text{ then } \text{conf}(A \Rightarrow I\setminus A)
 Both rules share numerator support($I$); the smaller antecedent $A'$ has *larger* support in the denominator, so its confidence is lower. The consequence: **if a rule fails the confidence threshold, every rule with a smaller antecedent (bigger consequent) fails too** — so we prune those without computing them, exactly as Apriori prunes itemsets.
 
 ## Beyond Confidence — Three More Lenses
+
+<PredictReveal
+  prompt={"Bread and milk together imply diapers with confidence 0.80 and lift 1.14. Flip the arrow so milk and diapers imply bread. Same three items. Does the verdict hold?"}
+  options={["Yes, the same items give the same answer", "No — the flipped rule has lift 0.95, so it is a negative association"]}
+  correct={1}
+>
+
+Confidence is directional because its denominator is the antecedent's own support, and the two antecedents here have different supports. Lift is symmetric over a pair but the direction still decides which confidence you are quoting, so always state the arrow you intend to act on.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Is lift symmetric, and is confidence?", a: "Lift is symmetric: it equals the joint probability divided by the product of the two individual probabilities, which is unchanged if the items swap places. Confidence is not, because its denominator is the antecedent's own support, and two items generally have different supports." },
+]} />
 
 Confidence favors popular consequents (Module 1's trap). Practitioners rank rules with metrics that correct for the baseline.
 

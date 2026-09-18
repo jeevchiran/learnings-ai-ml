@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import RejectionRegionWidget from '../../components/widgets/hypothesis-testing/RejectionRegionWidget.jsx'
 
 # Module 1: Foundations of Hypothesis Testing
@@ -8,6 +8,12 @@ import RejectionRegionWidget from '../../components/widgets/hypothesis-testing/R
 </Bridge>
 
 ## What Is a Hypothesis Test?
+
+<PredictReveal
+  prompt="A drug trial finds no significant difference between the drug and a placebo. Has the trial shown that the drug does not work?"
+  options={["Yes, no difference was found, so there is no effect", "No — it has only failed to find evidence, which is not the same as evidence of no effect"]}
+  correct={1}
+>
 
 A formal procedure for deciding between two competing claims about a population from a sample. The logic is indirect: ask whether the observed data would be very unlikely if a baseline claim were true.
 
@@ -29,7 +35,19 @@ $$\text{Two-tailed: } H_1 : \theta \neq \theta_0 \qquad \text{Left: } H_1 : \the
 $H_0$ is the presumption of innocence. The burden of proof is on the data. You reject $H_0$ only when evidence clears a pre-specified bar; falling short gives "not guilty," never "definitely innocent." Absence of evidence against $H_0$ is not evidence for it.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why do we say fail to reject rather than accept the null hypothesis?", a: "The procedure only ever asks whether the data would be surprising if the null were true. Unsurprising data is consistent with the null but equally consistent with many small real effects the sample was too weak to detect, so it never establishes that the null is true." },
+]} />
+
 ## Writing Hypotheses
+
+<PredictReveal
+  prompt={"Someone writes their null hypothesis as the sample mean equals 10. What is wrong with that?"}
+  options={["Nothing, that is the standard form", "Hypotheses are always about the unknown population parameter, never about a number you already computed from the data"]}
+  correct={1}
+>
 
 The most consequential step — errors here can't be fixed by careful computation later.
 
@@ -48,7 +66,19 @@ $H_0 : \bar{x} = 10$ is wrong — $\bar{x}$ is computed from data. Always $H_0 :
 </DerivationStep>
 </DerivationSteps>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can a hypothesis never contain a sample statistic?", a: "A hypothesis is a claim about an unknown population quantity, which the test then judges using the sample. The sample mean is already known once the data is in hand, so there would be nothing to test — you would be asking whether a number equals itself." },
+]} />
+
 ## One-Tailed vs Two-Tailed
+
+<PredictReveal
+  prompt="You collect your data, notice the effect went in the positive direction, and then choose a one-tailed test in that direction because it is more powerful. Is that legitimate?"
+  options={["Yes, one-tailed tests are more powerful and the direction is now known", "No — choosing the direction after seeing the data inflates the false-positive rate well beyond the stated level"]}
+  correct={1}
+>
 
 The direction of $H_1$ decides how the allowable error is split between the tails, which sets how strong the evidence must be.
 
@@ -56,6 +86,12 @@ The direction of $H_1$ decides how the allowable error is split between the tail
 - **One-tailed** ($>$ or $<$) — reject only for extremes in one direction; whole rejection region in one tail. More powerful in that direction but blind to the opposite, so inappropriate for exploratory work.
 
 **Guidance:** two-tailed is the conservative default. Only go one-tailed with a compelling pre-data argument that an opposite-direction effect would be irrelevant.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why must the direction of the alternative hypothesis be fixed before seeing the data?", a: "A one-tailed test puts the entire error allowance in one tail. Choosing which tail after looking at the result means you would have picked whichever tail the data favoured, so in effect both tails were available and the true false-positive rate is roughly double what was claimed." },
+]} />
 
 ## The Six-Step Framework
 

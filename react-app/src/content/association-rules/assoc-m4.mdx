@@ -1,6 +1,16 @@
-import { ConceptBox, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+
+<Bridge>
+Modules 1 to 3 built the whole method by hand: the three metrics, the pruning property, and the rules that come out of it. This module hands the work to a library, and then replaces the algorithm entirely with one that never generates a candidate at all.
+</Bridge>
 
 ## Apriori in Real Code
+
+<PredictReveal
+  prompt="A library's Apriori function wants your transactions as a table of true and false values, one column per product. Why not just pass the lists of items?"
+  options={["The library could accept lists, this is a style choice", "Counting an itemset becomes a column-wise AND over a boolean matrix, which is enormously faster than searching lists"]}
+  correct={1}
+>
 
 You will almost never hand-roll Apriori. `mlxtend` implements the whole pipeline; your job is to shape the data and read the output. The input is a **one-hot matrix**: one row per transaction, one boolean column per item.
 
@@ -38,6 +48,12 @@ print(rules[['antecedents', 'consequents', 'support', 'confidence', 'lift']])`}<
 
 The `rules` DataFrame carries every metric from Module 3 as columns — `support`, `confidence`, `lift`, `leverage`, `conviction` — so filtering and ranking is just pandas: `rules[rules.lift > 1.1]`, `rules.sort_values('conviction')`, and so on.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does the library want a one-hot boolean matrix rather than lists of items?", a: "Support counting reduces to a column-wise logical AND followed by a sum over rows, which vectorised array libraries execute far faster than repeatedly searching variable-length lists. The shape is one row per transaction and one boolean column per item." },
+]} />
+
 <ConceptBox title="Two knobs, two failure modes">
 - **`min_support` too low** → millions of itemsets, memory blows up, runtime explodes. Too high → rare-but-valuable niche patterns vanish.
 - **`min_confidence` too low** → a flood of weak rules. Too high → only the obvious ones survive.
@@ -54,7 +70,19 @@ Apriori's guarantee costs it two expensive habits:
 
 ## FP-Growth — Frequent Patterns Without Candidates
 
+<PredictReveal
+  prompt="Apriori reads the entire database once per level, so finding a frequent five-item set means at least five full passes. Can the same frequent itemsets be found with only two passes?"
+  options={["No, each level genuinely needs its own count", "Yes — compress the whole database into a prefix tree once, then mine the tree instead of the data"]}
+  correct={1}
+>
+
 **FP-Growth** (Han et al., 2000) fixes both by never generating candidate itemsets at all.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How does FP-Growth avoid Apriori's repeated database scans?", a: "It reads the data twice: once to count items and discard the infrequent ones, and once to insert every transaction into a prefix tree where shared prefixes collapse onto shared paths. After that all mining happens on the tree, so no candidates are generated and the raw data is never scanned again." },
+]} />
 
 <ConceptBox title="The FP-tree idea">
 1. **Two scans, total.** First scan counts items and drops infrequent ones. Second scan inserts each transaction — items sorted by descending frequency — into a prefix tree (the **FP-tree**), so shared prefixes collapse onto shared paths.
