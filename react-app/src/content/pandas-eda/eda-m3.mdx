@@ -4,6 +4,12 @@ import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, Qui
 
 ## Why This Topic?
 
+<PredictReveal
+  prompt="A fare column contains the value -12.50. Every null check on it passes. What catches it?"
+  options={["A stricter null check", "Nothing generic — only a rule saying a fare cannot be negative, which comes from knowing what the column means"]}
+  correct={1}
+>
+
 Passing every `isna()` check doesn't mean a value is valid. Module 1 flagged a **-12.50** fare in `.describe()`'s minimum — it's "present," just nonsensical. No null check on earth will catch it, because the cell isn't empty. It's just wrong.
 
 <ConceptBox title="Missing vs. invalid: two different failure modes">
@@ -21,12 +27,6 @@ This dataset is NYC taxi trips, so the domain constraints are concrete: fares ca
 </Bridge>
 
 ## What / How — Domain Constraints as Boolean Masks
-
-<PredictReveal
-  prompt="A fare column contains the value -12.50. Every null check passes. What catches it?"
-  options={["A stricter null check", "Nothing generic — only a rule that says a fare cannot be negative, which comes from knowing what the column means"]}
-  correct={1}
->
 
 Each constraint becomes a boolean mask: a condition that should never be true for a healthy row. Filtering the DataFrame with that mask surfaces exactly the rows that broke the rule.
 
