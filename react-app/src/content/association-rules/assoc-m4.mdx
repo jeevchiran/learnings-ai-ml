@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import LiftConfidenceWidget from '../../components/widgets/association-rules/LiftConfidenceWidget.jsx'
 
 <Bridge>
 Modules 1 to 3 built the whole method by hand: the three metrics, the pruning property, and the rules that come out of it. This module hands the work to a library, and then replaces the algorithm entirely with one that never generates a candidate at all.
@@ -60,6 +61,8 @@ The `rules` DataFrame carries every metric from Module 3 as columns — `support
 
 Start strict, loosen until you get a workable number of rules, then rank by **lift** or **conviction** — never by confidence alone.
 </ConceptBox>
+
+<LiftConfidenceWidget />
 
 ## Why Apriori Gets Slow
 

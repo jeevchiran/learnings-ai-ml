@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
+import DiceThresholdWidget from '../../components/widgets/transfer-learning/DiceThresholdWidget.jsx'
 
 # Module 12: Demonstration — U-Net in PyTorch
 
@@ -181,6 +182,8 @@ On imbalanced data the best threshold is routinely 0.3–0.4 rather than 0.5, an
 <Recall items={[
   { q: "Why should the segmentation threshold be swept rather than left at 0.5?", a: "The midpoint is only optimal if the classes are balanced and both error types cost the same, which is rarely true. Sweeping the threshold on a validation set and picking the value that maximises the overlap metric typically gains several points for no change to the model at all." },
 ]} />
+
+<DiceThresholdWidget />
 
 ## Debugging table
 
