@@ -1,9 +1,15 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import ShapForceWidget from '../../components/widgets/xai/ShapForceWidget.jsx'
 
 # Module 7: Features of SHAP
 
 ## The Property That Makes SHAP Click: Additivity
+
+<PredictReveal
+  prompt="A model predicts 0.82 for one applicant. The average prediction across everyone is 0.30. What should the feature attributions for this applicant add up to?"
+  options={["0.82, the prediction itself", "0.52, the gap between this prediction and the average"]}
+  correct={1}
+>
 
 Every SHAP explanation obeys one equation:
 
@@ -12,6 +18,14 @@ $$f(x) = \phi_0 + \sum_{i=1}^{|F|} \phi_i$$
 The prediction equals the **base value** $\phi_0$ (the average prediction $E[f(x)]$) plus the sum of every feature's SHAP value. This is **local accuracy** — the explanation reconstructs the *exact* prediction, not an approximation. Drag the sliders and watch the pieces always sum to the output:
 
 <ShapForceWidget />
+
+That is the additivity guarantee, and it is what makes a force plot readable: the bars start at the baseline and push the prediction to where it landed, with nothing unaccounted for.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does the additivity property of SHAP guarantee?", a: "That the attributions for one prediction sum exactly to the difference between that prediction and the model's average prediction. Nothing is left over and nothing is double-counted, so a plot of the contributions is a complete account of why this case differs from a typical one." },
+]} />
 
 Because of additivity, a SHAP explanation is a story: *"You started at the average. Feature A pushed you up \$120k, feature B down \$40k, and here you landed."* LIME can't promise this — its surrogate only *approximates* the prediction.
 
@@ -31,6 +45,12 @@ Gain-based feature importance in XGBoost can *fall* for a feature even after you
 
 ## The Three Plots You'll Actually Use
 
+<PredictReveal
+  prompt="A SHAP summary plot shows every feature for every sample. What do the colours along one feature's row encode?"
+  options={["How confident the model was", "The feature's own value, so you can see whether high values push the prediction up or down"]}
+  correct={1}
+>
+
 **Force plot** — one prediction. Base value in the middle, red arrows pushing up, blue pushing down, landing on $f(x)$. (That's the widget above.) Best for explaining a *single* decision to a stakeholder.
 
 **Summary / beeswarm plot** — *global from local*. Stack the SHAP values of many predictions: one row per feature (ranked by mean $|\phi|$), each dot a data point, coloured by feature value. It shows both *how important* a feature is and *which direction* high/low values push. This is how local SHAP values aggregate into a global picture.
@@ -49,6 +69,12 @@ shap.dependence_plot("age", shap_values, X_test)   # how age's effect varies, + 
 <ConceptBox title="Global importance, done right">
 Average the *absolute* SHAP values of a feature over the dataset: $\text{Imp}_i = \frac{1}{n}\sum_{x}|\phi_i(x)|$. This global ranking is **consistent** (unlike gain or permutation importance in some cases) and *decomposes* — every global number traces back to per-prediction contributions you can inspect.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does a SHAP summary plot show that a bar chart of importances does not?", a: "Direction and spread. Each point is one sample's attribution, positioned by its effect and coloured by the feature's value, so you can see whether high values of a feature push predictions up or down, and whether the effect is consistent or varies between samples." },
+]} />
 
 <Bridge>
 Additivity and these plots are model-independent — but the raw material differs by data type. The next module runs SHAP end-to-end on a numerical tabular model and on an image classifier, where "a feature" becomes "a pixel region."

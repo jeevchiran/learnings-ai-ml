@@ -1,15 +1,27 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import ShapleyWidget from '../../components/widgets/xai/ShapleyWidget.jsx'
 
 # Module 5: SHAP — Shapley Values & Introduction
 
 ## The Fair-Credit Question
 
+<PredictReveal
+  prompt="Three people together produce a result, and you must split the credit fairly. The contribution of each depends on who else is already in the group. What does a fair split require you to consider?"
+  options={["Each person's solo contribution", "Every possible order of joining, averaging each person's marginal contribution across all of them"]}
+  correct={1}
+>
+
 A prediction is a payout. The features are a team that produced it together. **How much credit does each feature deserve?** This is exactly the question Lloyd Shapley solved in 1953 for cooperative game theory — and **SHAP** (*SHapley Additive exPlanations*) applies that solution to model predictions.
 
 The idea: a feature's contribution isn't fixed — it depends on *which other features are already present*. So measure a feature's **marginal contribution** — how much the prediction changes when it joins — and average that over **every possible order** in which features could join.
 
 <ShapleyWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is a Shapley value?", a: "A feature's average marginal contribution to the prediction, taken over every possible ordering in which the features could be added. Averaging over all orders is what makes the split fair when contributions depend on which other features are already present." },
+]} />
 
 ## The Shapley Value
 
@@ -29,6 +41,12 @@ Features interact. *Location* alone might add \$40k; *location* added *after* *s
 
 ## The Axioms — Why SHAP Is Special
 
+<PredictReveal
+  prompt="Many attribution methods exist. What can Shapley values claim that the others cannot?"
+  options={["They are the fastest to compute", "They are the unique method satisfying a small set of fairness axioms, so the answer is not one choice among many"]}
+  correct={1}
+>
+
 The Shapley value is the **only** attribution satisfying four properties simultaneously:
 
 | Axiom | Meaning |
@@ -39,6 +57,12 @@ The Shapley value is the **only** attribution satisfying four properties simulta
 | **Additivity** | Explanations of an ensemble = sum of explanations of its members. |
 
 No other attribution method satisfies all four. That uniqueness is SHAP's headline advantage over LIME — where LIME gives *a* local fit, SHAP gives *the* provably fair one.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What makes Shapley values theoretically special among attribution methods?", a: "They are the unique allocation satisfying a short list of fairness properties together: the attributions sum to the prediction, a feature that never changes anything gets zero, features that always contribute equally get equal credit, and attributions add correctly across combined models. Other methods satisfy some of these; only Shapley satisfies all." },
+]} />
 
 ## Types of SHAP
 

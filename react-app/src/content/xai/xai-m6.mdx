@@ -1,10 +1,22 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Module 6: Kernel SHAP & Tree SHAP
 
 ## The Computational Wall
 
+<PredictReveal
+  prompt="Exact Shapley values average over every ordering of the features. With 20 features, how many subsets does that involve?"
+  options={["20, one per feature", "Over a million, which is why every practical implementation approximates"]}
+  correct={1}
+>
+
 Exact Shapley values sum over $2^{|F|}$ feature subsets. With 30 features that's a billion evaluations *per prediction* — impossible. **Kernel SHAP** and **Tree SHAP** are the two escapes: one approximates for *any* model, the other computes *exactly* for trees.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can exact Shapley values not be computed directly?", a: "The definition averages a feature's marginal contribution over every subset of the other features, and the number of subsets grows exponentially with the feature count. Twenty features already means over a million model evaluations per explained prediction." },
+]} />
 
 ## Kernel SHAP — Agnostic, Approximate
 
@@ -35,6 +47,12 @@ shap.summary_plot(shap_values, X_test[:20])
 
 ## Tree SHAP — Exact and Fast, Trees Only
 
+<PredictReveal
+  prompt="Tree SHAP is both exact and fast, while Kernel SHAP is approximate and slow. Why not always use Tree SHAP?"
+  options={["It is newer and less well tested", "It exploits the structure of decision trees, so it only works on tree-based models"]}
+  correct={1}
+>
+
 For decision trees, random forests, and gradient boosting (XGBoost, LightGBM, CatBoost), Tree SHAP computes **exact** Shapley values in **polynomial** time — no sampling, no approximation.
 
 The trick: a tree already encodes, in its structure, which feature subsets lead to which leaves. Tree SHAP walks the tree once and tracks, for every node, the fraction of feature subsets that flow down each branch — collapsing the exponential sum into roughly $O(\text{trees} \times \text{leaves} \times \text{depth}^2)$.
@@ -59,6 +77,12 @@ shap.summary_plot(shap_values, X_te)
 <ConceptBox title="Rule of thumb">
 Tree model? **Always use Tree SHAP** — exact and orders of magnitude faster. Anything else (SVM, deep net behind an API, custom pipeline)? Kernel SHAP is the general fallback — just cap `nsamples` and background size to keep it tractable.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What lets Tree SHAP be exact and fast where Kernel SHAP cannot?", a: "It uses the tree's own structure, tracking how many training samples flow down each path, so the exponential sum over subsets collapses into a polynomial traversal of the tree. That trick depends entirely on the model being a tree ensemble, which is why it is not general." },
+]} />
 
 <Bridge>
 Both produce the same object — a vector of Shapley values per prediction — with the same guarantees. The next module turns those numbers into the visual language of SHAP: force plots, summary plots, and dependence plots.

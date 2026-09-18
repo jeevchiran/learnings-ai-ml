@@ -1,8 +1,14 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Module 8: SHAP in Practice — Numerical & Image
 
 ## Numerical Data: End-to-End
+
+<PredictReveal
+  prompt="You have a trained tree ensemble on tabular data and want SHAP values. Which explainer should you reach for?"
+  options={["The general model-agnostic one, since it always works", "The tree-specific one — it is exact and orders of magnitude faster on this model class"]}
+  correct={1}
+>
 
 The most common workflow — a gradient-boosted tabular model, explained exactly with Tree SHAP:
 
@@ -38,7 +44,19 @@ assert np.allclose(sv.values.sum(1) + sv.base_values, model.predict(X_te), atol=
 When features are strongly correlated, marginalising one "absent" feature can produce unrealistic inputs (e.g. `rooms=8` with `bedrooms=1`), and SHAP may split credit between them in ways that look surprising. It's not a bug — SHAP is being fair to the *model's* behaviour, including on inputs the correlation makes rare. Interpret correlated features as a *group*, not in isolation.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Which SHAP explainer should be used on a gradient boosting model, and why?", a: "The tree explainer. It computes exact Shapley values by traversing the trees rather than approximating them by sampling, which is both more accurate and far faster than the model-agnostic alternative on the same model." },
+]} />
+
 ## Image Data: A "Feature" Is a Region
+
+<PredictReveal
+  prompt="Explaining an image classifier one pixel at a time gives an attribution per pixel. Why is that not useful?"
+  options={["It is useful, per-pixel detail is what you want", "A single pixel means nothing on its own, so the map is noise — regions of pixels are the meaningful unit"]}
+  correct={1}
+>
 
 For an image classifier there are too many pixels to treat each as a feature, so SHAP groups them — into superpixels (masked regions) or evaluates per-pixel via gradients. Absent pixels are replaced by a **baseline** (blurred image, grey, or dataset mean). The result is a heatmap: red where pixels *supported* the class, blue where they *argued against* it.
 
@@ -65,6 +83,12 @@ shap.image_plot(shap_vals, X_img[100:104])
 <ConceptBox title="This is how you catch a cheating vision model">
 Run SHAP on a "dog vs. wolf" classifier and the heatmap lights up the **snow in the background**, not the animal — the model learned "snow ⇒ wolf." No accuracy number reveals this; the pixel-level attribution does immediately. Image SHAP is a debugging tool as much as an explanation.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are image explanations computed over regions rather than individual pixels?", a: "One pixel carries almost no information and changing it alone barely moves the prediction, so per-pixel attributions are dominated by noise. Grouping pixels into coherent superpixels or patches makes each unit a recognisable part of the image, which is both more stable and actually interpretable." },
+]} />
 
 <Bridge>
 Deep SHAP borrows its engine from **DeepLIFT** — a neural-net-specific method that propagates contributions backward against a reference input, in a single pass. The next module opens that engine up.
