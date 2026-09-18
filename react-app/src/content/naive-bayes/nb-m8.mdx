@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import GaussianNBWidget from '../../components/widgets/naive-bayes/GaussianNBWidget.jsx'
 
 # Module 8: Comparison with Other Classification Models
 
@@ -41,6 +42,8 @@ The difference is what each optimizes. Logistic regression is **discriminative**
 <ConceptBox title="Rule of thumb">
 Small data, huge sparse features (text), fast baseline → **Naive Bayes**. Larger data, calibrated probabilities, want to add interaction terms → **logistic regression**. Suspect correlations distort predictions → try logistic regression; if it doesn't help, independence wasn't the bottleneck.
 </ConceptBox>
+
+<GaussianNBWidget />
 
 ## vs. Decision Trees
 

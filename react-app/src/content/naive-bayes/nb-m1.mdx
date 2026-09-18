@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
+import BayesBoxWidget from '../../components/widgets/naive-bayes/BayesBoxWidget.jsx'
 
 # Module 1: Intuition Behind Probabilistic Classification
 
@@ -31,6 +32,8 @@ $P(y \mid \mathbf{x})$ is the **posterior** — belief *after* seeing the featur
 <Recall items={[
   { q: "Why is a probability more useful than a bare label?", a: "A probability lets the decision threshold be chosen separately from the model, according to what each kind of mistake costs. A borderline spam email can be sent to a review folder rather than deleted, and the same model can serve two teams with different tolerances." },
 ]} />
+
+<BayesBoxWidget />
 
 ## A Weather-Forecaster Analogy
 

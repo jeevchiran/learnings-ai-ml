@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import BigramProbWidget from '../../components/widgets/nlp/BigramProbWidget.jsx'
 
 <Bridge>
 Module 9 gave us embeddings capturing what words *mean*. Now we ask: how probable is a *sequence* of words? A **language model** assigns a probability $P(w_1 w_2 \ldots w_n)$ to any word sequence, enabling ranking, generation, and evaluation of fluency.
@@ -99,6 +100,8 @@ Adding 1 to the denominator for each vocabulary word ensures no zero probabiliti
 <Recall items={[
   { q: "Why must an n-gram model be smoothed?", a: "Sentence probability is a product over n-grams, so a single unseen pair sets the whole product to zero and declares a perfectly ordinary sentence impossible. Smoothing moves a little probability mass from observed n-grams to unobserved ones so that nothing is assigned exactly zero." },
 ]} />
+
+<BigramProbWidget />
 
 ## Perplexity — Evaluating Language Models
 

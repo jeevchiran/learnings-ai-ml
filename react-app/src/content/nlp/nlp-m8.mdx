@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import TfIdfWidget from '../../components/widgets/nlp/TfIdfWidget.jsx'
 
 <Bridge>
 NLP gives us annotations — tokens, POS tags, entities, parse trees. This module turns those annotations into numbers a machine can learn from: three document representation approaches that bridge text and ML.
@@ -117,6 +118,8 @@ for name, score in sorted(zip(feature_names, scores), key=lambda x: -x[1]):
 <Recall items={[
   { q: "What does the inverse document frequency factor accomplish?", a: "It down-weights words that appear in many documents and up-weights those concentrated in few. A term appearing everywhere carries no discriminating power regardless of how often it occurs in a given document, so the weighting suppresses it without needing a hand-written stop-word list." },
 ]} />
+
+<TfIdfWidget />
 
 ## Topic Modeling (NMF)
 

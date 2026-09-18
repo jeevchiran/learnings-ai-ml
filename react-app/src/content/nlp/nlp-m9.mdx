@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import WordVectorArithmeticWidget from '../../components/widgets/nlp/WordVectorArithmeticWidget.jsx'
 
 <Bridge>
 TF-IDF gives each word a number — its importance in a document. But TF-IDF vectors are huge (|vocabulary| dimensions) and treat every word as orthogonal — "dog" and "cat" have zero cosine similarity, same as "dog" and "calculus". **Word embeddings** solve both: dense low-dimensional vectors that encode semantic similarity.
@@ -90,6 +91,8 @@ $$f(x) = \begin{cases} (x/x_{\max})^\alpha & \text{if } x < x_{\max} \\ 1 & \tex
 with $x_{\max} = 100$ and $\alpha = 3/4$. GloVe trains faster than Word2Vec because the co-occurrence matrix only needs to be computed once.
 
 ## The Embedding Space — Geometry Encodes Meaning
+
+<WordVectorArithmeticWidget />
 
 Well-trained embeddings encode three geometric properties:
 
