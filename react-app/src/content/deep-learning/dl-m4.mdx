@@ -173,7 +173,7 @@ torch.save(model.state_dict(), 'model.pt')
 
 # Load
 loaded = MLP(784, 256, 10)
-loaded.load_state_dict(torch.load('model.pt'))
+loaded.load_state_dict(torch.load('model.pt', weights_only=True))
 loaded.eval()
 ```
 
@@ -204,7 +204,7 @@ For an MLP with layers $[n_0, n_1, n_2, \ldots, n_L]$:
 
 $$\text{Parameters} = \sum_{l=1}^{L} \underbrace{n^{[l]} \cdot n^{[l-1]}}_{\text{weights}} + \underbrace{n^{[l]}}_{\text{biases}} = \sum_{l=1}^{L} n^{[l]}(n^{[l-1]} + 1)$$
 
-Example: `[784, 256, 128, 10]` → $256 \cdot 785 + 128 \cdot 257 + 10 \cdot 129 = 234,634$ parameters.
+Example: `[784, 256, 128, 10]` → $256 \cdot 785 + 128 \cdot 257 + 10 \cdot 129 = 200{,}960 + 32{,}896 + 1{,}290 = 235{,}146$ parameters.
 
 </DerivationStep>
 

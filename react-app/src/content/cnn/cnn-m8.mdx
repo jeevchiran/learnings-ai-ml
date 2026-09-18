@@ -103,7 +103,8 @@ transform = T.Compose([
 # Step 2: Model
 model = models.resnet18(weights='IMAGENET1K_V1')
 model.fc = nn.Linear(512, 10)           # CIFAR-10 has 10 classes
-model = model.cuda()
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+model = model.to(device)
 
 # Step 3: Training with warmup
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
@@ -116,7 +117,7 @@ criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 for epoch in range(30):
     model.train()
     for imgs, labels in train_loader:
-        imgs, labels = imgs.cuda(), labels.cuda()
+        imgs, labels = imgs.to(device), labels.to(device)
         optimizer.zero_grad()
         loss = criterion(model(imgs), labels)
         loss.backward()

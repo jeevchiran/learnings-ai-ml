@@ -148,7 +148,7 @@ import matplotlib.pyplot as plt
 
 CLASSES = ['plane','car','bird','cat','deer','dog','frog','horse','ship','truck']
 
-model.load_state_dict(torch.load('best_cifar10.pt'))
+model.load_state_dict(torch.load('best_cifar10.pt', weights_only=True))
 model.eval()
 
 all_preds, all_labels = [], []
