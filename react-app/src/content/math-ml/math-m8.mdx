@@ -1,17 +1,21 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LikelihoodWidget from '../../components/widgets/math-ml/LikelihoodWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- **Likelihood is a PDF read backwards**: fix the data you saw, vary the parameter, ask "how probable would this data have been?"
-- MLE picks the parameter that maximises it. That single idea generates least squares, cross-entropy, and almost every loss you'll meet.
-- Take the **log** — products of tiny probabilities underflow, sums don't, and log is monotonic so the argmax is unchanged.
-- Minimising loss = maximising log-likelihood, sign-flipped to suit optimisers.
-- MLE has no scepticism: 1 head in 1 flip gives $\hat p = 1$. Regularisation is what supplies the missing prior.
-</ConceptBox>
+# Module 8: Maximum Likelihood Estimation
+
+<Bridge>
+Module 6 gave distributions with parameters already filled in, and Module 7 summarised them with numbers. In practice nobody hands you the parameters — you have data and must work backwards to the parameter that produced it. This module is the standard procedure for doing that, and it turns out to be the thing every loss function in this curriculum is secretly doing.
+</Bridge>
 
 ## The Bridge to "Training a Model"
 
 Every model-fitting procedure in this curriculum — linear regression's least squares, logistic regression's cross-entropy, a neural net's loss function — is secretly the same idea: **pick the parameters that make the observed data most probable.** That idea has a name: **Maximum Likelihood Estimation.**
+
+<PredictReveal
+  prompt="A probability density and a likelihood are computed with the same formula. So what actually distinguishes them?"
+  options={["Nothing, the two words are interchangeable", "Which argument is held fixed: a probability fixes the parameter and varies the data, a likelihood fixes the data and varies the parameter"]}
+  correct={1}
+>
 
 <DerivationSteps>
 <DerivationStep number={1} title="The likelihood function">
@@ -28,6 +32,12 @@ Log turns a product of many small probabilities (which underflows numerically) i
 </DerivationStep>
 </DerivationSteps>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Probability and likelihood use the same formula. What is the difference?", a: "Which argument is held fixed. A probability fixes the parameter and varies the data, and it integrates to 1 over the data. A likelihood fixes the data and varies the parameter, and it does not integrate to 1 over the parameter — which is why a single likelihood value means nothing on its own and only comparisons across parameters matter." },
+]} />
+
 ## Worked Example: Coin Flips
 
 Flip a coin $n$ times, observe $k$ heads. Each flip is Bernoulli($p$), so:
@@ -36,11 +46,25 @@ $$\ell(p) = k\log p + (n-k)\log(1-p)$$
 
 Take the derivative (Module 9), set it to zero: $\dfrac{d\ell}{dp} = \dfrac{k}{p} - \dfrac{n-k}{1-p} = 0 \implies \hat p_{MLE} = \dfrac{k}{n}$ — exactly the sample proportion. No surprise — but the same three-step machine (write likelihood → log it → maximize with calculus) is what derives logistic regression's loss, a Gaussian's mean/variance estimators, and more.
 
+<PredictReveal
+  prompt="You flip an unfamiliar coin exactly once and it lands heads. Maximum likelihood estimation is asked for the probability of heads. What answer does it give?"
+  options={["Around 0.5, since one flip is no evidence", "Exactly 1.0 — the value that makes the observed data most probable"]}
+  correct={1}
+>
+
 <LikelihoodWidget />
+
+Set the number of flips to 1 in the widget and watch the likelihood curve climb monotonically to the right edge. The procedure has no notion of "too little data"; it simply reports whichever parameter explains what it saw best.
 
 <ConceptBox title="Common confusion — MLE can overfit with little data">
 With $n=1$ and 1 head, $\hat p_{MLE}=1$ — "this coin always lands heads," from a single flip. MLE has no built-in skepticism; regularization (a prior, in Bayesian terms) is what tempers that overconfidence with small samples.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "One head in one flip gives an estimate of 1.0. What is wrong and what fixes it?", a: "Maximum likelihood fits the observed data perfectly and has no mechanism for doubt on tiny samples, which is overfitting in its simplest form. Adding a prior — equivalently a regularisation term, or Laplace smoothing with pseudo-counts — pulls the estimate towards a sensible default." },
+]} />
 
 ## In Python
 
@@ -55,6 +79,16 @@ result = minimize_scalar(neg_log_likelihood, bounds=(1e-6, 1 - 1e-6), method='bo
 
 print(result.x, heads / n)   # both give ~0.70 — numerical optimization matches the closed form
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- **Likelihood is a PDF read backwards**: fix the data you saw, vary the parameter, ask "how probable would this data have been?"
+- MLE picks the parameter that maximises it. That single idea generates least squares, cross-entropy, and almost every loss you'll meet.
+- Take the **log** — products of tiny probabilities underflow, sums don't, and log is monotonic so the argmax is unchanged.
+- Minimising loss = maximising log-likelihood, sign-flipped to suit optimisers.
+- MLE has no scepticism: 1 head in 1 flip gives $\hat p = 1$. Regularisation is what supplies the missing prior.
+</ConceptBox>
 
 ## Practice
 

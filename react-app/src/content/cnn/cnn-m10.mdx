@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import LrScheduleWidget from '../../components/widgets/cnn/LrScheduleWidget.jsx'
 
 # Module 10: CIFAR-10 with PyTorch — End-to-End
-
-<ConceptBox title="TL;DR">
-- Every module in the track shows up as one line of this loop: normalisation stats, augmentation, block structure, GAP head, loss, schedule.
-- **Cosine annealing** decays the learning rate smoothly from $\eta_{max}$ to $\eta_{min}$ — large steps early to explore, tiny steps late to settle.
-- **Label smoothing** ($\varepsilon{=}0.1$) replaces hard one-hot targets with a soft distribution, curbing overconfidence and improving calibration.
-- `pin_memory=True` uses page-locked host memory so the CPU→GPU copy can go by DMA — a free throughput win.
-- `AdaptiveAvgPool2d(1)` is the GAP head from Module 4: kills the biggest parameter block and frees the model from a fixed input size.
-- **BatchNorm is not just a stability trick** — it measurably improves final validation accuracy, not only the shape of the loss curve.
-</ConceptBox>
 
 <Bridge>
 **From Modules 1–9:** you understand why CNNs work (locality, weight sharing), how they compute (convolution, pooling), how to size them (parameter numericals), how to train them (backprop through conv layers), how to feed them data (normalisation, augmentation), how to leverage pretrained weights (transfer learning), and how to inspect them (GradCAM). This module puts it all together in a production-quality training loop that achieves ~92–94% on CIFAR-10 from scratch.
@@ -141,6 +133,12 @@ print(f'Best val accuracy: {best_val_acc:.4f}')
 
 ## Evaluation: confusion matrix
 
+<PredictReveal
+  prompt="A ten-class classifier reaches 85% accuracy. What does a confusion matrix add that the single number does not?"
+  options={["Nothing, it shows the same information", "Which classes are being mistaken for which, so you learn whether the errors are spread out or concentrated in one confusable pair"]}
+  correct={1}
+>
+
 ```python
 import numpy as np
 from sklearn.metrics import confusion_matrix
@@ -148,7 +146,7 @@ import matplotlib.pyplot as plt
 
 CLASSES = ['plane','car','bird','cat','deer','dog','frog','horse','ship','truck']
 
-model.load_state_dict(torch.load('best_cifar10.pt'))
+model.load_state_dict(torch.load('best_cifar10.pt', weights_only=True))
 model.eval()
 
 all_preds, all_labels = [], []
@@ -178,6 +176,12 @@ Typical confusion patterns:
 
 These confusions reflect genuine visual ambiguity — not model bugs.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does a confusion matrix show that overall accuracy hides?", a: "The structure of the errors. Two models with identical accuracy can fail completely differently, one spreading mistakes evenly and the other confusing a single pair of similar classes. The second is usually fixable with targeted data or a changed loss, and the accuracy figure alone never reveals it." },
+]} />
+
 ## Overfitting & generalisation
 
 | Technique | Val Acc Gain |
@@ -190,6 +194,8 @@ These confusions reflect genuine visual ambiguity — not model bugs.
 | Data augmentation (crop+flip+jitter) | +5–8% |
 
 The single biggest lever is **augmentation**. Regularisation (Dropout, BatchNorm, label smoothing) prevents overfitting but cannot substitute for data diversity.
+
+<LrScheduleWidget />
 
 ## Improving further
 
@@ -261,6 +267,15 @@ Effect: the model is prevented from outputting probability close to 1 for any si
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Every module in the track shows up as one line of this loop: normalisation stats, augmentation, block structure, GAP head, loss, schedule.
+- **Cosine annealing** decays the learning rate smoothly from $\eta_{max}$ to $\eta_{min}$ — large steps early to explore, tiny steps late to settle.
+- **Label smoothing** ($\varepsilon{=}0.1$) replaces hard one-hot targets with a soft distribution, curbing overconfidence and improving calibration.
+- `pin_memory=True` uses page-locked host memory so the CPU→GPU copy can go by DMA — a free throughput win.
+- `AdaptiveAvgPool2d(1)` is the GAP head from Module 4: kills the biggest parameter block and frees the model from a fixed input size.
+- **BatchNorm is not just a stability trick** — it measurably improves final validation accuracy, not only the shape of the loss curve.
+</ConceptBox>
 
 ## Quiz
 

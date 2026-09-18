@@ -1,25 +1,31 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import GiniSplitWidget from '../../components/widgets/decision-trees/GiniSplitWidget.jsx'
+
+# Module 3: Gini Index Splits
 
 <Bridge>
 **Building on Module 2:** You now know how to *measure* node impurity using the Gini index and entropy. The next question is: given a continuous feature, how do we systematically *find* the split threshold that maximises impurity reduction?
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- A continuous feature has up to $n-1$ candidate thresholds — the **midpoints between adjacent sorted values**.
-- Midpoints because *any* threshold inside $(v_i, v_{i+1})$ gives the identical partition; the midpoint is just the canonical representative.
-- **Sort once, then sweep.** Maintaining running class counts makes each candidate $O(1)$, turning $O(n^2p)$ per node into $O(np\log n)$.
-- Choose $(j^*, s^*)$ maximising $\text{GiniGain}=G(t)-\frac{n_L}{n}G(t_L)-\frac{n_R}{n}G(t_R)$ — the same gain idea from Module 2, now searched exhaustively.
-- Categorical features have $2^{C-1}-1$ possible subsets, so sklearn sidesteps it: ordinal encoding treated as continuous, or one-hot beforehand.
-</ConceptBox>
-
 ## 1. The Core Problem of Splitting
+
+<PredictReveal
+  prompt="A continuous feature takes 1,000 distinct values in your data. How many thresholds does the algorithm actually need to test for it?"
+  options={["Infinitely many, since the feature is continuous", "At most 999 — only the midpoints between consecutive sorted values can ever change the split"]}
+  correct={1}
+>
 
 For a continuous feature $X$ with $n$ training samples, there are up to $n - 1$ candidate split thresholds — one midway between each pair of adjacent sorted values. The algorithm must evaluate every candidate at every feature.
 
 **Naive Complexity:** With $p$ features and $n$ samples, the naive approach evaluates $O(n \cdot p)$ candidates per node, each requiring a full scan of $n$ samples. That is $O(n^2 p)$ per node — unacceptably slow for large datasets.
 
 **Efficient Approach with Sorting:** Sort the samples by feature value once: $O(n \log n)$. Then sweep the sorted order, maintaining running class counts for left and right partitions. Each candidate threshold can be evaluated in $O(1)$ by updating counts incrementally. Total cost per feature per node: $O(n \log n)$ for the sort plus $O(n)$ for the sweep.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a continuous feature's search for a threshold finite?", a: "Two thresholds that separate exactly the same samples produce exactly the same split, so only the boundaries between consecutive sorted values matter. With n distinct values there are at most n minus 1 candidate thresholds worth evaluating." },
+]} />
 
 <ConceptBox title="Candidate Threshold Generation">
 Given sorted unique values $v_1 < v_2 < \cdots < v_m$, the $m - 1$ candidate thresholds are the midpoints:
@@ -124,6 +130,20 @@ The best X2 split is at 6.5 (GiniGain ≈ 0.1852), lower than the best X1 split 
 
 ## 4. Handling Categorical Features
 
+<PredictReveal
+  prompt="A categorical feature has 20 levels. How many ways are there to divide those levels into two groups for a binary split?"
+  options={["20, one per level", "Over half a million — the number of subsets grows exponentially with the number of levels"]}
+  correct={1}
+>
+
+Exhaustively trying every subset is out of the question past a handful of levels, which is why implementations either restrict to one-versus-rest splits, sort the levels by their mean target value and split that ordering, or require you to encode the feature numerically first.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are high-cardinality categorical features awkward for trees?", a: "A binary split must divide the levels into two groups, and the number of such groupings grows exponentially with the number of levels, so an exhaustive search is impossible. Implementations fall back on ordering the levels by target mean or on one-versus-rest splits, and high-cardinality features also tend to look artificially informative because they can isolate small groups." },
+]} />
+
 For a categorical feature with $C$ unique values, there are $2^{C-1} - 1$ possible subsets of values for the left child. For binary features, this is just one threshold. For features with many categories, this becomes expensive.
 
 **Common approach:** In scikit-learn, ordinal encodings are used and treated as continuous features. For truly nominal features, one-hot encoding is applied before tree training, converting each category into a binary feature.
@@ -136,6 +156,16 @@ For a categorical feature with $C$ unique values, there are $2^{C-1} - 1$ possib
   { q: "Write the Gini gain for a candidate split and name the term people forget.", a: "GiniGain(j,s) = G(t) - (n_L/n)G(t_L) - (n_R/n)G(t_R). The forgotten part is the n_L/n and n_R/n weights — without them a tiny pure child looks as valuable as a large one, and the tree fragments." },
   { q: "Why are truly nominal categorical features awkward for CART, and what does sklearn do?", a: "A feature with C categories has 2^(C-1) - 1 possible ways to split the categories into two groups, which is exponential and cannot be exhaustively searched for large C. sklearn does not implement subset splits at all: you either ordinal-encode and let it treat the codes as continuous — which imposes a false ordering — or one-hot encode first, which is correct but widens the feature space." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A continuous feature has up to $n-1$ candidate thresholds — the **midpoints between adjacent sorted values**.
+- Midpoints because *any* threshold inside $(v_i, v_{i+1})$ gives the identical partition; the midpoint is just the canonical representative.
+- **Sort once, then sweep.** Maintaining running class counts makes each candidate $O(1)$, turning $O(n^2p)$ per node into $O(np\log n)$.
+- Choose $(j^*, s^*)$ maximising $\text{GiniGain}=G(t)-\frac{n_L}{n}G(t_L)-\frac{n_R}{n}G(t_R)$ — the same gain idea from Module 2, now searched exhaustively.
+- Categorical features have $2^{C-1}-1$ possible subsets, so sklearn sidesteps it: ordinal encoding treated as continuous, or one-hot beforehand.
+</ConceptBox>
 
 <QuizCard
   question="Why are midpoints used as candidate split thresholds rather than the raw feature values themselves?"

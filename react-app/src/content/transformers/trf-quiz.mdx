@@ -42,12 +42,12 @@ This quiz covers the full track: the static embedding families (Word2Vec CBOW/sk
 />
 
 <QuizCard
-  question="A causal mask sets a disallowed position's raw score to -infinity before softmax. Why -infinity rather than a large negative number like -1000?"
+  question="The causal mask is applied by adding -infinity to the raw scores BEFORE softmax. Why not multiply the disallowed attention weights by zero AFTER softmax instead?"
   options={[
-    "Any sufficiently negative number works identically in practice and -infinity is just convention",
-    "Only exactly -infinity guarantees e^score is exactly 0 after the exponential, giving that position exactly zero weight and zero gradient",
-    "PyTorch requires -infinity specifically for numerical stability reasons unrelated to the math",
-    "-infinity is used only for decoder self-attention, never in code"
+    "Both approaches give identical results; before-softmax is just convention",
+    "Zeroing after softmax leaves the surviving weights summing to less than 1, and the disallowed score still influenced the normalisation; adding -infinity first gives exactly zero weight while the rest still sum to 1",
+    "Multiplying by zero is slower on a GPU",
+    "Softmax cannot accept negative inputs"
   ]}
   correct={1}
 />

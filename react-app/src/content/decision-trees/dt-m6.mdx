@@ -1,18 +1,11 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import GradientBoostingWidget from '../../components/widgets/decision-trees/GradientBoostingWidget.jsx'
+
+# Module 6: Gradient Boosting
 
 <Bridge>
 **From variance reduction to bias reduction.** Module 5 showed that bagging and random forests reduce variance. But what if the fundamental problem is **bias**? Consider a depth-1 decision tree — a stump. No matter how many stumps you average, the resulting ensemble is still constrained by what a stump can express. To reduce bias, we need **sequential learning**: train models one after another, where each new model specifically targets the errors made by all previous models combined.
 </Bridge>
-
-<ConceptBox title="TL;DR">
-- **Bagging cannot reduce bias.** The bias of an average equals the bias of one member — averaging identical mistakes reproduces them.
-- Boosting is **sequential**: each new tree is fitted to the *residuals* of the current ensemble, so it targets exactly what the ensemble still gets wrong.
-- $F_m = F_{m-1} + \eta\,h_m$, starting from $F_0=\bar y$. The learning rate $\eta$ shrinks each correction so no single tree dominates.
-- Fitting residuals under squared loss = **gradient descent in function space**; other losses just replace residuals with negative gradients.
-- **Parallel vs sequential is the deep split**: RF trees are independent (parallelisable, robust); GB trees are dependent (accurate, overfit-prone, must be tuned).
-- XGBoost adds second-order terms and explicit regularisation; LightGBM adds histogram binning and leaf-wise growth for speed.
-</ConceptBox>
 
 ## 1. Bias vs. Variance — Two Different Problems
 
@@ -25,6 +18,12 @@ Imagine a student preparing for an exam. After the first attempt, she reviews ev
 </ConceptBox>
 
 ## 2. The Core Idea — Fitting Residuals
+
+<PredictReveal
+  prompt="A random forest averages many deep trees fitted independently. Boosting fits trees one after another. What does each new tree in a boosting sequence actually try to predict?"
+  options={["The target, like every other tree", "The error left over by the trees already fitted"]}
+  correct={1}
+>
 
 Start with regression to build concrete intuition. Suppose we have training data $\{(x_i, y_i)\}_{i=1}^n$ and we want to build a predictive model $F(x)$ by sequentially adding simple trees.
 
@@ -84,6 +83,12 @@ MSE reduced: 7.00 → 2.23 → 1.03 each iteration.
 | 1 | 3.530 | 3.530 | 3.530 | 6.105 | 6.105 | 2.23 |
 | 2 | 3.015 | 3.015 | 3.015 | 6.878 | 6.878 | 1.03 |
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does each successive tree in a boosting sequence fit?", a: "The residual error remaining after all previous trees have made their predictions. Each tree therefore corrects what the ensemble so far got wrong, which is why boosting reduces bias while bagging mainly reduces variance." },
+]} />
+
 ## 3. The General Framework — Functional Gradient Descent
 
 The residual-fitting story is a special case of a more general principle. For any differentiable loss function $L(y, F(x))$, gradient boosting minimizes:
@@ -132,6 +137,12 @@ Output: F_M(x)
 
 ## 4. Key Hyperparameters
 
+<PredictReveal
+  prompt="Random forests use deep, fully grown trees. Boosting typically uses trees only a few levels deep. Why the difference?"
+  options={["Boosting is just slower, so it economises", "Each boosting tree only needs to nudge the residual — deep trees would fit the noise in it and the sequence would overfit immediately"]}
+  correct={1}
+>
+
 <ConceptBox title="Learning Rate η (shrinkage)">
 Controls how much each tree contributes. Small η (0.01–0.1) requires more trees but generalizes better — each tree makes small corrections, reducing the risk of overfitting. Large η (0.5–1.0) learns quickly but can overshoot. **Lower learning rate + more trees = better generalization at higher computational cost.** This is the central tradeoff.
 </ConceptBox>
@@ -143,6 +154,12 @@ Unlike random forests (which plateau), gradient boosting can overfit if M is too
 <ConceptBox title="Tree Depth (max_depth)">
 Gradient boosting typically uses shallow trees (depth 3–8) rather than fully grown trees. Shallow trees have high bias individually, but the additive ensemble rapidly reduces this bias. Deeper trees can model more complex interactions per step but are more prone to overfitting.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does boosting use shallow trees while bagging uses deep ones?", a: "Bagging averages away the variance of high-variance learners, so it wants each tree to be as flexible as possible. Boosting adds trees together, so each one only needs to make a small correction; a deep tree would absorb the noise in the residual and the ensemble would overfit within a few rounds." },
+]} />
 
 ## 5. XGBoost and LightGBM
 
@@ -163,6 +180,17 @@ $$\mathcal{L}_{\text{XGB}} = \sum_{i=1}^{n} L(y_i, F(x_i)) + \lambda \|w\|^2 + \
   { q: "What does the learning rate do, and why does it help generalisation?", a: "It scales down each tree's contribution, so no single correction dominates the ensemble. Many small corrections mean each tree fits a smaller, more general slice of the remaining error rather than aggressively chasing a few hard points, which is a form of regularisation — at the cost of needing more iterations." },
   { q: "Contrast RF and GB on the axis that matters most.", a: "Independence. RF trees are trained in parallel on independent bootstrap samples, so more trees can only stabilise the result and it is hard to overfit by adding them. GB trees are trained sequentially, each conditioned on all previous ones, so more iterations keep increasing capacity and WILL eventually overfit — which is why GB needs a validation set and early stopping while RF largely does not." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Bagging cannot reduce bias.** The bias of an average equals the bias of one member — averaging identical mistakes reproduces them.
+- Boosting is **sequential**: each new tree is fitted to the *residuals* of the current ensemble, so it targets exactly what the ensemble still gets wrong.
+- $F_m = F_{m-1} + \eta\,h_m$, starting from $F_0=\bar y$. The learning rate $\eta$ shrinks each correction so no single tree dominates.
+- Fitting residuals under squared loss = **gradient descent in function space**; other losses just replace residuals with negative gradients.
+- **Parallel vs sequential is the deep split**: RF trees are independent (parallelisable, robust); GB trees are dependent (accurate, overfit-prone, must be tuned).
+- XGBoost adds second-order terms and explicit regularisation; LightGBM adds histogram binning and leaf-wise growth for speed.
+</ConceptBox>
 
 <QuizCard
   question="Why can gradient boosting reduce bias while bagging cannot?"

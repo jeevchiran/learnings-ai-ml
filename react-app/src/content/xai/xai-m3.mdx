@@ -1,15 +1,15 @@
-import { ConceptBox, Bridge, QuizCard, DerivationSteps, DerivationStep, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, DerivationSteps, DerivationStep, Recall } from '../../components/learning/index.js'
 import LIMEWidget from '../../components/widgets/xai/LIMEWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- One insight: **a boundary that is hopelessly nonlinear globally looks straight if you zoom in far enough.** So fit a line locally instead of explaining the whole model.
-- Four steps: perturb around $x$ → query the black box → weight samples by proximity → fit a sparse linear model. Its coefficients *are* the explanation.
-- The proximity kernel $\pi_x$ is what makes it *local*; drop it and you get a bad global fit.
-- The complexity term $\Omega(g)$ is what makes it *readable*; drop it and $g$ uses every feature with tiny weights.
-- $g$ is fit on human-readable features (is this word present? this superpixel? ), not raw pixels or embeddings.
-</ConceptBox>
+# Module 3: LIME — Intuition & Formulation
 
 ## LIME in One Sentence
+
+<PredictReveal
+  prompt="A decision boundary is wildly curved across the whole feature space. Zoom in far enough around one single point. What does it look like there?"
+  options={["Still curved, curvature does not go away", "Very nearly straight — which is what lets a simple linear model describe one prediction"]}
+  correct={1}
+>
 
 **LIME** — *Local Interpretable Model-agnostic Explanations* — every word is a design decision:
 
@@ -21,6 +21,12 @@ import LIMEWidget from '../../components/widgets/xai/LIMEWidget.jsx'
 The core insight: a decision boundary can be hopelessly nonlinear globally, but **zoom in far enough around one point and it looks straight.** So don't try to explain the whole model — fit a simple linear model in a tiny neighbourhood of the instance you care about.
 
 <LIMEWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the core assumption behind LIME?", a: "That a globally complicated decision boundary is approximately linear in a small neighbourhood around any single point. A simple interpretable model fitted only to that neighbourhood can therefore describe the one prediction faithfully, even though it would be hopeless as a description of the whole model." },
+]} />
 
 ## How It Works
 
@@ -43,6 +49,12 @@ Fit an interpretable model $g$ (usually sparse linear regression) to the weighte
 
 ## The Formulation
 
+<PredictReveal
+  prompt="LIME fits a linear model to perturbed samples around the point of interest. Should every perturbed sample count equally in that fit?"
+  options={["Yes, they are all samples", "No — samples nearer the point of interest must be weighted more heavily, or the fit drifts back to being global"]}
+  correct={1}
+>
+
 LIME picks the explanation $g$ that solves:
 
 $$\xi(x) = \arg\min_{g \in G} \; \underbrace{\mathcal{L}(f, g, \pi_x)}_{\text{be faithful locally}} + \underbrace{\Omega(g)}_{\text{stay simple}}$$
@@ -56,9 +68,25 @@ In plain English: **find the simplest model $g$ that mimics the black box $f$ in
 $g$ isn't fit on raw pixels or embeddings — it's fit on a human-readable representation $x' \in \{0,1\}^{d'}$: *is this superpixel present?*, *does this word appear?*, *is this tabular feature near its original value?* The coefficients then read as "this word / this region / this feature mattered this much," which is the whole point.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does LIME weight its perturbed samples by proximity?", a: "The whole premise is that linearity holds only locally. Weighting distant samples equally would fit a line to a region where the boundary genuinely curves, giving an explanation of the model in general rather than of this prediction. The proximity kernel is what keeps the approximation local." },
+]} />
+
 <Bridge>
 That's the whole algorithm: perturb, weight, fit a sparse line. The next module runs it on real tabular and text data with the `lime` library, reads the feature weights, and confronts LIME's one real weakness — instability.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- One insight: **a boundary that is hopelessly nonlinear globally looks straight if you zoom in far enough.** So fit a line locally instead of explaining the whole model.
+- Four steps: perturb around $x$ → query the black box → weight samples by proximity → fit a sparse linear model. Its coefficients *are* the explanation.
+- The proximity kernel $\pi_x$ is what makes it *local*; drop it and you get a bad global fit.
+- The complexity term $\Omega(g)$ is what makes it *readable*; drop it and $g$ uses every feature with tiny weights.
+- $g$ is fit on human-readable features (is this word present? this superpixel? ), not raw pixels or embeddings.
+</ConceptBox>
 
 ## Practice
 

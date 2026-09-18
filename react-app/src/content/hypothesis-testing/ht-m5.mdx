@@ -1,20 +1,20 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import PairedDifferenceWidget from '../../components/widgets/hypothesis-testing/PairedDifferenceWidget.jsx'
 import PairedVsIndependentWidget from '../../components/widgets/hypothesis-testing/PairedVsIndependentWidget.jsx'
+
+# Module 5: Paired t-Test
 
 <Bridge>
 **Blood pressure treatment.** A cardiologist tests whether a 12-week lifestyle program lowers systolic BP, measuring each of 15 patients before and after. The key phrase is "each patient" — measured twice, so the two readings aren't independent: a patient high at the start tends to be high at the end. Treating this as two independent groups (Module 4) throws away that structure — and statistical power. The **paired t-test** exploits the link between the two measurements.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- **The paired t-test is a one-sample t-test on the differences $d_i$.** That's the whole idea — everything else follows.
-- Subtracting within a person **cancels that person's baseline**, removing between-subject noise that would otherwise sit in the SE and hide the effect.
-- Hence $t=\bar d/(s_d/\sqrt n)$ with $n-1$ df, where $n$ is the number of *pairs*, not observations.
-- **The design dictates the test.** Paired data analysed as independent throws away power and gets the error rates wrong — it isn't a choice.
-- Normality is required of the **differences**, not the raw measurements. Extreme outliers in $d_i$ push you to Wilcoxon signed-rank.
-</ConceptBox>
-
 ## Paired vs. Independent
+
+<PredictReveal
+  prompt="Fifteen patients have their blood pressure measured before and after a programme. One patient naturally sits near 155, another near 135. If you analyse the two sets of readings as independent groups, what does that person-to-person spread do?"
+  options={["Nothing — it affects both groups equally and cancels out", "It inflates the standard error and can hide a real treatment effect entirely"]}
+  correct={1}
+>
 
 Module 4's two groups were different people with no correspondence. In a paired design the same subject (or a matched pair) appears in **both** conditions:
 
@@ -24,7 +24,19 @@ Module 4's two groups were different people with no correspondence. In a paired 
 
 **Why pairing is powerful.** Patient A might naturally sit at 155 mmHg, patient B at 135 — variability with nothing to do with the treatment. Analyzed as independent groups, this person-to-person noise inflates the SE and hides the effect. Instead compute the difference $d_i = x_{\text{before},i} - x_{\text{after},i}$: since both readings are the same person, A's natural tendency cancels in the subtraction. What remains is within-person change — exactly the target. The paired t-test is therefore just a **one-sample t-test on the differences** $d_1,\ldots,d_n$.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does pairing increase statistical power?", a: "Subtracting each subject's two readings removes that subject's own baseline level from the comparison. All the between-person variability, which has nothing to do with the treatment, disappears from the standard error, leaving only the within-person change the test is actually about." },
+]} />
+
 ## The Test Statistic
+
+<PredictReveal
+  prompt="You have computed the difference between before and after for each of 15 patients. What test do you now run on those 15 numbers?"
+  options={["A two-sample test comparing the before list against the after list", "A one-sample test asking whether the mean of the differences is zero"]}
+  correct={1}
+>
 
 <DerivationSteps>
 <DerivationStep number={1} title="Difference per pair">
@@ -45,6 +57,12 @@ The one-sample t-statistic applied to the differences. $n-1$ df because one para
 Reject if $|t| > t^*(\alpha/2, n-1)$ (two-tailed) or $t > t^*(\alpha, n-1)$ (one-tailed), equivalently p-value $< \alpha$.
 </DerivationStep>
 </DerivationSteps>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the paired t-test, stated in terms of a test you already know?", a: "It is a one-sample t-test applied to the list of per-pair differences, testing whether their mean is zero. Everything else — the degrees of freedom of n minus 1, the decision rule — follows from that one observation." },
+]} />
 
 <ConceptBox title="Assumptions">
 1. **Random pairs** — randomly sampled, or randomized assignment (crossover).
@@ -93,6 +111,16 @@ Eight patients, systolic BP before/after, $d_i = $ before − after (positive = 
 **Decision:** right-tailed $t^*(0.05, 7) = 1.895$; $13.31 \gg 1.895$ → **reject $H_0$** (p ≈ 0.0000012).
 
 **Conclusion:** Extremely strong evidence the program lowers systolic BP. Mean reduction 8.25 mmHg, 95% CI $8.25 \pm 2.365 \times 0.620 = [6.78, 9.72]$ mmHg.
+
+---
+
+<ConceptBox title="TL;DR">
+- **The paired t-test is a one-sample t-test on the differences $d_i$.** That's the whole idea — everything else follows.
+- Subtracting within a person **cancels that person's baseline**, removing between-subject noise that would otherwise sit in the SE and hide the effect.
+- Hence $t=\bar d/(s_d/\sqrt n)$ with $n-1$ df, where $n$ is the number of *pairs*, not observations.
+- **The design dictates the test.** Paired data analysed as independent throws away power and gets the error rates wrong — it isn't a choice.
+- Normality is required of the **differences**, not the raw measurements. Extreme outliers in $d_i$ push you to Wilcoxon signed-rank.
+</ConceptBox>
 
 ## Practice
 

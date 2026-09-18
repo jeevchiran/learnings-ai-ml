@@ -1,16 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import RegNormWidget from '../../components/widgets/deep-learning/RegNormWidget.jsx'
 
 # Module 10: Regularization & Normalization
-
-<ConceptBox title="TL;DR">
-- Two different problems: **regularization** constrains what the model may learn (overfitting); **normalization** controls the values flowing through it (instability).
-- L2 shrinks weights smoothly; L1 drives them to exact zeros. Dropout randomly zeroes activations, forcing redundant representations.
-- **BatchNorm normalizes across the batch, per feature**, then re-scales with learned $\gamma,\beta$.
-- **Its train and eval behaviour differ** — batch statistics while training, stored running statistics at inference. Those running values are **buffers**, not parameters.
-- That difference is why `model.eval()` is mandatory, not stylistic.
-- **LayerNorm normalizes across features within one sample**, so it is batch-size independent — which is why transformers use it.
-</ConceptBox>
 
 <Bridge>
 **From Module 9:** Good initialization gets training started. But as training progresses, two problems emerge: the model may **overfit** the training set (memorize noise), and training may become **unstable** (loss oscillates, gradients explode). Regularization and normalization are the two families of techniques that address these problems — the first by constraining what the model can learn, the second by controlling what values propagate through the network.
@@ -84,6 +75,12 @@ model.eval()    # dropout disabled
 
 ## Part 2: Normalization
 
+<PredictReveal
+  prompt="Dropout switches off a random subset of units during training. At inference time, should it keep doing that?"
+  options={["Yes, otherwise the model behaves differently", "No — it is switched off at inference, and the activations are scaled so the expected output matches training"]}
+  correct={1}
+>
+
 ### Why Normalize Activations?
 
 As training progresses, the distribution of each layer's inputs shifts as weights in lower layers change (Internal Covariate Shift). This forces later layers to continuously adapt to a new distribution — slowing training. Normalization fixes the distribution at each layer.
@@ -143,6 +140,12 @@ model = nn.Sequential(
 | Training/inference difference? | Yes (running stats) | No |
 | Primary use | CNNs, MLPs | Transformers, RNNs |
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does dropout do at inference time?", a: "Nothing — every unit is active. Because the expected activation during training was reduced by the drop probability, the implementation compensates by scaling, so the inference output matches the training-time expectation. Forgetting to switch the model into evaluation mode is a common source of randomly varying predictions." },
+]} />
+
 ## Interactive: Regularization & Normalization Effects
 
 <RegNormWidget />
@@ -196,6 +199,15 @@ The inverted dropout scaling factor: since each neuron is kept with probability 
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Two different problems: **regularization** constrains what the model may learn (overfitting); **normalization** controls the values flowing through it (instability).
+- L2 shrinks weights smoothly; L1 drives them to exact zeros. Dropout randomly zeroes activations, forcing redundant representations.
+- **BatchNorm normalizes across the batch, per feature**, then re-scales with learned $\gamma,\beta$.
+- **Its train and eval behaviour differ** — batch statistics while training, stored running statistics at inference. Those running values are **buffers**, not parameters.
+- That difference is why `model.eval()` is mandatory, not stylistic.
+- **LayerNorm normalizes across features within one sample**, so it is batch-size independent — which is why transformers use it.
+</ConceptBox>
 
 ## Quiz
 

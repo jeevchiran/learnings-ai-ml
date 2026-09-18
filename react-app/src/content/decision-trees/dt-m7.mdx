@@ -1,20 +1,19 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import HyperparameterWidget from '../../components/widgets/decision-trees/HyperparameterWidget.jsx'
+
+# Module 7: Hyperparameter Tuning
 
 <Bridge>
 Modules 5–6 gave the Random Forest variance $\text{Var}(F) = \rho\sigma^2 + \frac{(1-\rho)\sigma^2}{B}$ and the GB update $F_m = F_{m-1} + \eta h_m$. Every major hyperparameter maps to a term in one of these — this module makes those links explicit and turns them into tuning recipes.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- Before turning any knob, name what you're fixing: **bias, variance, or compute**. Underfit → add complexity. Overfit → add regularisation.
-- **RF**: grow deep trees and let averaging handle variance. `max_features` is the highest-leverage knob because it's the only one that moves $\rho$.
-- More RF trees never hurt accuracy — they just stop helping. Read OOB error vs $B$ and stop at the elbow.
-- **GB is far more sensitive**, because capacity compounds across iterations.
-- **Never tune $\eta$ and $M$ independently** — effective capacity is roughly $\eta\cdot M$. Halving $\eta$ needs roughly double $M$.
-- Early stopping on a validation set is what actually chooses $M$.
-</ConceptBox>
-
 ## The Tuning Mindset
+
+<PredictReveal
+  prompt="You have time to tune three hyperparameters properly. For gradient boosting, which pair should you never tune independently?"
+  options={["Maximum depth and minimum samples per leaf", "Learning rate and number of trees — halving the rate roughly doubles the trees you need"]}
+  correct={1}
+>
 
 Before turning any knob, ask: am I reducing **bias**, **variance**, or **computation**?
 
@@ -25,6 +24,12 @@ Before turning any knob, ask: am I reducing **bias**, **variance**, or **computa
 
 Underfit (high train + test error) → **reduce bias**, add complexity. Overfit (low train, high test) → **reduce variance** via regularization, sampling, or depth limits.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are learning rate and number of boosting rounds tuned together?", a: "They trade off directly: each tree's contribution is scaled by the learning rate, so a smaller rate needs proportionally more rounds to reach the same fit. Tuning one with the other fixed will always suggest that the fixed one was wrong." },
+]} />
 
 ## Random Forest Hyperparameters
 
@@ -75,6 +80,12 @@ Their product sets effective capacity. Small $\eta$ without more $M$ underfits; 
 
 ## Early Stopping
 
+<PredictReveal
+  prompt="Adding more trees to a random forest and adding more rounds to a boosting model have opposite risks. Which one can overfit from too many trees?"
+  options={["The random forest, since more trees means more capacity", "Boosting, because every round fits the remaining residual and eventually starts fitting noise"]}
+  correct={1}
+>
+
 The most practical anti-overfitting tool for GB: reserve 10–20% as validation, evaluate the ensemble's validation loss after each tree, and stop when it hasn't improved for `early_stopping_rounds` (10–50) — using the model at the best iteration m*, not the last. m* *is* the effective `n_estimators` for that learning rate, so you needn't grid-search it separately.
 
 ```python
@@ -93,6 +104,12 @@ model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=100)
 print(f"Best iteration: {model.best_iteration}")
 ```
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Can you overfit a random forest by adding trees, and can you overfit boosting that way?", a: "Not the forest: extra trees only refine an average over independent fits, so the score plateaus rather than degrading. Boosting can, because each round fits what is left over, and once the signal is exhausted the remaining residual is noise. That is why boosting needs early stopping on a validation set and a forest does not." },
+]} />
+
 <HyperparameterWidget />
 
 <Recall items={[
@@ -102,6 +119,17 @@ print(f"Best iteration: {model.best_iteration}")
   { q: "Why does gradient boosting need early stopping while random forests essentially don't?", a: "RF trees are independent, so adding more only averages away noise — test error flattens rather than rising. GB trees are conditioned on their predecessors, so each iteration adds capacity aimed at the current residuals, which eventually means fitting noise. Test error therefore has a minimum and rises after it, and early stopping on a validation set is what finds that point." },
   { q: "Train error low, test error high, on a gradient boosting model. Name three knobs, in order.", a: "First lower n_estimators via early stopping — the most direct capacity reduction. Then reduce max_depth, since shallow trees fit interactions less aggressively. Then add subsampling of rows or columns, or increase the L2 regularisation term, to inject randomness and shrink leaf weights. Raising the learning rate would be counterproductive." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Before turning any knob, name what you're fixing: **bias, variance, or compute**. Underfit → add complexity. Overfit → add regularisation.
+- **RF**: grow deep trees and let averaging handle variance. `max_features` is the highest-leverage knob because it's the only one that moves $\rho$.
+- More RF trees never hurt accuracy — they just stop helping. Read OOB error vs $B$ and stop at the elbow.
+- **GB is far more sensitive**, because capacity compounds across iterations.
+- **Never tune $\eta$ and $M$ independently** — effective capacity is roughly $\eta\cdot M$. Halving $\eta$ needs roughly double $M$.
+- Early stopping on a validation set is what actually chooses $M$.
+</ConceptBox>
 
 <QuizCard
   question="You set learning_rate=0.05 instead of 0.1 in your gradient boosting model, keeping n_estimators the same. What will most likely happen?"

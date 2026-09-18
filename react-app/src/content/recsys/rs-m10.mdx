@@ -1,16 +1,9 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import FeatureWindowWidget from '../../components/widgets/recsys/FeatureWindowWidget.jsx'
 import TimeDecayWidget from '../../components/widgets/recsys/TimeDecayWidget.jsx'
 import SessionFeatureWidget from '../../components/widgets/recsys/SessionFeatureWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Features come in four families: **user**, **item**, **user×item cross**, and **context**. The cross features are where the ranker earns its keep — retrieval structurally cannot use them.
-- Every aggregate must be **point-in-time correct**: computed only from events strictly *before* the row's timestamp. This is the single most common production recsys bug.
-- **Time decay** replaces a count with $\sum w \cdot 2^{-\Delta t / t_{1/2}}$, so *when* stops being thrown away. Half-life is the knob.
-- **Popularity** is a family, not one number: global, windowed, category-relative, trend ratio, rank percentile.
-- **Session features** are the shortest-lived and highest-signal of all — last item, last N, dwell time, category share. Dwell is what separates real interest from a bounce.
-- **MF scores are features.** Feeding the ALS score into the ranker is how retrieval and ranking actually compose: it supplies collaborative structure the ranker cannot learn from few labels.
-</ConceptBox>
+# Module 10: Feature Engineering
 
 ## The four families
 
@@ -25,7 +18,19 @@ The cross family matters most and is most often skipped. Retrieval **cannot** us
 
 ## Point-in-time correctness
 
+<PredictReveal
+  prompt="A training row is dated the 3rd of March. Its feature says the user has made 40 purchases. When were those 40 purchases counted?"
+  options={["It does not matter as long as the label is later", "It matters completely — if any fell after the 3rd, the model is reading the future"]}
+  correct={1}
+>
+
 <FeatureWindowWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does point-in-time correctness mean for a feature?", a: "Every feature attached to a row must be computed using only information that existed at that row's timestamp. Computing an aggregate over the whole history and attaching it to every row leaks later behaviour into earlier examples, producing offline scores that collapse in production." },
+]} />
 
 The rule is one character wide:
 
@@ -75,6 +80,12 @@ But windows are still a blunt instrument: inside a 30-day window, an event from 
 
 ## Recency with time decay
 
+<PredictReveal
+  prompt="A user bought running shoes two years ago and a laptop yesterday. Should both count equally in their profile?"
+  options={["Yes, both are real purchases", "No — interest decays, so older interactions should be down-weighted by age"]}
+  correct={1}
+>
+
 A count throws away *when*. Decay keeps it:
 
 $$a_{ui}(t) = \sum_{e \,\in\, \text{events}(u,i),\; t_e < t} w_{\text{type}(e)} \cdot 2^{-(t - t_e)/t_{1/2}}$$
@@ -97,6 +108,12 @@ Decay past state, add what arrived. You never re-scan history, so this is cheap 
 </DerivationSteps>
 
 <TimeDecayWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why apply time decay to interaction features?", a: "Interest changes, so a purchase from two years ago is much weaker evidence of current intent than one from yesterday. Weighting each interaction by an exponentially decaying function of its age lets recent behaviour dominate without discarding history entirely." },
+]} />
 
 **Worked example.** Bhavna's raw affinities as of day 24: Keyboard = 4, Steel Bottle = 4. A dead tie, and the count cannot break it. Her Keyboard cart was day 8; her Bottle cart was day 14. With $t_{1/2}=7$:
 
@@ -257,6 +274,17 @@ Features and a loss give you a trainable ranker. But a ranker needs negatives, a
   { q: "Why feed the ALS score into the ranker rather than the raw latent factors?", a: "The score is one well-conditioned column that already encodes the user–item interaction. The raw factors are individually meaningless — ALS axes are arbitrary and differ per run — so 128 noisy columns bury the handful of genuinely informative features in a tree model. Start with the score; add a few factor dims only if it measurably helps." },
   { q: "What is the leak hiding inside 'add als_score as a feature', and how do you avoid it?", a: "If ALS was fitted on all data including the test period, then every training row's als_score encodes the future — the leak sits one model upstream of the SQL people actually audit. The fix is the same as any other feature: the ALS model attached to a row dated t must be trained only on events before t, which means refitting per period (weekly is usually enough) and joining as-of." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Features come in four families: **user**, **item**, **user×item cross**, and **context**. The cross features are where the ranker earns its keep — retrieval structurally cannot use them.
+- Every aggregate must be **point-in-time correct**: computed only from events strictly *before* the row's timestamp. This is the single most common production recsys bug.
+- **Time decay** replaces a count with $\sum w \cdot 2^{-\Delta t / t_{1/2}}$, so *when* stops being thrown away. Half-life is the knob.
+- **Popularity** is a family, not one number: global, windowed, category-relative, trend ratio, rank percentile.
+- **Session features** are the shortest-lived and highest-signal of all — last item, last N, dwell time, category share. Dwell is what separates real interest from a bounce.
+- **MF scores are features.** Feeding the ALS score into the ranker is how retrieval and ranking actually compose: it supplies collaborative structure the ranker cannot learn from few labels.
+</ConceptBox>
 
 <QuizCard
   question="A feature `item_return_rate` is computed once from the current catalog table and joined onto training rows spanning the last year. What is wrong?"

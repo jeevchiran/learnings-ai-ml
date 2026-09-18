@@ -1,21 +1,21 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import ErrorRegionWidget from '../../components/widgets/hypothesis-testing/ErrorRegionWidget.jsx'
 import PValueWidget from '../../components/widgets/hypothesis-testing/PValueWidget.jsx'
 import CriticalValueWidget from '../../components/widgets/hypothesis-testing/CriticalValueWidget.jsx'
+
+# Module 2: Errors, Alpha, p-value, Critical Value
 
 <Bridge>
 **Why it matters.** A jury can make exactly two mistakes: convict the innocent, or acquit the guilty. They pull opposite ways — a jury reluctant to convict rarely jails the innocent but lets more guilty walk. Every hypothesis test faces the same two errors. Understanding, quantifying, and balancing them is the most consequential decision in any analysis.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- **Type I ($\alpha$)** = false alarm, rejecting a true $H_0$. **Type II ($\beta$)** = missed effect. **Power** $=1-\beta$.
-- At fixed $n$, $\alpha$ and $\beta$ pull against each other. **Only a larger $n$ reduces both** — which is why sample size, $\alpha$, and target power are one decision.
-- The p-value is $P(\text{data this extreme}\mid H_0\text{ true})$ — **not** the probability that $H_0$ is true, not the probability the result was chance, not your error rate on rejecting.
-- Critical-value and p-value methods are the same geometry read two ways; they never disagree.
-- Memorise: two-tailed $z^*=1.96$ ($\alpha{=}.05$) and $2.576$ ($\alpha{=}.01$); one-tailed $1.645$ ($\alpha{=}.05$).
-</ConceptBox>
-
 ## Two Types of Error
+
+<PredictReveal
+  prompt="You tighten your significance level from 0.05 to 0.01 to cut false positives, keeping the sample size the same. What happens to your chance of missing a real effect?"
+  options={["It also falls, since the test is now stricter", "It rises — with a fixed sample, the two error rates trade against each other"]}
+  correct={1}
+>
 
 A test ends in reject / fail-to-reject; reality is $H_0$ true / false. Crossing them gives four outcomes:
 
@@ -47,6 +47,12 @@ Drug trial: missing a drug that helps. Court: acquitting the guilty.
 80% power ($\beta = 0.20$) is a conventional minimum; medicine often targets 90%+. Power analysis before data fixes the $n$ needed.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "With the sample size fixed, how do the two error rates relate, and what is the only way to reduce both?", a: "They move in opposite directions: shrinking the false-positive rate tightens the rejection region and therefore raises the chance of missing a real effect. The only way to lower both at once is to collect more data, which shrinks the standard error and separates the two distributions." },
+]} />
+
 ## The Significance Level α
 
 $\alpha$ is the max Type I error rate you'll tolerate, set *before* data — setting or adjusting it after seeing results breaks the guarantee that the false-positive rate is controlled.
@@ -65,6 +71,12 @@ For fixed $n$, $\alpha$ and $\beta$ move inversely: shrinking $\alpha$ (tighter 
 
 ## The p-value
 
+<PredictReveal
+  prompt={"A study reports p = 0.03. Does that mean there is a 3% chance the null hypothesis is true?"}
+  options={["Yes, that is what the p-value measures", "No — the p-value is computed assuming the null is true, so it cannot also be a probability about the null"]}
+  correct={1}
+>
+
 The most misreported number in statistics — get it *precisely* right. The p-value is the probability of a test statistic at least as extreme as observed, *assuming $H_0$ is true*. Two-tailed:
 
 $$p\text{-value} = P\!\left(|T| \geq |t_{\text{obs}}| \mid H_0 \text{ true}\right)$$
@@ -72,6 +84,12 @@ $$p\text{-value} = P\!\left(|T| \geq |t_{\text{obs}}| \mid H_0 \text{ true}\righ
 It measures compatibility with $H_0$: small p = the result would be very unlikely under $H_0$ = strong evidence against it; large p = entirely plausible under $H_0$ = no evidence against it.
 
 **Decision rule:** $p \leq \alpha$ → reject (statistically significant); $p > \alpha$ → fail to reject.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "State precisely what a p-value is.", a: "The probability of observing a test statistic at least as extreme as the one you got, computed under the assumption that the null hypothesis is true. It is a statement about the data given the null, not a statement about the null given the data." },
+]} />
 
 <ConceptBox title="Three misconceptions about the p-value">
 1. **"p = probability $H_0$ is true."** No — $H_0$ isn't a random variable, and p is computed *assuming* $H_0$ true. That statement needs a Bayesian prior, which classical testing doesn't use.
@@ -130,6 +148,16 @@ In the rejection region — same decision.
 $p = 0.0244 < 0.05$ → **reject $H_0$**. At the 5% level, the mean fill weight is not 500g; recalibrate. Both methods agree, as they must.
 </DerivationStep>
 </DerivationSteps>
+
+---
+
+<ConceptBox title="TL;DR">
+- **Type I ($\alpha$)** = false alarm, rejecting a true $H_0$. **Type II ($\beta$)** = missed effect. **Power** $=1-\beta$.
+- At fixed $n$, $\alpha$ and $\beta$ pull against each other. **Only a larger $n$ reduces both** — which is why sample size, $\alpha$, and target power are one decision.
+- The p-value is $P(\text{data this extreme}\mid H_0\text{ true})$ — **not** the probability that $H_0$ is true, not the probability the result was chance, not your error rate on rejecting.
+- Critical-value and p-value methods are the same geometry read two ways; they never disagree.
+- Memorise: two-tailed $z^*=1.96$ ($\alpha{=}.05$) and $2.576$ ($\alpha{=}.01$); one-tailed $1.645$ ($\alpha{=}.05$).
+</ConceptBox>
 
 ## Practice
 

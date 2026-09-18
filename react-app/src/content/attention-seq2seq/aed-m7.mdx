@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import AttentionPipelineWidget from '../../components/widgets/attention-seq2seq/AttentionPipelineWidget.jsx'
 
 # Module 7: How Attention Works, Step by Step
 
@@ -21,7 +22,11 @@ Every decoder step $i$ runs the same four-stage pipeline:
 3. **Combine.** Take the weighted sum $c_i = \sum_j \alpha_{ij} h_j$ — the step-specific context vector from Module 6.
 4. **Generate.** Feed $c_i$ (usually concatenated with $s_{i-1}$ or the previous output embedding) into the decoder's RNN cell, producing the new hidden state $s_i$ and, from it, the predicted token.
 
-Then the whole thing repeats for step $i+1$, using the freshly updated $s_i$.
+<AttentionPipelineWidget />
+
+Then the whole thing repeats for step $i+1$, using the freshly updated $s_i$. Step through the widget above and
+watch stage 2 do the work people skip past: the raw scores mean nothing on their own, and softmax is what turns
+them into something you can legitimately average with.
 
 </PredictReveal>
 

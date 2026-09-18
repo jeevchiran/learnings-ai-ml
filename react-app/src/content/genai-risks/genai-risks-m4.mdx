@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ErrorCompoundWidget from '../../components/widgets/genai-risks/ErrorCompoundWidget.jsx'
 
 # Module 4: Why Hallucinations Occur — Model & Inference
 
@@ -46,6 +47,8 @@ Autoregressive generation conditions each token on everything already produced. 
 <Recall items={[
   { q: "What is error snowballing, and why does it make hallucinated answers look well-supported?", a: "Autoregressive generation conditions each new token on everything already generated, so an early fabrication becomes established context. Coherence pressure then builds the remainder of the answer to be consistent with that fabrication — producing elaborate supporting detail that exists precisely because it was generated to fit the error." },
 ]} />
+
+<ErrorCompoundWidget />
 
 ## The architecture has no abstention state
 

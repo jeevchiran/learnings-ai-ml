@@ -1,12 +1,7 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import MultiModalWidget from '../../components/widgets/recsys/MultiModalWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- A brand-new product has an empty column, so pure collaborative filtering scores it **exactly zero** — not badly, but not at all. It can never be shown, so it never warms up.
-- **Content and image embeddings break the loop**: a product photo and title place a new item near its neighbours before anyone has clicked it.
-- Fusion happens at one of three points: **early** (concatenate features), **late** (blend scores), or **hybrid** (content initialises the ID embedding, behaviour takes over).
-- The blend weight should be a **function of how much interaction data the item has**, not a constant.
-</ConceptBox>
+# Module 12: Multi-Modal Recommendation
 
 ## The cold-start loop
 
@@ -31,6 +26,12 @@ Encode text with a sentence transformer, images with a vision encoder (CLIP give
 
 ## The three fusion points
 
+<PredictReveal
+  prompt="You have a product image, a text description and an interaction history. Should they be combined before the model, inside it, or after it?"
+  options={["Always before, so the model sees one input", "It depends — early fusion learns interactions between modalities, late fusion is simpler to debug and lets each part fail independently"]}
+  correct={1}
+>
+
 **Early fusion — concatenate.** Feed content embeddings alongside ID embeddings into one ranker: `[user_emb ‖ item_id_emb ‖ text_emb ‖ image_emb ‖ price]`. The model learns the interaction between modalities. Most expressive, most data-hungry, and it degrades gracefully when `item_id_emb` is a fresh random vector because the other blocks still carry signal.
 
 **Late fusion — blend scores.** Run CF and a content model separately, then combine:
@@ -52,6 +53,12 @@ $$w_i = \frac{m}{m + n_i}$$
 
 with $n_i$ the item's interactions and $m$ a constant around 50. A brand-new item is fully content-driven ($w=1$); an item with 500 interactions is 9% content ($w \approx 0.09$). Each product migrates across the slider on its own schedule as it warms up. This is the same shrinkage formula as target encoding in module 10, doing the same job: trust the specific evidence in proportion to how much of it you have.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the trade-off between early and late fusion of modalities?", a: "Early fusion concatenates the representations before the model, so it can learn interactions between them, at the cost of retraining everything when one modality changes. Late fusion scores each modality separately and combines the scores, which is easier to debug, cheaper to update and degrades gracefully when one signal is missing." },
+]} />
 
 ## The four cold-starts
 
@@ -88,6 +95,15 @@ That completes the fundamentals. Part 2 rebuilds all of it as a working pipeline
   { q: "Content similarity captures substitutes well and complements poorly. Give a concrete NovaCart example of each.", a: "Substitute: ANC Headphones and Earbuds — cos 0.95 from title and photo, both audio, and content nails it. Complement: Laptop Stand and USB-C Hub, or Yoga Mat and Steel Bottle — nothing in either photo says they go together, but co-purchase behaviour does. So use content for 'similar items' and behaviour for 'frequently bought together'." },
   { q: "New-user cold start is easier than new-item cold start. Why?", a: "Item-item CF needs only the user's current interaction to produce recommendations — after a single click you can serve that item's precomputed neighbours, so the user is warm almost immediately. A new item has no column at all and cannot be scored by any behavioural method until someone interacts with it, which requires it to be shown first." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A brand-new product has an empty column, so pure collaborative filtering scores it **exactly zero** — not badly, but not at all. It can never be shown, so it never warms up.
+- **Content and image embeddings break the loop**: a product photo and title place a new item near its neighbours before anyone has clicked it.
+- Fusion happens at one of three points: **early** (concatenate features), **late** (blend scores), or **hybrid** (content initialises the ID embedding, behaviour takes over).
+- The blend weight should be a **function of how much interaction data the item has**, not a constant.
+</ConceptBox>
 
 <QuizCard
   question="Your image encoder is excellent, and the 'similar items' row on a product page now shows nine near-identical listings of the same product from different sellers. What is the fix?"

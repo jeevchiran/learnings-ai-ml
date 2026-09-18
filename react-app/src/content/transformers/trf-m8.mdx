@@ -1,4 +1,6 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import PositionalEncodingWidget from '../../components/widgets/transformers/PositionalEncodingWidget.jsx'
+import FFNPerPositionWidget from '../../components/widgets/transformers/FFNPerPositionWidget.jsx'
 
 # Module 8: Feed Forward and Positional Encoding
 
@@ -13,6 +15,8 @@ Every module so far has been about the attention layer. But Module 3's stack dia
   options={["Yes, it mixes across positions too", "No — it processes each position's vector completely independently"]}
   correct={1}
 >
+
+<FFNPerPositionWidget />
 
 $$\text{FFN}(x) = W_2 \, \sigma(W_1 x + b_1) + b_2$$
 
@@ -38,6 +42,8 @@ $$x' = \text{LayerNorm}(x + \text{Sublayer}(x))$$
 
 This is the exact same residual-connection idea that showed up in the CNN and Transfer Learning tracks: add the sublayer's output back onto its input rather than replacing it, so gradients have an unbroken path straight through every block. `LayerNorm` then rescales the result to keep activations in a stable range as they pass through dozens of stacked blocks — without it, a 96-layer stack like GPT-3's would be close to untrainable.
 
+**LayerNorm** itself is small: for one position's vector, subtract its mean, divide by its standard deviation, then rescale with two learned numbers per dimension. The original paper applies it *after* the addition as written above; most models since GPT-2 apply it *before* each sublayer instead, which trains more stably. Same ingredients, different order.
+
 </PredictReveal>
 
 <Recall items={[
@@ -52,6 +58,8 @@ This is the exact same residual-connection idea that showed up in the CNN and Tr
 The original transformer paper adds a fixed (not learned) vector to each position, built from sine and cosine waves of different frequencies:
 
 $$PE(pos, 2i) = \sin\!\left(\frac{pos}{10000^{2i/d}}\right), \qquad PE(pos, 2i+1) = \cos\!\left(\frac{pos}{10000^{2i/d}}\right)$$
+
+<PositionalEncodingWidget />
 
 Each dimension $2i$ oscillates at a different frequency, so every position ends up with a unique fingerprint across the full vector, even though every individual sine/cosine value repeats.
 

@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import BceVsMseWidget from '../../components/widgets/vae/BceVsMseWidget.jsx'
 
 # Module 7: Reconstruction Loss & Likelihood Assumptions
 
@@ -43,6 +44,8 @@ $$\mathcal{L}_{\text{recon}}(x, \hat{x}) \propto \frac{1}{2\sigma_x^2} \sum_{i=1
 | **Bernoulli** | $x_i \in [0, 1]$ (e.g. MNIST) | `nn.Sigmoid()` | `F.binary_cross_entropy(recon_x, x, reduction='sum')` |
 | **Gaussian (Fixed $\sigma_x^2$)** | $x_i \in \mathbb{R}$ (e.g. RGB) | Linear / Tanh | `F.mse_loss(recon_x, x, reduction='sum')` |
 | **Gaussian (Learned $\sigma_x^2$)** | $x_i \in \mathbb{R}$ | Two output heads: $\hat{\mu}, \hat{\sigma}^2$ | Heteroscedastic Gaussian NLL |
+
+<BceVsMseWidget />
 
 ## The Reduction Trap: `sum` vs `mean` in PyTorch
 

@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import BackpropWidget from '../../components/widgets/deep-learning/BackpropWidget.jsx'
 
 # Module 6: Backward Propagation
-
-<ConceptBox title="TL;DR">
-- Backprop is the chain rule run **output → input**, computing gradients for *all* $P$ parameters in **one** backward pass — not $O(P)$ passes.
-- The efficiency comes from **reuse**: each layer receives an upstream gradient, multiplies by its local gradient, and passes the product down.
-- It consumes exactly the $(\mathbf{Z}^{[l]}, \mathbf{A}^{[l]})$ that Module 5 cached.
-- Worth memorising: **softmax + cross-entropy gives $\hat{\mathbf{y}} - \mathbf{y}$** at the output. The messy Jacobians cancel.
-- **PyTorch accumulates gradients**, so `optimizer.zero_grad()` before each `backward()` — forget it and you silently train on a running sum of batches.
-</ConceptBox>
 
 <Bridge>
 **From Module 5:** Forward propagation computes the prediction and caches $(Z^{[l]}, A^{[l]})$ for each layer. Now we need to answer: given the loss, how should we update each weight to reduce it? The answer is **backpropagation** — applying the chain rule of calculus in reverse order through the network. This module derives every gradient from first principles and shows how PyTorch's autograd implements this automatically.
@@ -29,9 +21,21 @@ Backprop applies this layer by layer. Each layer receives a **gradient from abov
 
 ## Why This Algorithm Works
 
+<PredictReveal
+  prompt="You could compute each weight's gradient independently by applying the chain rule from the loss down to it. Why does backpropagation go backwards instead?"
+  options={["It is the same work either way", "Going backwards reuses the shared factors — computing each weight separately would repeat the same products millions of times"]}
+  correct={1}
+>
+
 For a network with $L$ layers and $P$ total parameters, naive finite differences would require $O(P)$ forward passes to estimate all gradients. Backprop computes **all gradients in $O(1)$ forward + $O(1)$ backward passes** by reusing computations (the cached $Z^{[l]}, A^{[l]}$ values).
 
 This is the key insight: the computational cost of computing all gradients is the same order as computing the loss once.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What makes backpropagation efficient compared with computing each gradient separately?", a: "Every weight's gradient shares a long chain of factors with the weights above it. Sweeping backwards computes each shared factor once and passes it down, so the whole gradient costs about the same as one forward pass instead of one pass per parameter." },
+]} />
 
 ## How Backpropagation Works
 
@@ -193,6 +197,14 @@ For $l = 1$ to $L$: compute $Z^{[l]} = W^{[l]} A^{[l-1]} + b^{[l]}$ and $A^{[l]}
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Backprop is the chain rule run **output → input**, computing gradients for *all* $P$ parameters in **one** backward pass — not $O(P)$ passes.
+- The efficiency comes from **reuse**: each layer receives an upstream gradient, multiplies by its local gradient, and passes the product down.
+- It consumes exactly the $(\mathbf{Z}^{[l]}, \mathbf{A}^{[l]})$ that Module 5 cached.
+- Worth memorising: **softmax + cross-entropy gives $\hat{\mathbf{y}} - \mathbf{y}$** at the output. The messy Jacobians cancel.
+- **PyTorch accumulates gradients**, so `optimizer.zero_grad()` before each `backward()` — forget it and you silently train on a running sum of batches.
+</ConceptBox>
 
 ## Quiz
 

@@ -1,14 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LTRLossWidget from '../../components/widgets/recsys/LTRLossWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Learning to rank optimises **order**, not per-item probability. Three families: **pointwise**, **pairwise**, **listwise**.
-- **Pointwise** scores each item alone against a 0/1 label. Simple, fast, calibrated — and only ranks correctly as a side effect.
-- **Pairwise** (RankNet, BPR, LambdaRank) trains on (positive, negative) pairs and depends only on score *differences*.
-- **Listwise** (ListNet, LambdaMART, softmax cross-entropy) scores the whole slate at once.
-- The tell: **add a constant to every score.** Pointwise loss changes; pairwise and listwise do not. Only two of the three are actually about ranking.
-
-</ConceptBox>
+# Module 9: Learning to Rank
 
 ## Where ranking sits
 
@@ -19,6 +12,12 @@ The label is what the shopper did: purchased = 1, ignored = 0 (or graded: purcha
 <LTRLossWidget />
 
 ## The three families
+
+<PredictReveal
+  prompt="A model trained to predict each item's click probability independently gets every probability slightly wrong but in the same direction. Does the ranking suffer?"
+  options={["Yes, wrong probabilities mean a wrong ranking", "No — and that is the insight behind pairwise losses, which optimise order directly rather than absolute scores"]}
+  correct={1}
+>
 
 <DerivationSteps>
 <DerivationStep number={1} title="Pointwise — each item judged alone">
@@ -42,6 +41,12 @@ $$\lambda_{ij} = \frac{-1}{1+e^{s_i - s_j}}\cdot\bigl|\Delta NDCG_{ij}\bigr|$$
 A swap between ranks 1 and 2 moves NDCG a lot and gets a big gradient; a swap between 200 and 201 gets almost none. **LambdaMART** = LambdaRank gradients inside gradient-boosted trees, and it remains the default production ranker.
 </DerivationStep>
 </DerivationSteps>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What distinguishes pointwise, pairwise and listwise ranking losses?", a: "Pointwise treats each item as an independent regression or classification problem and ignores order. Pairwise learns which of two items should rank higher, optimising order directly. Listwise scores the whole ordered list against the metric you actually care about, which is the closest to the real objective and the hardest to optimise." },
+]} />
 
 ## The experiment that separates them
 
@@ -90,6 +95,17 @@ Every loss here consumes features. Building them without leaking the future is n
   { q: "Your team logs only clicks, never impressions. Which LTR family is effectively unavailable, and why?", a: "Listwise. It needs the complete slate that was shown — including the items that were not clicked — to compute a softmax over the candidate list. Without impression logs you cannot reconstruct the slate. It also cripples position-bias correction, since you have no position field to condition on." },
   { q: "How do you use position as a feature without the model learning to just recommend whatever was at the top before?", a: "Include position during training so the model can attribute part of each click to placement rather than relevance, then hold it fixed (e.g. position=1) for every candidate at inference. The bias is absorbed into the position coefficient during training and neutralised at serving, leaving the relevance signal to drive the ranking." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Learning to rank optimises **order**, not per-item probability. Three families: **pointwise**, **pairwise**, **listwise**.
+- **Pointwise** scores each item alone against a 0/1 label. Simple, fast, calibrated — and only ranks correctly as a side effect.
+- **Pairwise** (RankNet, BPR, LambdaRank) trains on (positive, negative) pairs and depends only on score *differences*.
+- **Listwise** (ListNet, LambdaMART, softmax cross-entropy) scores the whole slate at once.
+- The tell: **add a constant to every score.** Pointwise loss changes; pairwise and listwise do not. Only two of the three are actually about ranking.
+
+</ConceptBox>
 
 <QuizCard
   question="You switch from pointwise log loss to a pairwise (BPR) objective. Offline NDCG@10 improves, but a downstream promo system that multiplies your score by item margin starts making bad choices. Why?"

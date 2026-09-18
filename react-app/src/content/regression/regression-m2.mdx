@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import ProjectionWidget from '../../components/widgets/regression/ProjectionWidget.jsx'
 import GradientDescentWidget from '../../components/widgets/regression/GradientDescentWidget.jsx'
 
@@ -8,15 +8,13 @@ import GradientDescentWidget from '../../components/widgets/regression/GradientD
 **Bridge from Module 1:** In Module 1, we fit a line by minimizing the sum of squared residuals. We stated the result; now we derive it from first principles. Why does OLS work? How do we compute the optimal parameters analytically and iteratively? What guarantees does the solution carry?
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- Squared error isn't arbitrary — it's the **maximum-likelihood** loss when errors are i.i.d. Gaussian.
-- Set the gradient of $J$ to zero and you get the **normal equations** $\mathbf{X}^T\mathbf{X}\boldsymbol{\beta}=\mathbf{X}^T\mathbf{y}$, hence $\hat{\boldsymbol{\beta}}=(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}$ — valid only when $\mathbf{X}$ has full column rank.
-- **Geometrically it's a projection**: $\hat{\mathbf{y}}$ is $\mathbf{y}$'s shadow on the column space of $\mathbf{X}$, and the residual is perpendicular to it. That perpendicularity *is* the normal equations.
-- $J$ is convex (Hessian $\tfrac1n\mathbf{X}^T\mathbf{X}$ is PSD), so gradient descent has no local minima to get stuck in — it's the fallback when $\mathbf{X}^T\mathbf{X}$ is too big or ill-conditioned to invert.
-- **Gauss-Markov**: under assumptions 1–5 (normality *not* required), OLS is BLUE — minimum variance among linear unbiased estimators.
-</ConceptBox>
-
 ## The Cost Function
+
+<PredictReveal
+  prompt="Ordinary least squares squares the residuals before adding them. Absolute values would also make them positive. Why square?"
+  options={["Squaring is just easier to compute", "Squaring makes the cost a smooth convex bowl with an exact closed-form minimum, and it is what Gaussian noise implies"]}
+  correct={1}
+>
 
 We seek parameters $\boldsymbol{\beta} \in \mathbb{R}^{p+1}$ that minimize the mean squared error. In scalar form:
 
@@ -34,7 +32,19 @@ $$\log L(\boldsymbol{\beta}) = -\frac{n}{2}\log(2\pi\sigma^2) - \frac{1}{2\sigma
 Maximizing this with respect to $\boldsymbol{\beta}$ is equivalent to minimizing $\sum(y_i - \mathbf{x}_i^T\boldsymbol{\beta})^2$.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does the choice of squared error quietly assume about the noise?", a: "That the errors are independent Gaussians with constant variance. Under that assumption, maximising the likelihood of the observed data is exactly the same computation as minimising the sum of squared residuals, so the two procedures give identical coefficients." },
+]} />
+
 ## The Normal Equation (Analytical Solution)
+
+<PredictReveal
+  prompt="The closed-form solution needs the inverse of X-transpose-X. Two of your feature columns are perfectly correlated. What happens?"
+  options={["The solution is slightly less accurate", "The matrix is singular, so no inverse exists and there is no unique solution at all"]}
+  correct={1}
+>
 
 We derive the closed-form solution by setting the gradient of $J$ to zero.
 
@@ -72,6 +82,12 @@ Multiply both sides by $(\mathbf{X}^T\mathbf{X})^{-1}$, which exists when $\math
 </DerivationStep>
 </DerivationSteps>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is the normal-equation solution fragile when features are correlated?", a: "It requires inverting X-transpose-X. Perfectly correlated columns make that matrix singular, so no inverse exists. Near-correlation makes its determinant tiny, so the inverse is enormous and the fitted coefficients swing wildly in response to small changes in the data." },
+]} />
+
 <ConceptBox title="Geometric Interpretation: Projection">
 The fitted values $\hat{\mathbf{y}} = \mathbf{X}\hat{\boldsymbol{\beta}} = \mathbf{X}(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}$ are the orthogonal projection of $\mathbf{y}$ onto the column space of $\mathbf{X}$. The matrix $\mathbf{H} = \mathbf{X}(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T$ is the "hat matrix" -- it puts the hat on $\mathbf{y}$.
 
@@ -83,6 +99,12 @@ The residual vector $\mathbf{e} = \mathbf{y} - \hat{\mathbf{y}}$ is perpendicula
 <ProjectionWidget />
 
 ## Gradient Descent
+
+<PredictReveal
+  prompt="There is an exact formula for the best coefficients. So why would anyone use gradient descent for linear regression at all?"
+  options={["Gradient descent finds a better answer", "Because the formula inverts a matrix whose size grows with the number of features, which becomes impossible at scale"]}
+  correct={1}
+>
 
 When $\mathbf{X}^T\mathbf{X}$ is very large or ill-conditioned, we use an iterative approach instead of computing the inverse directly.
 
@@ -112,6 +134,12 @@ Repeat until $\|\nabla J\| < \epsilon$ (convergence).
 
 </DerivationStep>
 </DerivationSteps>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "When should you use gradient descent instead of the normal equation for linear regression?", a: "When the number of features is large. The closed form costs roughly the cube of the feature count to invert the matrix, and the matrix itself must fit in memory, so beyond a few thousand features the iterative method is the only practical option. It is also the only option when the data arrives in batches." },
+]} />
 
 ### Why It Works: Convexity
 
@@ -201,6 +229,16 @@ Fitting a linear trend to global temperature anomalies (1880-present): $\text{An
   { q: "Why is convexity the property that makes gradient descent safe here, and what supplies it?", a: "Convexity guarantees every local minimum is the global one, so descent cannot be trapped. It comes from the Hessian (1/n) X^T X being positive semi-definite — any matrix of the form A^T A has non-negative eigenvalues, since v^T A^T A v = ||Av||^2 >= 0." },
   { q: "Gauss-Markov says OLS is BLUE. Name the two words people over-read.", a: "'Best' means minimum variance ONLY among LINEAR UNBIASED estimators — a biased estimator like ridge can and often does beat it on mean squared error. And 'BLUE' does not require normality; normality is needed for exact t and F inference, not for the theorem." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Squared error isn't arbitrary — it's the **maximum-likelihood** loss when errors are i.i.d. Gaussian.
+- Set the gradient of $J$ to zero and you get the **normal equations** $\mathbf{X}^T\mathbf{X}\boldsymbol{\beta}=\mathbf{X}^T\mathbf{y}$, hence $\hat{\boldsymbol{\beta}}=(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}$ — valid only when $\mathbf{X}$ has full column rank.
+- **Geometrically it's a projection**: $\hat{\mathbf{y}}$ is $\mathbf{y}$'s shadow on the column space of $\mathbf{X}$, and the residual is perpendicular to it. That perpendicularity *is* the normal equations.
+- $J$ is convex (Hessian $\tfrac1n\mathbf{X}^T\mathbf{X}$ is PSD), so gradient descent has no local minima to get stuck in — it's the fallback when $\mathbf{X}^T\mathbf{X}$ is too big or ill-conditioned to invert.
+- **Gauss-Markov**: under assumptions 1–5 (normality *not* required), OLS is BLUE — minimum variance among linear unbiased estimators.
+</ConceptBox>
 
 <QuizCard
   question="In the Normal Equation, what condition is required for (X^T X)^{-1} to exist?"

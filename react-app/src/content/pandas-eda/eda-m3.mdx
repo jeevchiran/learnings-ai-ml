@@ -1,22 +1,26 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Data Quality & Invalid Values
 
-<ConceptBox title="TL;DR">
-- **Missing and invalid are different failure modes.** `.isna()` finds absent cells; nothing generic finds *present but impossible* ones.
-- Catching invalid values requires **domain rules**, not a pandas method: a fare can't be negative, a rate code must be in the documented set.
-- Each rule becomes a boolean mask — a condition that should never be true for a healthy row.
-- Use `&` and `|` on Series, never Python's `and`/`or`, and parenthesise each condition.
-- **Flag before you delete.** A zero-distance trip with a real fare may be a legitimate cancellation charge, not an error.
-</ConceptBox>
-
 ## Why This Topic?
+
+<PredictReveal
+  prompt="A fare column contains the value -12.50. Every null check on it passes. What catches it?"
+  options={["A stricter null check", "Nothing generic — only a rule saying a fare cannot be negative, which comes from knowing what the column means"]}
+  correct={1}
+>
 
 Passing every `isna()` check doesn't mean a value is valid. Module 1 flagged a **-12.50** fare in `.describe()`'s minimum — it's "present," just nonsensical. No null check on earth will catch it, because the cell isn't empty. It's just wrong.
 
 <ConceptBox title="Missing vs. invalid: two different failure modes">
 A **missing** value is absent — `NaN`, caught by `.isna()`. An **invalid** value is present but violates a domain rule specific to what the column means: a fare can't be negative, a rate code must come from a documented set. Catching the second kind requires knowing the business rules of the data, not just calling a generic pandas method.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the difference between a missing value and an invalid one?", a: "A missing value is absent and any null check will find it. An invalid value is present and well-formed but violates a rule about what the column means, such as a negative fare or an undocumented category code. Only domain knowledge catches the second kind." },
+]} />
 
 <Bridge>
 This dataset is NYC taxi trips, so the domain constraints are concrete: fares can't be negative; a zero-distance trip charged a real fare is suspicious (not impossible — a canceled ride can still trigger a minimum charge); and rate codes outside the documented set are worth a sanity check.
@@ -72,6 +76,16 @@ Name: RatecodeID, count: dtype: int64
 <Bridge>
 Reading these prints one constraint at a time is fine for a report. The widget below lets you stack all three rules live and watch exactly which rows survive.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- **Missing and invalid are different failure modes.** `.isna()` finds absent cells; nothing generic finds *present but impossible* ones.
+- Catching invalid values requires **domain rules**, not a pandas method: a fare can't be negative, a rate code must be in the documented set.
+- Each rule becomes a boolean mask — a condition that should never be true for a healthy row.
+- Use `&` and `|` on Series, never Python's `and`/`or`, and parenthesise each condition.
+- **Flag before you delete.** A zero-distance trip with a real fare may be a legitimate cancellation charge, not an error.
+</ConceptBox>
 
 ## Practice
 

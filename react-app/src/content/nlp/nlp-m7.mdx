@@ -1,13 +1,5 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import NERWidget from '../../components/widgets/nlp/NERWidget.jsx'
-
-<ConceptBox title="TL;DR">
-- Three extraction tasks: **NER** (what entities are named), **SRL** (who did what to whom), **coreference** (which mentions are the same thing).
-- **BIO tagging** turns span-finding into per-token classification: `B-` begins an entity, `I-` continues it, `O` is outside.
-- That encoding has invalid states — `I-PERSON` directly after `O` names no entity. A **CRF** learns to forbid them by scoring transitions, not just tokens.
-- NER is why Module 1's lowercasing warning mattered: capitalization is a top feature here.
-- **Coreference is what connects facts across sentences.** Without it, "He said it would ship" attaches to nobody.
-</ConceptBox>
 
 <Bridge>
 We can now tag words (Module 3), parse structure (Module 4), and measure meaning (Module 5–6). This module applies that foundation to three information extraction tasks: identifying *what* entities are named (NER), *who did what to whom* (SRL), and *which mentions refer to the same entity* (coreference).
@@ -50,6 +42,12 @@ for ent in doc.ents:
 
 ## IOB / BIO Tagging Scheme
 
+<PredictReveal
+  prompt={"New York City is one entity spanning three tokens. Tagging each token simply as a location loses something. What?"}
+  options={["Nothing, three location tokens is enough", "Where one entity ends and the next begins — two adjacent cities would be indistinguishable from one three-word city"]}
+  correct={1}
+>
+
 NER is a **span identification problem**: a single entity may span multiple tokens ("Barack Obama" = one PERSON, "New York City" = one GPE). The **BIO scheme** converts span-level annotation into per-token labels:
 
 <DerivationSteps>
@@ -88,7 +86,19 @@ Tokens not part of any named entity. Verbs, prepositions, punctuation receive O.
 # Apple's         B-ORG`}
 </CodeBlock>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What problem does the beginning-inside-outside tagging scheme solve?", a: "It marks boundaries. Labelling every token of a multi-word entity with the same type leaves no way to tell one long entity from two adjacent short ones. Marking the first token as beginning and the rest as inside makes the boundary explicit." },
+]} />
+
 ## Conditional Random Fields (CRF) for Sequence Labeling
+
+<PredictReveal
+  prompt="A classifier that tags each token independently might output an inside tag with no preceding beginning tag. Why can a sequence model avoid that?"
+  options={["It is more accurate per token", "It scores whole label sequences, so it can learn that an impossible transition should never occur"]}
+  correct={1}
+>
 
 A simple per-token classifier cannot enforce BIO structural constraints (I-PERSON must never follow O). A **CRF** models the conditional distribution of the *entire* label sequence:
 
@@ -107,6 +117,12 @@ The standard architecture combines a bidirectional LSTM (rich contextual feature
 
 Transformer-based models (BERT, RoBERTa) have largely superseded BiLSTM, but the CRF output layer is still commonly added even on top of transformers for structured prediction — it ensures globally consistent BIO sequences.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a sequence model preferred over per-token classification for entity tagging?", a: "Per-token classification chooses each label in isolation, so it can produce sequences that are structurally impossible, such as an inside tag with no beginning before it. A sequence model scores the whole label sequence including transitions, so it learns that such transitions never occur and cannot emit them." },
+]} />
 
 ## Semantic Role Labeling (SRL)
 
@@ -147,6 +163,16 @@ All three expressions (Obama, He, the 44th president) form one coreference chain
   { q: "Connect this module back to the normalization warning in Module 1.", a: "Lowercasing destroys capitalization, and capitalization is one of the strongest NER features in English — it is most of what separates 'Apple' the company from 'apple' the fruit, and it marks proper names the model has never seen. This is the concrete task where a standard normalization step causes real damage." },
   { q: "Why can't information extraction work without coreference resolution?", a: "Because facts are distributed across sentences and referred to by pronouns and shortened names. 'Tesla's CEO announced a product. He said it ships in 2025' contains an attributable claim only if you resolve 'He' to the CEO and 'it' to the product. Without that, each sentence yields a fragment attached to nothing." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Three extraction tasks: **NER** (what entities are named), **SRL** (who did what to whom), **coreference** (which mentions are the same thing).
+- **BIO tagging** turns span-finding into per-token classification: `B-` begins an entity, `I-` continues it, `O` is outside.
+- That encoding has invalid states — `I-PERSON` directly after `O` names no entity. A **CRF** learns to forbid them by scoring transitions, not just tokens.
+- NER is why Module 1's lowercasing warning mattered: capitalization is a top feature here.
+- **Coreference is what connects facts across sentences.** Without it, "He said it would ship" attaches to nobody.
+</ConceptBox>
 
 <QuizCard
   question="In BIO tagging, why is an 'I-PERSON' tag after an 'O' tag invalid, and which model enforces this constraint during decoding?"

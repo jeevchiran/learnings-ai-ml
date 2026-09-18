@@ -1,19 +1,25 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import XAICompareWidget from '../../components/widgets/xai/XAICompareWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Four dimensions decide everything: **speed, fidelity, consistency, generality**. No method wins all four.
-- The shortcut: tree model → Tree SHAP. Neural net or images → Deep SHAP / Integrated Gradients. Sealed API → Kernel SHAP (principled) or LIME (fast).
-- **LIME vs SHAP** in one line: LIME is a fast heuristic local fit that can vary between runs; SHAP is game-theoretic, deterministic, exactly additive, and consistent.
-- Use SHAP where the explanation must be defended (audits, compliance, feature ranking); LIME for a quick gut-check.
-- **Explanations describe the model, not the world.** Cross-check with a second method and stay sceptical when features are correlated.
-</ConceptBox>
+# Module 10: Comparison of XAI Libraries
 
 ## No Single Winner
+
+<PredictReveal
+  prompt="LIME and SHAP explain the same prediction of the same model and disagree about which feature mattered most. Which one is wrong?"
+  options={["Whichever disagrees with intuition", "Neither necessarily — they answer subtly different questions and are approximating different quantities"]}
+  correct={1}
+>
 
 Every method trades off along the same dimensions: **speed**, **fidelity** (how truly it reflects the model), **consistency** (theoretical guarantees), and **generality** (range of models it fits). Pick a method and read its profile:
 
 <XAICompareWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why might LIME and SHAP disagree on the same prediction?", a: "LIME fits a linear surrogate to a random local neighbourhood, so its answer depends on the neighbourhood and on the sample drawn. SHAP averages marginal contributions over feature subsets against a background distribution. They are estimating different quantities, so disagreement is informative rather than evidence that one is broken." },
+]} />
 
 ## Side by Side
 
@@ -34,6 +40,12 @@ Every method trades off along the same dimensions: **speed**, **fidelity** (how 
 
 ## LIME vs. SHAP — the Core Contrast
 
+<PredictReveal
+  prompt="You need to explain ten thousand predictions from a tree ensemble, and the explanations must be consistent enough to aggregate. LIME or SHAP?"
+  options={["LIME, it is faster per explanation", "SHAP with the tree explainer, because its attributions are exact, additive and therefore safe to aggregate"]}
+  correct={1}
+>
+
 The two you'll actually choose between:
 
 | | **LIME** | **SHAP** |
@@ -51,9 +63,25 @@ The two you'll actually choose between:
 Every method here explains the **model**, not the world — and every method makes assumptions (feature independence, a chosen baseline, a locality radius) that can mislead when violated. Treat an explanation as evidence, not proof: cross-check with a second method, sanity-test against domain knowledge, and stay sceptical when features are strongly correlated. A confident-looking heatmap can still be explaining a spurious pattern the model latched onto.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "When is SHAP the right choice over LIME?", a: "When explanations must be consistent and aggregatable, when the model is a tree ensemble so exact values are cheap, or when the additivity guarantee matters for reporting. LIME is preferable when the model is a remote black box, when explanations are needed for text or images through interpretable units, or when speed on a handful of cases is the priority." },
+]} />
+
 <Bridge>
 That completes the toolkit: the accuracy–interpretability trade-off, global vs. local scope, LIME's local surrogates, SHAP's game-theoretic fairness with its Kernel/Tree/Deep variants, and DeepLIFT's reference-based attributions. The track quiz pulls it together.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Four dimensions decide everything: **speed, fidelity, consistency, generality**. No method wins all four.
+- The shortcut: tree model → Tree SHAP. Neural net or images → Deep SHAP / Integrated Gradients. Sealed API → Kernel SHAP (principled) or LIME (fast).
+- **LIME vs SHAP** in one line: LIME is a fast heuristic local fit that can vary between runs; SHAP is game-theoretic, deterministic, exactly additive, and consistent.
+- Use SHAP where the explanation must be defended (audits, compliance, feature ranking); LIME for a quick gut-check.
+- **Explanations describe the model, not the world.** Cross-check with a second method and stay sceptical when features are correlated.
+</ConceptBox>
 
 ## Practice
 

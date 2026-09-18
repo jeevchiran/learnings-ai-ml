@@ -1,21 +1,27 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import LeakagePipelineWidget from '../../components/widgets/model-eval/LeakagePipelineWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- **Select features on the full dataset and every score afterwards is dishonest** — the held-out rows helped choose the features being evaluated on them.
-- The demo is the whole lesson: 1,000 pure-noise features, a random target, and leaky selection reports 65–75% where the truth is 50%.
-- It's the same category of error as fitting a scaler before splitting, but easier to miss because "which columns to use" feels like prep, not fitting.
-- **The fix is structural**: put the selector inside a `Pipeline` and pass the pipeline to `cross_val_score`, so it refits on each training fold.
-- Tuning $k$ on the same folds you report is a milder version of the same leak. **Nested CV** is the honest answer — inner loop tunes, outer loop only reports.
-</ConceptBox>
+# Module 8: Leakage-Safe & Unbiased Feature Selection
 
 ## The Trap
+
+<PredictReveal
+  prompt="You rank features by correlation with the target on the full dataset, keep the best fifty, then run cross-validation on those fifty. Is the resulting score honest?"
+  options={["Yes, cross-validation was used properly", "No — the selection already saw the validation rows, so the score is optimistically biased"]}
+  correct={1}
+>
 
 Filter, wrapper, and embedded methods all pick features by *looking at data*. If that step looks at *too much* data, everything you measure afterward becomes dishonest.
 
 The core leak: if you select features — by **any** method — on the **full** dataset, including rows that later become CV validation folds or the test set, you've let information about those "held-out" rows influence which features were chosen. The CV or test score you then compute isn't honest — you're evaluating a pipeline that got a preview of the answers, because its features were cherry-picked having seen them.
 
 Same category as fitting a `StandardScaler` on the full dataset before splitting — but feature-selection leaks are often larger and easier to miss, because "which features to use" feels like a one-time prep decision rather than part of the model-fitting loop.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why must feature selection happen inside the cross-validation loop?", a: "Selecting on the full dataset lets the choice of features be informed by rows that will later serve as validation data, so those rows are no longer unseen. The selection step is part of fitting and must be repeated separately within each fold, on that fold's training portion only." },
+]} />
 
 ## Signal in Pure Noise
 
@@ -70,6 +76,12 @@ On each fold, `SelectKBest` picks its top 20 using only that fold's *training* r
 
 ## Nested CV: When You're Also Tuning
 
+<PredictReveal
+  prompt="You use cross-validation to pick hyperparameters and then report the best cross-validation score as your performance estimate. What is the flaw?"
+  options={["None, the folds were held out each time", "That score was the criterion for selection, so it is the maximum over many noisy estimates and is biased upward"]}
+  correct={1}
+>
+
 A subtler, milder leak: if you use `GridSearchCV` to search `k` (or a regularization strength) using the *same* CV loop you report as your final score, you picked those hyperparameters *because* they scored well on those exact folds — so reporting that score is optimistic. Configs that fit the noise in those folds are favored, and that favoritism won't repeat on new data.
 
 **Nested CV** uses two loops:
@@ -94,8 +106,26 @@ Toggle the leaky vs. correct pipeline on the pure-noise scenario and watch the r
 
 <LeakagePipelineWidget />
 
+Nested cross-validation fixes it by putting the entire tuning procedure inside an outer loop, so the outer folds are never involved in any choice.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is the best cross-validation score a biased estimate of performance?", a: "It is the maximum over many noisy estimates, and taking a maximum systematically favours whichever setting got lucky on those particular folds. Nested cross-validation wraps the whole selection procedure in an outer loop whose folds play no part in the choice, which restores an honest estimate." },
+]} />
+
 <ConceptBox title="'I never touched the test set, so I'm safe' — false">
 Leakage isn't specifically about the test set. The same leak happens between a CV *training* fold and its paired *validation* fold if selection happens before the split — even with the true test set locked away. The pure-noise example never mentioned a test set; the inflation happened entirely within 5-fold CV. The leak is between "data used to make a choice" and "data used to score that choice" — any such boundary, train/validation or train/test.
+</ConceptBox>
+
+---
+
+<ConceptBox title="TL;DR">
+- **Select features on the full dataset and every score afterwards is dishonest** — the held-out rows helped choose the features being evaluated on them.
+- The demo is the whole lesson: 1,000 pure-noise features, a random target, and leaky selection reports 65–75% where the truth is 50%.
+- It's the same category of error as fitting a scaler before splitting, but easier to miss because "which columns to use" feels like prep, not fitting.
+- **The fix is structural**: put the selector inside a `Pipeline` and pass the pipeline to `cross_val_score`, so it refits on each training fold.
+- Tuning $k$ on the same folds you report is a milder version of the same leak. **Nested CV** is the honest answer — inner loop tunes, outer loop only reports.
 </ConceptBox>
 
 ## Practice

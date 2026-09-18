@@ -1,13 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
-
-<ConceptBox title="TL;DR">
-- A UDF runs your Python on each row — reach for it only when built-ins and `when()` chains genuinely can't express the rule.
-- **UDFs are a Catalyst black box.** Spark can't see inside, so no pushdown, no reordering, no optimisation of that step.
-- Worse, a regular UDF serialises every row across the JVM↔Python boundary. That round-trip is the real cost.
-- **Pandas UDFs fix the transport**, not the opacity: Arrow ships batches instead of rows, typically an order of magnitude faster.
-- Preference order: built-in function → `when()`/`expr` → Pandas UDF → regular UDF.
-- `returnType` is mandatory and unchecked — declare `StringType()` and return a float and you get silent nulls.
-</ConceptBox>
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 
 <Bridge>
 In Module 5, we queried DataFrames using SQL syntax — SELECT, JOIN, GROUP BY, CTEs. These built-in operations handle most transformations. But when you need custom logic, you write a **UDF** (User-Defined Function).
@@ -15,9 +6,21 @@ In Module 5, we queried DataFrames using SQL syntax — SELECT, JOIN, GROUP BY, 
 
 ## What are UDFs?
 
+<PredictReveal
+  prompt="A built-in function and a Python user-defined function compute the same thing over a billion rows. Is the difference in speed small?"
+  options={["Yes, it is the same arithmetic either way", "No — the Python function forces every row across a process boundary, which can be an order of magnitude slower"]}
+  correct={1}
+>
+
 User-Defined Functions let you apply custom Python logic to DataFrame columns. Spark ships with a rich library of built-in functions — arithmetic, string manipulation, date handling, aggregations — but sometimes your business rules don't fit neatly into what's already available.
 
 Common use cases include: converting numeric grades to letter grades, applying domain-specific categorizations (risk tiers, customer segments), computing custom metrics that combine multiple columns, or encoding business rules that would be awkward to express with nested `when()` chains.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are Python user-defined functions slow in a JVM-based engine?", a: "Each row must be serialised, sent to a separate Python process, deserialised, computed, and sent back. Built-in expressions execute inside the engine with no such crossing, and the optimiser can also reason about them, which it cannot do with opaque user code." },
+]} />
 
 ## Creating UDFs — Two Approaches
 
@@ -57,6 +60,12 @@ spark.sql("""
 
 ## Return Types Matter
 
+<PredictReveal
+  prompt="You declare a user-defined function as returning an integer, but it actually returns a string. What happens?"
+  options={["An error is raised at definition time", "No error — the column silently fills with nulls, which is far harder to notice"]}
+  correct={1}
+>
+
 Every UDF must declare its return type explicitly. Spark uses this to build the schema of the resulting DataFrame. If your function returns a value that doesn't match the declared type, you'll get a runtime error — often a cryptic serialization failure.
 
 For complex return values, use `StructType` to define a multi-field schema:
@@ -84,6 +93,12 @@ result.select("enrollment_id", "grade", "grade_info").show(5)
 # +-------------+-----+-------------------+
 # |        1    |   92|{A, Dean's List}   |`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What happens if a user-defined function's declared return type does not match what it returns?", a: "The engine trusts the declaration and attempts the cast, which fails silently and produces nulls rather than an exception. The failure surfaces much later as mysteriously empty results, which is why the declared type deserves as much attention as the function body." },
+]} />
 
 ## Performance Implications
 
@@ -136,6 +151,17 @@ result.show(5)`}
   { q: "State the preference order and the reason for it.", a: "Built-in function first, since Catalyst understands it fully and it runs in the JVM. Then when/otherwise or expr for conditional logic, which are still native expressions. Then a Pandas UDF when you need real Python but want batched transport. A regular row-at-a-time UDF last, when nothing else expresses the logic." },
   { q: "You declare returnType=StringType() and your function returns 3.7. What happens?", a: "You get null, silently. Spark trusts the declared return type and does not verify it — a mismatch produces nulls rather than an exception, so a whole column can quietly become empty. Declared return types are a contract you must honour yourself." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A UDF runs your Python on each row — reach for it only when built-ins and `when()` chains genuinely can't express the rule.
+- **UDFs are a Catalyst black box.** Spark can't see inside, so no pushdown, no reordering, no optimisation of that step.
+- Worse, a regular UDF serialises every row across the JVM↔Python boundary. That round-trip is the real cost.
+- **Pandas UDFs fix the transport**, not the opacity: Arrow ships batches instead of rows, typically an order of magnitude faster.
+- Preference order: built-in function → `when()`/`expr` → Pandas UDF → regular UDF.
+- `returnType` is mandatory and unchecked — declare `StringType()` and return a float and you get silent nulls.
+</ConceptBox>
 
 <QuizCard
   question="Why are Pandas UDFs faster than regular row-at-a-time UDFs?"

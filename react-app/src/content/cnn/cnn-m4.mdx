@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import PoolingWidget from '../../components/widgets/cnn/PoolingWidget.jsx'
 
 # Module 4: Pooling Layers
-
-<ConceptBox title="TL;DR">
-- Pooling is a **fixed aggregation with zero learnable parameters** — it downsamples, it does not learn.
-- **Max pooling keeps whether a feature was present and discards exactly where.** That's the source of approximate translation *invariance* (convolution only gave equivariance).
-- Stride 2 halves each spatial dimension, quartering the map. **Channels are untouched** — pooling never changes $C$.
-- **Global average pooling** collapses each channel to one number, so the FC head no longer depends on input spatial size — and it removes the largest parameter block in the network.
-- No universal winner: max wins on sharp features, average on smooth ones. Many modern nets use strided convolutions instead.
-</ConceptBox>
 
 <Bridge>
 **From Module 3:** conv layers build increasingly rich feature maps, but they can be very large — a 32×32 input with 64 filters gives a 32×32×64 = 65,536-dimensional tensor. As networks go deeper, these tensors become computationally expensive to process. Pooling layers reduce the spatial dimensions while retaining the most important information, and introduce a degree of **translation invariance** that convolution alone cannot provide.
@@ -45,11 +37,23 @@ The output is a vector of length $C_{out}$. In modern CNNs (ResNet, EfficientNet
 
 ## Output size formula
 
+<PredictReveal
+  prompt="Max pooling has no weights at all. So what does it contribute to the network?"
+  options={["Nothing useful, it is a legacy step", "It shrinks the map, which widens the receptive field cheaply, and it makes the response tolerant to small shifts"]}
+  correct={1}
+>
+
 Same formula as convolution with no learnable padding:
 
 $$H_{out} = \left\lfloor \frac{H_{in} - K}{S} \right\rfloor + 1$$
 
 For $2 \times 2$ MaxPool with stride 2: $H_{out} = H_{in} / 2$. Halves each spatial dimension.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does a pooling layer contribute despite having no parameters?", a: "It reduces the spatial size, which cuts computation and makes every later kernel cover a larger part of the original image. It also makes the output tolerant to small translations, because shifting an input feature by a pixel often leaves the maximum in a window unchanged." },
+]} />
 
 ## Interactive: explore pooling
 
@@ -96,6 +100,12 @@ Max pooling selects the peak activation — it answers "was this feature present
 </ConceptBox>
 
 ## Translation invariance via pooling
+
+<PredictReveal
+  prompt="Pooling gives tolerance to small shifts. Does that make a convolutional network invariant to a large translation of the object?"
+  options={["Yes, that is what invariance means", "No — the tolerance is local, roughly the pooling window, and a large shift changes the representation"]}
+  correct={1}
+>
 
 Convolution is *equivariant* — shifting the input shifts the feature map by the same amount. Pooling provides approximate *invariance* — small shifts in the feature map get absorbed by the max/avg operation. Together: a small translation of the input produces the same (or very similar) pool output.
 
@@ -144,6 +154,20 @@ This is equivalent to applying a $1 \times 1$ conv with weights $\mathbf{w}_k$ t
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Pooling is a **fixed aggregation with zero learnable parameters** — it downsamples, it does not learn.
+- **Max pooling keeps whether a feature was present and discards exactly where.** That's the source of approximate translation *invariance* (convolution only gave equivariance).
+- Stride 2 halves each spatial dimension, quartering the map. **Channels are untouched** — pooling never changes $C$.
+- **Global average pooling** collapses each channel to one number, so the FC head no longer depends on input spatial size — and it removes the largest parameter block in the network.
+- No universal winner: max wins on sharp features, average on smooth ones. Many modern nets use strided convolutions instead.
+</ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How much translation tolerance does pooling actually provide?", a: "Only about the size of the pooling window per layer, accumulating modestly with depth. It is local tolerance, not true invariance, which is why training-time augmentation with shifts and crops is still needed for robustness to larger movement." },
+]} />
 
 ## Quiz
 

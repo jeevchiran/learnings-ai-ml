@@ -1,10 +1,10 @@
-import { ConceptBox, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import VectorWidget from '../../components/widgets/math-ml/VectorWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- A vector is a feature row or an embedding; its **norm** $\|\mathbf{v}\|$ is its length.
-- The dot product has two faces: $\sum_i a_ib_i$ (compute it) and $\|\mathbf{a}\|\|\mathbf{b}\|\cos\theta$ (interpret it) — positive = same direction, zero = perpendicular.
-- **Cosine similarity is the dot product with lengths divided out.** Use it when direction matters and magnitude doesn't — which is nearly always, in embedding search.
+# Module 1: Vectors & Dot Products
+
+<ConceptBox title="Before you start">
+This is the first module of the first track, so nothing is assumed beyond school algebra: you should be comfortable with square roots and with reading a formula that has a summation sign in it. Everything else is built here. If a symbol looks unfamiliar later on, it was defined in an earlier module of this track.
 </ConceptBox>
 
 ## Why Linear Algebra, First
@@ -22,9 +22,29 @@ This is the Euclidean (L2) length — Pythagoras generalized to $n$ dimensions. 
 
 ## The Dot Product
 
+<PredictReveal
+  prompt="One arrow points east, another points north. Multiply their matching components and add them up: 1*0 + 0*1 = 0. Is that zero a coincidence of these particular numbers, or does it mean something?"
+  options={["A coincidence of these particular numbers", "It always means the two vectors sit at right angles"]}
+  correct={1}
+>
+
 $$\mathbf{a}\cdot\mathbf{b} = \sum_i a_i b_i = \|\mathbf{a}\|\,\|\mathbf{b}\|\cos\theta$$
 
 Two equivalent views: **algebraic** (multiply matching components, sum them) and **geometric** (lengths times the cosine of the angle between them). The geometric form is why the dot product is the standard *similarity* measure — it's large and positive when vectors point the same way, zero when perpendicular, negative when opposite.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does a dot product of exactly zero tell you about two non-zero vectors?", a: "They are perpendicular. The geometric form says the dot product is the two lengths multiplied by cos(theta); if neither length is zero, only cos(theta) = 0 can make the result zero, and that is a 90 degree angle." },
+]} />
+
+## Direction versus size
+
+<PredictReveal
+  prompt="A search engine scores documents against your query with a raw dot product. One document is ten pages long and only loosely on topic. Another is one paragraph and exactly on topic. Which one is likely to win?"
+  options={["The short, on-topic one, because relevance is what the dot product measures", "The long one, because a longer vector scores higher just for being long"]}
+  correct={1}
+>
 
 <ConceptBox title="Common confusion — cosine similarity vs. dot product">
 $$\cos\theta = \frac{\mathbf{a}\cdot\mathbf{b}}{\|\mathbf{a}\|\,\|\mathbf{b}\|}$$
@@ -32,6 +52,14 @@ Cosine similarity is the dot product with length divided out — it measures *di
 </ConceptBox>
 
 <VectorWidget />
+
+Drag either arrow in the widget and watch the two readouts move independently. Lengthening a vector changes the dot product but leaves the cosine untouched. That is the whole distinction, and it is why embedding search normalises first.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "When should you prefer cosine similarity over a raw dot product?", a: "Whenever direction should count and size should not, which is almost always the case in embedding search and recommendation. A raw dot product rewards long vectors, so an item can rank highly for being big rather than for being relevant." },
+]} />
 
 ## In Python (NumPy)
 
@@ -47,6 +75,14 @@ cosine_sim = (a @ b) / (norm_a * np.linalg.norm(b))
 
 print(dot_product, norm_a, cosine_sim)
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- A vector is a feature row or an embedding; its **norm** $\|\mathbf{v}\|$ is its length.
+- The dot product has two faces: $\sum_i a_ib_i$ (compute it) and $\|\mathbf{a}\|\|\mathbf{b}\|\cos\theta$ (interpret it) — positive = same direction, zero = perpendicular.
+- **Cosine similarity is the dot product with lengths divided out.** Use it when direction matters and magnitude doesn't — which is nearly always, in embedding search.
+</ConceptBox>
 
 ## Practice
 

@@ -1,20 +1,33 @@
-import { ConceptBox, Bridge, QuizCard, DerivationSteps, DerivationStep, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, DerivationSteps, DerivationStep, Recall } from '../../components/learning/index.js'
+import DeepLiftReferenceWidget from '../../components/widgets/xai/DeepLiftReferenceWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Gradients answer "sensitivity to a tiny nudge," not "how much did this feature contribute." A **saturated** neuron has gradient ≈0, so gradients call the feature that holds it there irrelevant.
-- DeepLIFT explains a **finite difference against a reference**: contributions sum exactly to $f(x)-f(x^0)$. No saturation, because it spans the whole range instead of reading a local slope.
-- Multipliers obey a chain rule, so the whole thing runs in **one backward pass** — as cheap as ordinary backprop.
-- Two credit rules: **Rescale** (proportional, the default) and **RevealCancel** (separates positive and negative so cancelling effects don't vanish).
-- **The reference defines the question.** Black baseline asks "why this vs. nothing"; blurred asks "why this vs. the general scene." Always report it.
-</ConceptBox>
+# Module 9: DeepLIFT Method
 
 ## Why Not Just Use Gradients?
+
+<PredictReveal
+  prompt="A ReLU unit is saturated at zero for this input, so its gradient is exactly zero. Does that mean the feature feeding it contributed nothing to the prediction?"
+  options={["Yes, zero gradient means no contribution", "No — the gradient is local, and a feature can matter enormously while having zero slope right here"]}
+  correct={1}
+>
 
 For a neural net, the obvious explanation is the gradient: how much does the output change if I nudge this input? But gradients **saturate**. Picture a ReLU or sigmoid neuron already deep in its flat region — the gradient is ~0, so a plain-gradient method says the feature *doesn't matter*, even though it's the very feature holding the neuron on. Gradients measure *sensitivity to a tiny nudge*, not *how much a feature contributed to getting here*.
 
 **DeepLIFT** (*Deep Learning Important FeaTures*) fixes this by explaining differences against a **reference**, not infinitesimal nudges.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are raw gradients a poor attribution method?", a: "A gradient measures sensitivity to an infinitesimal change at the current input, which is zero wherever an activation is saturated. A feature that is strongly driving the prediction can therefore receive zero credit, and the resulting maps are also visually noisy." },
+]} />
+
 ## Contributions Against a Reference
+
+<PredictReveal
+  prompt="DeepLIFT explains a prediction relative to a reference input rather than in absolute terms. Why does that fix the saturation problem?"
+  options={["It does not, it just adds a baseline", "Because it measures the finite difference from the reference, which stays informative even where the local slope is zero"]}
+  correct={1}
+>
 
 DeepLIFT picks a **reference input** $x^0$ — a neutral baseline like an all-zero image, a blurred image, or the average input. It runs the reference through the net once to get reference activations, then explains the difference:
 
@@ -36,6 +49,14 @@ For each connection, a multiplier $m_{\Delta x \Delta t} = \frac{C_{\Delta x \De
 Multipliers obey a **chain rule** ($m_{\Delta x \Delta t} = \sum_j m_{\Delta x \Delta y_j} m_{\Delta y_j \Delta t}$), so DeepLIFT propagates them from output back to inputs in **one backward pass** — as cheap as ordinary backprop.
 </DerivationStep>
 </DerivationSteps>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does using a reference input buy DeepLIFT over plain gradients?", a: "It replaces an infinitesimal slope with a finite difference between the actual activation and the reference activation. That difference is non-zero even where the gradient has saturated to zero, so a feature that genuinely moved the prediction away from the baseline receives credit for it." },
+]} />
+
+<DeepLiftReferenceWidget />
 
 ## The Rules for Splitting Credit
 
@@ -69,6 +90,16 @@ Using a *distribution* of references (the background set) and averaging turns De
 <Bridge>
 You now have three families — LIME, SHAP (Kernel/Tree/Deep), and DeepLIFT. The final module puts them side by side: which to reach for, given your model, data, and constraints.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Gradients answer "sensitivity to a tiny nudge," not "how much did this feature contribute." A **saturated** neuron has gradient ≈0, so gradients call the feature that holds it there irrelevant.
+- DeepLIFT explains a **finite difference against a reference**: contributions sum exactly to $f(x)-f(x^0)$. No saturation, because it spans the whole range instead of reading a local slope.
+- Multipliers obey a chain rule, so the whole thing runs in **one backward pass** — as cheap as ordinary backprop.
+- Two credit rules: **Rescale** (proportional, the default) and **RevealCancel** (separates positive and negative so cancelling effects don't vanish).
+- **The reference defines the question.** Black baseline asks "why this vs. nothing"; blurred asks "why this vs. the general scene." Always report it.
+</ConceptBox>
 
 ## Practice
 

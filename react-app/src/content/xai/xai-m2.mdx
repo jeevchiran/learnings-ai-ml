@@ -1,14 +1,15 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import GlobalLocalWidget from '../../components/widgets/xai/GlobalLocalWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- **Scope** is axis one: *global* = how the model behaves in general; *local* = why it output this, for this input.
-- A global explanation is roughly an average of local ones — and averages lie about individuals. Anyone owed a reason needs a **local** explanation.
-- **Access** is axis two: *model-agnostic* needs only `predict()`; *model-specific* exploits internals (tree structure, gradients) for speed and exactness.
-- Those two axes place every method: LIME (local/agnostic), Kernel SHAP (local/agnostic), Tree SHAP (both/tree-specific), DeepLIFT (local/net-specific).
-</ConceptBox>
+# Module 2: Global vs Local Interpretability
 
 ## Two Questions, Two Kinds of Answer
+
+<PredictReveal
+  prompt={"A model reports that income is its most important feature overall. A specific applicant was refused. Does the overall ranking explain that refusal?"}
+  options={["Yes, income drove it", "Not necessarily — this applicant may have been refused for a reason that matters little on average"]}
+  correct={1}
+>
 
 Every explanation answers one of two questions:
 
@@ -19,11 +20,25 @@ They are genuinely different. A model can rely on *income* globally yet, for one
 
 <GlobalLocalWidget />
 
+That is the global versus local distinction. A global explanation describes the model's behaviour across the whole population; a local one describes a single prediction, and the two can disagree completely.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the difference between a global and a local explanation, and why can they disagree?", a: "A global explanation describes how the model behaves across the whole dataset; a local one describes one specific prediction. They disagree whenever an individual sits in a region where an ordinarily unimportant feature dominates, which is precisely the case a person asking why me cares about." },
+]} />
+
 <ConceptBox title="Don't average away the individual">
 A global explanation is roughly the *average* of local ones — and averages lie about individuals. "Income matters most overall" can be false for the applicant standing in front of you, whose decision hinged on something else entirely. When a person is owed a reason (a loan denial, a flagged scan), you need a **local** explanation.
 </ConceptBox>
 
 ## The Second Axis: What the Method Needs to See
+
+<PredictReveal
+  prompt="An explanation method is described as model-agnostic. What does it require access to?"
+  options={["The model's internal weights and structure", "Only the ability to feed it inputs and read its outputs"]}
+  correct={1}
+>
 
 Crossing with global/local is *how much access* a method requires:
 
@@ -44,9 +59,24 @@ Model-agnostic methods treat the model as a sealed box you can only *query*. Tha
 Two axes — *scope* (global/local) and *access* (agnostic/specific) — locate every technique you'll meet.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does model-agnostic mean, and what is the cost?", a: "The method needs only to query the model with inputs and observe outputs, never its internals, so it works on anything including a remote API. The cost is that it must infer behaviour by probing, which takes many queries and yields an approximation rather than an exact account." },
+]} />
+
 <Bridge>
 LIME is the cleanest entry point: local scope, needs nothing but `predict()`. Its idea is almost embarrassingly simple — *near one point, even a wildly nonlinear model looks like a straight line, so fit a straight line there.* The next module builds it from that intuition.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- **Scope** is axis one: *global* = how the model behaves in general; *local* = why it output this, for this input.
+- A global explanation is roughly an average of local ones — and averages lie about individuals. Anyone owed a reason needs a **local** explanation.
+- **Access** is axis two: *model-agnostic* needs only `predict()`; *model-specific* exploits internals (tree structure, gradients) for speed and exactness.
+- Those two axes place every method: LIME (local/agnostic), Kernel SHAP (local/agnostic), Tree SHAP (both/tree-specific), DeepLIFT (local/net-specific).
+</ConceptBox>
 
 ## Practice
 

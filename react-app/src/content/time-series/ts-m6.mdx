@@ -1,13 +1,12 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import ARIMAIntegrationWidget from '../../components/widgets/time-series/ARIMAIntegrationWidget.jsx'
 import SARIMAWidget from '../../components/widgets/time-series/SARIMAWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- **ARMA(p,q)** = AR terms + MA terms on an already-stationary series. **ARIMA(p,d,q)** = the same model fit to the $d$-times-differenced series, with forecasts integrated back up. **SARIMA(p,d,q)(P,D,Q)$_m$** = ARIMA plus a second copy of the same machinery operating at lag $m$.
-- The backshift operator turns all four into one line: $\phi(B)\Phi(B^m)\,\nabla^d\nabla_m^D\, y_t = \theta(B)\Theta(B^m)\,\varepsilon_t$.
-- The seasonal block **multiplies** rather than adds — which is why SARIMA(1,0,0)(1,0,0)$_{12}$ secretly contains a lag-**13** term nobody typed.
-- Box–Jenkins is a loop, not a formula: identify → estimate → **diagnose the residuals** → forecast. If the residuals aren't white noise, there's signal you haven't modelled yet.
-</ConceptBox>
+# Module 6: ARMA, ARIMA & SARIMA
+
+<Bridge>
+Module 5 built the two halves separately: a model of the series' own past, and a model of its own past errors. Module 4 supplied differencing as a separate preparation step. This module folds all three into one object with three numbers, which is the form every forecasting library actually exposes.
+</Bridge>
 
 ## Why This Module Exists
 
@@ -29,6 +28,12 @@ This isn't decoration. Once the model is two polynomials, "difference the series
 
 ## ARIMA(p,d,q) — Folding Differencing Into the Model
 
+<PredictReveal
+  prompt="You difference a series by hand, fit a model, and produce forecasts. Those forecasts are of the differenced series. What still has to happen?"
+  options={["Nothing — differences are what you wanted", "They must be cumulatively summed back to the original scale, which is the I in ARIMA"]}
+  correct={1}
+>
+
 The differencing operator is $\nabla y_t = y_t - y_{t-1} = (1-B)y_t$. ARIMA says: apply it $d$ times, fit ARMA to the result.
 
 $$\phi(B)\,(1-B)^d\, y_t = \theta(B)\,\varepsilon_t$$
@@ -36,6 +41,14 @@ $$\phi(B)\,(1-B)^d\, y_t = \theta(B)\,\varepsilon_t$$
 The **I** stands for *integrated* — the series you model is the differenced one, so the forecasts come out as forecasts of *changes* and have to be cumulatively summed ("integrated") back onto the original scale.
 
 <ARIMAIntegrationWidget />
+
+Step the widget through differencing and integration and watch the two operations undo each other. Folding that bookkeeping into the model is the entire contribution of the middle parameter.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does the I in ARIMA actually do?", a: "It handles the differencing and its reversal inside the model. The series is differenced d times before fitting, and the forecasts are cumulatively summed back d times so they come out on the original scale, which removes an error-prone manual step." },
+]} />
 
 <ConceptBox title="Common confusion — 'why not just difference it myself and fit ARMA?'">
 You can, and you'd get the same point forecasts. What you'd lose is everything downstream: `statsmodels` integrates the forecasts back to the original units for you, and — more importantly — it propagates the prediction interval through that integration. Each integration step **cumulatively sums the $\psi$-weights**, which is why an ARIMA band fans out far faster than a stationary AR band. Hand-differencing and forgetting to re-integrate the variance is a classic way to publish an absurdly confident long-horizon forecast.
@@ -54,6 +67,12 @@ Exponential smoothing and ARIMA are not rival camps; a good chunk of the smoothi
 </ConceptBox>
 
 ## SARIMA — The Same Machinery, One Season Apart
+
+<PredictReveal
+  prompt="Monthly data has a yearly cycle. Differencing once at lag 1 removes the trend but the December spike survives. What removes it?"
+  options={["Differencing at lag 1 a second time", "Differencing at lag 12, subtracting each month from the same month a year earlier"]}
+  correct={1}
+>
 
 Write it $\text{SARIMA}(p,d,q)(P,D,Q)_m$. Lowercase letters act at lags $1,2,3\dots$; uppercase letters act at lags $m, 2m, 3m\dots$; $m$ is the season length (12 monthly, 4 quarterly, 7 daily-with-weekly-cycle).
 
@@ -79,6 +98,12 @@ People read $(P,D,Q)$ as "some extra lags bolted on" and expect SARIMA(1,0,0)(1,
 </ConceptBox>
 
 <SARIMAWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does seasonal differencing do that ordinary differencing cannot?", a: "It subtracts each observation from the one exactly one season earlier, so a pattern that repeats every period cancels out. Ordinary differencing at lag 1 only removes a trend; applying it repeatedly removes higher-order trends but never a repeating seasonal shape." },
+]} />
 
 <ConceptBox title="Choosing D and d — the order matters">
 Difference **seasonally first** ($D$), then check whether you still need a regular difference ($d$). Seasonal differencing often removes trend as a side effect, so doing it in this order frequently saves you a $d$. Rules of thumb that hold up in practice: $D \le 1$, $d + D \le 2$, and never both unless the series clearly still drifts after the seasonal difference. Every extra difference costs you an observation at the front and injects noise.
@@ -126,6 +151,15 @@ mean, ci = fc.predicted_mean, fc.conf_int(alpha=0.05)
 ```
 
 Grid-searching the orders by hand is tedious; `pmdarima.auto_arima(y, seasonal=True, m=12)` walks the AIC surface for you. Treat its answer as a strong candidate, not a verdict — it still can't run step 3 for you.
+
+---
+
+<ConceptBox title="TL;DR">
+- **ARMA(p,q)** = AR terms + MA terms on an already-stationary series. **ARIMA(p,d,q)** = the same model fit to the $d$-times-differenced series, with forecasts integrated back up. **SARIMA(p,d,q)(P,D,Q)$_m$** = ARIMA plus a second copy of the same machinery operating at lag $m$.
+- The backshift operator turns all four into one line: $\phi(B)\Phi(B^m)\,\nabla^d\nabla_m^D\, y_t = \theta(B)\Theta(B^m)\,\varepsilon_t$.
+- The seasonal block **multiplies** rather than adds — which is why SARIMA(1,0,0)(1,0,0)$_{12}$ secretly contains a lag-**13** term nobody typed.
+- Box–Jenkins is a loop, not a formula: identify → estimate → **diagnose the residuals** → forecast. If the residuals aren't white noise, there's signal you haven't modelled yet.
+</ConceptBox>
 
 ## Practice
 

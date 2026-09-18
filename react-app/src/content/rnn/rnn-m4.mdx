@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import SequencePatternWidget from '../../components/widgets/rnn/SequencePatternWidget.jsx'
 
 # Module 4: Applications of RNNs
 
@@ -66,6 +67,8 @@ Decoder: context → y₁ → y₂ → y₃ → y₄
   { q: "Classify these by shape: sentiment analysis, NER, translation, image captioning.", a: "Sentiment is many-to-one — the whole review yields one label. NER is many-to-many synced — one tag per token, aligned. Translation is many-to-many encoder-decoder — input and output lengths differ and there is no positional alignment. Captioning is one-to-many — a single image produces a generated sequence." },
   { q: "Where does the loss attach in a many-to-one model versus a synced many-to-many one?", a: "Many-to-one puts a single loss on the final time step's output, so gradient must travel back through every earlier step from that one point. Synced many-to-many puts a loss at every step, so each position gets direct gradient — which is one reason tagging models train more easily than long-sequence classifiers." },
 ]} />
+
+<SequencePatternWidget />
 
 ## Spotlight: Language Modeling
 

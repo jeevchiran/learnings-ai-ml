@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import FilterBankWidget from '../../components/widgets/cv/FilterBankWidget.jsx'
 
 # Module 3: Image Filters
-
-<ConceptBox title="TL;DR">
-- A filter replaces each pixel with a **function of its neighbourhood**. Linear filters use a weighted sum — a kernel.
-- **Kernel sum tells you the filter's job**: sum 1 preserves brightness (smoothing), sum 0 is a derivative (edges), sum > 1 brightens.
-- Gaussian is **separable**: a $k \times k$ blur costs $2k$ multiplies per pixel instead of $k^2$. At $k=15$ that is 30 versus 225.
-- **Median is not linear** and that is the point — it deletes salt-and-pepper noise that any weighted average only smears.
-- Canny is not one filter: blur → gradient → non-max suppression → hysteresis. Three of those four ideas reappear in object detection.
-</ConceptBox>
 
 <Bridge>
 Module 2's operations could not see past a single pixel, so they could not detect an edge — an edge is by definition a *relationship between neighbours*. Filtering is that step, and it is literally the convolution the CNN track already covered, with hand-designed weights instead of learned ones.
@@ -34,6 +26,12 @@ Sum the weights.
 
 ## The four families
 
+<PredictReveal
+  prompt="A blur kernel of size 15 by 15 costs 225 multiplications per pixel. A separable version splits it into two passes. What does that cost?"
+  options={["Still 225, split differently", "30 — fifteen for the horizontal pass and fifteen for the vertical, which is why separability matters"]}
+  correct={1}
+>
+
 | Family | Kernel | What it does | Cost |
 |---|---|---|---|
 | **Box blur** | all $1/k^2$ | unweighted average | separable, $2k$ |
@@ -46,6 +44,12 @@ Sobel gives you gradients in both directions; combine them for magnitude and ori
 $$\|\nabla I\| = \sqrt{G_x^2 + G_y^2}, \qquad \theta = \arctan\!\left(\frac{G_y}{G_x}\right)$$
 
 Those two quantities are the raw material for the Harris detector and for HOG in Module 5.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does separability save in a convolution?", a: "A two-dimensional kernel that factors into a row and a column can be applied as two one-dimensional passes. The cost per pixel falls from the kernel area to the sum of its sides, so a 15 by 15 blur drops from 225 multiplications to 30 without changing the result." },
+]} />
 
 ## Worked example — separability pays
 
@@ -129,6 +133,16 @@ Step 3 is the same greedy "keep the local winner, delete its neighbours" logic t
   { q: "How many multiply-adds per pixel does a separable 11x11 Gaussian need, versus the naive version?", a: "22 versus 121 — two 1-D passes of 11 taps each instead of one 2-D pass of 121 taps, a 5.5x saving. It works because the 2-D Gaussian matrix is rank 1, the outer product of a 1-D Gaussian with itself, and convolution is associative." },
   { q: "Name the step in Canny that reappears almost unchanged in object detection.", a: "Non-maximum suppression. Canny keeps a pixel only if it is the maximum along the gradient direction, thinning a thick edge to a single line. Detectors keep a box only if it is the highest-scoring one among heavily overlapping candidates, collapsing a cluster of detections to one. Same greedy local-winner rule, different neighbourhood definition." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A filter replaces each pixel with a **function of its neighbourhood**. Linear filters use a weighted sum — a kernel.
+- **Kernel sum tells you the filter's job**: sum 1 preserves brightness (smoothing), sum 0 is a derivative (edges), sum > 1 brightens.
+- Gaussian is **separable**: a $k \times k$ blur costs $2k$ multiplies per pixel instead of $k^2$. At $k=15$ that is 30 versus 225.
+- **Median is not linear** and that is the point — it deletes salt-and-pepper noise that any weighted average only smears.
+- Canny is not one filter: blur → gradient → non-max suppression → hysteresis. Three of those four ideas reappear in object detection.
+</ConceptBox>
 
 <QuizCard
   question="Applying a 9×9 Gaussian blur to a 640×480 image: how many multiply-adds per pixel does the separable implementation save compared to the naive 2-D one?"

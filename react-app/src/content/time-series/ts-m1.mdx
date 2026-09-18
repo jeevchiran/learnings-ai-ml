@@ -1,5 +1,7 @@
-import { ConceptBox, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import DecompositionWidget from '../../components/widgets/time-series/DecompositionWidget.jsx'
+
+# Module 1: What Is a Time Series? Components & Decomposition
 
 <ConceptBox title="Run the code">
 Every code block in this track is collected into one runnable notebook:
@@ -11,14 +13,17 @@ built twice: by hand in NumPy so the mechanism is visible, then the statsmodels
 call you would actually ship.
 </ConceptBox>
 
-<ConceptBox title="TL;DR">
-- Time series break two tabular-ML assumptions: **order matters** and **rows aren't independent**.
-- Decompose into trend + seasonality + residual (cycle usually gets absorbed into trend).
-- **Seasonality has a fixed known period; a cycle doesn't.** That's the whole distinction.
-- Constant-size seasonal swings → additive. Swings that grow with the level → multiplicative, and a log-transform converts it to additive.
+<ConceptBox title="Before you start">
+Two things carry over from earlier tracks: a mean and a variance (Maths for ML, Module 7) and fitting a model by minimising squared error (Regression, Module 2). The new idea here is that row order is part of the data, which quietly invalidates the shuffling and random splitting every earlier track relied on.
 </ConceptBox>
 
 ## What Is a Time Series?
+
+<PredictReveal
+  prompt="You shuffle the rows of a customer table and refit a model. Nothing changes. You shuffle the rows of a daily sales table. What happens?"
+  options={["Nothing — the same rows are still there", "The signal is destroyed, because in a time series the order is the information"]}
+  correct={1}
+>
 
 A **time series** is a sequence of values indexed in time order: daily stock prices, monthly sales, hourly server load. Two things make it different from a regular tabular dataset — **order matters** (shuffling rows destroys the signal), and **observations are usually not independent** (today's value leans on yesterday's).
 
@@ -29,6 +34,12 @@ A **time series** is a sequence of values indexed in time order: daily stock pri
 | Ops / SRE | Requests-per-minute |
 | Climate | Daily temperature |
 | Epidemiology | Weekly case counts |
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What two properties separate a time series from an ordinary table?", a: "Order carries information, so shuffling the rows destroys the signal, and successive observations are not independent, because today's value leans on yesterday's. Both break assumptions that ordinary supervised methods rely on." },
+]} />
 
 ## The Components of a Time Series
 
@@ -49,7 +60,21 @@ $$\text{Additive: } y_t = T_t + S_t + R_t \qquad\qquad \text{Multiplicative: } y
 
 **Additive** — seasonal swings stay a *constant size* no matter how high the trend climbs (e.g. "+200 units every December, always"). **Multiplicative** — seasonal swings grow *proportionally* with the trend (e.g. "+20% every December" — bigger in absolute terms as the base grows). A quick visual test: if the amplitude of the wiggles grows alongside the level, it's multiplicative; a log-transform turns a multiplicative series additive, since $\log(T\times S \times R) = \log T + \log S + \log R$.
 
+<PredictReveal
+  prompt="A shop sells 200 extra units every December, whatever the size of the business. A second shop sells 20% more every December. Which one needs a multiplicative decomposition?"
+  options={["The first, since a fixed amount is simpler", "The second, because its seasonal swing grows in absolute terms as the trend rises"]}
+  correct={1}
+>
+
 <DecompositionWidget />
+
+Raise the trend in the widget and watch the additive seasonal band keep its width while the multiplicative one fans out. A log transform turns the second into the first, which is why logging is the standard first move on a fanning series.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How do you tell an additive series from a multiplicative one by eye, and what fixes the difference?", a: "Look at whether the size of the seasonal swings grows as the overall level rises. Constant-width swings are additive; widening swings are multiplicative. Taking logs converts a multiplicative series into an additive one, because the log of a product is a sum." },
+]} />
 
 ## Decomposing in Python
 
@@ -70,6 +95,15 @@ trend, seasonal, residual = result.trend, result.seasonal, result.resid
 
 <ConceptBox title="Common confusion — trend vs. stationarity">
 A series can have zero trend and still be non-stationary (e.g. its *variance* grows over time), and a trending series is by definition non-stationary. "Stationary" is a stronger, more precise condition than "no visible trend" — Module 4 makes this exact.
+</ConceptBox>
+
+---
+
+<ConceptBox title="TL;DR">
+- Time series break two tabular-ML assumptions: **order matters** and **rows aren't independent**.
+- Decompose into trend + seasonality + residual (cycle usually gets absorbed into trend).
+- **Seasonality has a fixed known period; a cycle doesn't.** That's the whole distinction.
+- Constant-size seasonal swings → additive. Swings that grow with the level → multiplicative, and a log-transform converts it to additive.
 </ConceptBox>
 
 ## Practice

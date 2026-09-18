@@ -1,13 +1,19 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import EigenWidget from '../../components/widgets/math-ml/EigenWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- $\det(M)=0$ ⟺ $M$ collapses space ⟺ no inverse ⟺ some direction is destroyed. These are four ways of saying one thing.
-- An **eigenvector** is a direction the matrix only stretches, never rotates: $M\mathbf{v}=\lambda\mathbf{v}$. The eigenvalue $\lambda$ is the stretch factor.
-- Shortcuts worth memorising: $\det(M)=\lambda_1\lambda_2$, $\text{trace}(M)=\lambda_1+\lambda_2$, and a diagonal matrix's eigenvalues are its diagonal.
-</ConceptBox>
+# Module 3: Eigenvalues, Eigenvectors & Rank
+
+<Bridge>
+Module 2 ended on the determinant: one number saying how much a transformation inflates area, plus a warning that a determinant of zero means space got flattened. This module takes that warning seriously. It asks when a transformation can be undone, then finds the special directions a transformation barely disturbs at all.
+</Bridge>
 
 ## Inverse, Determinant, Rank — Can You Undo M?
+
+<PredictReveal
+  prompt="A transformation flattens the whole plane onto one line. You are shown a point on that line and asked which point it came from. Can you answer?"
+  options={["Yes, just run the transformation backwards", "No, because a whole line of different inputs all landed on that same point"]}
+  correct={1}
+>
 
 <ConceptBox title="Three questions about a matrix M">
 - **Determinant** $\det(M)$ — the area/volume scale factor (Module 2). $\det(M)=0$ means M *collapses* space into a lower dimension — information is destroyed, and there's no way back.
@@ -15,11 +21,23 @@ import EigenWidget from '../../components/widgets/math-ml/EigenWidget.jsx'
 - **Rank** — the dimension of the output space M actually reaches. A 2×2 matrix has rank 2 (full, invertible), rank 1 (collapses the plane onto a line), or rank 0 (collapses everything to the origin).
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does a determinant of zero rule out an inverse?", a: "A zero determinant means the map collapses space onto something lower-dimensional, so many different inputs land on the same output. An inverse would have to pick one of them, and no rule could choose — the information was destroyed by the collapse." },
+]} />
+
 Solving a linear system $A\mathbf{x}=\mathbf{b}$ (as in solving normal equations for linear regression) is exactly asking "which input landed on $\mathbf{b}$?" — that only has a unique answer when $A$ is invertible.
 
 ## Eigenvalues & Eigenvectors
 
 Most directions get rotated *and* scaled by a transformation. An **eigenvector** is a special direction that only gets **scaled** — it doesn't rotate off its own line.
+
+<PredictReveal
+  prompt="A matrix stretches the plane 3x horizontally and leaves the vertical direction alone. Most arrows come out pointing somewhere new. Are there any arrows that come out pointing exactly the way they went in?"
+  options={["No, every arrow gets turned by some amount", "Yes — anything lying along the horizontal or the vertical axis"]}
+  correct={1}
+>
 
 <DerivationSteps>
 <DerivationStep number={1} title="The defining equation">
@@ -37,9 +55,31 @@ $\det(M) = \lambda_1\lambda_2$ and $\text{trace}(M)=\lambda_1+\lambda_2$. Both e
 
 <EigenWidget />
 
+Rotate the input vector in the widget and watch the output swing away from it, then snap back into alignment exactly at the eigenvector directions. Those are the directions the transformation only scales.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Define an eigenvector without using the word eigenvalue.", a: "A non-zero direction that the transformation leaves lying along its own line. The matrix may stretch it, shrink it, or flip it end for end, but it never turns it off that line." },
+]} />
+
+<PredictReveal
+  prompt="A matrix rotates every vector in the plane by 30 degrees. How many directions survive that rotation still pointing along their own line?"
+  options={["Two, as usual for a 2x2 matrix", "None — which is why its eigenvalues come out complex"]}
+  correct={1}
+>
+
 <ConceptBox title="Common confusion — eigenvectors aren't unique in length">
 If $\mathbf{v}$ is an eigenvector, so is $2\mathbf{v}$, $-\mathbf{v}$, any nonzero scalar multiple — same direction, same eigenvalue. Libraries return them normalized to unit length by convention, but the *direction* is the meaningful part.
 </ConceptBox>
+
+A pure rotation moves every direction off its own line, so no real eigenvector can exist. The characteristic equation still has roots, but they come out complex — that is the algebra telling you the geometry contains a rotation.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "A 2x2 matrix has complex eigenvalues. What is it doing geometrically?", a: "Rotating. Complex eigenvalues are exactly the signature of a map that leaves no real direction pointing along its own line, and a rotation turns every vector in the plane." },
+]} />
 
 ## In Python (NumPy)
 
@@ -56,6 +96,14 @@ print(np.linalg.det(M))               # 8
 print(np.linalg.matrix_rank(M))       # 2
 print(np.linalg.inv(M))               # exists since det != 0
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- $\det(M)=0$ ⟺ $M$ collapses space ⟺ no inverse ⟺ some direction is destroyed. These are four ways of saying one thing.
+- An **eigenvector** is a direction the matrix only stretches, never rotates: $M\mathbf{v}=\lambda\mathbf{v}$. The eigenvalue $\lambda$ is the stretch factor.
+- Shortcuts worth memorising: $\det(M)=\lambda_1\lambda_2$, $\text{trace}(M)=\lambda_1+\lambda_2$, and a diagonal matrix's eigenvalues are its diagonal.
+</ConceptBox>
 
 ## Practice
 

@@ -9,7 +9,7 @@ Module 2 named the pieces: an encoder stack, a decoder stack, three kinds of att
 
 ## The running example: source in, code out
 
-Take a toy source input $S_1$ and imagine the model is trained to translate a plain-English instruction into Python — $S_1$ = "print hello world" goes in, and the target is the code `print('Hello, world!')`.
+The fluffy-blue-creature sentence is a single sequence, so it is ideal for self-attention but gives a decoder nothing to translate *into*. For this module only, take a toy source input $S_1$ and imagine the model is trained to translate a plain-English instruction into Python — $S_1$ = "print hello world" goes in, and the target is the code `print('Hello, world!')`.
 
 <PredictReveal
   prompt='Before any attention runs, "print", "hello", and "world" each become a vector via an embedding table — exactly like Module 1 of the previous track. What is added to those vectors before they enter the first encoder block?'

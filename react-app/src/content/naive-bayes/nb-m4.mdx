@@ -1,16 +1,22 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 
-<ConceptBox title="TL;DR">
-- "Training" is counting. `fit` computes class fractions and per-feature frequency tables; there is no optimiser.
-- **Laplace smoothing** is `(count + α) / (n_c + α·|values|)` — it hands every category a pretend observation so no likelihood can be exactly 0.
-- `α=0` reproduces raw frequencies; large `α` washes the likelihoods toward uniform and the prediction collapses to the **prior**.
-- `CategoricalNB` is this same counting formula, vectorised. Writing it from scratch buys understanding, not speed.
-- `class_prior_` is the *empirical* class fraction of your training split, not a uniform default — and Gaussian NB's posteriors come out near-one-hot, i.e. overconfident.
-</ConceptBox>
+# Module 4: Python Demonstration
 
 ## From Formula to Code
 
+<PredictReveal
+  prompt="Training a naive Bayes classifier involves no gradient descent and no iteration. What does fitting actually consist of?"
+  options={["An optimisation loop like every other model", "Counting — the parameters are just frequencies read off the training data"]}
+  correct={1}
+>
+
 Module 3 derived $\hat{y} = \arg\max_y P(y)\prod_i P(x_i\mid y)$ and worked it by hand on the Play Tennis table. Here we implement exactly that — first from scratch, then with scikit-learn — on the *same* data, so outputs can be checked against each other.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does training a naive Bayes model actually involve?", a: "Counting. The class priors are class frequencies and each likelihood is a per-class feature frequency, so fitting is a single pass over the data with no iteration or optimisation. That is why it trains in a fraction of the time any gradient-based model needs." },
+]} />
 
 ## From Scratch
 
@@ -64,6 +70,12 @@ Module 3's *unsmoothed* hand calc gave `{'Yes': 0.30, 'No': 0.70}`. The predicti
 
 ## The Same Model in scikit-learn
 
+<PredictReveal
+  prompt="A word appears in your test document but never appeared in any training document of one class. What does that class's score become?"
+  options={["Slightly lower than the others", "Exactly zero, because one zero factor wipes out the whole product"]}
+  correct={1}
+>
+
 For categorical features, `CategoricalNB` is the identical algorithm — encode to integers, fit, compare:
 
 ```python
@@ -86,6 +98,12 @@ print("class probabilities:", dict(zip(clf.classes_, clf.predict_proba(query)[0]
 ```
 
 Reproduces the from-scratch result — class `No`, probabilities matching `{'Yes': 0.4375, 'No': 0.5625}`. The from-scratch version's value isn't speed; it's proof that `CategoricalNB` is the same three-line counting formula, vectorized and hardened.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does an unseen feature value destroy a class score, and what fixes it?", a: "The score is a product of likelihoods, so a single zero factor forces the whole product to zero regardless of the evidence from every other feature. Add-alpha smoothing adds a small pseudo-count to every cell, which keeps every likelihood positive at the cost of a slight pull towards uniform." },
+]} />
 
 ## A Realistic Dataset: Gaussian NB on Iris
 
@@ -120,6 +138,16 @@ Two things: `class_prior_` isn't exactly `[1/3,1/3,1/3]` — it's the *empirical
 <Bridge>
 Both demos picked their likelihood by feature type: counts for categorical Outlook/Windy, a Gaussian for continuous Iris. That choice is the whole content of Module 5 — Multinomial, Bernoulli, and Gaussian as three answers to "what does $P(x_i\mid y)$ look like?"
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- "Training" is counting. `fit` computes class fractions and per-feature frequency tables; there is no optimiser.
+- **Laplace smoothing** is `(count + α) / (n_c + α·|values|)` — it hands every category a pretend observation so no likelihood can be exactly 0.
+- `α=0` reproduces raw frequencies; large `α` washes the likelihoods toward uniform and the prediction collapses to the **prior**.
+- `CategoricalNB` is this same counting formula, vectorised. Writing it from scratch buys understanding, not speed.
+- `class_prior_` is the *empirical* class fraction of your training split, not a uniform default — and Gaussian NB's posteriors come out near-one-hot, i.e. overconfident.
+</ConceptBox>
 
 ## Practice
 

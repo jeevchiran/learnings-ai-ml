@@ -1,16 +1,21 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import StationarityWidget from '../../components/widgets/time-series/StationarityWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Stationary = constant mean, constant variance, and autocovariance that depends only on the lag. AR models need it or their coefficients drift out of date.
-- **ADF's null hypothesis is "non-stationary"** — so here a *low* p-value is the good news. Backwards from most tests.
-- Three repair tools, one per symptom: difference for trend, seasonally difference for a repeating cycle, log for growing variance.
-- A slowly-decaying ACF is the visual tell for non-stationarity.
-</ConceptBox>
+# Module 4: Stationarity — Tests & Autocorrelation
+
+<Bridge>
+Exponential smoothing in Module 3 needed nothing from the data beyond its shape. The autoregressive models coming next are stricter: they assume the relationship between a value and its own past is the same everywhere in the series. This module is about checking that assumption and repairing it when it fails.
+</Bridge>
 
 ## Why This Module Exists
 
 Autoregressive models (next module) assume the relationship between $y_t$ and its past values is the **same at every point in time**. If the series is trending or its variance is changing, that relationship keeps shifting under the model's feet — coefficients fit on one stretch stop applying to the next. Stationarity is the precondition that makes AR modelling well-posed.
+
+<PredictReveal
+  prompt="A model learns that today's value is 0.8 times yesterday's. The series has a steady upward trend. Does that learned relationship hold across the whole series?"
+  options={["Yes, the multiplier is the same regardless of level", "No — with a rising mean, the relationship fitted on early data does not describe later data"]}
+  correct={1}
+>
 
 ## What "Stationary" Actually Means
 
@@ -22,7 +27,19 @@ Autoregressive models (next module) assume the relationship between $y_t$ and it
 
 A trending series fails (1). A series whose swings grow over time fails (2). A series whose seasonal correlation shape changes decade to decade fails (3).
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why do autoregressive models require stationarity?", a: "They fit one fixed set of coefficients describing how a value relates to its own past. If the mean or the variance drifts over time, that relationship changes as the series progresses, so coefficients estimated on one stretch stop describing the next and forecasts degrade systematically." },
+]} />
+
 ## Testing for It: The ADF Test
+
+<PredictReveal
+  prompt="The augmented Dickey-Fuller test returns a large p-value on your series. What does that mean?"
+  options={["The series is stationary, since large p-values are good", "You have failed to reject non-stationarity — its null hypothesis is that a unit root is present"]}
+  correct={1}
+>
 
 The **Augmented Dickey-Fuller (ADF)** test is the standard formal check. It fits
 
@@ -42,7 +59,19 @@ print(f'ADF statistic: {result[0]:.3f}, p-value: {result[1]:.4f}')
 # p < 0.05  ->  reject H0  ->  series looks stationary
 ```
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the null hypothesis of the augmented Dickey-Fuller test, and how do you read its p-value?", a: "The null is that the series has a unit root, that is, that it is non-stationary. A small p-value therefore rejects non-stationarity and supports stationarity, which is the opposite reading from most tests and a common source of error." },
+]} />
+
 ## Dealing With Non-Stationarity
+
+<PredictReveal
+  prompt="Your series has a clear upward trend. You subtract each value from the next one. What have you done to the trend?"
+  options={["Nothing — the differences still rise", "Removed it, because a constant slope becomes a constant difference"]}
+  correct={1}
+>
 
 <DerivationSteps>
 <DerivationStep number={1} title="Differencing — remove trend">
@@ -59,6 +88,12 @@ Fixes variance that grows with the level (the multiplicative case from Module 1)
 </DerivationStep>
 </DerivationSteps>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does differencing remove a trend?", a: "A linear trend adds the same amount at every step, so the difference between consecutive observations is constant and the drifting mean disappears. Differencing once removes a linear trend, twice removes a quadratic one, and seasonal differencing at the period removes a repeating seasonal pattern." },
+]} />
+
 ## Autocorrelation: Measuring "How Long Is the Memory"
 
 The **ACF** (autocorrelation function) is the correlation of the series with a lagged copy of itself:
@@ -68,6 +103,15 @@ $$\rho_k = \frac{\sum_t (y_t-\bar y)(y_{t-k}-\bar y)}{\sum_t (y_t-\bar y)^2}$$
 A slowly-decaying ACF (still large at lag 15, 20…) is a visual tell for non-stationarity — the series "remembers" too far back, usually because of a trend. A properly stationary series' ACF drops toward the significance band ($\pm 1.96/\sqrt n$) within a handful of lags.
 
 <StationarityWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- Stationary = constant mean, constant variance, and autocovariance that depends only on the lag. AR models need it or their coefficients drift out of date.
+- **ADF's null hypothesis is "non-stationary"** — so here a *low* p-value is the good news. Backwards from most tests.
+- Three repair tools, one per symptom: difference for trend, seasonally difference for a repeating cycle, log for growing variance.
+- A slowly-decaying ACF is the visual tell for non-stationarity.
+</ConceptBox>
 
 ## Practice
 

@@ -1,24 +1,33 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import SigmoidROCWidget from '../../components/widgets/regression/SigmoidROCWidget.jsx'
 
 <Bridge>
 Modules 1–2 covered linear regression for continuous outcomes. Many real problems involve categorical decisions: Is this email spam? Does this patient have diabetes? Linear regression fails — it produces values outside [0,1] with no principled way to represent probability. We need a model that outputs probabilities.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- The sigmoid squashes $\mathbb{R}\to(0,1)$, so the output is a legal probability instead of an unbounded number.
-- **The model is linear in log-odds, not in probability.** That single sentence explains every coefficient interpretation here.
-- So $\beta_j$ is additive on log-odds and **multiplicative on odds**: one unit of $x_j$ multiplies the odds by $e^{\beta_j}$.
-- Multiclass: **OvR** trains $K$ independent binaries (probabilities need not sum to 1); **softmax** models all $K$ jointly (they do, by construction).
-- L1 zeroes coefficients (selection), L2 shrinks them (stability). `C` in sklearn is $1/\lambda$ — bigger `C` means *less* regularisation.
-- **Accuracy lies on imbalanced data.** The threshold, not the model, sets the precision/recall trade-off.
-</ConceptBox>
-
 ## Why Linear Regression Fails for Classification
+
+<PredictReveal
+  prompt="You fit an ordinary straight-line regression to labels that are only ever 0 or 1, then read the output as a probability. What can go wrong with the very first prediction?"
+  options={["Nothing — the output is between 0 and 1 by construction", "It can come out negative or above 1, and no probability can be either"]}
+  correct={1}
+>
 
 If we naively fit a linear regression $\hat{y} = \mathbf{x}^T\boldsymbol{\beta}$ to binary labels $y \in \{0, 1\}$, predictions can be any real number — including values less than 0 or greater than 1, which cannot be interpreted as probabilities.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can a plain linear model not output probabilities?", a: "Its output is an unbounded real number, so it can fall below 0 or rise above 1 for perfectly ordinary inputs. A probability must stay inside that range, so the linear predictor has to be passed through a squashing function first." },
+]} />
+
 ## The Logistic Model
+
+<PredictReveal
+  prompt="We need a function that turns any real number into something between 0 and 1, never quite reaching either end, and rises smoothly throughout. Roughly what shape must its graph have?"
+  options={["A straight line clipped at 0 and 1", "An S-curve, flat at both ends and steepest in the middle"]}
+  correct={1}
+>
 
 Pass the linear predictor through the **sigmoid function**, which maps $\mathbb{R} \to (0, 1)$:
 
@@ -34,7 +43,19 @@ $$\log\frac{p}{1-p} = \mathbf{x}^T\boldsymbol{\beta} = \beta_0 + \beta_1 x_1 + \
 
 The model is **linear in log-odds** but nonlinear in probability. Each unit increase in $x_j$ changes the log-odds by $\beta_j$, multiplying the odds by $e^{\beta_j}$.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the relationship between the linear predictor and the probability in logistic regression?", a: "The linear predictor equals the log-odds, not the probability. Probability is recovered by passing the linear predictor through the sigmoid, so the model is linear on the log-odds scale and S-shaped on the probability scale." },
+]} />
+
 ## Log-Odds and Logits
+
+<PredictReveal
+  prompt={"A coefficient of 1.2 sits on family history in a diabetes model. Does that mean having a family history adds 1.2 to the probability of diabetes?"}
+  options={["Yes, coefficients add directly to the probability", "No — it adds 1.2 to the log-odds, which multiplies the odds by e to the 1.2, roughly a factor of 3.3"]}
+  correct={1}
+>
 
 | Probability $p$ | Odds $\frac{p}{1-p}$ | Log-odds $\log\frac{p}{1-p}$ | Interpretation |
 |----------------|---------------------|------------------------------|----------------|
@@ -51,6 +72,12 @@ Three reasons make logit the natural scale for classification:
 2. **Coefficients are multiplicative on odds** — $\beta_j$ means "a one-unit increase in $x_j$ multiplies the odds by $e^{\beta_j}$" — directly actionable in medical/business contexts
 3. **Arises naturally from Bernoulli distribution** — the logit is the canonical link function for the Bernoulli family in the GLM framework
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How do you interpret a logistic regression coefficient of 1.2?", a: "A one-unit increase in that predictor adds 1.2 to the log-odds, which multiplies the odds by e to the power 1.2, about 3.3 times. The effect on the probability itself is not constant — it depends on where you start, because the sigmoid is steep in the middle and flat at the ends." },
+]} />
 
 ### Clinical Example: Diabetes Risk
 
@@ -189,6 +216,17 @@ for C in [0.001, 0.01, 0.1, 1, 10, 100]:
   { q: "Your fraud model reports 99.9% accuracy. Why is that number worthless, and what do you report instead?", a: "Because only 0.1% of cases are fraud, so predicting 'never fraud' scores 99.9% while catching nothing. Report precision and recall on the positive class, or AUC-PR, which is sensitive to performance on the rare class in a way accuracy and AUC-ROC are not." },
   { q: "Cancer screening wants recall 0.95; fraud review wants precision 0.90. Same model — how?", a: "By moving the decision threshold. A low threshold flags anything remotely suspicious, raising recall at the cost of false alarms — right when a missed cancer is far worse than an extra biopsy. A high threshold does the reverse, right when each investigated case is expensive. The model's ranking is unchanged; only the cut point moves." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The sigmoid squashes $\mathbb{R}\to(0,1)$, so the output is a legal probability instead of an unbounded number.
+- **The model is linear in log-odds, not in probability.** That single sentence explains every coefficient interpretation here.
+- So $\beta_j$ is additive on log-odds and **multiplicative on odds**: one unit of $x_j$ multiplies the odds by $e^{\beta_j}$.
+- Multiclass: **OvR** trains $K$ independent binaries (probabilities need not sum to 1); **softmax** models all $K$ jointly (they do, by construction).
+- L1 zeroes coefficients (selection), L2 shrinks them (stability). `C` in sklearn is $1/\lambda$ — bigger `C` means *less* regularisation.
+- **Accuracy lies on imbalanced data.** The threshold, not the model, sets the precision/recall trade-off.
+</ConceptBox>
 
 <QuizCard
   question="A cancer screening model has Precision=0.60 and Recall=0.95. A fraud detection model has Precision=0.90 and Recall=0.55. Which metric is each model optimizing for, and which threshold setting achieves it?"

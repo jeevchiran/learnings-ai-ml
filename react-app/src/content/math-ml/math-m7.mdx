@@ -1,18 +1,29 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import ExpectationCovarianceWidget from '../../components/widgets/math-ml/ExpectationCovarianceWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- $E[X]$ is the probability-weighted average — a long-run average, not necessarily an achievable value.
-- $\text{Var}(X)=E[X^2]-(E[X])^2$ is the one-pass shortcut; $\sigma=\sqrt{\text{Var}}$ puts it back in readable units.
-- **Covariance's sign is meaningful, its size is not** (it carries units). Divide by both standard deviations and you get correlation $r\in[-1,1]$.
-- $r=0$ rules out a *linear* relationship only. $Y=X^2$ has $r\approx0$ and is perfectly deterministic — plot the scatter.
-</ConceptBox>
+# Module 7: Expectation, Variance & Covariance
+
+<Bridge>
+Module 6 named the distributions. A distribution is a whole shape, though, and you cannot put a shape in a table or compare two of them at a glance. This module reduces a distribution to a few numbers — where it sits, how wide it is, and how it moves together with another one.
+</Bridge>
 
 ## Expectation — The Probability-Weighted Average
+
+<PredictReveal
+  prompt="Roll a fair six-sided die many times and average the results. What number do you converge on, and can a single roll ever produce it?"
+  options={["3 or 4, and yes, a roll can show it", "3.5, and no roll can ever show it"]}
+  correct={1}
+>
 
 $$E[X] = \sum_x x\,P(X{=}x) \qquad\text{(discrete)} \qquad\qquad E[X] = \int x\,f(x)\,dx \qquad\text{(continuous)}$$
 
 The "expected value" isn't necessarily a value $X$ can even take (E[die roll] = 3.5, and no face shows 3.5) — it's the long-run average over infinitely many draws.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Can the expected value of a random variable be a value the variable never takes?", a: "Yes. The expectation is a probability-weighted average over the long run, not a prediction of any single outcome. A fair die has expectation 3.5 even though no face shows 3.5." },
+]} />
 
 ## Variance — How Spread Out?
 
@@ -33,15 +44,43 @@ Back in the original units of $X$ (variance is in *squared* units) — this is t
 
 ## Covariance & Correlation
 
+<PredictReveal
+  prompt="One study reports a covariance of 400 between height and weight. Another reports 5 for the same quantities, measured on the same people. Which study found the stronger relationship?"
+  options={["The one reporting 400", "Neither — covariance carries units, so the two numbers are not comparable"]}
+  correct={1}
+>
+
 $$\text{Cov}(X,Y) = E[(X-E[X])(Y-E[Y])] \qquad\qquad r = \frac{\text{Cov}(X,Y)}{\sigma_X\sigma_Y}$$
 
 Covariance's *sign* tells you the direction of the linear relationship (positive: move together; negative: move oppositely); its *magnitude* is hard to interpret because it depends on the scale of X and Y. Correlation $r \in [-1,1]$ fixes that by normalizing — this is exactly the covariance matrix from Module 4, just examined pairwise here instead of eigendecomposed.
 
 <ExpectationCovarianceWidget />
 
+Switch the units in the widget and watch the covariance jump while the correlation holds still. Measuring height in millimetres rather than metres multiplies the covariance by a thousand without changing the relationship one bit.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is correlation more useful than covariance for comparing relationships?", a: "Covariance carries the product of both variables' units, so its size depends on the measurement scale and cannot be compared across datasets. Dividing by both standard deviations removes the units and produces a number between -1 and 1 that means the same thing everywhere." },
+]} />
+
+<PredictReveal
+  prompt={"Y equals X squared exactly, with X spread evenly on both sides of zero. Y is completely determined by X. What correlation does that pair have?"}
+  options={["Close to 1, since Y is perfectly determined by X", "Close to 0, because correlation only sees straight-line relationships"]}
+  correct={1}
+>
+
 <ConceptBox title="Common confusion — correlation is not causation, and it's only linear">
 $r=0$ means no *linear* relationship — X and Y can still be tightly, deterministically related in a nonlinear way (e.g. $Y=X^2$ over a symmetric range gives $r\approx0$) and correlation would completely miss it. Always plot the scatter, don't just trust the number.
 </ConceptBox>
+
+Positive and negative deviations of X both push Y upward, so the products entering the covariance sum cancel exactly. The relationship is perfect and the number is zero. This is why a scatter plot is not optional.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Give a case where correlation is zero but one variable fully determines the other.", a: "Y = X squared with X spread symmetrically about zero. Deviations on either side of zero contribute opposite-signed products that cancel, so the correlation is zero even though Y is an exact function of X. Correlation only detects straight-line relationships." },
+]} />
 
 ## In Python (NumPy)
 
@@ -55,6 +94,15 @@ print(X.mean(), X.var())          # E[X], Var(X)  (ddof=0 by default)
 print(np.cov(X, Y, ddof=1))       # 2x2 covariance matrix
 print(np.corrcoef(X, Y))          # 2x2 correlation matrix, diagonal = 1
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- $E[X]$ is the probability-weighted average — a long-run average, not necessarily an achievable value.
+- $\text{Var}(X)=E[X^2]-(E[X])^2$ is the one-pass shortcut; $\sigma=\sqrt{\text{Var}}$ puts it back in readable units.
+- **Covariance's sign is meaningful, its size is not** (it carries units). Divide by both standard deviations and you get correlation $r\in[-1,1]$.
+- $r=0$ rules out a *linear* relationship only. $Y=X^2$ has $r\approx0$ and is perfectly deterministic — plot the scatter.
+</ConceptBox>
 
 ## Practice
 

@@ -1,14 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import HistogramSkewWidget from '../../components/widgets/pandas-eda/HistogramSkewWidget.jsx'
 
 # Univariate Visualization
-
-<ConceptBox title="TL;DR">
-- **Mean and SD cannot distinguish symmetric, skewed, bimodal, and uniform.** Two very different columns can share both numbers. Plotting is the only way to see the shape.
-- **Histogram** = binned counts (bin count changes the story). **KDE** = smoothed version (bandwidth changes the story). **Box plot** = five-number summary plus flagged outliers, compact enough to stack.
-- The **mean-versus-median gap is your skew detector**: fares average $26 with a median of $11.75, and that gap *is* the $399 outlier.
-- A histogram immediately reveals a discrete column — `passenger_count` takes only 1–6, mode 1.
-</ConceptBox>
 
 ## What, Why, and How
 
@@ -48,6 +41,12 @@ All three chart types require `import matplotlib.pyplot as plt` and optionally `
 
 ## Code Walkthrough
 
+<PredictReveal
+  prompt="A fare column has a mean of 26 and a median of 11.75. What does that gap tell you before you plot anything?"
+  options={["Nothing much, means and medians usually differ", "The distribution has a long right tail, and the mean is being dragged by a few large values"]}
+  correct={1}
+>
+
 ```python
 # Histogram
 df['fare_amount'].hist(bins=10, figsize=(8, 4))
@@ -84,11 +83,26 @@ Bars + overlaid smooth density curve in one call
 
 **The `kde=True` overlay is powerful for bin-count sensitivity.** When you have a small sample, histogram shape can change dramatically as you slide the bin count up or down. Adding `kde=True` puts a smooth density curve on top — it is not affected by bin boundaries and shows the overall shape independently. Use both together to distinguish real structure from binning artifacts.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does a mean much larger than the median indicate?", a: "A right-skewed distribution with a long tail of high values. The median stays with the bulk of the data while the mean is pulled towards the extremes, so for a skewed column the median is the better summary of a typical value." },
+]} />
+
 <Bridge>
 The widget below lets you explore these three columns with either a histogram (adjustable bin count) or a box plot, and shows the summary statistics in real time.
 </Bridge>
 
 <HistogramSkewWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Mean and SD cannot distinguish symmetric, skewed, bimodal, and uniform.** Two very different columns can share both numbers. Plotting is the only way to see the shape.
+- **Histogram** = binned counts (bin count changes the story). **KDE** = smoothed version (bandwidth changes the story). **Box plot** = five-number summary plus flagged outliers, compact enough to stack.
+- The **mean-versus-median gap is your skew detector**: fares average $26 with a median of $11.75, and that gap *is* the $399 outlier.
+- A histogram immediately reveals a discrete column — `passenger_count` takes only 1–6, mode 1.
+</ConceptBox>
 
 ## Practice
 

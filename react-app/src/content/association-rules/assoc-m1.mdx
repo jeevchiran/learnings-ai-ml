@@ -1,11 +1,10 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import SupportConfidenceWidget from '../../components/widgets/association-rules/SupportConfidenceWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Unsupervised, but not clustering: we group **items that co-occur**, not customers.
-- Three numbers judge a rule $A\Rightarrow B$: **support** = how often (is it worth acting on?), **confidence** = $P(B\mid A)$ (how reliable?), **lift** = $P(B\mid A)/P(B)$ (is it real?).
-- **Lift is the honest one.** Confidence alone rewards popular consequents — a rule can hit 0.9 confidence purely because $B$ is in most baskets.
-- Read lift as: $>1$ positive association, $=1$ independent, $<1$ negative.
+# Module 1: Why Association Rules? Support, Confidence, Lift
+
+<ConceptBox title="Before you start">
+You need only two ideas, both from the Maths for ML track: a probability as a fraction of cases (Module 5) and a conditional probability, the chance of one thing given another (Module 5). No model is trained in this track and nothing is predicted — it is counting, done carefully.
 </ConceptBox>
 
 ## Why Association Rules?
@@ -52,6 +51,16 @@ We will use this 10-transaction grocery database throughout the whole track:
 
 ## Three Numbers That Define a Rule
 
+<PredictReveal
+  prompt="Almost every supermarket basket contains a carrier bag. So the rule saying anything at all implies a carrier bag will hold in about 95% of the baskets that contain that thing. Is that a useful discovery?"
+  options={["Yes, 95% reliability is excellent", "No — bags are in 95% of baskets anyway, so the rule tells you nothing you did not know"]}
+  correct={1}
+>
+
+That is exactly why reliability alone is never enough, and why the third number below exists. Read on for all three.
+
+</PredictReveal>
+
 A rule $A \Rightarrow B$ (antecedent $A$, consequent $B$, with $A \cap B = \emptyset$) is judged by three metrics.
 
 <DerivationSteps>
@@ -81,7 +90,31 @@ High support, high confidence, lift just above 1 — a common pairing but only a
 Consider $\{Beer\} \Rightarrow \{Milk\}$: Beer in 7 baskets, both in 5, so confidence $= \tfrac{5}{7} \approx 0.71$ — looks strong! But Milk's baseline support is 0.80, so lift $= \tfrac{0.71}{0.80} \approx 0.89 < 1$. Beer buyers are actually **less** likely than average to buy milk. High confidence just reflects that milk is *everywhere*. **Always check lift** — confidence alone favors popular consequents.
 </ConceptBox>
 
+<PredictReveal
+  prompt={"Beer appears in 7 of 10 baskets and milk in 8. Five baskets contain both, so buying beer is followed by milk 71% of the time. Is that a positive association?"}
+  options={["Yes, 71% is high", "No — milk's own baseline is 80%, so beer buyers are actually less likely than average to buy milk"]}
+  correct={1}
+>
+
 <SupportConfidenceWidget />
+
+Push the consequent's baseline up and down in the widget and watch confidence stay put while lift crosses 1. Confidence measures the rule; lift measures whether the rule beats doing nothing.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Write support, confidence and lift as probabilities, and say what each guards against.", a: "Support is the probability of both items together, which guards against acting on noise. Confidence is the probability of the consequent given the antecedent, which guards against an unreliable implication. Lift is that confidence divided by the consequent's own baseline probability, and it is the only one of the three that compares against doing nothing." },
+  { q: "A rule has lift 4.0 and support 0.0002. Act on it?", a: "Probably not. The association is strong relative to baseline, but it rests on about two baskets in ten thousand, so the estimate is statistically unstable and commercially negligible. High lift on tiny support is the classic false-discovery trap." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Unsupervised, but not clustering: we group **items that co-occur**, not customers.
+- Three numbers judge a rule $A\Rightarrow B$: **support** = how often (is it worth acting on?), **confidence** = $P(B\mid A)$ (how reliable?), **lift** = $P(B\mid A)/P(B)$ (is it real?).
+- **Lift is the honest one.** Confidence alone rewards popular consequents — a rule can hit 0.9 confidence purely because $B$ is in most baskets.
+- Read lift as: $>1$ positive association, $=1$ independent, $<1$ negative.
+</ConceptBox>
 
 ## Practice
 

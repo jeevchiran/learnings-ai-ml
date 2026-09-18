@@ -1,14 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import TensorShapeWidget from '../../components/widgets/deep-learning/TensorShapeWidget.jsx'
 
 # Module 3: PyTorch — Tensors & Operations
-
-<ConceptBox title="TL;DR">
-- A tensor is an N-D array that **also records the operations applied to it**, which is what makes autograd possible.
-- Shape conventions worth memorising: `[B, T, C]` for sequences, `[B, C, H, W]` for images.
-- **Trailing underscore = in-place** (`add_`, `relu_`). Saves memory and can corrupt the values autograd needs for the backward pass.
-- **Broadcasting aligns shapes from the right**, stretching size-1 dimensions — it does *not* require equal rank.
-- `.to(device)` moves data without touching your operation code; `@` is matrix multiply, `*` is elementwise.
-</ConceptBox>
 
 <Bridge>
 **From Module 2:** We have the theory of MLPs — stacked layers, weight matrices, activations. Now we need a framework to compute these operations on real hardware, efficiently and with automatic differentiation. PyTorch is the dominant framework for deep learning research and increasingly for production. Its core abstraction is the **tensor** — an N-dimensional array with GPU support and a computation graph for gradients. This module covers everything you need to write real PyTorch code.
@@ -34,6 +27,12 @@ A tensor in PyTorch is a generalization of scalars, vectors, and matrices to arb
 4. **Ecosystem:** torchvision, torchaudio, HuggingFace, Lightning — the entire modern ML stack builds on PyTorch.
 
 ## How Tensors Work
+
+<PredictReveal
+  prompt="You add a tensor of shape (32, 10) to one of shape (10,). Does that fail?"
+  options={["Yes, the shapes differ", "No — broadcasting stretches the smaller one across the batch dimension, which is how a bias vector is added"]}
+  correct={1}
+>
 
 ### Creating Tensors
 
@@ -147,6 +146,14 @@ y = x @ x.T                # GPU matmul
 
 ---
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is broadcasting and where does it appear in a neural network?", a: "It is the rule that lets tensors of different shapes combine by stretching size-one or missing dimensions to match. Adding a bias vector to a batch of activations relies on it: one bias per unit is applied to every row of the batch without materialising a copy per row." },
+]} />
+
+<TensorShapeWidget />
+
 ## Mathematics: Forward Propagation — Matrix Perspective
 
 <DerivationSteps>
@@ -201,6 +208,14 @@ GPUs execute thousands of such multiplications in parallel via SIMD instructions
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- A tensor is an N-D array that **also records the operations applied to it**, which is what makes autograd possible.
+- Shape conventions worth memorising: `[B, T, C]` for sequences, `[B, C, H, W]` for images.
+- **Trailing underscore = in-place** (`add_`, `relu_`). Saves memory and can corrupt the values autograd needs for the backward pass.
+- **Broadcasting aligns shapes from the right**, stretching size-1 dimensions — it does *not* require equal rank.
+- `.to(device)` moves data without touching your operation code; `@` is matrix multiply, `*` is elementwise.
+</ConceptBox>
 
 ## Quiz
 

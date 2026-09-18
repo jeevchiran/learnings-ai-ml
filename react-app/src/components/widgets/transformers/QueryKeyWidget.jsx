@@ -4,9 +4,9 @@ import { TOKENS, Q, K, rawScores } from './attentionData.js'
 
 const COLOR = '#1e3a8a'
 
-export default function QueryKeyWidget() {
+export default function QueryKeyWidget({ defaultCausal = true }) {
   const [i, setI] = useState(3) // "creature"
-  const [causal, setCausal] = useState(true)
+  const [causal, setCausal] = useState(defaultCausal)
 
   const scores = rawScores(i, causal)
   const finite = scores.filter(Number.isFinite)

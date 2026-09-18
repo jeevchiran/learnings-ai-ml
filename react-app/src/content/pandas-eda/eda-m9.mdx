@@ -1,19 +1,28 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Capstone — End-to-End EDA Workflow
 
-<ConceptBox title="TL;DR">
-- **The order is not arbitrary.** Outlier fences computed before invalid rows are removed are contaminated by them; a correlation matrix computed before cleaning describes the errors as much as the data.
-- Nine steps mapping to Modules 1–8: inspect → missing → invalid → outliers → features → univariate → bivariate → multivariate → report.
-- Cleaning is **subtractive and irreversible** — record what you dropped and why, so row counts reconcile at the end.
-- The deliverable isn't a clean DataFrame, it's a short findings report: what you found, what you changed, what still can't be trusted.
-</ConceptBox>
+<Bridge>
+Modules 1 to 8 each covered one step in isolation. Doing them in the wrong order quietly corrupts the results, because every step's output is the next step's input. This capstone runs the whole sequence on the taxi sample and explains why the order is what it is.
+</Bridge>
 
 ## The EDA Pipeline
+
+<PredictReveal
+  prompt="You compute outlier fences first, then remove the rows with negative fares. Is that equivalent to doing it the other way round?"
+  options={["Yes, the same rows get removed either way", "No — the negative fares dragged the fences down, so genuine outliers were hidden by values you were about to delete"]}
+  correct={1}
+>
 
 <ConceptBox title="A real EDA project follows a repeatable pipeline">
 Each step builds on the previous one — you cannot meaningfully detect outliers if you have not removed invalid values first, and you cannot trust a correlation matrix if the data still contains data-entry errors. The nine steps below map directly to Modules 1–8 of this track.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why must invalid values be removed before outlier fences are computed?", a: "The fences are computed from the data's own quartiles, so impossible values shift them. A negative fare pulls the lower fence further down, which widens the acceptable range and hides genuine extremes at the top. Cleaning first means the fences describe only plausible data." },
+]} />
 
 <DerivationSteps>
 <DerivationStep number={1} title="Load & Inspect — Module 1">
@@ -118,6 +127,15 @@ Based on all pipeline steps applied to the 30-row NYC taxi sample:
 3. **4 rows have zero trip distance** (ids 5, 11, 20, 30) — likely cancelled trips where meter started but ride did not complete.
 4. **RatecodeID=2 trips explain high-fare outliers** — flat-rate $45/$52 airport fares (ids 6, 18) fall above the IQR fence but are legitimate data, not errors.
 5. **`fare_amount` and `trip_distance` show strong positive correlation** — but confounded by the flat-rate pricing regime. Segment by RatecodeID to see the true per-mile relationship.
+
+---
+
+<ConceptBox title="TL;DR">
+- **The order is not arbitrary.** Outlier fences computed before invalid rows are removed are contaminated by them; a correlation matrix computed before cleaning describes the errors as much as the data.
+- Nine steps mapping to Modules 1–8: inspect → missing → invalid → outliers → features → univariate → bivariate → multivariate → report.
+- Cleaning is **subtractive and irreversible** — record what you dropped and why, so row counts reconcile at the end.
+- The deliverable isn't a clean DataFrame, it's a short findings report: what you found, what you changed, what still can't be trusted.
+</ConceptBox>
 
 ## Quiz
 

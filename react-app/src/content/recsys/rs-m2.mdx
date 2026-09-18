@@ -1,12 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import SignalWeightWidget from '../../components/widgets/recsys/SignalWeightWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- **Explicit** feedback (a 5-star review) is honest, rare, and biased toward extremes. **Implicit** feedback (views, carts, purchases) is abundant, noisy, and *positive-only*.
-- Implicit means: an interaction is weak evidence of interest; a non-interaction is mostly evidence of **nothing**. Missing ≠ negative.
-- The standard move is to collapse events into one number $r_{ui}$ with per-event weights, then split it into **preference** $p_{ui}\in\{0,1\}$ and **confidence** $c_{ui}$.
-- Signal strength runs opposite to signal volume: purchases are what you want and what you barely have.
-</ConceptBox>
+# Module 2: Data & Signals
 
 ## What NovaCart actually records
 
@@ -31,6 +26,12 @@ That one distinction is why ALS-for-implicit exists as a separate algorithm (mod
 
 ## Collapsing events into a number
 
+<PredictReveal
+  prompt="A user viewed an item, added it to the basket, and bought it. Should those three events count equally as evidence of interest?"
+  options={["Yes, all three are positive signals", "No — a purchase is far stronger evidence than a view, so they need different weights"]}
+  correct={1}
+>
+
 Almost every model wants a single interaction strength per (shopper, product) pair. The standard construction:
 
 $$r_{ui} = \sum_{e \in \text{events}(u,i)} w_{\text{type}(e)}$$
@@ -41,7 +42,19 @@ Plain English: add up a weight for every event this shopper had with this produc
 
 Those weights are a **choice, not a measurement**. There is no ground truth telling you a purchase is worth ten views. What you can do is defend them: pick weights, ship, and let the offline metric and the A/B test tell you whether they were sane.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are interaction events weighted rather than counted equally?", a: "They differ enormously in how much intent they demonstrate. A view can be an accident or a moment of curiosity; a purchase costs money. Weighting encodes that difference so the model does not treat a thousand idle views as equivalent to a thousand purchases." },
+]} />
+
 ## Preference and confidence
+
+<PredictReveal
+  prompt="A user never interacted with an item. Does that mean they dislike it?"
+  options={["Yes, no interaction means no interest", "Unknowable — they may simply never have seen it, which is why implicit feedback separates preference from confidence"]}
+  correct={1}
+>
 
 The trick that makes implicit feedback tractable is to stop pretending $r_{ui}$ is a rating and split it in two:
 
@@ -59,6 +72,12 @@ $$\min \sum_{u,i} c_{ui}\,(p_{ui} - x_u^\top y_i)^2 + \lambda(\lVert X \rVert^2 
 The sum runs over the **full** user×item matrix, not just observed entries. Unobserved cells pull predictions toward 0 but only with weight 1, so a few strong positives can overcome many weak zeros.
 </DerivationStep>
 </DerivationSteps>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does implicit feedback separate preference from confidence?", a: "An absent interaction is ambiguous: it can mean dislike or it can mean the item was never shown. The model therefore records a binary preference and a separate confidence weight, so that observed interactions carry strong confidence while the vast unobserved majority carries weak confidence rather than a firm negative." },
+]} />
 
 ## Worked example
 
@@ -84,6 +103,15 @@ So far we have assumed the event log is clean. It is not. Next: the contract tha
   { q: "In the widget, why does setting the view weight to 0 nearly empty the matrix?", a: "Views are the overwhelming majority of events (most of the log). Purchases and carts are rare. This is the central tension of implicit feedback: the strongest signal is the scarcest, so a model trained only on purchases has almost no data, and a model trained on views optimises for browsing." },
   { q: "A colleague sets purchase weight to 100 to 'make purchases matter more'. What breaks?", a: "Confidence c = 1 + αr becomes ~100x for purchased cells, so ALS fits those few cells almost exactly and effectively ignores everything else — the model collapses toward memorising past purchases, which is both non-personalised for new behaviour and useless for discovery. Weight ratios control the effective sample weighting; extreme ratios discard data." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Explicit** feedback (a 5-star review) is honest, rare, and biased toward extremes. **Implicit** feedback (views, carts, purchases) is abundant, noisy, and *positive-only*.
+- Implicit means: an interaction is weak evidence of interest; a non-interaction is mostly evidence of **nothing**. Missing ≠ negative.
+- The standard move is to collapse events into one number $r_{ui}$ with per-event weights, then split it into **preference** $p_{ui}\in\{0,1\}$ and **confidence** $c_{ui}$.
+- Signal strength runs opposite to signal volume: purchases are what you want and what you barely have.
+</ConceptBox>
 
 <QuizCard
   question="NovaCart's matrix has r=0 for (Diya, Coffee Grinder). What does the implicit-feedback framing say this cell means?"

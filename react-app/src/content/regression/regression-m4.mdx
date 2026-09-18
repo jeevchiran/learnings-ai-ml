@@ -1,22 +1,21 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import LossLandscapeWidget from '../../components/widgets/regression/LossLandscapeWidget.jsx'
 import MLEWidget from '../../components/widgets/regression/MLEWidget.jsx'
 import NewtonWidget from '../../components/widgets/regression/NewtonWidget.jsx'
+
+# Module 4: Mathematics of Logistic Regression
 
 <Bridge>
 Module 3 used logistic regression as a classification tool. Now we derive the mathematical foundations: why the sigmoid function? Why cross-entropy and not MSE? How does optimization actually find the parameters?
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- The sigmoid isn't a design choice — it **falls out** of writing Bernoulli in exponential-family form and setting the natural parameter equal to $\mathbf{x}^T\boldsymbol{\beta}$.
-- Handy identity used everywhere below: $\sigma'(z)=\sigma(z)(1-\sigma(z))$.
-- **Cross-entropy is convex; MSE-with-sigmoid is not.** That, not accuracy, is why classification uses cross-entropy.
-- The gradient is $\mathbf{X}^T(\mathbf{y}-\mathbf{p})$ — the same "$\mathbf{X}^T\times$ residual" form as linear regression, but $\mathbf{p}$ is nonlinear in $\boldsymbol{\beta}$, so **no closed form exists**. Iterate.
-- **Newton / IRLS** adds curvature ($\mathbf{H}=-\mathbf{X}^T\mathbf{W}\mathbf{X}$) and converges in far fewer steps.
-- Linear and logistic are the same object with different link + distribution — both are **GLMs**, and a neural net layer is a GLM feeding the next.
-</ConceptBox>
-
 ## Why Sigmoid? From Bernoulli to Logistic
+
+<PredictReveal
+  prompt="Many functions squash a real number into the range 0 to 1 — the sigmoid, the normal distribution's cumulative curve, and others. Was the sigmoid picked for logistic regression because it is convenient, or does something select it?"
+  options={["Convenience — any S-shaped squashing function would do", "It falls out of writing the Bernoulli distribution in exponential-family form and setting its natural parameter equal to the linear predictor"]}
+  correct={1}
+>
 
 We model $y \mid \mathbf{x} \sim \text{Bernoulli}(p)$ where $p = f(\mathbf{x}^T\boldsymbol{\beta})$. We need $f: \mathbb{R} \to (0,1)$, monotonic, and differentiable. The sigmoid is not arbitrary — it arises naturally from the exponential family.
 
@@ -46,7 +45,19 @@ The derivative is expressed entirely in terms of the function itself, making gra
 </DerivationStep>
 </DerivationSteps>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Where does the sigmoid come from, rather than being chosen by hand?", a: "Writing the Bernoulli distribution in exponential-family form makes the log-odds its natural parameter. A generalised linear model sets that natural parameter equal to the linear predictor, and solving for the probability gives exactly the sigmoid. It is the inverse of the logit, not an arbitrary squashing choice." },
+]} />
+
 ## Maximum Likelihood Estimation
+
+<PredictReveal
+  prompt="Linear regression has an exact formula for its best coefficients. Does logistic regression have one too?"
+  options={["Yes, the same normal equation with the labels replaced", "No — the likelihood equations have no closed-form solution, so it must be solved iteratively"]}
+  correct={1}
+>
 
 Unlike linear regression, there is no closed-form solution. We use MLE: find $\boldsymbol{\beta}$ that maximizes the probability of observing the training data.
 
@@ -68,7 +79,19 @@ Using $\log\sigma(z) = z - \log(1+e^z)$ and $\log(1-\sigma(z)) = -\log(1+e^z)$.
 </DerivationStep>
 </DerivationSteps>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does logistic regression need an iterative solver when linear regression does not?", a: "Setting the derivative of the log-likelihood to zero gives equations in which the parameters appear inside a sigmoid, and those cannot be rearranged into a closed form. The objective is still convex, so gradient ascent or Newton's method converges reliably to the single global optimum." },
+]} />
+
 ## Cross-Entropy Loss: Why Not MSE?
+
+<PredictReveal
+  prompt="You could train a classifier by squaring the difference between the predicted probability and the 0-or-1 label. Why does nobody do that?"
+  options={["It gives the same answer, just slower", "Squared error on a sigmoid output is non-convex and its gradient vanishes exactly where the model is most confidently wrong"]}
+  correct={1}
+>
 
 The negative log-likelihood divided by $n$ gives the **cross-entropy loss**:
 
@@ -81,6 +104,14 @@ Cross-entropy is **convex in $\boldsymbol{\beta}$** because $-\log\sigma(z)$ is 
 </ConceptBox>
 
 <LossLandscapeWidget />
+
+Switch between the two losses in the widget and watch the surface change from a single clean bowl into something with flat shelves. The flat regions are where training stalls.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is cross-entropy preferred over squared error for logistic regression?", a: "Squared error applied to a sigmoid output produces a non-convex surface with flat regions, and its gradient shrinks towards zero precisely when the model is confidently wrong, so training stalls there. Cross-entropy is convex in the parameters and its gradient grows with the size of the error." },
+]} />
 
 ## Computing the Gradient
 
@@ -198,6 +229,17 @@ Neural networks extend this by stacking nonlinear transformations: each layer is
   { q: "What does Newton's method add over gradient ascent here, and what does it cost?", a: "It uses the Hessian -X^T W X, with W = diag(p_i(1-p_i)), so each step accounts for curvature and converges quadratically — typically a handful of iterations instead of thousands. The cost is forming and inverting a p x p matrix per step, which is why it is the default for modest p and impractical for very wide data." },
   { q: "Place linear, logistic, and Poisson regression in one framework.", a: "All three are GLMs: pick an exponential-family distribution for the response and a link connecting E[y] to the linear predictor. Gaussian with identity link gives linear regression and MSE; Bernoulli with logit link gives logistic regression and cross-entropy; Poisson with log link gives count regression. Only the distribution and link change." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The sigmoid isn't a design choice — it **falls out** of writing Bernoulli in exponential-family form and setting the natural parameter equal to $\mathbf{x}^T\boldsymbol{\beta}$.
+- Handy identity used everywhere below: $\sigma'(z)=\sigma(z)(1-\sigma(z))$.
+- **Cross-entropy is convex; MSE-with-sigmoid is not.** That, not accuracy, is why classification uses cross-entropy.
+- The gradient is $\mathbf{X}^T(\mathbf{y}-\mathbf{p})$ — the same "$\mathbf{X}^T\times$ residual" form as linear regression, but $\mathbf{p}$ is nonlinear in $\boldsymbol{\beta}$, so **no closed form exists**. Iterate.
+- **Newton / IRLS** adds curvature ($\mathbf{H}=-\mathbf{X}^T\mathbf{W}\mathbf{X}$) and converges in far fewer steps.
+- Linear and logistic are the same object with different link + distribution — both are **GLMs**, and a neural net layer is a GLM feeding the next.
+</ConceptBox>
 
 <QuizCard
   question="Why does minimizing cross-entropy loss guarantee finding the global optimum, while minimizing MSE with the sigmoid does not?"

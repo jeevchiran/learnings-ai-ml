@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import NeuralNetworkWidget from '../../components/widgets/deep-learning/NeuralNetworkWidget.jsx'
 
 # Module 5: Forward Propagation
-
-<ConceptBox title="TL;DR">
-- The forward pass does **two** jobs: produce $\hat{\mathbf{y}}$, and **cache** $(\mathbf{Z}^{[l]}, \mathbf{A}^{[l]})$ for the backward pass.
-- That cache is why training uses far more memory than inference — the activations of every layer stay alive until backprop consumes them.
-- Hence **`torch.no_grad()` for inference**: it skips building the graph, so nothing is retained.
-- Shape conventions: input `[B, n_features]`, `nn.Linear(in, out).weight` is `[out, in]`, every $\mathbf{Z}$ and $\mathbf{A}$ is `[B, n_layer]`.
-- The bias broadcasts across the batch dimension — one bias vector serves every sample.
-</ConceptBox>
 
 <Bridge>
 **From Module 4:** You know how to define a model (`nn.Module`) and load data. When you call `output = model(input)`, PyTorch executes the `forward()` method — this is **forward propagation**. This module formalizes exactly what happens mathematically during that call: how signals flow from input to output, what gets cached (and why), and how the shapes of tensors change at each layer. This understanding is the prerequisite for Module 6, where we reverse this process to compute gradients.
@@ -24,9 +16,21 @@ Forward propagation is the process of computing a network's prediction $\hat{\ma
 
 ## Why Cache Intermediate Values?
 
+<PredictReveal
+  prompt="Forward propagation stores every layer's intermediate activation. That costs memory proportional to the batch size and depth. Why not discard them?"
+  options={["They are kept for debugging", "The backward pass needs them — each layer's gradient depends on the input that layer saw"]}
+  correct={1}
+>
+
 During backpropagation (Module 6), the gradient at layer $l$ requires both the **upstream gradient** and the **local gradient** at that layer. The local gradient depends on the activation $\mathbf{A}^{[l-1]}$ (to compute $\partial \mathbf{Z}^{[l]}/\partial W^{[l]}$) and the pre-activation $\mathbf{Z}^{[l]}$ (to compute $g'^{[l]}(\mathbf{Z}^{[l]})$).
 
 PyTorch's autograd graph stores exactly these values. This is why **inference-only code** should use `torch.no_grad()` — it skips building the graph and saves memory.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does the forward pass store its intermediate activations?", a: "Every layer's weight gradient is a product involving the input that layer received, so backpropagation cannot run without those values. This is also why training needs far more memory than inference, and why memory use scales with both depth and batch size." },
+]} />
 
 ## How Forward Propagation Works
 
@@ -179,6 +183,14 @@ $$\text{softmax}(\mathbf{z})_k = \frac{e^{z_k - \max(\mathbf{z})}}{\sum_j e^{z_j
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- The forward pass does **two** jobs: produce $\hat{\mathbf{y}}$, and **cache** $(\mathbf{Z}^{[l]}, \mathbf{A}^{[l]})$ for the backward pass.
+- That cache is why training uses far more memory than inference — the activations of every layer stay alive until backprop consumes them.
+- Hence **`torch.no_grad()` for inference**: it skips building the graph, so nothing is retained.
+- Shape conventions: input `[B, n_features]`, `nn.Linear(in, out).weight` is `[out, in]`, every $\mathbf{Z}$ and $\mathbf{A}$ is `[B, n_layer]`.
+- The bias broadcasts across the batch dimension — one bias vector serves every sample.
+</ConceptBox>
 
 ## Quiz
 

@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import ROIWidget from '../../components/widgets/cv/ROIWidget.jsx'
 
 # Module 6: Regions of Interest
-
-<ConceptBox title="TL;DR">
-- An ROI is **an array slice**: `img[y1:y2, x1:x2]`. Row range first. It is a *view*, not a copy — writing to it writes through to the original.
-- **Crop** changes the shape; **mask** preserves it and zeroes the outside. Rectangles want crops, irregular shapes want masks.
-- Three box formats — `xywh`, `xyxy`, `cxcywh` — and mixing them is the quietest bug in detection, because nothing errors.
-- **Contours + connected components** are how you get boxes without a neural network, and they still beat one when the object is a colour blob.
-- Every region-based detector in this track (R-CNN through Faster R-CNN) is this module plus a CNN.
-</ConceptBox>
 
 <Bridge>
 Modules 1–5 processed whole images. Detection needs to talk about *parts* of an image — this module is the vocabulary for that, and the box formats introduced here are used unchanged for the rest of the track.
@@ -33,6 +25,12 @@ Two things about this line surprise people:
 
 ## Box formats
 
+<PredictReveal
+  prompt={"One library reports a box as x, y, width, height. Another reports it as left, top, right, bottom. You pass one to the other unchanged. What happens?"}
+  options={["A crash, caught immediately", "A silently wrong box — the numbers are all valid, so nothing errors and the mistake surfaces as bad accuracy"]}
+  correct={1}
+>
+
 | Format | Fields | Used by |
 |---|---|---|
 | `xywh` | top-left + size | OpenCV, COCO annotations |
@@ -44,6 +42,12 @@ $$\text{xywh} \to \text{xyxy}: (x,\,y,\,x{+}w,\,y{+}h) \qquad \text{xyxy} \to \t
 <ConceptBox title="Why this bug is so hard to see">
 Feed `xywh` into code expecting `xyxy` and nothing crashes — the numbers are all plausible. The box simply lands in the wrong place, IoU with the ground truth comes out low, and the model trains to a mediocre mAP that looks like an architecture problem. **Always visualise a handful of boxes on their images before training.** Ten minutes there saves a week of tuning.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are bounding-box format mismatches such a common bug?", a: "Every format uses four numbers that are individually plausible, so passing the wrong one produces a valid-looking box rather than an error. The failure appears much later as poor detection accuracy, with nothing in the stack trace pointing at the conversion." },
+]} />
 
 ## Getting regions without a network
 
@@ -84,6 +88,16 @@ Width went from $655 - (-12) = 667$ to $640$ and height from 460 to 440, so the 
   { q: "Name the three bounding-box formats and one consumer of each.", a: "xywh (top-left plus size) — OpenCV and COCO annotations. xyxy (both corners) — torchvision, and all the IoU and NMS math. cxcywh (centre plus size, usually normalised to 0-1) — YOLO label files and most single-stage heads. Converting between them wrongly does not raise an error; the boxes just land in the wrong place." },
   { q: "Why must predicted boxes be clipped to the image before use?", a: "Because the box regressor has no constraint keeping it inside the frame — it can and does predict negative coordinates or coordinates past the width. NumPy slicing silently clips, so the crop comes back a different size than the box claimed, and any shape assumption downstream breaks somewhere far from the cause." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- An ROI is **an array slice**: `img[y1:y2, x1:x2]`. Row range first. It is a *view*, not a copy — writing to it writes through to the original.
+- **Crop** changes the shape; **mask** preserves it and zeroes the outside. Rectangles want crops, irregular shapes want masks.
+- Three box formats — `xywh`, `xyxy`, `cxcywh` — and mixing them is the quietest bug in detection, because nothing errors.
+- **Contours + connected components** are how you get boxes without a neural network, and they still beat one when the object is a colour blob.
+- Every region-based detector in this track (R-CNN through Faster R-CNN) is this module plus a CNN.
+</ConceptBox>
 
 <QuizCard
   question="A COCO annotation gives bbox = [120, 80, 60, 90] in xywh. What is the same box in cxcywh?"

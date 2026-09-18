@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import AffineWidget from '../../components/widgets/cv/AffineWidget.jsx'
 
 # Module 4: Image Transformations
-
-<ConceptBox title="TL;DR">
-- Geometric transforms move **where** a pixel is, not what value it holds. All of them are one $3\times3$ matrix in homogeneous coordinates.
-- **Affine** (6 DoF, bottom row `[0 0 1]`) keeps parallel lines parallel. **Projective / homography** (8 DoF) does not — that is what a camera does.
-- $|\det M|$ **is** the area scale factor. Rotation and translation have $\det = 1$.
-- Warping runs **backwards**: for each output pixel, apply $M^{-1}$ to find where to sample. Forward mapping leaves holes.
-- Output coordinates are fractional, so you must **interpolate** — nearest for masks and labels, bilinear for images.
-</ConceptBox>
 
 <Bridge>
 Filtering changed pixel values in place. Transformations move the pixels themselves — the operation behind resizing, rotation augmentation, image stitching, and the RoI-align step you will meet in Module 13.
@@ -37,6 +29,12 @@ The homogeneous coordinate is what lets **translation** — which is not linear 
 
 ## Forward versus inverse warping
 
+<PredictReveal
+  prompt="You rotate an image by mapping each source pixel to where it lands in the output. What does the output look like?"
+  options={["Correct, if slightly rotated", "Full of holes — several source pixels land on the same output pixel while others receive none"]}
+  correct={1}
+>
+
 Naively, for each *input* pixel compute its destination. This fails: scaling up by 2 writes to every other output pixel and leaves a lattice of holes; scaling down has several inputs fight for one output.
 
 So every real implementation inverts it:
@@ -61,6 +59,12 @@ Every output pixel is written exactly once. The cost is that $(x,y)$ is fraction
 
 **Bilinear when shrinking.** Downscaling 4× with `INTER_LINEAR` samples only 4 of every 16 source pixels, so thin structures alias into moiré. `INTER_AREA` averages the whole footprint. This is a real accuracy bug in detection pipelines that resize 1080p down to 640.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is warping done backwards, from output to input?", a: "Mapping forwards leaves output pixels that no source pixel landed on, producing holes, and piles several sources onto the same destination. Iterating over output pixels and asking where each came from guarantees every output pixel gets exactly one value, interpolated from its neighbours in the source." },
+]} />
 
 ## Worked example — rotate a box, and why detection cares
 
@@ -122,6 +126,16 @@ The four weights sum to 1, so brightness is preserved and the result is a convex
   { q: "You resize a segmentation mask from 512x512 to 256x256 with bilinear interpolation. What goes wrong?", a: "Interpolation averages neighbouring class ids, so a boundary between class 3 and class 5 produces a value of 4 — a class that was never annotated. Label maps must use nearest-neighbour, which only ever copies an existing id." },
   { q: "Rotating an axis-aligned bounding box by 30 degrees inflates it. Why, and by how much for a 100x60 box?", a: "Because the rotated box is no longer axis-aligned, and re-storing it in that format means taking the axis-aligned hull of the four rotated corners. For 100x60 at 30 degrees the hull is 116.6 x 102 = 11,893 px against the original 6,000 — a 98% inflation. The label now claims a lot of background as object, which is why rotation augmentation is used sparingly in detection." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Geometric transforms move **where** a pixel is, not what value it holds. All of them are one $3\times3$ matrix in homogeneous coordinates.
+- **Affine** (6 DoF, bottom row `[0 0 1]`) keeps parallel lines parallel. **Projective / homography** (8 DoF) does not — that is what a camera does.
+- $|\det M|$ **is** the area scale factor. Rotation and translation have $\det = 1$.
+- Warping runs **backwards**: for each output pixel, apply $M^{-1}$ to find where to sample. Forward mapping leaves holes.
+- Output coordinates are fractional, so you must **interpolate** — nearest for masks and labels, bilinear for images.
+</ConceptBox>
 
 <QuizCard
   question="How many point correspondences are needed to solve for a homography, and why?"

@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import ConvolutionWidget from '../../components/widgets/cnn/ConvolutionWidget.jsx'
 
 # Module 2: Convolution Operations
-
-<ConceptBox title="TL;DR">
-- Convolution is a **sliding dot product**: the response is large where the local patch matches the kernel pattern, small where it doesn't.
-- Frameworks actually compute **cross-correlation** (no kernel flip). Irrelevant in practice — the kernel just learns the flipped version.
-- Output size: $\lfloor (H + 2P - K)/S \rfloor + 1$. **Same padding** is $P=(K-1)/2$ at stride 1.
-- Padding exists so the kernel can centre on border pixels — without it, edges are undersampled and every layer shrinks the map.
-- **Padding and stride change the output size, never the parameter count.** Only $K$, $C_{in}$, and $C_{out}$ do that.
-</ConceptBox>
 
 <Bridge>
 **From Module 1:** we established that MLPs fail on images because they ignore locality, repeat redundant weights, and have no translation equivariance. The mechanism that fixes all three is the **convolution** — or more precisely, the *cross-correlation* that deep learning frameworks call convolution. This module goes into the full mechanics: what the operation computes, why it works, and how stride, padding, and kernel size affect the output.
@@ -39,6 +31,12 @@ The dot product $\sum_{m,n} \mathbf{X}(i+m, j+n) \cdot \mathbf{K}(m,n)$ is large
 
 ## Stride and padding
 
+<PredictReveal
+  prompt="A 3 by 3 kernel slides over a 5 by 5 image with no padding. What size is the output?"
+  options={["5 by 5, the same as the input", "3 by 3 — the kernel cannot centre on the border pixels, so the output shrinks"]}
+  correct={1}
+>
+
 **Stride** $S$: how many pixels the kernel moves per step.
 
 $$H_{out} = \left\lfloor \frac{H_{in} - K}{S} \right\rfloor + 1 \quad \text{(no padding)}$$
@@ -50,6 +48,12 @@ $$H_{out} = \left\lfloor \frac{H_{in} + 2P - K}{S} \right\rfloor + 1$$
 **"Same" padding** keeps output the same spatial size as input (with $S=1$):
 
 $$P = \frac{K - 1}{2} \quad \text{(for odd K)}$$
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does convolution without padding shrink the output, and what is the cost of that?", a: "The kernel needs a full neighbourhood around each position, so it cannot be centred on the outermost pixels and the output loses a border. Stacking many such layers shrinks the map away and systematically under-uses the edges of the image, which is why same-padding is the usual default." },
+]} />
 
 ## Interactive: watch the kernel slide
 
@@ -151,6 +155,14 @@ The ratio is $\frac{K^2}{H \times W}$ — for a $28 \times 28$ image with $K=3$,
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Convolution is a **sliding dot product**: the response is large where the local patch matches the kernel pattern, small where it doesn't.
+- Frameworks actually compute **cross-correlation** (no kernel flip). Irrelevant in practice — the kernel just learns the flipped version.
+- Output size: $\lfloor (H + 2P - K)/S \rfloor + 1$. **Same padding** is $P=(K-1)/2$ at stride 1.
+- Padding exists so the kernel can centre on border pixels — without it, edges are undersampled and every layer shrinks the map.
+- **Padding and stride change the output size, never the parameter count.** Only $K$, $C_{in}$, and $C_{out}$ do that.
+</ConceptBox>
 
 ## Quiz
 

@@ -1,14 +1,19 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import AccuracyInterpretabilityWidget from '../../components/widgets/xai/AccuracyInterpretabilityWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Accuracy answers *what*, never *why*. A model can be right for entirely spurious reasons and a held-out score will not tell you.
-- **Interpretability** = the model is readable by construction. **Explainability** = a technique applied afterwards to an opaque model. XAI mostly means the second.
-- The old trade-off was "accurate or readable, pick one." XAI refuses it: keep the accurate model, bolt explanation on as a separate layer.
-- Four concrete payoffs: trust, debugging (Clever Hans leaks), legal compliance, and discovery.
+# Module 1: What Is Explainable AI?
+
+<ConceptBox title="Before you start">
+You need to have met a few model families already: linear and logistic regression, decision trees and random forests, and ideally a neural network. This track does not build new models — it explains the ones you already have, so it only makes sense once there is something to explain.
 </ConceptBox>
 
 ## The Black-Box Problem
+
+<PredictReveal
+  prompt="A bank's model refuses a loan. The applicant, by law, is entitled to a reason. The model is a 500-tree gradient boosting ensemble. Can the bank read the reason off the model?"
+  options={["Yes, the trees are all inspectable", "No — five hundred interacting trees have no single readable path, which is exactly why this field exists"]}
+  correct={1}
+>
 
 A model can be extremely accurate and still be useless. A bank's neural network denies a loan; the applicant asks *why*; the bank shrugs. A hospital model flags a scan as malignant; the radiologist needs to know *what in the image* triggered it before acting. Accuracy alone answers "what" — it never answers "why."
 
@@ -18,11 +23,29 @@ A model can be extremely accurate and still be useless. A bank's neural network 
 **Interpretability** — how well a human can grasp the model's mechanism on its own (a 3-line decision tree is interpretable). **Explainability** — techniques applied *after the fact* to shine a light into a model that isn't interpretable by itself (SHAP on a deep net). XAI mostly lives in the second bucket.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a large ensemble hard to explain even though every tree in it is readable?", a: "A single tree gives one path and one readable rule. An ensemble averages hundreds of them, so the prediction comes from a weighted combination with no single path to follow. Each component is transparent and the aggregate is not." },
+]} />
+
 ## Complexity vs. Interpretability
 
 The uncomfortable pattern: the models that win on hard problems are the hardest to read. A linear model hands you its reasoning in a row of coefficients. A 100-million-parameter network hands you nothing legible. Explore the trade-off:
 
+<PredictReveal
+  prompt="Is the trade-off between accuracy and interpretability a law of nature?"
+  options={["Yes, more accurate always means less explainable", "No — on structured tabular data a well-built simple model often matches a complex one, and the trade-off is a tendency rather than a rule"]}
+  correct={1}
+>
+
 <AccuracyInterpretabilityWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Is the accuracy-versus-interpretability trade-off absolute?", a: "No. It is a strong tendency, not a law. On well-structured tabular problems a carefully built linear model or shallow tree frequently matches a large ensemble, and choosing the opaque model then buys nothing but a harder explanation problem." },
+]} />
 
 Historically you picked a point on that diagonal: give up accuracy for a model you can read, or accept a black box you can't. XAI refuses the choice — **keep the accurate model, add explanation as a separate layer on top.**
 
@@ -44,6 +67,15 @@ A famous vision model classified horses correctly — by reading a copyright tag
 <Bridge>
 Before diving into specific methods, one distinction organises the whole field: does an explanation describe the model's behaviour **everywhere at once**, or its reasoning on **one specific prediction**? That's global vs. local interpretability — the subject of the next module, and the axis every method in this track sits on.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Accuracy answers *what*, never *why*. A model can be right for entirely spurious reasons and a held-out score will not tell you.
+- **Interpretability** = the model is readable by construction. **Explainability** = a technique applied afterwards to an opaque model. XAI mostly means the second.
+- The old trade-off was "accurate or readable, pick one." XAI refuses it: keep the accurate model, bolt explanation on as a separate layer.
+- Four concrete payoffs: trust, debugging (Clever Hans leaks), legal compliance, and discovery.
+</ConceptBox>
 
 ## Practice
 

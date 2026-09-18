@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import TransferLearningWidget from '../../components/widgets/cnn/TransferLearningWidget.jsx'
 
 # Module 8: Transfer Learning
-
-<ConceptBox title="TL;DR">
-- Pretrained features form a **hierarchy**: edges → textures → parts → semantics. The early layers are near-universal across vision tasks; only the deep ones are ImageNet-specific.
-- Two strategies: **freeze the backbone** and train a new head (small data), or **fine-tune** with a low learning rate (more data, bigger domain shift).
-- **You must reuse the pretraining normalisation statistics.** Different mean/std shifts every input off the distribution the frozen weights expect.
-- Always replace the classification head — its output dimension is 1,000 ImageNet classes, not yours.
-- **Progressive unfreezing** beats unfreezing everything at once: large gradients from a random head would otherwise wreck good pretrained weights in the first few steps.
-</ConceptBox>
 
 <Bridge>
 **From Module 7:** a well-tuned data pipeline can push a scratch-trained CNN to ~90% on CIFAR-10. But what if you have 1,000 images instead of 50,000? What if the images are medical scans, satellite imagery, or a private product catalogue with no public benchmark? Training from scratch fails — but a CNN that has already learned to see on ImageNet's 1.2M images has already built a general visual vocabulary. Transfer learning borrows that vocabulary.
@@ -25,6 +17,12 @@ A CNN trained on ImageNet develops hierarchical feature detectors:
 These features generalise across vision tasks. A network that detects fur texture for "cat" has also learned to detect texture for "dog," "tiger," and even radiology patterns in chest X-rays (to a degree). Transfer learning uses this pre-built feature hierarchy as a starting point.
 
 ## Two strategies
+
+<PredictReveal
+  prompt="You fine-tune a pretrained network with the learning rate you would use for training from scratch. What happens in the first few hundred steps?"
+  options={["It converges faster than usual", "The large updates overwrite the pretrained features, throwing away exactly what you downloaded them for"]}
+  correct={1}
+>
 
 ### Strategy 1: Feature extraction
 
@@ -69,6 +67,12 @@ A low LR for early layers prevents catastrophic forgetting of the generic featur
 The loss landscape for a pretrained network is already in a good basin. Large gradient steps would destroy this — pushing weights far from a configuration that already encodes useful features. Smaller LR keeps the pretrained features as a "prior" while the new task's signal refines the later layers.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does fine-tuning require a much smaller learning rate?", a: "The pretrained weights are already close to a good solution, so ordinary-sized steps move them far away from it before the gradient signal from the new task is meaningful. A small rate lets the existing features adjust to the new task instead of being destroyed and relearned." },
+]} />
+
 ## Interactive: compare convergence
 
 <TransferLearningWidget />
@@ -103,7 +107,8 @@ transform = T.Compose([
 # Step 2: Model
 model = models.resnet18(weights='IMAGENET1K_V1')
 model.fc = nn.Linear(512, 10)           # CIFAR-10 has 10 classes
-model = model.cuda()
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+model = model.to(device)
 
 # Step 3: Training with warmup
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
@@ -116,7 +121,7 @@ criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 for epoch in range(30):
     model.train()
     for imgs, labels in train_loader:
-        imgs, labels = imgs.cuda(), labels.cuda()
+        imgs, labels = imgs.to(device), labels.to(device)
         optimizer.zero_grad()
         loss = criterion(model(imgs), labels)
         loss.backward()
@@ -127,6 +132,12 @@ for epoch in range(30):
 **Label smoothing** (`label_smoothing=0.1`) replaces one-hot targets with $(1 - \epsilon) \cdot \mathbf{e}_y + \epsilon / K$ — similar to Mixup, it prevents the model from becoming overconfident.
 
 ## Layer freezing schedule
+
+<PredictReveal
+  prompt="You have 300 labelled images for a new task. Should you fine-tune the whole pretrained network or freeze most of it?"
+  options={["Fine-tune everything, for maximum flexibility", "Freeze the backbone and train only the head — 300 images cannot constrain millions of parameters"]}
+  correct={1}
+>
 
 Progressive unfreezing (ULMFiT-style, adapted to CNNs):
 
@@ -175,6 +186,20 @@ where $\theta_0$ are the pretrained weights. This is an explicit penalty for dri
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Pretrained features form a **hierarchy**: edges → textures → parts → semantics. The early layers are near-universal across vision tasks; only the deep ones are ImageNet-specific.
+- Two strategies: **freeze the backbone** and train a new head (small data), or **fine-tune** with a low learning rate (more data, bigger domain shift).
+- **You must reuse the pretraining normalisation statistics.** Different mean/std shifts every input off the distribution the frozen weights expect.
+- Always replace the classification head — its output dimension is 1,000 ImageNet classes, not yours.
+- **Progressive unfreezing** beats unfreezing everything at once: large gradients from a random head would otherwise wreck good pretrained weights in the first few steps.
+</ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How does dataset size decide between freezing and full fine-tuning?", a: "With a few hundred labels, the backbone is used as a fixed feature extractor and only a small head is trained, because there is not enough evidence to constrain more. With thousands of labels, unfreezing progressively more of the network at a small learning rate reliably does better, since the features can specialise to the new domain." },
+]} />
 
 ## Quiz
 

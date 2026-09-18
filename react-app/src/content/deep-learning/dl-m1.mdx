@@ -1,19 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import PerceptronWidget from '../../components/widgets/deep-learning/PerceptronWidget.jsx'
 
 # Module 1: The Perceptron
 
-<ConceptBox title="TL;DR">
-- One neuron = weighted sum + bias, then an activation: $z=\mathbf{w}^T\mathbf{x}+b$, $\hat y = g(z)$. Every modern architecture is this primitive, stacked.
-- The weights set the **orientation** of the decision boundary; the bias sets its **offset** from the origin.
-- **Convergence is guaranteed — but only if the data is linearly separable.** On non-separable data the rule never settles.
-- **XOR is the fatal counterexample**: no single line separates it, so one perceptron cannot solve it at any training budget.
-- Trained by a local update rule, not backprop — backprop only becomes necessary once there are hidden layers.
-</ConceptBox>
-
 <Bridge>
 **Where does it all begin?** In 1943, Warren McCulloch and Walter Pitts proposed the first mathematical model of a neuron. In 1957, Frank Rosenblatt built the Perceptron — a single artificial neuron that could learn to classify patterns. Every transformer, every diffusion model, every large language model you encounter today is built from stacking and connecting this one primitive. Understanding the perceptron from first principles is not a historical exercise — it is the foundation on which all of modern deep learning rests.
 </Bridge>
+
+<ConceptBox title="Before you start">
+You need three things from the Maths for ML track: the dot product (Module 1), the gradient and the chain rule (Module 9), and gradient descent (Module 10). Everything a neural network does is those three ideas repeated at scale, so if any of them is shaky, that track is the place to go first.
+</ConceptBox>
 
 ## What is a Perceptron?
 
@@ -68,6 +64,12 @@ Adjust weights, bias, and inputs to see how the decision boundary moves. The amb
 
 ## The XOR Problem
 
+<PredictReveal
+  prompt="Four points: (0,0) and (1,1) are class A, (0,1) and (1,0) are class B. Can a single straight line separate them?"
+  options={["Yes, with the right slope", "No — no straight line exists, which is the fact that stalled the field for a decade"]}
+  correct={1}
+>
+
 XOR truth table:
 
 | $x_1$ | $x_2$ | XOR |
@@ -80,6 +82,12 @@ XOR truth table:
 No single line can separate the two classes. This is not a limitation of the perceptron's weights — it is a fundamental geometric impossibility. The fix: add a hidden layer (Module 2).
 
 ---
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can a single perceptron not solve exclusive-or?", a: "A perceptron draws one straight boundary, and the exclusive-or classes are arranged so that each class sits at opposite corners of a square. No single line can put both A corners on one side and both B corners on the other. A hidden layer is needed to bend the boundary." },
+]} />
 
 ## Mathematics: Forward Propagation in a Single Neuron
 
@@ -140,6 +148,14 @@ Notice: the gradient has the same beautiful form as the perceptron update rule �
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- One neuron = weighted sum + bias, then an activation: $z=\mathbf{w}^T\mathbf{x}+b$, $\hat y = g(z)$. Every modern architecture is this primitive, stacked.
+- The weights set the **orientation** of the decision boundary; the bias sets its **offset** from the origin.
+- **Convergence is guaranteed — but only if the data is linearly separable.** On non-separable data the rule never settles.
+- **XOR is the fatal counterexample**: no single line separates it, so one perceptron cannot solve it at any training budget.
+- Trained by a local update rule, not backprop — backprop only becomes necessary once there are hidden layers.
+</ConceptBox>
 
 ## Quiz
 

@@ -1,20 +1,19 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import TwoDistributionWidget from '../../components/widgets/hypothesis-testing/TwoDistributionWidget.jsx'
+
+# Module 4: Two-Sample Tests and A/B Testing
 
 <Bridge>
 **Which email wins?** A team sends subject line A to 200 subscribers (12% click) and B to another 200 (15% click). The 3-point gap — real, or chance even if both lines are equally good? To answer rigorously they run a **two-sample test**, the same framework used in clinical trials and QC whenever two groups are compared.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- Same skeleton as Module 3, new parameter: the **difference** $\mu_1-\mu_2$. Statistic = (estimate − null) / SE, always.
-- Variances add for independent groups, so $\text{SE}=\sqrt{s_1^2/n_1+s_2^2/n_2}$.
-- **Welch is the default.** The pooled t-test assumes equal variances, which is often false and then breaks the Type I error rate.
-- **Independence is a design property, not a choice.** Same subjects in both arms ⟹ paired test (Module 5).
-- A/B testing on a binary outcome is the **two-proportion Z-test**, pooling $\hat p$ under $H_0$.
-- With enough $n$, any difference becomes significant. **Always report effect size and a CI**, not just a verdict.
-</ConceptBox>
-
 ## The Two-Sample Framework
+
+<PredictReveal
+  prompt="Two email subject lines are sent to 200 subscribers each, clicking 12% and 15%. Is that three-point gap enough to declare a winner?"
+  options={["Yes, B is clearly better", "Not on its own — you need to know how much a gap that size would occur by chance with samples this small"]}
+  correct={1}
+>
 
 Module 3 compared one mean $\bar{x}$ to a fixed $\mu_0$. Two-sample tests compare the means of **two independent populations** directly — the parameter of interest is the difference $\mu_1 - \mu_2$:
 
@@ -27,6 +26,12 @@ $$\text{Test statistic} = \frac{(\bar{X}_1 - \bar{X}_2) - \delta_0}{\text{SE}(\b
 <ConceptBox title="Independence assumption">
 The two groups must be **independent** — knowing any value in group 1 tells you nothing about group 2 (guaranteed by random assignment). If the same subjects appear in both (before/after, matched pairs), the two-sample test is invalid — use the **paired t-test** (Module 5).
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What quantity does a two-sample test actually make hypotheses about?", a: "The difference between the two population means, usually tested against zero. The statistic has the same shape as before — estimate minus null value, divided by the standard error of that estimate — with the standard error now combining the variability of both groups." },
+]} />
 
 ## Two-Population Z-Test (Known σ)
 
@@ -54,6 +59,12 @@ The older **pooled** t-test assumes equal population variances — invalid when 
 
 ## A/B Testing
 
+<PredictReveal
+  prompt="A test on ten million users finds a conversion difference of 0.02 percentage points with a p-value below 0.001. Should the company ship the change?"
+  options={["Yes, the result is highly significant", "Not necessarily — with a sample that large, a difference far too small to matter still produces a tiny p-value"]}
+  correct={1}
+>
+
 A/B testing is a two-sample test on a randomized experiment: group A (control, current version) vs group B (treatment). For a **binary** outcome (click / no click), use the **two-proportion Z-test**. With $\hat{p}_A = x_A/n_A$, $\hat{p}_B = x_B/n_B$:
 
 $$H_0 : p_A = p_B \quad \text{vs} \quad H_1 : p_A \neq p_B$$
@@ -67,6 +78,12 @@ Under $H_0$, $Z \sim N(0,1)$ when the normal approximation holds ($n\hat{p}$ and
 <ConceptBox title="Statistical vs. practical significance">
 Practitioners frequently violate this: with a large enough sample, *any* difference, however negligible, produces a tiny p-value. Always report an **effect size** (Cohen's d, or the raw difference in proportions) and the **confidence interval for the difference** — the CI makes the uncertainty visible where a bare reject/fail decision hides it.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why must an effect size be reported alongside a p-value?", a: "A p-value only answers whether a difference is distinguishable from zero, and with a large enough sample any difference is. The effect size answers how big the difference is, which is the question that decides whether acting on it is worthwhile." },
+]} />
 
 ## Effect Size: Cohen's d
 
@@ -91,6 +108,17 @@ Cohen stressed these are rough guidelines — what counts as practically importa
   { q: "Same subjects measured in both conditions — why can't you just run the two-sample test?", a: "It assumes the two groups are independent, and repeated measures on one person are strongly correlated. The two-sample SE therefore includes all the person-to-person variability that pairing would have cancelled, inflating the standard error and losing power — and the stated error rates no longer hold." },
   { q: "What does Cohen's d add over the p-value, and what does its denominator do?", a: "It reports the size of the difference in standard-deviation units, which is comparable across studies and independent of sample size. Dividing by the pooled standard deviation is what makes it scale-free — a 5-point gap is large if the spread is 2 and trivial if the spread is 50." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Same skeleton as Module 3, new parameter: the **difference** $\mu_1-\mu_2$. Statistic = (estimate − null) / SE, always.
+- Variances add for independent groups, so $\text{SE}=\sqrt{s_1^2/n_1+s_2^2/n_2}$.
+- **Welch is the default.** The pooled t-test assumes equal variances, which is often false and then breaks the Type I error rate.
+- **Independence is a design property, not a choice.** Same subjects in both arms ⟹ paired test (Module 5).
+- A/B testing on a binary outcome is the **two-proportion Z-test**, pooling $\hat p$ under $H_0$.
+- With enough $n$, any difference becomes significant. **Always report effect size and a CI**, not just a verdict.
+</ConceptBox>
 
 <QuizCard
   question="In Welch's two-sample t-test, why is the pooled t-test generally NOT recommended as the default?"

@@ -1,13 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import DecisionBoundaryWidget from '../../components/widgets/decision-trees/DecisionBoundaryWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- A tree is a learned flowchart: each internal node asks $x_j\le t$, each leaf stores an answer (majority class, or the mean for regression).
-- Prediction is one root-to-leaf traversal — $O(\text{depth})$, so inference is very fast.
-- **A tree with $K$ leaves is a piecewise-constant function over $K$ rectangular regions.** That single sentence explains both its power and its limits.
-- Structural win over linear models: XOR is unlearnable by logistic regression and trivial for a depth-2 tree.
-- Different samples use different features — a feature can be decisive on one path and never consulted on another.
-</ConceptBox>
+# Module 1: Decision Trees — Intuition and Structure
 
 ## Why Decision Trees?
 
@@ -34,6 +28,12 @@ Each internal node asks one binary question; every training sample follows a uni
 
 ## Prediction Is Traversal
 
+<PredictReveal
+  prompt="A loan application arrives. The tree asks about income, then about employment, and reaches a decision. It never asked about credit score, which is also a column in the data. Is that a bug?"
+  options={["Yes, every feature should be consulted", "No — a tree follows one path, so any feature not on that path plays no part in that particular prediction"]}
+  correct={1}
+>
+
 Given $\mathbf{x}$: start at the root, evaluate the split, follow the matching branch, repeat to a leaf, return its stored value. Classification leaves store the **majority class** (optionally the class-probability vector); regression leaves store the **mean** target. Cost is $O(d)$ — one comparison per level — so inference is very fast.
 
 **Trace (loan tree):** applicant income 60k, credit 680, employed full-time.
@@ -54,6 +54,12 @@ That leaf's majority class is Approved → predict **APPROVED**.
 </DerivationSteps>
 
 Each sample's traversal length equals its leaf's depth, so a tree spends a shallow budget on simple, well-separated regions and deeper subtrees on ambiguous ones.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why might a tree ignore a feature entirely when predicting one specific case?", a: "Prediction follows a single root-to-leaf path, and only the tests on that path are evaluated. A feature used elsewhere in the tree, or nowhere at all, simply never enters this decision — which is part of why a single prediction is so easy to explain." },
+]} />
 
 ## The Tree as a Function
 
@@ -85,7 +91,31 @@ This module covers classification; regression trees use the same CART with MSE r
 We know *what* a tree is — a piecewise-constant function over an axis-aligned partition. Next: *how* to find the best partition, by choosing the feature and threshold that most reduce impurity. Gini and entropy are derived in Module 2.
 </Bridge>
 
+<PredictReveal
+  prompt="Each test in a tree compares one feature against one threshold. What shape can the resulting decision boundary have?"
+  options={["Any smooth curve, given enough splits", "Only rectangles — every boundary segment is parallel to a feature axis"]}
+  correct={1}
+>
+
 <DecisionBoundaryWidget />
+
+Add splits in the widget and watch a diagonal boundary get approximated by a staircase. The tree can get arbitrarily close, but only by spending many splits on something a single tilted line would capture exactly.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What shape are decision-tree boundaries, and why?", a: "Axis-aligned rectangles. Every test compares a single feature against a threshold, which cuts the space with a line perpendicular to that feature's axis. A diagonal boundary can only be approximated by a staircase of many such cuts." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A tree is a learned flowchart: each internal node asks $x_j\le t$, each leaf stores an answer (majority class, or the mean for regression).
+- Prediction is one root-to-leaf traversal — $O(\text{depth})$, so inference is very fast.
+- **A tree with $K$ leaves is a piecewise-constant function over $K$ rectangular regions.** That single sentence explains both its power and its limits.
+- Structural win over linear models: XOR is unlearnable by logistic regression and trivial for a depth-2 tree.
+- Different samples use different features — a feature can be decisive on one path and never consulted on another.
+</ConceptBox>
 
 ## Practice
 

@@ -1,18 +1,17 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
-
-<ConceptBox title="TL;DR">
-- Embeddings fix both TF-IDF problems at once: **~300 dense dimensions instead of ~50,000 sparse ones**, and similar words end up close instead of orthogonal.
-- Word2Vec's trick: train a shallow net on a fake task (predict context from word, or the reverse), then **throw the network away and keep the weight matrix**. That matrix *is* the embedding table.
-- **Negative sampling** is what makes it tractable — replace one $O(|V|)$ softmax with $k\approx5$–$20$ binary classifications per step.
-- Static embeddings give one vector per word type, so "bank" gets a single blurred vector averaging both senses.
-- **Contextual embeddings (ELMo, BERT) fixed that** — one vector per *occurrence*, which is the breakthrough modern NLP is built on.
-</ConceptBox>
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import WordVectorArithmeticWidget from '../../components/widgets/nlp/WordVectorArithmeticWidget.jsx'
 
 <Bridge>
 TF-IDF gives each word a number — its importance in a document. But TF-IDF vectors are huge (|vocabulary| dimensions) and treat every word as orthogonal — "dog" and "cat" have zero cosine similarity, same as "dog" and "calculus". **Word embeddings** solve both: dense low-dimensional vectors that encode semantic similarity.
 </Bridge>
 
 ## From Sparse to Dense
+
+<PredictReveal
+  prompt="In a one-hot representation with a 50,000-word vocabulary, what is the similarity between the vectors for cat and kitten?"
+  options={["High, the words are closely related", "Exactly zero — every one-hot vector is orthogonal to every other, so no two words are related at all"]}
+  correct={1}
+>
 
 | Property | BoW / TF-IDF | Word Embeddings |
 |----------|-------------|-----------------|
@@ -21,7 +20,19 @@ TF-IDF gives each word a number — its importance in a document. But TF-IDF vec
 | Semantic information | None — words are orthogonal | Encoded — similar words cluster |
 | Similarity of "dog" and "cat" | 0.0 (orthogonal) | ≈ 0.82 (high cosine similarity) |
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are one-hot word representations inadequate?", a: "Every pair of distinct one-hot vectors is orthogonal, so the representation encodes no similarity whatsoever — synonyms are exactly as far apart as unrelated words. They are also enormous and sparse, one dimension per vocabulary entry." },
+]} />
+
 ## Word2Vec — The Core Idea
+
+<PredictReveal
+  prompt="Word2Vec is trained to predict context words from a target word. Once training finishes, what part of it do you keep?"
+  options={["The predictions, which are the useful output", "The weight matrix — the prediction task was only a pretext for learning good vectors"]}
+  correct={1}
+>
 
 Word2Vec (Mikolov et al., 2013) trains a shallow neural network to predict words from context, then discards the network and keeps the weights — the input-to-hidden weight matrix IS the embedding table.
 
@@ -44,6 +55,12 @@ Each word is a one-hot vector of length |V| — one dimension is 1, all others a
 
 **CBOW (Continuous Bag of Words)** — given surrounding context words, predict the missing center word. Context embeddings are averaged into one vector to predict the center. Averaging smooths noise and benefits from high-frequency co-occurrences. **Faster to train, better for frequent words.**
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the relationship between Word2Vec's training task and its output?", a: "The prediction task is a pretext. Nobody wants the predictions; the point is that a model forced to predict a word's context must encode what that word means in its weights. The learned weight matrix is the embedding table, and the output layer is discarded." },
+]} />
 
 ## Skip-gram Objective
 
@@ -74,6 +91,8 @@ $$f(x) = \begin{cases} (x/x_{\max})^\alpha & \text{if } x < x_{\max} \\ 1 & \tex
 with $x_{\max} = 100$ and $\alpha = 3/4$. GloVe trains faster than Word2Vec because the co-occurrence matrix only needs to be computed once.
 
 ## The Embedding Space — Geometry Encodes Meaning
+
+<WordVectorArithmeticWidget />
 
 Well-trained embeddings encode three geometric properties:
 
@@ -131,6 +150,16 @@ The shift from static to contextual embeddings was the key breakthrough enabling
   { q: "What is the fundamental limitation of a static embedding?", a: "One vector per word TYPE. 'bank' gets a single point that averages the financial and river senses, so it is close to neither and the polysemy from Module 5 is unresolvable in principle. No amount of training data fixes it, because the representation has no slot for context." },
   { q: "What did contextual embeddings change, and why was that the breakthrough?", a: "They produce a vector per OCCURRENCE — the same word gets different vectors in 'river bank' and 'savings bank' because the representation is computed from the surrounding sentence. That let one pretrained model be fine-tuned to many downstream tasks and beat every task-specific architecture, which is the paradigm modern NLP runs on." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Embeddings fix both TF-IDF problems at once: **~300 dense dimensions instead of ~50,000 sparse ones**, and similar words end up close instead of orthogonal.
+- Word2Vec's trick: train a shallow net on a fake task (predict context from word, or the reverse), then **throw the network away and keep the weight matrix**. That matrix *is* the embedding table.
+- **Negative sampling** is what makes it tractable — replace one $O(|V|)$ softmax with $k\approx5$–$20$ binary classifications per step.
+- Static embeddings give one vector per word type, so "bank" gets a single blurred vector averaging both senses.
+- **Contextual embeddings (ELMo, BERT) fixed that** — one vector per *occurrence*, which is the breakthrough modern NLP is built on.
+</ConceptBox>
 
 <QuizCard
   question="Why does negative sampling make Word2Vec training feasible despite a 50,000-word vocabulary?"

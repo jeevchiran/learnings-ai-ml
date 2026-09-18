@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import EmbeddingMethodsWidget from '../../components/widgets/transformers/EmbeddingMethodsWidget.jsx'
 
 # Module 1: Intuition Behind a Transformer
@@ -6,6 +6,10 @@ import EmbeddingMethodsWidget from '../../components/widgets/transformers/Embedd
 <Bridge>
 The Attention & Encoder-Decoder track ended on a specific, narrow limitation: the decoder attends to the encoder, but everything inside the encoder and inside the decoder is still a strictly sequential RNN. This track asks the question that limitation was pointing at — what if attention was not a bolt-on fix for one bottleneck, but the entire mechanism? No RNN, no recurrence, every token looking at every other token, all at once. That is a transformer.
 </Bridge>
+
+<ConceptBox title="Before you start">
+This track assumes three things from earlier tracks: what a **word embedding** is (Attention and Encoder-Decoder, Module 1), how an **encoder-decoder** generates one token at a time (same track, Module 2), and the **attention** pipeline of score, softmax and weighted sum (same track, Module 7). If any of those is fuzzy, read that module first — everything here is built on them.
+</ConceptBox>
 
 Running example for this whole track: the sentence **"a fluffy blue creature roamed the verdant forest"** — the exact one 3Blue1Brown uses to explain attention, kept here so the diagrams and the code agree.
 
@@ -68,6 +72,15 @@ Worth adding here is that "static embedding" is not one method but three familie
 - **Word2Vec** learns by prediction. **CBOW** predicts a target word from its context; **skip-gram** predicts the context from the target and handles rare words better, because one occurrence produces a training pair per neighbour rather than a single averaged prediction.
 - **GloVe** skips prediction and factorises a corpus-wide **co-occurrence count matrix**, so its vectors reflect global distributional statistics rather than many small local windows.
 - **FastText** represents each word as a bag of **character n-grams**. Because those n-grams are shared across words, an unseen word can still be assembled from pieces the model knows — the one thing a fixed-vocabulary table cannot do at all.
+
+That ceiling shows up as four separate failures, and it is worth naming all four because attention addresses each one:
+
+<FactList accent="#1e3a8a" items={[
+  { t: 'Context insensitivity', d: 'One vector per word, whatever the sentence. Bank by a river and bank with a savings account are the same numbers.' },
+  { t: 'No grammatical role', d: 'The same vector whether the word is a subject, an object, a common noun or part of a name.' },
+  { t: 'Short reach', d: 'Trained on a small local window, so a relationship between words ten positions apart is never observed.' },
+  { t: 'No sentence-level meaning', d: 'Negation, emphasis and sarcasm live above the word. A bag of word vectors cannot represent them.' },
+]} />
 
 All three still hit the same ceiling: whichever produces it, the vector is fixed before the sentence is read. A transformer takes one of these as its *starting point* and then refines it — which is what the rest of the track builds.
 

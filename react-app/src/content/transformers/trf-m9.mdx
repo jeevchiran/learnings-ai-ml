@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ShiftedTargetWidget from '../../components/widgets/transformers/ShiftedTargetWidget.jsx'
 
 # Module 9: Loss Function and Training
 
@@ -13,6 +14,8 @@ Every module so far has described what a trained transformer computes. This last
   options={["The actual token at position 4", "The actual token at position 5 — predicting one step ahead, everywhere at once"]}
   correct={1}
 >
+
+<ShiftedTargetWidget />
 
 $$\mathcal{L} = -\frac{1}{T}\sum_{t=1}^{T} \log p(x_{t+1} \mid x_1, \ldots, x_t)$$
 

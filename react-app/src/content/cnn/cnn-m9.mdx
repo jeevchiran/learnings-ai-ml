@@ -1,16 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import ActivationMapWidget from '../../components/widgets/cnn/ActivationMapWidget.jsx'
 
 # Module 9: Visualising & Interpreting CNN Activations
-
-<ConceptBox title="TL;DR">
-- Four uses, and debugging is the practical one: **95% accuracy from a watermark looks identical to 95% from real understanding** until you look inside.
-- **Saliency** = gradient of the class score w.r.t. input pixels ("which pixels would change the score"). Fast, noisy.
-- **Filter visualisation** runs gradient *ascent on the input* to synthesise what maximally excites a filter.
-- **CAM needs global average pooling before the output; Grad-CAM removes that constraint** and works on any architecture.
-- **Integrated Gradients** satisfies completeness — attributions sum exactly to the output change from the baseline (same axiom family as SHAP).
-- The **pointing game** scores attention objectively against ground-truth boxes, instead of "the heatmap looks right".
-</ConceptBox>
 
 <Bridge>
 **From Module 8:** transfer learning works because pretrained features generalise. But *which* features, and *where* in the image do they activate? Treating a CNN as a black box is both intellectually unsatisfying and practically risky — a model that achieves 95% accuracy by detecting a watermark instead of the actual object is worthless in deployment. This module covers the tools for looking inside.
@@ -54,6 +45,12 @@ Visualise each channel as a heatmap. Early channels (conv1) show Gabor-like patt
 
 ## Method 2: GradCAM
 
+<PredictReveal
+  prompt="A network classifies an image of a boat with 99% confidence. Its attention map highlights the water, not the boat. Is the model correct?"
+  options={["Yes, the answer was right", "The answer was right for the wrong reason, and it will fail on a boat out of water"]}
+  correct={1}
+>
+
 **Gradient-weighted Class Activation Mapping** (Selvaraju et al., 2017) answers: "which spatial regions most influenced the class score?"
 
 Algorithm:
@@ -83,6 +80,12 @@ cam = torch.relu(cam)
 ```
 
 Upsample the resulting $H_{conv} \times W_{conv}$ map to the input resolution and overlay on the original image.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why visualise a network's attention even when its accuracy is high?", a: "Accuracy only checks the answer, not the reason. A model can reach the right label by keying on background context that happens to correlate with the class in the training data, and that shortcut fails as soon as the correlation breaks. The attention map is what exposes the shortcut." },
+]} />
 
 ## Interactive: visualise activation regions
 
@@ -182,6 +185,15 @@ IG satisfies the **completeness axiom**: $\sum_i \text{IG}_i = F(\mathbf{x}) - F
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Four uses, and debugging is the practical one: **95% accuracy from a watermark looks identical to 95% from real understanding** until you look inside.
+- **Saliency** = gradient of the class score w.r.t. input pixels ("which pixels would change the score"). Fast, noisy.
+- **Filter visualisation** runs gradient *ascent on the input* to synthesise what maximally excites a filter.
+- **CAM needs global average pooling before the output; Grad-CAM removes that constraint** and works on any architecture.
+- **Integrated Gradients** satisfies completeness — attributions sum exactly to the output change from the baseline (same axiom family as SHAP).
+- The **pointing game** scores attention objectively against ground-truth boxes, instead of "the heatmap looks right".
+</ConceptBox>
 
 ## Quiz
 

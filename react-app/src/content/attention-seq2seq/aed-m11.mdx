@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import SequentialVsParallelWidget from '../../components/widgets/attention-seq2seq/SequentialVsParallelWidget.jsx'
 
 # Module 11: Limitations of Attention-Based Encoder-Decoder Architecture
 
@@ -15,6 +16,8 @@ Every module since Module 6 has been about what attention fixed. This one is abo
 >
 
 Attention changed *what* feeds into each decoder step — a fresh $c_i$ instead of a stale $c$ — but it didn't touch *how* the decoder advances: RNN cell, one step, wait for the hidden state, next step. That dependency chain, $s_i$ needs $s_{i-1}$, is exactly as sequential as it was in Module 2. During training, this means $T_{tgt}$ sequential RNN updates per example — no amount of extra GPU hardware collapses that into fewer steps, because each one genuinely needs the previous one's output.
+
+<SequentialVsParallelWidget />
 
 The encoder has the same issue in reverse: it still reads the source sentence one token at a time, so very long source sequences still stress the same **vanishing-influence** pattern Module 5 described for the plain encoder — attention fixed *what the decoder can see*, not *how well the encoder itself represents a very long sequence internally*.
 

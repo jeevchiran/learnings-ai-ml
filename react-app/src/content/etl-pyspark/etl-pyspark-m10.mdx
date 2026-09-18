@@ -1,19 +1,17 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import CachingWidget from '../../components/widgets/etl-pyspark/CachingWidget.jsx'
-
-<ConceptBox title="TL;DR">
-- Lazy evaluation means **every action replays the whole lineage from source**. Cache exists to stop that repetition.
-- Cache when a DataFrame is **reused** — multiple downstream actions, an iterative loop, or an expensive intermediate. Used once? Caching is pure waste.
-- `cache()` is exactly `persist(MEMORY_ONLY)`; `persist()` lets you pick a level that spills to disk instead of silently recomputing.
-- **`unpersist()` when done** — cached data holds executor memory that everything else has to compete for.
-- `broadcast()` is the other lever: ship a small table to every executor and the join needs **no shuffle at all**.
-</ConceptBox>
 
 <Bridge>
 In Module 9, we built complex transformations — joins, aggregations, pivots, and window functions. These pipelines can be expensive. This final module covers how to make them fast using caching and broadcast variables.
 </Bridge>
 
 ## When to Cache
+
+<PredictReveal
+  prompt="You cache every intermediate DataFrame in your pipeline, just to be safe. What goes wrong?"
+  options={["Nothing, caching is always an improvement", "Memory fills with results used once, which evicts the ones that are genuinely reused and can push work to disk"]}
+  correct={1}
+>
 
 Spark's lazy evaluation means every time you call an action on a DataFrame, Spark re-executes the entire lineage of transformations from the source data. This is fine for one-off computations, but wasteful when the same DataFrame feeds multiple downstream operations.
 
@@ -25,6 +23,12 @@ Cache a DataFrame when:
 
 If a DataFrame is used exactly once, caching wastes memory without benefit.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "When is caching worth it, and when does it hurt?", a: "It pays when a DataFrame is used by more than one action, since the plan would otherwise be recomputed each time. It hurts when applied indiscriminately, because cached results occupy memory that the executors need for computation, and evicting a genuinely reused result to hold a single-use one makes the job slower." },
+]} />
 
 ## cache() vs persist()
 
@@ -68,6 +72,12 @@ When done with a cached DataFrame, call `unpersist()` to free memory. Important 
 
 ## Broadcast Variables
 
+<PredictReveal
+  prompt="You join a billion-row table against a two-hundred-row lookup table. Does that need a full shuffle?"
+  options={["Yes, every join shuffles", "No — the small table can be broadcast to every machine, so the large one never moves"]}
+  correct={1}
+>
+
 When joining a large DataFrame with a small one, Spark's default strategy shuffles data across the network. Broadcast joins solve this: the small table is sent to every worker node, so each partition of the large table does a local lookup without any shuffle.
 
 <ConceptBox title="When to Broadcast">
@@ -99,6 +109,12 @@ enriched.show(5)
 # +----------+---------+----------+----------------+-------+
 # |      1001|    CS101|   Fall 24|Computer Science|      3|`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does broadcasting a small table achieve in a join?", a: "It sends a complete copy of the small side to every executor, so each partition of the large table can be joined locally. No redistribution of the large table is needed, which removes the shuffle that would otherwise dominate the cost." },
+]} />
 
 ## Accumulator Variables
 
@@ -178,6 +194,16 @@ cleaned_df.unpersist()
   { q: "How does broadcast turn a shuffle join into no shuffle?", a: "A normal join repartitions BOTH sides by the join key so matching rows meet — that is the shuffle. If one side is small enough, Spark instead sends a full copy to every executor, so each executor joins its existing partition of the large table locally. No data from the large table moves at all." },
   { q: "Why call unpersist(), given Spark evicts cached blocks anyway?", a: "Because eviction is reactive and uses LRU, so a stale cached DataFrame can push out something that is actually in use before it is dropped. Explicit unpersist returns the memory at the point you know it is dead, which keeps executor memory available for shuffles and joins rather than for results nobody will read again." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Lazy evaluation means **every action replays the whole lineage from source**. Cache exists to stop that repetition.
+- Cache when a DataFrame is **reused** — multiple downstream actions, an iterative loop, or an expensive intermediate. Used once? Caching is pure waste.
+- `cache()` is exactly `persist(MEMORY_ONLY)`; `persist()` lets you pick a level that spills to disk instead of silently recomputing.
+- **`unpersist()` when done** — cached data holds executor memory that everything else has to compete for.
+- `broadcast()` is the other lever: ship a small table to every executor and the join needs **no shuffle at all**.
+</ConceptBox>
 
 <QuizCard
   question="A DataFrame is the result of an expensive 5-table join. You need to run 4 different aggregations on it. What should you do?"

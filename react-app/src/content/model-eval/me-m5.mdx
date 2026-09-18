@@ -1,19 +1,25 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import CurseWidget from '../../components/widgets/model-eval/CurseWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- "More features can't hurt, the model ignores the useless ones" is wrong often enough to be dangerous.
-- **The curse has two halves.** Covering space needs $k^d$ points (exponential), and pairwise distances concentrate until every point looks equidistant — which quietly breaks k-NN, clustering, and kernels.
-- Both are geometry. No smarter algorithm fixes them; only more data or fewer dimensions.
-- Three practical costs: noise features add variance, correlated features destabilise linear coefficients, and everything gets slower and less explainable.
-- **Selection keeps original, interpretable columns. Reduction (PCA) builds new mixed ones.** Different tools for different goals.
-</ConceptBox>
+# Module 5: Dimensionality & Feature Selection Overview
 
 ## More Columns Isn't Free
+
+<PredictReveal
+  prompt="You add fifty more features to your dataset. The model has strictly more information than before. Can its test performance get worse?"
+  options={["No — more information cannot hurt", "Yes, because each extra dimension spreads the same data thinner and adds parameters to estimate"]}
+  correct={1}
+>
 
 Modules 1–4 took the feature set as fixed. This module asks the question that comes *before*: which features should be in the dataset at all?
 
 The instinct — more features can only help, the model ignores the useless ones — is wrong often enough to be dangerous. Extra columns cost you in ways that surface only after training: the data gets sparser, noise features add variance, redundant features destabilize some models, and every column taxes training time, inference time, and interpretability. This module builds the vocabulary — the curse of dimensionality, selection vs. reduction, and the filter/wrapper/embedded taxonomy.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can adding features make a model worse?", a: "The data does not grow with the feature count, so each additional dimension leaves the same number of points spread over an exponentially larger space. The model also has more parameters to estimate from the same evidence, so variance rises while any genuine new signal may be tiny." },
+]} />
 
 ## The Curse of Dimensionality
 
@@ -43,12 +49,24 @@ Three concrete costs, even setting geometry aside:
 
 ## Selection vs. Reduction
 
+<PredictReveal
+  prompt="You need to end up with fewer columns. One approach keeps a subset of the originals; the other builds new columns from combinations of them. Which keeps the result explainable to a domain expert?"
+  options={["Building new combined columns", "Keeping a subset, because every surviving column still means what it always meant"]}
+  correct={1}
+>
+
 Two distinct ways to shrink dimensionality, easily conflated:
 
 - **Dimensionality reduction** builds *new* features combining the originals (PCA projects onto max-variance directions). A principal component is a weighted mix of every column — no longer "age" or "income".
 - **Feature selection** keeps a *subset* of the original features, each still interpretable in its original units.
 
 This track is entirely about **feature selection** — which original columns to keep. PCA and projection are out of scope.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the difference between feature selection and dimensionality reduction?", a: "Selection keeps a subset of the original columns, so every remaining feature still has its original meaning and a domain expert can interpret the model. Reduction builds new axes from combinations of all the columns, which can capture more signal in fewer dimensions but leaves components that are usually impossible to name." },
+]} />
 
 ## The Three-Way Taxonomy
 
@@ -67,6 +85,16 @@ Its honest goals are **generalization** (less noise variance), **speed**, and **
 <Bridge>
 Filter methods come first because they're the cheapest lever. Module 6 works through the concrete techniques — variance thresholds, correlation, chi-square, ANOVA F-tests, mutual information — what each assumes and where each breaks.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- "More features can't hurt, the model ignores the useless ones" is wrong often enough to be dangerous.
+- **The curse has two halves.** Covering space needs $k^d$ points (exponential), and pairwise distances concentrate until every point looks equidistant — which quietly breaks k-NN, clustering, and kernels.
+- Both are geometry. No smarter algorithm fixes them; only more data or fewer dimensions.
+- Three practical costs: noise features add variance, correlated features destabilise linear coefficients, and everything gets slower and less explainable.
+- **Selection keeps original, interpretable columns. Reduction (PCA) builds new mixed ones.** Different tools for different goals.
+</ConceptBox>
 
 ## Practice
 

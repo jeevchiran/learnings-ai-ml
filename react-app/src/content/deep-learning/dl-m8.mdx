@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import LossOptimizerWidget from '../../components/widgets/deep-learning/LossOptimizerWidget.jsx'
 
 # Module 8: Loss Functions & Optimizers
-
-<ConceptBox title="TL;DR">
-- **The loss defines what "good" means; the optimizer decides how to get there.** Two separate choices, often confused.
-- Regression: MSE punishes big errors quadratically (outlier-sensitive); MAE is robust but has a constant gradient. Huber interpolates.
-- **`nn.CrossEntropyLoss` wants raw logits and integer labels** — it applies log-softmax internally for numerical stability. Adding your own softmax layer is a real, common bug.
-- Momentum accumulates a velocity to damp oscillation; **Adam** adds per-parameter adaptive step sizes on top.
-- Adam converges fast and is the sane default; well-tuned SGD+momentum often generalises slightly better.
-</ConceptBox>
 
 <Bridge>
 **From Module 7:** You now know how gradients flow through activation functions. Those gradients start from a **loss function** — the scalar value that measures how wrong the network is. The loss function defines what "good" means. The **optimizer** then uses the loss gradient to update weights. This module covers both: choosing the right loss for your task, and choosing the optimizer that finds the minimum fastest.
@@ -67,6 +59,12 @@ loss = criterion(logits, labels)  # logits: [B, K], labels: [B] integers
 </ConceptBox>
 
 ## Optimizers
+
+<PredictReveal
+  prompt="Plain gradient descent uses one learning rate for every parameter. What does Adam do differently?"
+  options={["It uses a larger rate overall", "It keeps a per-parameter running estimate of gradient scale, so rarely updated parameters get effectively larger steps"]}
+  correct={1}
+>
 
 ### What is an Optimizer?
 
@@ -134,6 +132,12 @@ loss.backward()             # 2. compute gradients
 optimizer.step()            # 3. update parameters
 ```
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does Adam add over plain stochastic gradient descent?", a: "Two running averages per parameter: one of the gradient, which acts as momentum, and one of its squared magnitude, which normalises the step size. The effect is a per-parameter learning rate, so parameters with small or infrequent gradients still make progress." },
+]} />
+
 ## Interactive: Loss Functions & Optimizer Paths
 
 Switch between tabs to compare loss landscapes and how different optimizers navigate them.
@@ -189,6 +193,14 @@ In PyTorch: `optim.lr_scheduler.CosineAnnealingLR`, `LinearLR`, `OneCycleLR`.
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- **The loss defines what "good" means; the optimizer decides how to get there.** Two separate choices, often confused.
+- Regression: MSE punishes big errors quadratically (outlier-sensitive); MAE is robust but has a constant gradient. Huber interpolates.
+- **`nn.CrossEntropyLoss` wants raw logits and integer labels** — it applies log-softmax internally for numerical stability. Adding your own softmax layer is a real, common bug.
+- Momentum accumulates a velocity to damp oscillation; **Adam** adds per-parameter adaptive step sizes on top.
+- Adam converges fast and is the sane default; well-tuned SGD+momentum often generalises slightly better.
+</ConceptBox>
 
 ## Quiz
 

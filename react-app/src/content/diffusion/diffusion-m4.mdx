@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ElboToMseWidget from '../../components/widgets/diffusion/ElboToMseWidget.jsx'
 
 # Module 4: Training Objective — From ELBO to Simple Noise Prediction
 
@@ -41,6 +42,8 @@ Train by picking a random $x_0$, a random timestep $t$, a random noise $\epsilon
 <Recall items={[
   { q: "What does the simplified DDPM training loss L_simple actually ask the network to predict, and from what inputs?", a: "It asks the network ε_θ to predict the noise ε that was added to produce x_t from x_0, given x_t and the timestep t as input. Training is an ordinary mean-squared-error regression between the true noise and the predicted noise, with no adversarial component." },
 ]} />
+
+<ElboToMseWidget />
 
 ## Optional depth — how the bound collapses to noise prediction
 

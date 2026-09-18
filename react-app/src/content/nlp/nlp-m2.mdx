@@ -1,14 +1,5 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import NoisyChannelWidget from '../../components/widgets/nlp/NoisyChannelWidget.jsx'
-
-<ConceptBox title="TL;DR">
-- **Inflectional** morphology marks tense/number without changing word class — almost always safe to collapse. **Derivational** morphology creates new words ("compute" → "computation") — collapsing it loses real meaning.
-- **Stemming** chops endings by rule; the output needn't be a word. **Lemmatization** uses a dictionary and POS tag; the output always is.
-- Two failure modes to name: **over-stemming** merges distinct words (hurts precision), **under-stemming** fails to merge related ones (hurts recall).
-- Stemming is fast and crude; lemmatization is slower, needs a POS tag, and is correct.
-- The **noisy channel** picks the correction maximising $P(\text{word})\times P(\text{typo}\mid\text{word})$ — prior times likelihood, i.e. Bayes.
-- It only fixes **non-word** errors. "their" → "there" is a real word, so only a context model catches it.
-</ConceptBox>
 
 <Bridge>
 Module 1 normalized text by lowercasing and removing noise. But "running", "runs", and "ran" are still three separate types — a search for "run" misses the other five. **Morphological processing** maps these variants to a single canonical form, boosting recall without losing precision.
@@ -28,6 +19,12 @@ Every word decomposes into **morphemes** — the smallest units of meaning.
 **Practical rule of thumb:** Inflectional morphology is almost always worth collapsing. Derivational morphology is more nuanced — "compute" and "computation" are related but distinct. This tension shapes the stemming vs. lemmatization trade-off.
 
 ## Stemming
+
+<PredictReveal
+  prompt={"A stemmer reduces running to run. What does it do with the word better?"}
+  options={["Reduces it to good", "Leaves it as better — a stemmer chops suffixes and has no dictionary to know that better relates to good"]}
+  correct={1}
+>
 
 Stemming is a **crude heuristic process** that chops word endings by fixed rules, without grammar or vocabulary knowledge. The output — the *stem* — need not be a real word.
 
@@ -86,7 +83,19 @@ for w in words:
 **Under-stemming** — strips too little, failing to merge related forms. Example: "alumnus" and "alumni" may not be conflated; irregular forms like "mice"/"mouse" require vocabulary. Damages *recall*.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the fundamental limitation of a suffix-stripping stemmer?", a: "It works purely on the surface form of a word, so it cannot handle irregular forms whose root shares no spelling with them. It also produces stems that are not real words and can conflate unrelated words that happen to end similarly." },
+]} />
+
 ## Lemmatization
+
+<PredictReveal
+  prompt={"A lemmatiser is given the word saw. Should it return see or saw?"}
+  options={["Always see, since it is the verb's root", "It depends on the part of speech — the noun saw is a tool, the verb saw is the past of see"]}
+  correct={1}
+>
 
 Lemmatization uses a **morphological lexicon** to map inflected forms to their *lemma* (canonical dictionary headword), always producing a valid word. It requires POS context:
 
@@ -115,6 +124,12 @@ for token in doc:
 # faster       POS: ADV    Lemma: fast        ← comparative resolved
 # were         POS: AUX    Lemma: be          ← same lemma as "are"`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does a lemmatiser need the part of speech?", a: "The same surface form can belong to different words with different roots. Without knowing whether a token is a noun or a verb, the lemmatiser cannot choose between them, which is why lemmatisation is slower than stemming and depends on a tagger running first." },
+]} />
 
 ## Stemming vs. Lemmatization — The Trade-off
 
@@ -167,6 +182,17 @@ The noisy channel model only handles *non-word* errors (typos not in the diction
   { q: "Write the noisy channel decision rule and name its two factors.", a: "Choose the candidate word w maximising P(w) times P(observed typo | w). P(w) is the prior — how common the word is in the language — and P(typo | w) is the channel or error model — how likely that particular keystroke slip is. It is Bayes' theorem with the evidence term dropped, since it is constant across candidates." },
   { q: "Why can the noisy channel model never fix 'their' to 'there'?", a: "Because it detects errors by finding tokens absent from the dictionary, and both spellings are real words. The model is never triggered. Real-word errors need a language model that scores the sentence in context and notices that this word is implausible given its neighbours." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Inflectional** morphology marks tense/number without changing word class — almost always safe to collapse. **Derivational** morphology creates new words ("compute" → "computation") — collapsing it loses real meaning.
+- **Stemming** chops endings by rule; the output needn't be a word. **Lemmatization** uses a dictionary and POS tag; the output always is.
+- Two failure modes to name: **over-stemming** merges distinct words (hurts precision), **under-stemming** fails to merge related ones (hurts recall).
+- Stemming is fast and crude; lemmatization is slower, needs a POS tag, and is correct.
+- The **noisy channel** picks the correction maximising $P(\text{word})\times P(\text{typo}\mid\text{word})$ — prior times likelihood, i.e. Bayes.
+- It only fixes **non-word** errors. "their" → "there" is a real word, so only a context model catches it.
+</ConceptBox>
 
 <QuizCard
   question="A Porter stemmer produces 'univers' for both 'university' and 'universal'. What error type is this, and which metric does it harm?"

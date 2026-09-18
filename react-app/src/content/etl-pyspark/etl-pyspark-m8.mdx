@@ -1,17 +1,16 @@
-import { ConceptBox, Bridge, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
-
-<ConceptBox title="TL;DR">
-- `printSchema()` before anything else — column names, types, and nullability decide what operations are even legal.
-- **`describe()` omits the median.** It gives count, mean, stddev, min, max only; use `summary()` or `approxQuantile()` for percentiles.
-- Percentiles are *approximate* by default in Spark, because an exact median requires a full sort across partitions.
-- Every inspection call is an **action** — it runs the whole lineage. On an expensive pipeline, cache before exploring.
-</ConceptBox>
+import { ConceptBox, Bridge, PredictReveal, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 
 <Bridge>
 In Module 7, we cleaned our messy dataset — removed nulls, duplicates, fixed casing, and filtered invalid values. Now we explore the clean data to understand what we're working with.
 </Bridge>
 
 ## Schema Inspection
+
+<PredictReveal
+  prompt="You let the engine infer the schema from a large CSV instead of declaring it. What does that cost?"
+  options={["Nothing, inference is free", "An extra full pass over the data, plus the risk that a column's type is guessed from rows that are not representative"]}
+  correct={1}
+>
 
 Before any analysis, know what you're working with. Schema inspection tells you column names, data types, and nullable flags.
 
@@ -27,6 +26,12 @@ Before any analysis, know what you're working with. Schema inspection tells you 
 print("dtypes:", students_df.dtypes)
 print("columns:", students_df.columns)`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why declare a schema rather than letting it be inferred?", a: "Inference requires an additional scan of the data purely to work out the types, and it guesses from whatever it samples, so a column that looks numeric in the first rows and contains text later will be typed wrongly. An explicit schema is both faster and deterministic." },
+]} />
 
 ## Descriptive Statistics
 
@@ -113,6 +118,15 @@ students_df.crosstab("major", "year").show()
   { q: "Why check nullability in printSchema before analysing?", a: "Because nullable columns silently propagate nulls through arithmetic and comparisons, and aggregate functions skip them rather than failing. A mean computed over a column that is 30% null is the mean of the remaining 70% with no warning — you need to know that before quoting the number." },
   { q: "Your exploration calls feel slow on a long pipeline. What is happening and what fixes it?", a: "Every describe, show and count is an ACTION, so each one re-executes the entire lineage from the source files. Cache the cleaned DataFrame once before the exploration block, so the pipeline runs a single time and every subsequent inspection reads from memory." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- `printSchema()` before anything else — column names, types, and nullability decide what operations are even legal.
+- **`describe()` omits the median.** It gives count, mean, stddev, min, max only; use `summary()` or `approxQuantile()` for percentiles.
+- Percentiles are *approximate* by default in Spark, because an exact median requires a full sort across partitions.
+- Every inspection call is an **action** — it runs the whole lineage. On an expensive pipeline, cache before exploring.
+</ConceptBox>
 
 <QuizCard
   question="What does df.describe() NOT show by default?"

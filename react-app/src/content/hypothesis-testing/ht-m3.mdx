@@ -1,18 +1,12 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import ZTestSimulatorWidget from '../../components/widgets/hypothesis-testing/ZTestSimulatorWidget.jsx'
 import PowerCurveWidget from '../../components/widgets/hypothesis-testing/PowerCurveWidget.jsx'
+
+# Module 3: One-Sample Z-Test
 
 <Bridge>
 **Factory QC.** A cereal line targets 500 g per box, with a long-established known $\sigma = 8$ g. After maintenance, the manager samples 40 boxes and gets $\bar{x} = 497$ g. Is the 3 g shortfall random variation or systematic underfilling? To decide with a controlled error risk, she needs the **one-sample Z-test**.
 </Bridge>
-
-<ConceptBox title="TL;DR">
-- Four conditions, and the second is the one that decides everything: **$\sigma$ known** → Z-test; $\sigma$ estimated from the sample → t-test.
-- The **sampling distribution** describes how $\bar{x}$ moves across hypothetical samples — not how the data are spread. Its width is $\text{SE}=\sigma/\sqrt{n}$.
-- $Z=(\bar{x}-\mu_0)/\text{SE}$ reads as "observed minus predicted, in units of ordinary sampling wobble."
-- The CLT is what lets you use it on non-normal populations once $n\gtrsim30$.
-- Same data, different $\alpha$, different verdict — which is exactly why $\alpha$ is fixed first.
-</ConceptBox>
 
 ## When to Use It
 
@@ -29,13 +23,31 @@ In the factory case: $\sigma = 8$ known ✓, $n = 40 \geq 30$ ✓, random ✓ �
 
 ## The Sampling Distribution of the Mean
 
+<PredictReveal
+  prompt="Individual cereal boxes vary with a standard deviation of 8 grams. You take the average of 40 boxes. How much does that average vary from sample to sample?"
+  options={["Also about 8 grams", "About 1.3 grams — averaging shrinks the variation by the square root of the sample size"]}
+  correct={1}
+>
+
 This describes how $\bar{x}$ behaves across all possible samples of size $n$, not the data itself. If $X \sim N(\mu, \sigma^2)$, then
 
 $$\bar{X} \sim N\!\left(\mu,\, \frac{\sigma^2}{n}\right), \qquad \text{SE}(\bar{X}) = \frac{\sigma}{\sqrt{n}}$$
 
 The **standard error** is how much $\bar{x}$ typically varies sample-to-sample by chance. It shrinks with $n$ — larger samples estimate $\mu$ more precisely. One box varies by 8 g, but the mean of 40 varies by only $8/\sqrt{40} \approx 1.265$ g.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the standard error and how does it differ from the standard deviation?", a: "The standard deviation describes how much individual observations vary. The standard error describes how much a sample mean varies from one sample to the next, and it equals the standard deviation divided by the square root of the sample size, so it shrinks as the sample grows." },
+]} />
+
 ## Deriving the Z Statistic
+
+<PredictReveal
+  prompt="A Z statistic comes out at 2.0. What does that number actually count?"
+  options={["The raw size of the difference in the original units", "How many standard errors the observed mean sits away from the value the null hypothesis predicted"]}
+  correct={1}
+>
 
 <DerivationSteps>
 <DerivationStep number={1} title="Null distribution">
@@ -55,6 +67,12 @@ $Z$ is in standard-error units. $Z = 2$ means $\bar{x}$ is 2 SEs from $\mu_0$ �
 </DerivationSteps>
 
 Each part carries meaning: **numerator** $\bar{x} - \mu_0$ = observed minus predicted (497 − 500 = −3 g); **denominator** $\sigma/\sqrt{n}$ = typical sampling movement; **ratio** = the gap in units of natural variation. The further $|Z|$ from 0, the smaller the p-value.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does the size of a Z statistic tell you?", a: "How far the observed sample mean sits from the null value, measured in standard errors rather than in original units. That rescaling is what lets one universal reference distribution serve every test, regardless of what is being measured." },
+]} />
 
 ## The Testing Procedure
 
@@ -115,6 +133,16 @@ At 5%, the mean output differs from 500 g; the 95% CI [494.52, 499.48] excludes 
 </DerivationSteps>
 
 <PowerCurveWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- Four conditions, and the second is the one that decides everything: **$\sigma$ known** → Z-test; $\sigma$ estimated from the sample → t-test.
+- The **sampling distribution** describes how $\bar{x}$ moves across hypothetical samples — not how the data are spread. Its width is $\text{SE}=\sigma/\sqrt{n}$.
+- $Z=(\bar{x}-\mu_0)/\text{SE}$ reads as "observed minus predicted, in units of ordinary sampling wobble."
+- The CLT is what lets you use it on non-normal populations once $n\gtrsim30$.
+- Same data, different $\alpha$, different verdict — which is exactly why $\alpha$ is fixed first.
+</ConceptBox>
 
 ## Practice
 

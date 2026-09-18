@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import WeightInitWidget from '../../components/widgets/deep-learning/WeightInitWidget.jsx'
 
 # Module 9: Weight Initialization
-
-<ConceptBox title="TL;DR">
-- **Zero weights break symmetry, permanently.** Every neuron in a layer computes the same thing and receives the same gradient, so the layer is forever equivalent to one neuron. Random init exists to break that tie.
-- Biases at zero are fine — the random weights already break symmetry.
-- The goal is to **hold activation variance roughly constant across depth**. Too small and the signal vanishes layer by layer; too large and it explodes.
-- **Xavier/Glorot** targets tanh and sigmoid. **He/Kaiming** uses $2/n_{in}$ for ReLU — the factor 2 compensates for ReLU zeroing half its inputs.
-- "Small random normal" is *not* a safe default: at 50 layers it vanishes the signal just as reliably as a bad constant.
-</ConceptBox>
 
 <Bridge>
 **From Module 8:** You have loss functions and optimizers. Before training starts, there is one critical choice that determines whether gradients will flow at all: **how to initialize the weights**. Initialize wrong — all zeros, or too large, or too small — and backpropagation will fail before it begins. Initialize right, and even very deep networks train efficiently. This module derives exactly what "right" means from first principles.
@@ -25,6 +17,12 @@ If all weights are zero, every neuron computes the same pre-activation $z = \mat
 
 ## The Problem: Vanishing and Exploding Gradients
 
+<PredictReveal
+  prompt="You initialise every weight in the network to zero. What happens during training?"
+  options={["It starts slowly but recovers", "Every unit in a layer computes the same thing and receives the same gradient forever — the network never breaks symmetry"]}
+  correct={1}
+>
+
 ### Signal Propagation Analysis
 
 Consider a deep network with $L$ layers, each initialized with weights from $\mathcal{N}(0, \sigma^2)$. What happens to the **variance of activations** as the signal passes through layers?
@@ -39,7 +37,19 @@ $$\text{Var}(z^{[l]}) = n \cdot \sigma^2 \cdot \text{Var}(a^{[l-1]})$$
 
 **Goal:** $n \cdot \sigma^2 = 1$ — preserve signal variance through the forward pass.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can weights not be initialised to zero?", a: "Every unit in a layer would compute an identical output and therefore receive an identical gradient, so they would remain identical for ever. The layer would behave as though it had one unit, however wide it is. Random initialisation exists to break that symmetry." },
+]} />
+
 ## Initialization Strategies
+
+<PredictReveal
+  prompt="Initialisation schemes scale the random weights by the number of inputs to a unit. Why does the fan-in appear in the formula?"
+  options={["It is an empirical constant that happened to work", "A unit sums many inputs, so its output variance grows with the count — dividing by it keeps activations from exploding or vanishing through depth"]}
+  correct={1}
+>
 
 ### All Zeros
 
@@ -86,6 +96,12 @@ $$W^{[l]}_{ij} \sim \mathcal{N}\!\left(0, \frac{2}{n^{[l-1]}}\right)$$
 **This is the default for ReLU networks** and is what PyTorch's `nn.Linear` uses by default (with $\mathcal{U}$).
 
 PyTorch: `nn.init.kaiming_normal_(tensor, nonlinearity='relu')`
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why do initialisation schemes scale by the number of incoming connections?", a: "A unit's pre-activation is a sum over its inputs, so its variance grows in proportion to how many there are. Scaling the weight variance down by that count keeps the activation variance roughly constant from layer to layer, which is what stops signals from exploding or vanishing as depth increases." },
+]} />
 
 ## Custom Initialization in PyTorch
 
@@ -173,6 +189,14 @@ For uniform init: $W \sim \mathcal{U}(-r, r)$ where $r = \sqrt{6/(n^{[l-1]}+n^{[
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- **Zero weights break symmetry, permanently.** Every neuron in a layer computes the same thing and receives the same gradient, so the layer is forever equivalent to one neuron. Random init exists to break that tie.
+- Biases at zero are fine — the random weights already break symmetry.
+- The goal is to **hold activation variance roughly constant across depth**. Too small and the signal vanishes layer by layer; too large and it explodes.
+- **Xavier/Glorot** targets tanh and sigmoid. **He/Kaiming** uses $2/n_{in}$ for ReLU — the factor 2 compensates for ReLU zeroing half its inputs.
+- "Small random normal" is *not* a safe default: at 50 layers it vanishes the signal just as reliably as a bad constant.
+</ConceptBox>
 
 ## Quiz
 

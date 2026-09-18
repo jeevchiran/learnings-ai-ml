@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import HistogramWidget from '../../components/widgets/cv/HistogramWidget.jsx'
 
 # Module 7: Image Distributions
-
-<ConceptBox title="TL;DR">
-- A **histogram** throws away all spatial structure and keeps only "how many pixels of each intensity". Two completely different images can share one.
-- **Equalisation** remaps intensities by the normalised CDF, spreading them across the full range. It is *per image*, so it is data-dependent — use it for viewing, not blindly for training.
-- **CLAHE** is the practical version: equalise in tiles, clip the histogram first, so it does not amplify noise in flat regions.
-- Training pipelines normalise with **fixed dataset statistics** so that "0.4" means the same thing in every batch.
-- The gap between your training histogram and your deployment histogram is **domain shift** — the single most common reason a good model fails in the field.
-</ConceptBox>
 
 <Bridge>
 Every module so far worked pixel-by-pixel or window-by-window. A histogram is the first *global* view: it summarises the whole image as a distribution, which is what both contrast enhancement and training-time normalisation operate on.
@@ -36,6 +28,12 @@ Read it as a fingerprint of exposure:
 
 ## Equalisation
 
+<PredictReveal
+  prompt="A photograph looks washed out and its histogram is bunched into a narrow band. What does equalisation do to it?"
+  options={["Brightens it uniformly", "Spreads the occupied range across the full scale, so the existing differences become visible"]}
+  correct={1}
+>
+
 Let $c(k) = \sum_{j \le k} p(j)$ be the cumulative distribution. The transform is
 
 $$T(k) = \text{round}\!\left(255 \cdot \frac{c(k) - c_{\min}}{1 - c_{\min}}\right)$$
@@ -47,6 +45,12 @@ Applying a random variable's own CDF to itself yields a **uniform** distribution
 
 **It is global.** One bright window in a dark room dominates the CDF, and the rest of the image is barely touched. `cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))` fixes both: equalise per tile, cap any histogram bin before building the CDF, then bilinearly blend tile boundaries.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does histogram equalisation actually do?", a: "It remaps intensities so the occupied range is spread across the whole scale, using the cumulative distribution as the mapping. Differences that were compressed into a narrow band become visible. It changes contrast, not brightness, and it is a display or preprocessing step rather than a training normalisation." },
+]} />
 
 ## Normalisation for training — a different job
 
@@ -102,6 +106,16 @@ Train on daytime photos, deploy on a dusk camera: the input histogram slides lef
   { q: "Why do training pipelines use fixed dataset statistics rather than normalising each image by its own mean and std?", a: "Because per-image normalisation applies a different function to each sample. Two images that differ only in brightness would map to identical tensors, erasing a genuine cue, and the transform at inference would differ from any seen at training. Fixed constants make normalisation a single, reproducible affine map." },
   { q: "Your model's accuracy quietly drops after a camera is replaced. What do you check first, and why is it cheap?", a: "The input histogram, compared against the training distribution. A new sensor shifts exposure, white balance and noise characteristics, moving the input distribution away from what the first layer was calibrated on. Comparing histograms needs no labels and no inference — it is a few sums over incoming frames, so it can run continuously in production." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A **histogram** throws away all spatial structure and keeps only "how many pixels of each intensity". Two completely different images can share one.
+- **Equalisation** remaps intensities by the normalised CDF, spreading them across the full range. It is *per image*, so it is data-dependent — use it for viewing, not blindly for training.
+- **CLAHE** is the practical version: equalise in tiles, clip the histogram first, so it does not amplify noise in flat regions.
+- Training pipelines normalise with **fixed dataset statistics** so that "0.4" means the same thing in every batch.
+- The gap between your training histogram and your deployment histogram is **domain shift** — the single most common reason a good model fails in the field.
+</ConceptBox>
 
 <QuizCard
   question="An 8-bit image uses only intensities 90–130. What does histogram equalisation do to its standard deviation?"

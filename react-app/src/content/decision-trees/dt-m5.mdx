@@ -1,17 +1,11 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import BaggingRandomForestWidget from '../../components/widgets/decision-trees/BaggingRandomForestWidget.jsx'
+
+# Module 5: Bagging and Random Forests
 
 <Bridge>
 **From instability to ensemble design.** Module 4 identified a core tension: a fully grown tree memorizes training data (high variance, low bias), while an aggressively pruned tree underfits. Pruning helps, but even a well-tuned single tree suffers from instability — small changes to the training data can produce entirely different tree structures. The insight is that variance can be reduced by averaging, but only if the things being averaged are not perfectly correlated. The entire engineering challenge of ensemble methods is reducing that correlation — making the base learners diverse enough that their errors cancel out when aggregated.
 </Bridge>
-
-<ConceptBox title="TL;DR">
-- Averaging $B$ independent estimators divides variance by $B$. Trees on the same data **aren't** independent — so the whole engineering problem is **decorrelation**.
-- **Bootstrap**: sample $n$ points with replacement. Each tree sees ~63.2% of the data; the other ~36.8% is **out-of-bag** and gives a free validation estimate.
-- Bagging alone isn't enough: one dominant feature ends up at the root of every tree, so they stay correlated.
-- **Random forest's extra move** is sampling $m$ features *at each split* ($\sqrt p$ classification, $p/3$ regression) — forcing trees to use different features.
-- Variance floor: $\rho\sigma^2 + (1-\rho)\sigma^2/B$. More trees kill the second term only; **$\rho$ is what `max_features` attacks.**
-</ConceptBox>
 
 ## 1. The Averaging Idea
 
@@ -26,6 +20,12 @@ If we could train $B$ independent trees and average their predictions, variance 
 Bagging addresses both obstacles through resampling; random forests further decorrelate trees by randomizing feature selection at each split.
 
 ## 2. Bootstrap Sampling
+
+<PredictReveal
+  prompt="You draw n samples with replacement from a dataset of n rows. Roughly what fraction of the original rows never get drawn at all?"
+  options={["Almost none, since you drew n of them", "About 37%, which is where the out-of-bag estimate comes from"]}
+  correct={1}
+>
 
 A **bootstrap sample** of $n$ observations is formed by drawing $n$ times *uniformly with replacement* from the original $n$ observations. Each draw is independent; any observation can be selected multiple times or not at all.
 
@@ -50,6 +50,12 @@ Three independent bootstrap samples:
 
 Each sample produces a different effective training set. Trees trained on D₁, D₂, D₃ will differ in structure because they see different subsets of the data.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What fraction of rows are left out of a bootstrap sample, and what is that good for?", a: "About 37%, since each row has a probability of roughly one over e of never being drawn across n draws. Those left-out rows are exactly the rows that tree never saw, so averaging predictions over them gives a validation estimate at no extra cost — the out-of-bag score." },
+]} />
 
 ## 3. Bagging — Bootstrap Aggregating
 
@@ -105,6 +111,12 @@ The OOB error is computed by comparing $\hat{f}_{\text{OOB}}(x_i)$ to the true l
 
 ## 4. Random Forests — Decorrelating the Trees
 
+<PredictReveal
+  prompt="You bag 500 trees but one feature is so strong that nearly every tree picks it at the root. Do the 500 trees give you 500 independent opinions?"
+  options={["Yes, each saw a different bootstrap sample", "No — they are highly correlated, and averaging correlated errors removes far less variance"]}
+  correct={1}
+>
+
 Breiman (2001) refined bagging with one key modification: at each split, only a random subset of $m_{\text{try}}$ features (out of the full $p$) is considered as candidates. The best split is found among these $m_{\text{try}}$ features only.
 
 **Why this reduces correlation:** In a bagged forest, if one feature is strongly predictive, nearly every tree will place it at or near the root — making trees highly correlated. By forcing each split to consider only $m_{\text{try}} < p$ randomly chosen features, we ensure that sometimes the dominant feature is excluded. Different trees end up relying on different features, discovering different aspects of the data. Their predictions become less correlated — $\rho$ decreases — and the ensemble variance floor drops.
@@ -135,6 +147,12 @@ Predict:
 
 Optional: compute OOB error
 ```
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What problem does a random forest solve that plain bagging does not?", a: "Bagged trees stay correlated when one feature dominates, because nearly every tree splits on it first, and averaging correlated predictions removes much less variance than averaging independent ones. Restricting each split to a random subset of features forces trees to diverge, so the ensemble average is genuinely more stable." },
+]} />
 
 ## 5. Feature Importance
 
@@ -167,6 +185,16 @@ A large positive $\text{PI}(j)$ means feature $j$ matters. Permutation importanc
   { q: "What is OOB error and why is it nearly free?", a: "For each training point, average the predictions of only those trees that did not see it — about a third of them — and compare against its label. It costs no extra data and no separate fitting because those trees already exist; it is roughly equivalent to cross-validation, computed as a side effect of bootstrapping." },
   { q: "Why is permutation importance preferred over the built-in impurity importance?", a: "Impurity-based importance is computed from training-set splits and is biased toward high-cardinality and continuous features, which get more chances to look useful. Permutation importance shuffles one feature in the OOB data and measures the actual increase in held-out error, so it reports what the feature contributes to GENERALISATION." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Averaging $B$ independent estimators divides variance by $B$. Trees on the same data **aren't** independent — so the whole engineering problem is **decorrelation**.
+- **Bootstrap**: sample $n$ points with replacement. Each tree sees ~63.2% of the data; the other ~36.8% is **out-of-bag** and gives a free validation estimate.
+- Bagging alone isn't enough: one dominant feature ends up at the root of every tree, so they stay correlated.
+- **Random forest's extra move** is sampling $m$ features *at each split* ($\sqrt p$ classification, $p/3$ regression) — forcing trees to use different features.
+- Variance floor: $\rho\sigma^2 + (1-\rho)\sigma^2/B$. More trees kill the second term only; **$\rho$ is what `max_features` attacks.**
+</ConceptBox>
 
 <QuizCard
   question="In a random forest with p = 100 features, approximately how many features are considered at each split by default for a classification task, and why?"

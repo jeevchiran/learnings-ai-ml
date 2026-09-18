@@ -1,13 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import ImpurityWidget from '../../components/widgets/decision-trees/ImpurityWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Impurity $I(t)$ = 0 when a node is pure, maximal when classes are evenly mixed. **Gain** = parent impurity − weighted child impurity; pick the split that maximises it.
-- **Gini** = chance two random draws differ in class; binary max **0.5**. **Entropy** = bits to encode a label; binary max **1**.
-- **Misclassification rate is not used for splitting** — it's piecewise linear, so it can report zero gain for a split that genuinely improves separation.
-- Gini and entropy nearly always pick the same split. Gini is the default because it avoids a logarithm.
-- Weighting children by size is essential — otherwise a pure 1-sample child would look like a triumph.
-</ConceptBox>
+# Module 2: Impurity Measures and the Training Process
 
 ## Why a Splitting Criterion?
 
@@ -26,6 +20,12 @@ We want a scalar $I(t)$ that is 0 at a pure node and maximal when classes are ev
 
 ## Gini Impurity
 
+<PredictReveal
+  prompt="A node contains 50 approvals and 50 rejections. Another contains 100 approvals and nothing else. Which one should an impurity measure score as zero?"
+  options={["The balanced one, since it is evenly split", "The pure one, since there is nothing left to separate"]}
+  correct={1}
+>
+
 Pick two samples at random (with replacement) from a node — the probability they're *different* classes is the Gini impurity:
 
 $$G(t) = \sum_{k=1}^{K} p_k(1 - p_k) = 1 - \sum_{k=1}^{K} p_k^2$$
@@ -39,6 +39,12 @@ $$G(t) = \sum_{k=1}^{K} p_k(1 - p_k) = 1 - \sum_{k=1}^{K} p_k^2$$
 </ConceptBox>
 
 **Example** (6+, 4−): $p_+^2 + p_-^2 = 0.36 + 0.16 = 0.52$, so $G = 1 - 0.52 = 0.48$ — near the 0.5 max, confirming a balanced node.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does an impurity measure of zero mean for a node?", a: "Every sample in that node carries the same label, so there is nothing left to separate and the node can become a leaf. Impurity is largest when the classes are evenly mixed, because that is the least informative state." },
+]} />
 
 ## Shannon Entropy
 
@@ -68,6 +74,12 @@ Y is clearly better, yet $E$ reports zero gain for X because the majority class 
 
 ## Information Gain and Gini Gain
 
+<PredictReveal
+  prompt="A split sends 90 samples into one child and 10 into the other. When you measure how good the split was, should both children count equally?"
+  options={["Yes, average the two impurities", "No — weight each child by how many samples it holds, or a tiny pure child would flatter a bad split"]}
+  correct={1}
+>
+
 For a split sending $|t_L|$ left and $|t_R|$ right:
 
 $$\text{IG} = H(t) - \frac{|t_L|}{|t|} H(t_L) - \frac{|t_R|}{|t|} H(t_R), \qquad \text{GG} = G(t) - \frac{|t_L|}{|t|} G(t_L) - \frac{|t_R|}{|t|} G(t_R)$$
@@ -75,6 +87,12 @@ $$\text{IG} = H(t) - \frac{|t_L|}{|t|} H(t_L) - \frac{|t_R|}{|t|} H(t_R), \qquad
 Choose the feature/threshold that **maximizes** the gain.
 
 **Worked IG.** Parent (6+, 4−); split → left (5+,1−), right (1+,3−).
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is the children's impurity weighted by node size when scoring a split?", a: "Without weighting, a split that peels off two pure samples into a tiny child would look excellent while leaving the bulk of the data as mixed as before. Weighting by the fraction of samples in each child measures how much the split improved the dataset as a whole." },
+]} />
 
 <DerivationSteps>
 <DerivationStep number={1} title="Parent">
@@ -113,7 +131,31 @@ BuildTree(data, depth, maxDepth, minSamples):
 
 **Complexity:** naive per-node $O(n^2 p)$; over depth $d$, $O(n^2 p d)$. scikit-learn pre-sorts each feature once, cutting per-node cost to $O(n \log n \cdot p)$.
 
+<PredictReveal
+  prompt="Gini and entropy are different formulas. In practice, how often do they choose different splits?"
+  options={["Very often — the choice of criterion matters a lot", "Rarely — they agree on nearly all splits, and depth limits matter far more"]}
+  correct={1}
+>
+
 <ImpurityWidget />
+
+Sweep the class proportion in the widget and watch the two curves rise and fall together. They peak at the same place and are zero at the same places; only their scale differs, which is why the criterion is one of the least important settings on a tree.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Does the choice between Gini and entropy matter much?", a: "Rarely. Both are zero for a pure node, maximal for an evenly mixed one, and they select the same split in the large majority of cases. Depth, minimum-samples limits and pruning affect the final tree far more than the impurity formula does." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Impurity $I(t)$ = 0 when a node is pure, maximal when classes are evenly mixed. **Gain** = parent impurity − weighted child impurity; pick the split that maximises it.
+- **Gini** = chance two random draws differ in class; binary max **0.5**. **Entropy** = bits to encode a label; binary max **1**.
+- **Misclassification rate is not used for splitting** — it's piecewise linear, so it can report zero gain for a split that genuinely improves separation.
+- Gini and entropy nearly always pick the same split. Gini is the default because it avoids a logarithm.
+- Weighting children by size is essential — otherwise a pure 1-sample child would look like a triumph.
+</ConceptBox>
 
 ## Practice
 

@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import BottleneckWidget from '../../components/widgets/vae/BottleneckWidget.jsx'
 
 # Module 1: Compression, Autoencoders & Latent Space
 
@@ -23,6 +24,8 @@ This is the central bargain: **a narrow bottleneck forces the network to learn s
 <Recall items={[
   { q: "Why does a narrow bottleneck force a network to learn something meaningful, while a wide one does not?", a: "A narrow bottleneck cannot physically hold the input, so the network must spend its limited capacity on the factors that actually vary across the dataset. If the bottleneck is as wide as the input, the network can simply learn the identity function — copying values straight through — which satisfies the objective while learning nothing about the structure of the data." },
 ]} />
+
+<BottleneckWidget />
 
 ## The three pieces of an autoencoder
 

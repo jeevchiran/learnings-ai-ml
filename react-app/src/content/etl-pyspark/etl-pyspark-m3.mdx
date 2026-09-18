@@ -1,12 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LazyEvaluationWidget from '../../components/widgets/etl-pyspark/LazyEvaluationWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- The name is the definition. **R**esilient = rebuildable from lineage; **D**istributed = partitioned across nodes; **D**ataset = just a collection of elements.
-- **Immutability is what makes resilience possible.** Because every transformation returns a new RDD and the source is unchanged, a lost partition can be recomputed by replaying its lineage.
-- That's fault tolerance without replication — Spark stores the *recipe*, not a backup copy.
-- RDDs are the low-level API: raw tuples and lambdas, no schema, no Catalyst optimisation. DataFrames exist because of that gap.
-</ConceptBox>
+# Module 3: Spark RDDs
 
 In Module 2, we saw how Spark keeps data in memory and uses lazy evaluation with DAGs. Now we'll look at the data structure that makes this possible: the RDD.
 
@@ -58,6 +53,12 @@ print(f"\nTotal lines: {lines_rdd.count()} (1 header + 8 students)")
 ```
 
 ## Transformations vs Actions
+
+<PredictReveal
+  prompt="Which of these triggers actual computation: mapping a function over the data, or counting the rows?"
+  options={["Both, they are both operations", "Only the count — mapping returns a new plan, while a count must produce a number and therefore has to run"]}
+  correct={1}
+>
 
 Every operation on an RDD falls into one of two categories:
 
@@ -167,6 +168,23 @@ for major, count in major_counts.items():
 ```
 
 <LazyEvaluationWidget />
+
+Chain operations in the widget and watch the plan grow with nothing executing, then trigger an action and watch the whole chain fire at once.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How do you tell a transformation from an action?", a: "By what it returns. A transformation returns another distributed dataset and only extends the plan, so it costs nothing immediately. An action returns a concrete value to your program — a count, a collected list, a written file — and that demand is what forces the plan to execute." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The name is the definition. **R**esilient = rebuildable from lineage; **D**istributed = partitioned across nodes; **D**ataset = just a collection of elements.
+- **Immutability is what makes resilience possible.** Because every transformation returns a new RDD and the source is unchanged, a lost partition can be recomputed by replaying its lineage.
+- That's fault tolerance without replication — Spark stores the *recipe*, not a backup copy.
+- RDDs are the low-level API: raw tuples and lambdas, no schema, no Catalyst optimisation. DataFrames exist because of that gap.
+</ConceptBox>
 
 ## Practice Problems
 

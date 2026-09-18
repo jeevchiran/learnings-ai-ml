@@ -1,12 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import ALSFactorWidget from '../../components/widgets/recsys/ALSFactorWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Replace the huge sparse matrix $R$ with two thin dense ones: $R \approx X Y^\top$, where each shopper and each product become a $k$-dimensional vector.
-- The **implicit** variant (Hu, Koren & Volinsky 2008) trains on **every cell**, weighting each by confidence $c_{ui}=1+\alpha r_{ui}$. Not just the observed ones.
-- **ALS** alternates: fix $Y$, solve for $X$ in closed form; fix $X$, solve for $Y$. Each half-step is a ridge regression, so it is exact, parallel, and needs no learning rate.
-- The Gram-matrix trick makes the full-matrix sum cost the same as summing over observed entries only. That trick is why the algorithm is practical.
-</ConceptBox>
+# Module 8: Implicit Matrix Factorization
 
 ## From a table to two vectors
 
@@ -22,6 +17,12 @@ For NovaCart: 6 shoppers + 9 products at $k=3$ is 45 numbers instead of 54 matri
 
 ## The implicit objective
 
+<PredictReveal
+  prompt="Matrix factorisation on explicit ratings only sums over the cells that have ratings. Why can implicit feedback not do the same?"
+  options={["It can, the maths is identical", "Because the unobserved cells are the signal — treating them as missing would leave nothing to distinguish an item from any other unseen one"]}
+  correct={1}
+>
+
 The explicit-feedback objective sums over observed entries only. That is wrong here — every observed entry is a positive (module 2). So sum over **all** of them, weighted:
 
 $$\min_{X,Y} \sum_{u=1}^{m}\sum_{i=1}^{n} c_{ui}\,\bigl(p_{ui} - x_u^\top y_i\bigr)^2 \;+\; \lambda\bigl(\lVert X\rVert_F^2 + \lVert Y\rVert_F^2\bigr)$$
@@ -30,7 +31,19 @@ with $p_{ui} = 1$ if $r_{ui}>0$ else $0$, and $c_{ui} = 1 + \alpha r_{ui}$.
 
 Read it as: *try to output 1 where they interacted and 0 where they did not, but care about the "did" cells $c_{ui}$ times as much.*
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does implicit matrix factorisation sum over every cell rather than only observed ones?", a: "With implicit data there are no negative ratings, only presence and absence. Skipping the absent cells would leave an objective with no downward pressure on anything, so every item would score highly. Instead all cells are included, with a confidence weight that is high for observed interactions and low for the rest." },
+]} />
+
 ## Why ALS, and how
+
+<PredictReveal
+  prompt="The objective has user vectors and item vectors multiplied together, so it is not convex in both at once. What does alternating least squares exploit?"
+  options={["A clever approximation", "That fixing one side makes the problem an ordinary least-squares solve for the other, with a closed form"]}
+  correct={1}
+>
 
 The objective is not convex in $(X, Y)$ jointly — but with $Y$ held fixed it is a plain weighted least-squares problem in $X$, which has a closed-form solution. So alternate.
 
@@ -55,6 +68,12 @@ Symmetric. One user sweep plus one item sweep is one ALS iteration; 10–20 iter
 Each half-step is the exact minimiser of the objective with the other factor frozen, so neither can increase it. The loss is bounded below by 0, so ALS converges — to a local optimum, not the global one. Different seeds give different factorizations with similar loss.
 </DerivationStep>
 </DerivationSteps>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is alternating least squares a good fit for this objective?", a: "The objective is not convex in the user and item factors jointly, but holding one set fixed makes it a plain regularised least-squares problem in the other, which has an exact closed-form solution. Alternating between the two halves therefore makes guaranteed progress each step and parallelises across users or items." },
+]} />
 
 ## The three knobs
 
@@ -90,6 +109,15 @@ Retrieval now returns a few hundred candidates. Ordering them precisely is a dif
   { q: "ALS loss never increases. Does that mean it finds the global optimum?", a: "No. Each half-step is the exact minimiser given the other factor fixed, so the loss is monotone non-increasing and converges — but the joint objective is non-convex, so it converges to a local optimum. Different random seeds yield different factorisations with comparable loss, which is why factor dimensions are not individually interpretable." },
   { q: "What breaks if you set α = 0, and why does that identify α as the core of the implicit method?", a: "All cells get confidence 1, observed and unobserved alike. Since the matrix is overwhelmingly zeros, the loss-minimising solution is to predict ≈0 everywhere, and the model learns nothing. α is what encodes 'a cell with evidence matters more than an empty one' — remove it and implicit MF degenerates." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Replace the huge sparse matrix $R$ with two thin dense ones: $R \approx X Y^\top$, where each shopper and each product become a $k$-dimensional vector.
+- The **implicit** variant (Hu, Koren & Volinsky 2008) trains on **every cell**, weighting each by confidence $c_{ui}=1+\alpha r_{ui}$. Not just the observed ones.
+- **ALS** alternates: fix $Y$, solve for $X$ in closed form; fix $X$, solve for $Y$. Each half-step is a ridge regression, so it is exact, parallel, and needs no learning rate.
+- The Gram-matrix trick makes the full-matrix sum cost the same as summing over observed entries only. That trick is why the algorithm is practical.
+</ConceptBox>
 
 <QuizCard
   question="You increase k from 32 to 256 and the training loss drops sharply, but NDCG@10 on the temporal test split gets worse. What is happening?"

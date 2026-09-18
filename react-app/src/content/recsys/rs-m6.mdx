@@ -1,12 +1,7 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import BaselineCompareWidget from '../../components/widgets/recsys/BaselineCompareWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Four baselines, in ascending difficulty: **random → most popular → recently viewed → co-visitation**.
-- **Most popular** is the bar, not the goal. It beats random comfortably and shows every shopper the identical slate.
-- **Recently viewed is the baseline that actually hurts.** It is not personalisation, just memory, and in e-commerce it is brutally hard to beat because shoppers return to finish what they started.
-- If your neural model cannot beat "recently viewed", you have not built a recommender — you have built an expensive way to lose to a database query.
-</ConceptBox>
+# Module 6: Baseline Models
 
 ## Why baselines come before models
 
@@ -17,6 +12,12 @@ Baselines also fail fast and cheap. If popularity beats your model, the bug is a
 <BaselineCompareWidget />
 
 ## The four baselines
+
+<PredictReveal
+  prompt="Before building anything, what does recommending the ten most popular items to every user achieve?"
+  options={["Nothing, it is trivially bad", "Often a surprisingly high score — and until you beat it, no model has justified its existence"]}
+  correct={1}
+>
 
 ### 1. Random — the floor
 
@@ -68,6 +69,12 @@ pairs = (train.merge(train, on="session_id")
 
 This is association rule mining under another name, and it powers "Frequently bought together" on essentially every store. It needs no model, updates incrementally, and is often the strongest thing in the building on basket-completion surfaces.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a popularity baseline the first thing to build?", a: "It costs nothing and is frequently hard to beat, because popular items genuinely are what most people want. Any model that does not clearly exceed it is adding complexity and serving cost for no benefit, and without the baseline there is no way to notice." },
+]} />
+
 ## Reading the comparison table
 
 Two results in the widget matter more than the exact numbers (six shoppers is far too few for the numbers themselves to be trustworthy):
@@ -92,6 +99,15 @@ Baselines use counts. The first real model uses the structure hiding in *who tou
   { q: "Popularity scores respectably but has 33% coverage. Why is that disqualifying even if NDCG looks fine?", a: "Only three of nine products are ever shown to anyone, so the model cannot sell anything outside the head and cannot generate interaction data for the rest of the catalog — the feedback loop tightens. High accuracy achieved by guessing the base rate adds no incremental value over not having a recommender at all." },
   { q: "In the NovaCart results, recently-viewed misses exactly two shoppers. What do those two cases represent?", a: "Eli and Farida each bought something they had never interacted with. Memory-based baselines are structurally incapable of predicting discovery. That subset is the only place a real recommender can beat the baseline, so it is where the model should be evaluated and where its business case lives." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Four baselines, in ascending difficulty: **random → most popular → recently viewed → co-visitation**.
+- **Most popular** is the bar, not the goal. It beats random comfortably and shows every shopper the identical slate.
+- **Recently viewed is the baseline that actually hurts.** It is not personalisation, just memory, and in e-commerce it is brutally hard to beat because shoppers return to finish what they started.
+- If your neural model cannot beat "recently viewed", you have not built a recommender — you have built an expensive way to lose to a database query.
+</ConceptBox>
 
 <QuizCard
   question="Your new model beats 'most popular' on NDCG@10 but loses to 'recently viewed'. What is the correct read?"

@@ -1,18 +1,17 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
-
-<ConceptBox title="TL;DR">
-- **Bag of Words** discards order entirely — "dog bites man" and "man bites dog" become the same vector. Often good enough for topic-level tasks, fatal for anything about relations.
-- **TF-IDF = frequency here × rarity everywhere.** The IDF factor is what stops "the" from dominating.
-- So a word scores high only when it's *frequent in this document and rare across the corpus* — exactly the definition of distinctive.
-- Both produce huge sparse vectors where every word is orthogonal to every other; "dog" and "cat" have similarity 0.
-- **Topic models** (LSA via SVD, LDA via Dirichlet priors) compress that into $k$ topics. $k$ is your choice, and both are unsupervised.
-</ConceptBox>
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import TfIdfWidget from '../../components/widgets/nlp/TfIdfWidget.jsx'
 
 <Bridge>
 NLP gives us annotations — tokens, POS tags, entities, parse trees. This module turns those annotations into numbers a machine can learn from: three document representation approaches that bridge text and ML.
 </Bridge>
 
 ## Bag of Words
+
+<PredictReveal
+  prompt={"The dog bit the man and the man bit the dog produce identical bag-of-words vectors. Is that acceptable?"}
+  options={["No, the representation is useless", "Often yes — for topic classification the words carry the signal, and the cost only bites when order is the point"]}
+  correct={1}
+>
 
 The **Bag of Words (BoW)** model represents a document as a vector of word counts, ignoring word order and grammar.
 
@@ -62,7 +61,19 @@ print("BoW matrix:\n", X.toarray())`}
 Despite these limitations, BoW pairs naturally with Naive Bayes (both assume word independence), making the combination effective for text classification and spam filtering.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does a bag-of-words representation discard, and when does that matter?", a: "All word order and therefore all syntax, so sentences with opposite meanings can have identical vectors. It matters little for topic classification, where the vocabulary itself carries the signal, and a great deal for anything involving negation, relations between entities or generation." },
+]} />
+
 ## TF-IDF — The Weighting Solution
+
+<PredictReveal
+  prompt="A word appears in every document in your corpus. What weight should it get?"
+  options={["High, since it is clearly common and relevant", "Near zero — a word that appears everywhere cannot distinguish one document from another"]}
+  correct={1}
+>
 
 **TF-IDF** (Term Frequency–Inverse Document Frequency) down-weights words that appear everywhere ("the") and up-weights words that characterize specific documents ("quantum").
 
@@ -101,6 +112,14 @@ for name, score in sorted(zip(feature_names, scores), key=lambda x: -x[1]):
 # cat          0.2404  ← appears in multiple docs, lower score
 # the          0.1876  ← appears in all docs, very low score`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does the inverse document frequency factor accomplish?", a: "It down-weights words that appear in many documents and up-weights those concentrated in few. A term appearing everywhere carries no discriminating power regardless of how often it occurs in a given document, so the weighting suppresses it without needing a hand-written stop-word list." },
+]} />
+
+<TfIdfWidget />
 
 ## Topic Modeling (NMF)
 
@@ -152,6 +171,16 @@ for topic_idx, topic in enumerate(H):
   { q: "In these representations, what is the cosine similarity of 'dog' and 'cat'?", a: "Zero — the same as 'dog' and 'calculus'. Each vocabulary word is its own orthogonal dimension, so the representation encodes no semantic relatedness whatsoever. That limitation is precisely what dense embeddings in Module 9 exist to fix." },
   { q: "LSA or LDA — what actually differs?", a: "LSA applies SVD to the document-term matrix, giving linear-algebraic topics that are fast to compute but can carry negative weights and resist interpretation. LDA is a probabilistic generative model with Dirichlet priors over topic-word and document-topic distributions, giving non-negative, more interpretable topics at a higher computational cost. Both need you to pick k." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Bag of Words** discards order entirely — "dog bites man" and "man bites dog" become the same vector. Often good enough for topic-level tasks, fatal for anything about relations.
+- **TF-IDF = frequency here × rarity everywhere.** The IDF factor is what stops "the" from dominating.
+- So a word scores high only when it's *frequent in this document and rare across the corpus* — exactly the definition of distinctive.
+- Both produce huge sparse vectors where every word is orthogonal to every other; "dog" and "cat" have similarity 0.
+- **Topic models** (LSA via SVD, LDA via Dirichlet priors) compress that into $k$ topics. $k$ is your choice, and both are unsupervised.
+</ConceptBox>
 
 <QuizCard
   question="A document about quantum physics contains the word 'the' 50 times and 'entanglement' 3 times. Which word gets a higher TF-IDF score, and why?"

@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import RNNUnfoldWidget from '../../components/widgets/rnn/RNNUnfoldWidget.jsx'
 
 # Module 1: Introduction to Sequential Data
 
@@ -105,6 +106,8 @@ The recurrence can be drawn two ways:
 **Unfolded (expanded):** the same box copied $T$ times in a line, one copy per time step. Arrows flow left to right, showing the hidden state passing from step to step.
 
 Both views describe the same computation. The unfolded view is what you use when you think about training (backpropagation through time) and when you reason about what information is still reachable after $T$ steps.
+
+<RNNUnfoldWidget />
 
 ## What we'll build in this track
 

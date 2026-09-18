@@ -63,6 +63,12 @@ class VAE(nn.Module):
 
 ## The VAE Loss Function
 
+<PredictReveal
+  prompt="The loss adds a reconstruction term and a divergence term. What happens if the divergence term is given far too much weight?"
+  options={["Sharper reconstructions", "The encoder collapses to the prior and ignores the input, so every sample decodes to the same blur"]}
+  correct={1}
+>
+
 The loss function implements the negative ELBO: $\mathcal{L} = \text{BCE} + D_{KL}$.
 
 ```python
@@ -77,6 +83,12 @@ def vae_loss_function(recon_x, x, mu, logvar):
     batch_size = x.size(0)
     return (BCE + KLD) / batch_size, BCE / batch_size, KLD / batch_size
 ```
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is posterior collapse and what causes it?", a: "The encoder learns to output the prior regardless of its input, so the latent code carries no information and every reconstruction is an average of the dataset. It happens when the divergence term dominates the reconstruction term, which is why the balance between them is the parameter that matters most." },
+]} />
 
 ## The End-to-End Training Loop
 

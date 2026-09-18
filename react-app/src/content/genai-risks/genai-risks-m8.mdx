@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import PromptInjectionWidget from '../../components/widgets/genai-risks/PromptInjectionWidget.jsx'
 
 # Module 8: Prompt Injection and Jailbreaking in Practice
 
@@ -30,6 +31,8 @@ The consequence of that difference: jailbreaking is fundamentally a **content po
 ]} />
 
 ## Why injection is the more structural of the two
+
+<PromptInjectionWidget />
 
 <PredictReveal
   prompt="Which of these problems could, in principle, be substantially solved by making the model better at recognising and refusing harmful requests?"

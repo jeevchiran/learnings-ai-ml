@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import AugmentationWidget from '../../components/widgets/cnn/AugmentationWidget.jsx'
 
 # Module 7: Data Preparation & Augmentation
-
-<ConceptBox title="TL;DR">
-- `ToTensor` rescales to $[0,1]$ **and** reorders HWC → CHW; `Normalize` then centres each channel with dataset mean/std.
-- **Augmentation belongs on the training set only.** Augmenting validation makes the score noisy and no longer comparable.
-- **The right augmentations are the label-preserving ones** — and that's domain-specific. Horizontal flip is safe on CIFAR; vertical flip is not, and neither is any flip on digits or text.
-- Mixup and CutMix blend *both* images and labels, producing soft targets rather than a harder version of one image.
-- Cutout/random erasing forces the model to use the whole object instead of one discriminative patch.
-</ConceptBox>
 
 <Bridge>
 **From Module 6:** we can train a CNN end-to-end with backpropagation. But the model is only as good as the data pipeline feeding it. Before gradients even flow, every image must be normalised to a well-conditioned range, and during training the effective dataset must be expanded through augmentation. This module covers both: the mathematics of normalisation and the catalogue of augmentation techniques that close the gap between train and test performance.
@@ -33,6 +25,12 @@ In PyTorch: `transforms.ToTensor()` also rearranges HWC → CHW (channel-first).
 
 ## Step 2: Channel-wise normalisation
 
+<PredictReveal
+  prompt="Normalisation statistics are computed from the training set. Should the validation set use its own statistics?"
+  options={["Yes, each set should be normalised by its own numbers", "No — validation must use the training statistics, or inputs are transformed differently at test time than during training"]}
+  correct={1}
+>
+
 Compute the mean $\mu_c$ and standard deviation $\sigma_c$ **across the entire training set** for each channel $c$:
 
 $$\mathbf{x}_{norm,c} = \frac{\mathbf{x}_c - \mu_c}{\sigma_c}$$
@@ -46,7 +44,19 @@ After normalisation, activations start near $\mathcal{N}(0, 1)$, matching the op
 Per-image normalisation (dividing by the image's own std) removes relative brightness differences between images that may be semantically meaningful. Per-channel training-set normalisation instead centres the *distribution of the training set* around zero without altering within-image contrast.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are normalisation statistics taken from the training set and applied everywhere?", a: "The model learned to expect inputs on the training distribution's scale. Recomputing statistics on the validation set would shift its inputs differently and also leak information about that set into the preprocessing, so the same fixed numbers must be used at every stage including deployment." },
+]} />
+
 ## Data augmentation
+
+<PredictReveal
+  prompt="You augment a digit-recognition dataset with horizontal flips. What goes wrong?"
+  options={["Nothing, more data is always better", "A flipped 2 is not a 2, so the model is being trained on mislabelled examples"]}
+  correct={1}
+>
 
 Augmentation applies **random transforms** to training images only, creating artificial variations. Each epoch the model sees slightly different versions of each image — this is a form of implicit regularisation.
 
@@ -76,6 +86,12 @@ val_transform = T.Compose([
 ```
 
 Note: **validation and test transforms use only normalisation** — no random transforms. This ensures the validation metric reflects real-world performance.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What decides whether an augmentation is valid?", a: "Whether it preserves the label. A horizontal flip is fine for photographs of animals and wrong for digits or text, where mirroring changes or destroys the identity. Every augmentation encodes a claim about which transformations the answer is invariant to, and that claim is domain-specific." },
+]} />
 
 ## Interactive: visualise augmentation effects
 
@@ -153,6 +169,14 @@ This is equivalent to training with a smoother version of the label distribution
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- `ToTensor` rescales to $[0,1]$ **and** reorders HWC → CHW; `Normalize` then centres each channel with dataset mean/std.
+- **Augmentation belongs on the training set only.** Augmenting validation makes the score noisy and no longer comparable.
+- **The right augmentations are the label-preserving ones** — and that's domain-specific. Horizontal flip is safe on CIFAR; vertical flip is not, and neither is any flip on digits or text.
+- Mixup and CutMix blend *both* images and labels, producing soft targets rather than a harder version of one image.
+- Cutout/random erasing forces the model to use the whole object instead of one discriminative patch.
+</ConceptBox>
 
 ## Quiz
 

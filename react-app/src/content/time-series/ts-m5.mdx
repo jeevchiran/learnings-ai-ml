@@ -1,16 +1,21 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import ARForecastWidget from '../../components/widgets/time-series/ARForecastWidget.jsx'
 import ACFPACFWidget from '../../components/widgets/time-series/ACFPACFWidget.jsx'
 import MAProcessWidget from '../../components/widgets/time-series/MAProcessWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- AR(p) is linear regression of the series **on its own past values**. MA(q) is a weighted sum of the last $q$ **shocks**. Both need the stationarity from Module 4, since the coefficients are assumed fixed over time.
-- **Read $p$ off the PACF's cutoff and $q$ off the ACF's cutoff.** The cutoff swaps panels depending on which family you're in — that asymmetry is the whole identification rule.
-- AR memory decays forever; MA memory stops dead after $q$ lags. That difference is *why* the cutoffs land where they do.
-- **A prediction interval is not a confidence interval.** The PI includes one future point's own noise, so it is wider and it grows with the horizon.
-</ConceptBox>
+# Module 5: Autoregressive Models & Forecast Intervals
+
+<Bridge>
+Module 4 established when a series is well-behaved enough to model and how to make it so. This module finally uses that: it regresses a series on its own past, which is the idea every remaining model in the track is built from.
+</Bridge>
 
 ## The Autoregressive Model
+
+<PredictReveal
+  prompt="An autoregressive model predicts today from the last few days. What kind of model is that, stated in terms you already know?"
+  options={["Something entirely new to time series", "An ordinary linear regression whose predictors happen to be lagged copies of the target"]}
+  correct={1}
+>
 
 **AR(p)** predicts $y_t$ as a linear combination of its own last $p$ values — "regress the series on itself":
 
@@ -21,6 +26,12 @@ $p$ is the **order**: how many past steps matter. The $\phi_i$ are fit from data
 <ConceptBox title="Picking p — the PACF">
 The **partial autocorrelation function (PACF)** measures the correlation between $y_t$ and $y_{t-k}$ with the effect of the *intermediate* lags removed. An AR(p) process has a PACF that cuts off sharply after lag $p$ — that cutoff point is the standard way to read off $p$ from `plot_pacf(y)`. (Contrast with the plain ACF, which decays gradually for an AR process — that asymmetry is exactly how you tell "this looks AR" from "this looks MA" in practice.)
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is an autoregressive model, in terms of ordinary regression?", a: "A linear regression in which the predictors are previous values of the same series. The coefficients say how much each earlier observation contributes to the current one, which is why stationarity matters — the coefficients have to mean the same thing at every point in the series." },
+]} />
 
 ## Fitting: The Yule-Walker Equations
 
@@ -59,6 +70,12 @@ This is the mechanism behind the identification rule below. Two observations mor
 
 ## Reading ACF and PACF Together
 
+<PredictReveal
+  prompt={"A series is genuinely driven only by the value two steps back. The plain autocorrelation at lag 4 still comes out large. Why?"}
+  options={["The model is wrong about lag 2", "Because lag 4 correlates with lag 2, which correlates with today — the correlation is inherited, not direct"]}
+  correct={1}
+>
+
 This is the **Box–Jenkins identification step**, and it's the single most useful table in classical forecasting:
 
 | Pattern | ACF | PACF | Conclusion |
@@ -72,11 +89,25 @@ Switch between the processes below and watch the cutoff jump from one panel to t
 
 <ACFPACFWidget />
 
+The partial autocorrelation strips out those inherited paths, reporting only what each lag adds once the shorter lags are accounted for. That is why the two plots are read together rather than one alone.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does the partial autocorrelation show that the plain autocorrelation does not?", a: "The direct contribution of each lag once all shorter lags have been accounted for. Plain autocorrelation at a long lag can be large purely because that lag correlates with intermediate lags which correlate with the present, so it cannot distinguish a genuine dependence from an inherited one." },
+]} />
+
 <ConceptBox title="Common confusion — 'cuts off' vs 'decays'">
 *Cuts off* means the bars fall inside the $\pm 1.96/\sqrt{n}$ band and **stay** there. *Decays* means they shrink gradually while remaining significant for several lags. On real data the distinction is rarely crisp — treat ACF/PACF as a shortlist generator (a few candidate orders), then let AIC pick the winner. Trusting the plots alone is how people end up over-fitting a spurious lag-7 spike.
 </ConceptBox>
 
 ## Confidence Interval vs. Prediction Interval
+
+<PredictReveal
+  prompt="You forecast 30 days ahead and draw an uncertainty band. What should that band do as the horizon grows?"
+  options={["Stay the same width, since the model is the same", "Widen, because each step's uncertainty compounds onto the last"]}
+  correct={1}
+>
 
 This distinction matters more in forecasting than almost anywhere else in ML:
 
@@ -88,6 +119,14 @@ This distinction matters more in forecasting than almost anywhere else in ML:
 For an AR(p), the $h$-step forecast variance is $\sigma^2 \sum_{j=0}^{h-1}\psi_j^2$, where $\psi_j$ are the model's impulse-response ("MA($\infty$)") weights — more steps out, more compounded uncertainty, wider band.
 
 <ARForecastWidget />
+
+Extend the horizon in the widget and watch the band flare. A multi-step forecast feeds its own predictions back in, so it inherits the error of every step before it.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does a forecast interval widen with the horizon?", a: "Predicting several steps ahead means feeding predicted values back in as inputs, so the uncertainty of each step is carried into the next and accumulates. A one-step forecast rests only on observed data; a thirty-step forecast rests on twenty-nine estimates." },
+]} />
 
 ## In Python
 
@@ -119,6 +158,15 @@ print(ma.aic, arma.aic)                   # lower AIC wins
 ```
 
 Adding $d$ and the seasonal block to that same `order` argument is all that separates this from ARIMA and SARIMA — which is Module 6.
+
+---
+
+<ConceptBox title="TL;DR">
+- AR(p) is linear regression of the series **on its own past values**. MA(q) is a weighted sum of the last $q$ **shocks**. Both need the stationarity from Module 4, since the coefficients are assumed fixed over time.
+- **Read $p$ off the PACF's cutoff and $q$ off the ACF's cutoff.** The cutoff swaps panels depending on which family you're in — that asymmetry is the whole identification rule.
+- AR memory decays forever; MA memory stops dead after $q$ lags. That difference is *why* the cutoffs land where they do.
+- **A prediction interval is not a confidence interval.** The PI includes one future point's own noise, so it is wider and it grows with the horizon.
+</ConceptBox>
 
 ## Practice
 

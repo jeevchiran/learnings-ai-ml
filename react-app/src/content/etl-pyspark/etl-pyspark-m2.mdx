@@ -1,12 +1,6 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
-<ConceptBox title="TL;DR">
-- MapReduce writes to disk between every stage; Spark keeps intermediates in RAM. That single difference is most of the speedup — iterative workloads benefit most.
-- **Transformations are lazy, actions execute.** `filter`, `select`, `groupBy`, `withColumn` only record a plan; `count`, `show`, `collect`, `write` run it.
-- The recorded plan is a **DAG**, and laziness is what makes it optimisable — Catalyst can reorder and fuse steps before any data moves.
-- Classic optimisation: **predicate pushdown**, moving a filter earlier so less data flows through everything after it.
-- Consequence: a bug in a transformation surfaces at the *action*, which is why stack traces point at the wrong line.
-</ConceptBox>
+# Module 2: In-Memory Data Processing
 
 In Module 1, we built an ETL pipeline: extracting data from CSV files, transforming it with filters and column operations, and loading results to storage. Now we'll understand *why* Spark is fast — it keeps data in memory.
 
@@ -19,6 +13,12 @@ RAM access is roughly 100x faster than reading from a spinning disk and 10-20x f
 This design means that iterative algorithms — machine learning training loops, graph traversal, repeated joins on the same dataset — run dramatically faster in Spark than in MapReduce. Instead of re-reading the same data from HDFS on every iteration, Spark holds it in memory and reuses it directly.
 
 ## Lazy Evaluation and DAGs
+
+<PredictReveal
+  prompt="You write a filter, then a select, then a groupBy. No output appears and the code returns instantly. Has anything been computed?"
+  options={["Yes, each line ran as you wrote it", "No — the operations were recorded as a plan, and nothing runs until you ask for a result"]}
+  correct={1}
+>
 
 Spark does not execute operations the moment you write them. Instead, it records each transformation — filter, select, groupBy, withColumn — into a plan called a Directed Acyclic Graph (DAG). The DAG captures the logical sequence of operations without running any of them.
 
@@ -38,7 +38,19 @@ result = grouped.count()
 print(f"Count: {result}")
 ```
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does lazy evaluation buy a distributed engine?", a: "It lets the engine see the whole chain of operations before running any of them, so it can reorder filters earlier, drop columns that are never used, and combine steps into a single pass over the data. Executing each line eagerly would forfeit every one of those optimisations." },
+]} />
+
 ## Persistence and Caching
+
+<PredictReveal
+  prompt="You build a filtered DataFrame and then call an action on it three times. How many times is the filter recomputed?"
+  options={["Once — the result is kept", "Three times, because a lazy plan is re-executed from source on every action unless you cache it"]}
+  correct={1}
+>
 
 When you reuse a DataFrame multiple times — running several different analyses on the same filtered dataset — Spark would normally recompute it from scratch each time because the DAG is re-executed for every action. To avoid this, you can cache the DataFrame in memory.
 
@@ -63,6 +75,12 @@ avg = high_gpa.select(F.avg("gpa")).first()[0]
 print(f"Second action (average): mean GPA = {avg:.2f}")
 ```
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does caching matter given lazy evaluation?", a: "A lazy DataFrame stores a recipe, not a result, so every action re-runs the whole chain from the source. Caching materialises the result after the first computation, which is what turns a repeatedly reused intermediate from a recurring cost into a one-off one." },
+]} />
+
 ## Live Demo: In-Memory Speed
 
 The following code demonstrates how fast repeated operations are when data is already in memory — no disk reads, no network calls, just CPU and RAM.
@@ -84,6 +102,16 @@ elapsed = time.time() - start
 print(f"100 filter operations on in-memory DataFrame: {elapsed:.4f}s")
 print(f"Result: {result} students with GPA > 3.0")
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- MapReduce writes to disk between every stage; Spark keeps intermediates in RAM. That single difference is most of the speedup — iterative workloads benefit most.
+- **Transformations are lazy, actions execute.** `filter`, `select`, `groupBy`, `withColumn` only record a plan; `count`, `show`, `collect`, `write` run it.
+- The recorded plan is a **DAG**, and laziness is what makes it optimisable — Catalyst can reorder and fuse steps before any data moves.
+- Classic optimisation: **predicate pushdown**, moving a filter earlier so less data flows through everything after it.
+- Consequence: a bug in a transformation surfaces at the *action*, which is why stack traces point at the wrong line.
+</ConceptBox>
 
 ## Practice Problems
 

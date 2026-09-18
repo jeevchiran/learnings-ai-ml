@@ -1,17 +1,23 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import GaussianNBWidget from '../../components/widgets/naive-bayes/GaussianNBWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- NB and logistic regression are the **same functional form fitted two ways** — Gaussian NB with shared covariance yields a sigmoid-of-linear posterior.
-- Ng & Jordan: **NB converges faster to a higher error floor**; logistic regression starts worse and overtakes once data is plentiful. That one sentence decides most NB-vs-LR calls.
-- vs trees: trees learn interactions, NB cannot — but NB's assumption regularises it when data is scarce relative to features.
-- vs k-NN: NB compresses the training set to a few counts (instant prediction); k-NN keeps all of it (slow, and poor in high dimensions).
-- vs SVM: SVM has the higher accuracy ceiling but scales $O(N^2)$–$O(N^3)$ and outputs a distance, not a probability.
-- **NB is rarely the most accurate model. It is the fastest reasonable one** — and the right baseline to beat.
-</ConceptBox>
+# Module 8: Comparison with Other Classification Models
 
 ## Naive Bayes in Context
 
+<PredictReveal
+  prompt="Naive Bayes and logistic regression fitted to the same data often reach similar accuracy on large datasets. Which one tends to win when the training set is small?"
+  options={["Logistic regression, which makes fewer assumptions", "Naive Bayes, because its strong assumption acts as a constraint that is worth more than flexibility when data is scarce"]}
+  correct={1}
+>
+
 Every classifier trades off assumptions, training cost, and expressive power. Naive Bayes sits at one extreme: strong assumptions, minimal training cost, no feature interactions. Here it is against the alternatives along the axes that decide which to reach for.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How do naive Bayes and logistic regression compare as the training set grows?", a: "Naive Bayes reaches its ceiling quickly and stays there, because its independence assumption is a bias that more data cannot remove. Logistic regression starts worse but keeps improving, since it makes no such assumption, so it overtakes once there is enough data to fit its parameters reliably." },
+]} />
 
 ## Head-to-Head
 
@@ -37,9 +43,23 @@ The difference is what each optimizes. Logistic regression is **discriminative**
 Small data, huge sparse features (text), fast baseline → **Naive Bayes**. Larger data, calibrated probabilities, want to add interaction terms → **logistic regression**. Suspect correlations distort predictions → try logistic regression; if it doesn't help, independence wasn't the bottleneck.
 </ConceptBox>
 
+<GaussianNBWidget />
+
 ## vs. Decision Trees
 
+<PredictReveal
+  prompt="A problem hinges on a feature interaction: the combination of two flags matters, but neither flag matters alone. Which model can represent that, naive Bayes or a decision tree?"
+  options={["Both, given enough data", "Only the tree — naive Bayes multiplies per-feature terms and has no way to express a combination"]}
+  correct={1}
+>
+
 A tree learns interactions automatically (each split can depend on earlier ones); NB structurally cannot. Trees are strictly more expressive on data with real interactions — but high-variance and overfitting-prone on small data, whereas NB's independence assumption acts as an implicit regularizer, staying stable when data is scarce relative to features.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can naive Bayes not represent a feature interaction?", a: "Its score is a product of one term per feature, each depending on that feature alone. There is no term that depends on two features jointly, so an effect that exists only in the combination cannot be expressed. A tree captures it naturally by splitting on one feature and then the other." },
+]} />
 
 ## vs. k-NN
 
@@ -52,6 +72,17 @@ An SVM finds the maximum-margin boundary, optionally kernelized — usually high
 <Bridge>
 Naive Bayes is rarely the *most accurate* model — it is the fastest reasonable one, and often the best choice specifically when data is limited, features are numerous and sparse, or a fast, interpretable, incrementally-updatable baseline beats squeezing out the last accuracy points. Knowing exactly why it wins there, and loses elsewhere, is what understanding a classifier means.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- NB and logistic regression are the **same functional form fitted two ways** — Gaussian NB with shared covariance yields a sigmoid-of-linear posterior.
+- Ng & Jordan: **NB converges faster to a higher error floor**; logistic regression starts worse and overtakes once data is plentiful. That one sentence decides most NB-vs-LR calls.
+- vs trees: trees learn interactions, NB cannot — but NB's assumption regularises it when data is scarce relative to features.
+- vs k-NN: NB compresses the training set to a few counts (instant prediction); k-NN keeps all of it (slow, and poor in high dimensions).
+- vs SVM: SVM has the higher accuracy ceiling but scales $O(N^2)$–$O(N^3)$ and outputs a distance, not a probability.
+- **NB is rarely the most accurate model. It is the fastest reasonable one** — and the right baseline to beat.
+</ConceptBox>
 
 ## Practice
 

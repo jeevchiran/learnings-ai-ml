@@ -1,14 +1,6 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Module 16: YOLO in Code — Inference and Reading the Output
-
-<ConceptBox title="TL;DR">
-- Modern YOLO is three lines to run and one line to understand: `model(img)` returns a `Results` object holding `boxes.xyxy`, `boxes.conf`, `boxes.cls`.
-- `conf` and `iou` are **post-processing** arguments, not model weights — you can retune them without retraining.
-- The raw head output is $(1, 4 + C, N)$ **before NMS**; `Results` is what survives it. Knowing which you are holding prevents most confusions.
-- **Letterboxing**: the image is resized preserving aspect ratio and padded to a square. Boxes are mapped back for you — but not if you call the raw model.
-- Always audit predictions with a **confidence histogram** and a **per-class count**, not by eyeballing three images.
-</ConceptBox>
 
 <Bridge>
 Module 15 gave the output tensor and the loss. This module runs one, reads its output, and inspects the two things you actually control at inference: the score threshold and the NMS threshold.
@@ -41,6 +33,12 @@ Note the direction on `iou`: it is the NMS threshold from Module 10, so a higher
 
 ## What the output actually is
 
+<PredictReveal
+  prompt="A detector returns 300 boxes for an image containing three objects. Is the model broken?"
+  options={["Yes, it should return three", "No — it returns every candidate with a score, and filtering by confidence and overlap is a separate step you control"]}
+  correct={1}
+>
+
 ```python
 import numpy as np
 
@@ -61,7 +59,19 @@ Call the underlying `torch` module directly and you get a tensor of shape `(1, 4
 That tensor is **pre-NMS and in letterboxed coordinates**. Anyone exporting to ONNX or TensorRT has to reimplement: transpose, threshold on max class score, convert cxcywh → xyxy, run NMS, then undo the letterbox scale and pad. Getting the last step wrong is the classic "my ONNX boxes are shifted" bug.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does a detector return far more boxes than there are objects?", a: "It scores a dense set of candidate locations and returns all of them with confidences. Reducing that to a final answer means applying a confidence threshold and suppressing overlapping duplicates, both of which are decisions about precision against recall that belong to you rather than to the model." },
+]} />
+
 ## Letterboxing, and why boxes shift when you get it wrong
+
+<PredictReveal
+  prompt="An image is resized to a square by adding grey bars rather than stretching. You map the predicted boxes back with a plain scale factor. Where do they end up?"
+  options={["In the right place", "Offset by the size of the padding, because the scale factor ignores the bars"]}
+  correct={1}
+>
 
 A 1280×720 image at `imgsz=640` is scaled by $r = \min(640/1280,\, 640/720) = 0.5$, giving 640×360, then padded top and bottom by $(640 - 360)/2 = 140$ pixels.
 
@@ -70,6 +80,12 @@ To map a predicted box back:
 $$x_{\text{orig}} = \frac{x_{\text{letterbox}} - \text{pad}_x}{r}, \qquad y_{\text{orig}} = \frac{y_{\text{letterbox}} - \text{pad}_y}{r}$$
 
 Forget the padding subtraction and every box is 140 px too low. Forget the divide and every box is half size. Both are silent.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why do boxes shift when letterboxing is handled wrongly?", a: "Letterboxing resizes by a single scale factor and then pads to reach the target shape. Reversing it needs both the scale and the padding offsets. Applying only the scale leaves every box displaced by the padding, which looks like a model that is consistently slightly wrong rather than like a coordinate bug." },
+]} />
 
 ## Auditing a run properly
 
@@ -126,6 +142,16 @@ Start with `n` or `s`. If it fails on your data, the fix is almost always **more
   { q: "A 1280x720 image is letterboxed to 640. What are the scale and the padding, and what breaks if you skip the padding when mapping boxes back?", a: "The scale is min(640/1280, 640/720) = 0.5, giving 640x360, and the vertical padding is (640-360)/2 = 140 pixels top and bottom. Skipping the padding subtraction shifts every box down by 140 pixels in letterbox space — 280 after dividing by the scale — and nothing errors, so it presents as a model that mysteriously predicts too low." },
   { q: "Your confidence histogram piles up just above the threshold. What does that indicate?", a: "That the threshold, not the model, is deciding what counts as a detection — the model is not confident about anything. It usually means a domain gap between training and deployment data: different camera, lighting, or object appearance. Raising the threshold will just trade recall away; the real fix is data that matches deployment." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Modern YOLO is three lines to run and one line to understand: `model(img)` returns a `Results` object holding `boxes.xyxy`, `boxes.conf`, `boxes.cls`.
+- `conf` and `iou` are **post-processing** arguments, not model weights — you can retune them without retraining.
+- The raw head output is $(1, 4 + C, N)$ **before NMS**; `Results` is what survives it. Knowing which you are holding prevents most confusions.
+- **Letterboxing**: the image is resized preserving aspect ratio and padded to a square. Boxes are mapped back for you — but not if you call the raw model.
+- Always audit predictions with a **confidence histogram** and a **per-class count**, not by eyeballing three images.
+</ConceptBox>
 
 <QuizCard
   question="A YOLOv8 model is called on an 800×600 image with imgsz=640. What are the letterbox scale factor and the vertical padding on each side?"

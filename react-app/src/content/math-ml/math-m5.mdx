@@ -1,12 +1,11 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import BayesWidget from '../../components/widgets/math-ml/BayesWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- $P(A\mid B) = P(A\cap B)/P(B)$ — and a classifier's output literally *is* $P(\text{class}\mid\text{features})$.
-- **Bayes flips a conditional**: it converts $P(\text{evidence}\mid\text{hypothesis})$, which you can measure, into $P(\text{hypothesis}\mid\text{evidence})$, which you want.
-- The denominator is the law of total probability — sum over *every* way the evidence could have arisen.
-- $P(B\mid A) \neq P(A\mid B)$. When the base rate is low, a highly accurate test still yields mostly false positives.
-</ConceptBox>
+# Module 5: Probability Foundations & Bayes' Theorem
+
+<Bridge>
+Modules 1 to 4 were all linear algebra: vectors, matrices, and the directions data spreads along. Everything there was exact. From here the track changes subject to uncertainty, which is what you actually face with noisy labels and imperfect models. The linear algebra does not go away; it becomes the thing probability is computed over.
+</Bridge>
 
 ## Starting the Probability Track
 
@@ -21,9 +20,23 @@ Linear algebra described *space*; probability describes *uncertainty* — the la
 
 ## Conditional Probability
 
+<PredictReveal
+  prompt={"A lab reports that 90% of people who have a disease test positive for it. A patient tests positive. Does that mean there is a 90% chance they have the disease?"}
+  options={["Yes, the number transfers directly", "No — those are two different conditional probabilities, and they can be wildly different"]}
+  correct={1}
+>
+
 $$P(A\mid B) = \frac{P(A\cap B)}{P(B)}$$
 
 "Given that B happened, how likely is A?" — this is the single most-used probability tool in ML: a classifier's output *is* $P(\text{class}\mid \text{features})$.
+
+The order of the condition is the whole content of the statement. "Positive given diseased" is a property of the test. "Diseased given positive" is a property of the test *and* of how common the disease is. Bayes' theorem is the machinery that converts one into the other.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is P(B given A) different from P(A given B)?", a: "They condition on different things and are divided by different denominators. P(B|A) asks how often the evidence appears among cases of A; P(A|B) asks how often A holds among cases showing the evidence. When A is rare, the second can be far smaller than the first." },
+]} />
 
 ## Bayes' Theorem
 
@@ -41,11 +54,25 @@ The **law of total probability** — B happens either alongside A or alongside n
 </DerivationStep>
 </DerivationSteps>
 
+<PredictReveal
+  prompt="A disease affects 1 person in 100. A test catches 90% of real cases and wrongly flags 5% of healthy people. Out of everyone who tests positive, roughly what fraction actually has the disease?"
+  options={["About 90%, matching the test accuracy", "About 15%, because the healthy group is so much larger"]}
+  correct={1}
+>
+
 <BayesWidget />
+
+Move the prevalence slider down and watch the posterior collapse even though the test never changed. In 1,000 people there are about 9 true positives and about 50 false ones, so most positives are false alarms. This is the base-rate fallacy, and it is the single most expensive mistake in applied probability.
 
 <ConceptBox title="Common confusion — P(B|A) ≠ P(A|B)">
 "90% of positive tests are accurate" and "90% of people who test positive have the disease" are *different claims* — confusing them is the prosecutor's fallacy. The widget above is built specifically to make that gap visible: a rare condition plus an imperfect test means most positives are false, even at high sensitivity.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "A test is 99% accurate for a disease with 1-in-10,000 prevalence. Roughly what fraction of positives are real?", a: "About 1 in 101. Among 10,000 people there is 1 true case, caught almost certainly, against roughly 1% of the 9,999 healthy people, which is about 100 false positives. The healthy population is so much larger that its small error rate produces far more positives than the disease does." },
+]} />
 
 ## In Python
 
@@ -58,6 +85,15 @@ def bayes(p_a, p_b_given_a, p_b_given_not_a):
 posterior = bayes(p_a=0.01, p_b_given_a=0.90, p_b_given_not_a=0.05)
 print(f'{posterior:.1%}')   # ~15.4% — most positives are false alarms
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- $P(A\mid B) = P(A\cap B)/P(B)$ — and a classifier's output literally *is* $P(\text{class}\mid\text{features})$.
+- **Bayes flips a conditional**: it converts $P(\text{evidence}\mid\text{hypothesis})$, which you can measure, into $P(\text{hypothesis}\mid\text{evidence})$, which you want.
+- The denominator is the law of total probability — sum over *every* way the evidence could have arisen.
+- $P(B\mid A) \neq P(A\mid B)$. When the base rate is low, a highly accurate test still yields mostly false positives.
+</ConceptBox>
 
 ## Practice
 

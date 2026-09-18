@@ -1,21 +1,31 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import BiasVarianceWidget from '../../components/widgets/model-eval/BiasVarianceWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Training error measures **memorisation**, not understanding. It's the one number that always improves with complexity, which is exactly why it can't select a model.
-- $\text{Error}=\text{Bias}^2+\text{Variance}+\sigma^2$. You choose the first two; the third is a floor no model beats.
-- **Bias** = systematically wrong the same way (too simple). **Variance** = answer swings with the training sample (too flexible).
-- Diagnose from the *gap*: both errors high and close ⟹ underfit; training error tiny and test error far above ⟹ overfit.
-- More data mainly attacks **variance**, not bias. A line stays a line no matter how many points you give it.
+# Module 1: Model Selection Fundamentals
+
+<ConceptBox title="Before you start">
+You need one thing from earlier tracks: what it means to fit a model by minimising an error on training data, from the Regression track. Everything here is about why that number, on its own, cannot tell you whether the model is any good.
 </ConceptBox>
 
 ## Two Models, Zero Training Error, One Winner
+
+<PredictReveal
+  prompt="Two models both achieve zero error on the training set. One is a straight line through two points, the other a wiggly curve through two hundred. Which will do better on new data?"
+  options={["Whichever has lower training error — and they tie, so either", "Impossible to say from training error, which is exactly the problem"]}
+  correct={1}
+>
 
 Fit two models to 200 houses, predicting price from square footage. Model A is a straight line. Model B is a degree-15 polynomial that threads through every training point almost exactly. By training error, B wins in a landslide — near-zero error versus A's few-thousand-dollar misses.
 
 Ship B and it collapses. On new houses its predictions swing wildly — a house one square foot larger than a training example can get a wildly different, even negative, price, because the polynomial curves violently between memorized points. Model A, "worse" by training error, generalizes far better.
 
 Training error measured how well each model *memorized* the data it saw, not how well it *understood* the relationship. This module builds the vocabulary — bias, variance, complexity, overfitting, underfitting — to reason about that gap. Every later technique in this track is, underneath, a way to estimate what training error cannot.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can training error never be used to choose between models?", a: "A model with enough flexibility can drive training error to zero by memorising the data, so the metric rewards complexity rather than quality. It measures how well the model reproduces what it has already seen, which is not the question anyone cares about." },
+]} />
 
 ## Bias and Variance
 
@@ -32,7 +42,21 @@ Expected error = how systematically wrong the model is (bias²) + how much it sw
 
 The two trade off — drive complexity down to kill variance and bias rises; drive it up to kill bias and variance rises. Model selection finds the point minimizing their *sum*:
 
+<PredictReveal
+  prompt="You make a model more flexible. Its bias falls. What happens to its variance?"
+  options={["It falls too, since the model is better", "It rises — flexibility means the fit follows the particular sample it was given"]}
+  correct={1}
+>
+
 <BiasVarianceWidget />
+
+Slide the complexity control and watch the two curves cross. Total error is their sum, so the best model is neither the simplest nor the most flexible but the one at the bottom of that sum.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How do bias and variance respond to model complexity?", a: "They move in opposite directions. A more flexible model can represent the truth more closely, lowering bias, but it also tracks the particular sample it was trained on more closely, raising variance. Test error is the sum, so it falls and then rises, and the minimum is the target." },
+]} />
 
 ## Underfitting and Overfitting
 
@@ -90,6 +114,16 @@ So: underfitting (high bias) → more data won't help; you need a richer model o
 <Bridge>
 Judging a model by training error measures the wrong thing — it can be driven to zero by memorization. An honest comparison needs an estimate of performance on unseen data. The next module introduces the validation set, the rule governing how it may be used, and why a single split can itself be a noisy estimate.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Training error measures **memorisation**, not understanding. It's the one number that always improves with complexity, which is exactly why it can't select a model.
+- $\text{Error}=\text{Bias}^2+\text{Variance}+\sigma^2$. You choose the first two; the third is a floor no model beats.
+- **Bias** = systematically wrong the same way (too simple). **Variance** = answer swings with the training sample (too flexible).
+- Diagnose from the *gap*: both errors high and close ⟹ underfit; training error tiny and test error far above ⟹ overfit.
+- More data mainly attacks **variance**, not bias. A line stays a line no matter how many points you give it.
+</ConceptBox>
 
 ## Practice
 

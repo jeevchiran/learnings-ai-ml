@@ -1,11 +1,7 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import BaselineCompareWidget from '../../components/widgets/recsys/BaselineCompareWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Four baselines, each a closure returning `rank_fn`, each under ten lines.
-- On NovaCart, **recency wins**: NDCG@3 0.438 with 89% coverage, against popularity's 0.377 with 33%.
-- **Random ties popularity here.** With six users that is not a surprising result, it is a warning about your sample size — and worth internalising before you read any other number in this track as evidence.
-</ConceptBox>
+# Build — Baselines
 
 ## All four, in one screen
 
@@ -49,6 +45,12 @@ Four things in that code carry real weight:
 
 ## Running them
 
+<PredictReveal
+  prompt="Your matrix factorisation model scores 0.31 and the popularity baseline scores 0.29. Is the model worth shipping?"
+  options={["Yes, it is better", "Probably not — a two-point gain for a far more complex system is rarely worth the serving cost and the maintenance"]}
+  correct={1}
+>
+
 ```python
 rankers = {
     "random":   random_ranker(),
@@ -69,7 +71,13 @@ recency   hit=0.667 mrr=0.361 ndcg=0.438 cov=0.889
 covisit   hit=0.500 mrr=0.222 ndcg=0.294 cov=0.556
 ```
 
+</PredictReveal>
+
 <BaselineCompareWidget />
+
+<Recall items={[
+  { q: "How should a small improvement over a baseline be judged?", a: "Against the cost of the added complexity, not against zero. A model that barely beats popularity brings training infrastructure, serving latency and an ongoing maintenance burden, all for a gain that may not survive the variance of the evaluation itself." },
+]} />
 
 ## Reading the output honestly
 
@@ -108,6 +116,14 @@ Baselines are on the board. Time for the first real model.
   { q: "Why should a baseline return the full catalog rather than a short list?", a: "Metrics at k > list length silently cap recall, and coverage becomes incomparable across models that return different-length lists. Returning the full catalog (relevant items first, the rest appended) keeps every metric well-defined and every model comparable at any k." },
   { q: "Filtered for already-seen items, recency scores 0 on NovaCart. What does that number mean?", a: "That every recommendation recency makes is something the shopper already touched — it is pure memory with zero discovery. That is not a defect of the baseline but a precise measurement of what it does, and it is the right way to separate reminder value from recommendation value on a discovery surface." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Four baselines, each a closure returning `rank_fn`, each under ten lines.
+- On NovaCart, **recency wins**: NDCG@3 0.438 with 89% coverage, against popularity's 0.377 with 33%.
+- **Random ties popularity here.** With six users that is not a surprising result, it is a warning about your sample size — and worth internalising before you read any other number in this track as evidence.
+</ConceptBox>
 
 <QuizCard
   question="Your recency baseline returns an empty list for cold users, and the harness scores them 0. A teammate proposes falling back to popularity for those users. What is the tradeoff?"

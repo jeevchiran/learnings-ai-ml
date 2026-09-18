@@ -1,12 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
-
-<ConceptBox title="TL;DR">
-- Five standard defects: nulls, duplicates, inconsistent casing, stray whitespace, out-of-range values.
-- **Order matters for cost**: drop nulls and duplicates *first* to shrink the row count, then run string transforms on what's left.
-- Order also matters for *correctness*: normalise casing and trim whitespace **before** deduplicating, or `"Data Structures "` and `"data structures"` won't be recognised as the same row.
-- `dropDuplicates()` with no arguments needs every column to match — pass the subset that actually defines a duplicate.
-- Range validation is a domain rule, not a statistic: a grade of −5 or 150 is impossible regardless of the distribution.
-</ConceptBox>
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 
 <Bridge>
 In Module 6, we wrote UDFs to apply custom logic to our data. Now we face a real-world challenge: our dataset has problems. Before any analysis, we need to clean it.
@@ -39,6 +31,12 @@ messy_df.show(10)
 
 ## Handling Nulls
 
+<PredictReveal
+  prompt={"You filter rows where a column does not equal the string unknown. Rows where that column is null are dropped too. Why?"}
+  options={["They should be kept, this is a bug in the engine", "Any comparison with null evaluates to null rather than true, and a filter keeps only rows that evaluate to true"]}
+  correct={1}
+>
+
 PySpark gives you three strategies depending on whether you want to find, drop, or fill nulls.
 
 ### Finding Nulls
@@ -66,6 +64,12 @@ valid_students = messy_df.dropna(subset=["student_id"])`}
 {`# Fill null grades with 0
 filled_df = messy_df.fillna({"grade": 0})`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why do null rows disappear from a filter that was not about nulls?", a: "Comparisons involving null return null, not true or false, and a filter keeps only rows evaluating to true. Any row with a null in the compared column is therefore silently excluded, whichever way the comparison points. Explicit null handling has to be written in." },
+]} />
 
 ## Removing Duplicates
 
@@ -144,6 +148,16 @@ Spark's Catalyst optimizer can reorder some filters automatically, but explicit 
   { q: "Catalyst reorders filters automatically. Why write them in a deliberate order anyway?", a: "Because Catalyst can only reorder operations whose semantics it understands, and it will not reorder anything that changes results — such as moving a dedup across a normalisation. Explicit ordering also documents intent and makes a pipeline debuggable step by step, which matters more than the marginal optimisation." },
   { q: "A grade column contains -5 and 150. Which module's technique catches this, and which does not?", a: "A domain range rule catches it: grades are defined on 0 to 100, so both are impossible regardless of how the data is distributed. An outlier method like IQR fences would not reliably catch 150 if the spread is wide, and would flag legitimate extremes alongside it. Impossible and unusual are different categories." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Five standard defects: nulls, duplicates, inconsistent casing, stray whitespace, out-of-range values.
+- **Order matters for cost**: drop nulls and duplicates *first* to shrink the row count, then run string transforms on what's left.
+- Order also matters for *correctness*: normalise casing and trim whitespace **before** deduplicating, or `"Data Structures "` and `"data structures"` won't be recognised as the same row.
+- `dropDuplicates()` with no arguments needs every column to match — pass the subset that actually defines a duplicate.
+- Range validation is a domain rule, not a statistic: a grade of −5 or 150 is impossible regardless of the distribution.
+</ConceptBox>
 
 <QuizCard
   question="You have a DataFrame with 1M rows. Which cleaning step order is most efficient?"

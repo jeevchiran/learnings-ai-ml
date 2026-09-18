@@ -1,13 +1,15 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
+import LimeLocalFitWidget from '../../components/widgets/xai/LimeLocalFitWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Tabular: pass the training data so LIME learns each feature's distribution for realistic perturbation; `discretize_continuous` turns weights into readable *"feature in this range"* rules.
-- Text: interpretable features are the words, and perturbation is **deleting words** and watching the score move.
-- Weight sign = direction of push toward the predicted class; `num_features` is the $\Omega$ knob.
-- **LIME is non-deterministic.** Same row, two runs, possibly different signs. Re-run before trusting; raise `num_samples`, fix the seed, or switch to SHAP.
-</ConceptBox>
+# Module 4: LIME in Practice
 
 ## Running LIME on Tabular Data
+
+<PredictReveal
+  prompt="LIME explains a tabular prediction by perturbing the input. How does it perturb a continuous feature such as income?"
+  options={["It adds small random noise to the actual value", "It discretises the feature into bins and samples from the training distribution, so the perturbations stay realistic"]}
+  correct={1}
+>
 
 The `lime` library packages the perturb → weight → fit loop. On a tabular classifier you pass the training data (so it knows each feature's distribution for perturbing), then explain one row:
 
@@ -53,6 +55,14 @@ Output reads as signed contributions for *this* patient:
 Each line is a coefficient of the local linear surrogate. **Positive** pushes toward the predicted class, **negative** away. The condition (`worst perimeter <= 84.11`) comes from `discretize_continuous` — LIME explains in terms of *"this feature is in this range"*, which is far more readable than a raw slope on a standardised value.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does LIME sample from the training distribution rather than adding noise?", a: "Perturbations have to be inputs the model could plausibly receive. Adding arbitrary noise produces combinations that never occur in reality, and the model's behaviour there says nothing useful about its behaviour on real data. Sampling from the observed distribution keeps the probes on the data manifold." },
+]} />
+
+<LimeLocalFitWidget />
+
 ## Text: Perturb by Deleting Words
 
 For text, the interpretable features are the words themselves; perturbation = randomly removing words and seeing how the prediction shifts.
@@ -74,6 +84,12 @@ The model leaned on *brilliant* (positive) and *dragged*/*badly* (negative) — 
 
 ## The Catch: Instability
 
+<PredictReveal
+  prompt="You run LIME twice on the exact same prediction with the same settings. Do you get the same explanation?"
+  options={["Yes, the model and the input are identical", "Not necessarily — the perturbations are random, so the fitted explanation varies between runs"]}
+  correct={1}
+>
+
 LIME's perturbations are **random**, so two runs on the same instance can give different weights — sometimes different *signs*. Causes and fixes:
 
 | Cause | Fix |
@@ -86,9 +102,24 @@ LIME's perturbations are **random**, so two runs on the same instance can give d
 Re-run an explanation a few times before trusting it. If the top features and their signs are stable across runs, believe it. If they flip, the explanation isn't reliable for that instance — increase samples or reach for SHAP, whose values are deterministic and axiomatically grounded.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is LIME unstable, and what can be done about it?", a: "It fits its local model to a random sample of perturbations, so two runs see different data and produce different coefficients. Fixing the random seed makes a run reproducible, and increasing the number of perturbations reduces the variance, but the underlying sensitivity to the neighbourhood size remains and should be reported." },
+]} />
+
 <Bridge>
 LIME's honesty problem — *is this the "right" explanation, or just one of many?* — has a principled answer. SHAP starts from game theory and asks: what is the *uniquely fair* way to divide a prediction among its features? The next module derives it.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Tabular: pass the training data so LIME learns each feature's distribution for realistic perturbation; `discretize_continuous` turns weights into readable *"feature in this range"* rules.
+- Text: interpretable features are the words, and perturbation is **deleting words** and watching the score move.
+- Weight sign = direction of push toward the predicted class; `num_features` is the $\Omega$ knob.
+- **LIME is non-deterministic.** Same row, two runs, possibly different signs. Re-run before trusting; raise `num_samples`, fix the seed, or switch to SHAP.
+</ConceptBox>
 
 ## Practice
 

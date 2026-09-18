@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ElboSplitWidget from '../../components/widgets/vae/ElboSplitWidget.jsx'
 
 # Module 4: The Evidence Lower Bound (ELBO)
 
@@ -69,6 +70,8 @@ This is Module 2's failure mode re-appearing, and it shows the two terms are gen
 <Recall items={[
   { q: "What does each of the ELBO's two terms do, and what happens if either dominates completely?", a: "The reconstruction term rewards rebuilding x accurately from the sampled code; the KL term pulls each encoded distribution toward the standard normal prior. Reconstruction alone spreads codes far apart and recreates the gap-filled latent space of a plain autoencoder. KL alone collapses every input to the same cloud, discarding the input entirely. Training needs both in tension." },
 ]} />
+
+<ElboSplitWidget />
 
 ## Why maximising the bound also improves the encoder
 

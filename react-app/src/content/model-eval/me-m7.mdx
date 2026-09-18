@@ -1,16 +1,15 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import FeatureSelectionWidget from '../../components/widgets/model-eval/FeatureSelectionWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- **Wrappers fit a real model on feature subsets**, so unlike filters they see interactions — at the cost of many fits.
-- **RFE** works backwards: fit, drop the weakest, refit, repeat. `RFECV` picks the subset size by cross-validation instead of your guess.
-- **Embedded methods select while fitting** — L1/Lasso drives coefficients to exactly zero; L2/Ridge only shrinks toward it.
-- Forward and backward selection are greedy, so they can and do land on different subsets. Neither is guaranteed optimal.
-- **Selection is model-specific.** Features Lasso keeps for a linear model are not necessarily what a random forest wants.
-- Caveat: impurity-based importance is biased toward high-cardinality features — prefer permutation importance.
-</ConceptBox>
+# Module 7: Wrapper & Embedded Methods
 
 ## Wrapper Methods: Let a Model Vote on Subsets
+
+<PredictReveal
+  prompt="A wrapper method evaluates subsets by actually training the model on each one. With 20 features, how many subsets exist?"
+  options={["20", "Over a million, which is why wrappers use greedy stepwise search instead of an exhaustive one"]}
+  correct={1}
+>
 
 Filter methods (Module 6) score each feature *on its own*, so they miss interactions — two mediocre features that become powerful only together (like `latitude` and `longitude`, useless alone, jointly a location). Wrapper and embedded methods close the gap by involving a real model, which sees interactions because it's fit on feature *combinations*.
 
@@ -71,7 +70,19 @@ Both are **greedy** — commit to the locally-best move and never reconsider, so
 
 Neither bias is wrong — running both and comparing is often more informative than trusting either.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why do wrapper methods search greedily rather than exhaustively?", a: "The number of subsets grows exponentially with the feature count, and each one costs a full model fit with cross-validation. Forward selection and backward elimination add or drop one feature at a time, which is linear in the feature count and usually finds a good subset, though not a guaranteed best one." },
+]} />
+
 ## Embedded Methods: Selection Built Into Training
+
+<PredictReveal
+  prompt="L1 regularisation is described as doing feature selection for free. What does it actually do to a useless feature's coefficient?"
+  options={["Shrinks it towards zero without reaching it", "Drives it to exactly zero, which removes the feature from the model"]}
+  correct={1}
+>
 
 No separate search loop — selection is a side effect of how the model fits.
 
@@ -111,6 +122,12 @@ importances.sort_values(ascending=False).head(10)
 
 **Caveat:** impurity importance is biased toward high-cardinality/continuous features — more possible split thresholds means more chances to look useful. **Permutation importance** (`sklearn.inspection.permutation_importance`) is more reliable: it measures how much CV score drops when a feature's values are shuffled — actual predictive contribution, not a training-time proxy.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does L1 regularisation select features while L2 does not?", a: "The L1 penalty has a constant gradient all the way to zero, so a coefficient with weak evidence is pushed the last distance and lands exactly on zero. The L2 penalty's gradient shrinks as the coefficient does, so it approaches zero without ever arriving, leaving every feature in the model." },
+]} />
+
 ## Comparing the Three Families
 
 | Method | Model-aware? | Interactions? | Cost | Use case |
@@ -125,6 +142,17 @@ Switch modes below — the same 10 features (some predictive, some noise, some u
 
 <ConceptBox title="Are embedded methods strictly better than filters?">
 No — they're **model-specific**, a real limitation. Lasso's zeroed coefficients reflect what a *linear* model finds irrelevant; a feature with a nonlinear or threshold relationship can be zeroed by L1 yet be the best split at a tree's root. Tree importance has the mirror problem. The right method depends on the final model you deploy — selecting with Lasso then deploying a random forest throws away exactly the information you wanted. The selection step should be aware of, ideally identical to, the model doing the final prediction.
+</ConceptBox>
+
+---
+
+<ConceptBox title="TL;DR">
+- **Wrappers fit a real model on feature subsets**, so unlike filters they see interactions — at the cost of many fits.
+- **RFE** works backwards: fit, drop the weakest, refit, repeat. `RFECV` picks the subset size by cross-validation instead of your guess.
+- **Embedded methods select while fitting** — L1/Lasso drives coefficients to exactly zero; L2/Ridge only shrinks toward it.
+- Forward and backward selection are greedy, so they can and do land on different subsets. Neither is guaranteed optimal.
+- **Selection is model-specific.** Features Lasso keeps for a linear model are not necessarily what a random forest wants.
+- Caveat: impurity-based importance is biased toward high-cardinality features — prefer permutation importance.
 </ConceptBox>
 
 ## Practice

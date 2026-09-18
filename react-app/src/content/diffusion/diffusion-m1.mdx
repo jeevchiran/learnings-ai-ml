@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import DenoiseStepsWidget from '../../components/widgets/diffusion/DenoiseStepsWidget.jsx'
 
 # Module 1: From Adversarial Games to Iterative Denoising
 
@@ -21,6 +22,8 @@ A diffusion model defines a fixed, mathematically known process that gradually d
 <Recall items={[
   { q: "Why does a diffusion model avoid the GAN track's training-instability problems (mode collapse, vanishing gradients, saddle points)?", a: "It trains a single network with an ordinary supervised regression loss against a fixed, known corruption process, rather than two networks competing in an adversarial game. There is no discriminator, no saddle point, and therefore none of the instabilities that come specifically from a two-player minimax objective." },
 ]} />
+
+<DenoiseStepsWidget />
 
 ## The trade: one fast pass for many slow ones
 

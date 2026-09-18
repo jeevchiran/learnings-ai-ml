@@ -1,15 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import CNNParamsWidget from '../../components/widgets/cnn/CNNParamsWidget.jsx'
 
 # Module 5: CNN Architecture & Parameter Numericals
-
-<ConceptBox title="TL;DR">
-- The canonical block is **Conv → BN → ReLU → Pool**, repeated, then Flatten/GAP + FC.
-- Two numbers to trace by hand through every layer: **output shape** and **parameter count**. Doing this is how you debug an architecture.
-- **Most parameters usually sit in the first FC layer after Flatten**, not in the convolutions. That's the block GAP deletes.
-- Three 3×3 convs beat one 7×7: same receptive field, fewer parameters ($27C^2$ vs $49C^2$), and two extra nonlinearities.
-- **BN makes the conv bias redundant** — BN subtracts the mean, so `bias=False` on a conv followed by BN costs nothing.
-</ConceptBox>
 
 <Bridge>
 **From Modules 2–4:** you understand individual operations — convolution produces feature maps, pooling reduces spatial dimensions. Now we assemble these into complete architectures and trace the tensor shape and parameter count through every layer. This module is deliberately numerical: the ability to compute shapes and params by hand is how you debug architectures and understand published models.
@@ -54,6 +46,12 @@ The three conv layers together use only $896 + 18{,}496 + 73{,}856 = 93{,}248$ p
 
 ## Classic architectures — parameter summary
 
+<PredictReveal
+  prompt="In a classic convolutional network the convolution layers do almost all the computation. Where do most of the parameters live?"
+  options={["In the convolution layers, naturally", "In the first fully connected layer after flattening, which alone can hold more weights than every convolution combined"]}
+  correct={1}
+>
+
 | Architecture | Year | Params | Depth | Key Innovation |
 |-------------|------|--------|-------|----------------|
 | LeNet-5 | 1998 | 61K | 5 | First conv net for digits |
@@ -64,6 +62,12 @@ The three conv layers together use only $896 + 18{,}496 + 73{,}856 = 93{,}248$ p
 | EfficientNet-B0 | 2019 | 5.3M | — | Compound scaling |
 
 Note VGG-16's 138M: $3 \times 3 \times 512 \times 512 = 2{,}359{,}296$ per conv layer in the deepest block, repeated 3 times, plus three FC layers of 4096×4096×1000. Modern architectures use GAP to avoid the giant FC layers.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Where do most parameters sit in a classic convolutional network, and what removed them?", a: "In the first dense layer after flattening, because it connects every position of the final feature map to every unit. Global average pooling replaced flattening in later architectures, collapsing each channel to one number and deleting the overwhelming majority of the parameters." },
+]} />
 
 ## Worked numericals
 
@@ -136,12 +140,20 @@ $$\text{Params} = 2 \times (3^2 \times C^2 + C) = 18C^2 + 2C$$
 For one 5×5 layer with the same receptive field:
 $$\text{Params} = 5^2 \times C^2 + C = 25C^2 + C$$
 
-Ratio: $\frac{18C^2}{25C^2} = 0.72$ — two 3×3 layers use 28% fewer parameters while providing two nonlinearities instead of one. For $C=64$: two 3×3 = 73,860 vs one 5×5 = 102,464.
+Ratio: $\frac{18C^2}{25C^2} = 0.72$ — two 3×3 layers use 28% fewer parameters while providing two nonlinearities instead of one. For $C=64$: two 3×3 = $2 	imes (9 	imes 64 	imes 64 + 64) = 73{,}856$ vs one 5×5 = $25 	imes 64 	imes 64 + 64 = 102{,}464$.
 
 </DerivationStep>
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- The canonical block is **Conv → BN → ReLU → Pool**, repeated, then Flatten/GAP + FC.
+- Two numbers to trace by hand through every layer: **output shape** and **parameter count**. Doing this is how you debug an architecture.
+- **Most parameters usually sit in the first FC layer after Flatten**, not in the convolutions. That's the block GAP deletes.
+- Three 3×3 convs beat one 7×7: same receptive field, fewer parameters ($27C^2$ vs $49C^2$), and two extra nonlinearities.
+- **BN makes the conv bias redundant** — BN subtracts the mean, so `bias=False` on a conv followed by BN costs nothing.
+</ConceptBox>
 
 ## Quiz
 

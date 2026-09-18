@@ -1,12 +1,7 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import FeatureWindowWidget from '../../components/widgets/recsys/FeatureWindowWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Every feature is an **as-of join**: aggregate events with `event_ts < row.as_of`, bounded below by a window.
-- The label row carries an `as_of` timestamp. Everything is computed relative to it. No exceptions.
-- The leak check is one assertion: point-in-time features must see **strictly fewer** events than a whole-log aggregate.
-- Build user, item and **user×item** features. The last family is the ranker's only real advantage over retrieval.
-</ConceptBox>
+# Build — Feature Generation
 
 ## The shape of a training row
 
@@ -22,6 +17,12 @@ labels = pd.DataFrame({
 `as_of` is the timestamp of the impression or decision being modelled — not "now", not the end of the training window. Every feature attached to this row must be computable from events strictly before it.
 
 ## User features, as-of
+
+<PredictReveal
+  prompt="You compute each user's average order value once and join it onto every training row. What have you done?"
+  options={["Saved computation sensibly", "Leaked the future into every row dated before the last order that average includes"]}
+  correct={1}
+>
 
 ```python
 def as_of_user_features(labels, events, windows=(1, 7, 30)):
@@ -57,6 +58,12 @@ feats = pd.merge_asof(
 ```
 
 `allow_exact_matches=False` is the `<` from module 10. Leave it at its default `True` and an event sharing a timestamp with the label enters its own feature window. One keyword argument, one silent leak.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why must a user aggregate be recomputed per row rather than once per user?", a: "A single aggregate over the user's whole history includes behaviour from after most of their rows. Joining it everywhere gives each early row knowledge of what the user did later, which is unavailable at serving time and inflates every offline metric." },
+]} />
 
 ## User × item features — the ranker's edge
 
@@ -139,6 +146,15 @@ Features, labels and negatives — everything a ranker needs. Last module: train
   { q: "999 as a 'never interacted' sentinel is fine for trees and poison for neural nets. Why the difference?", a: "Trees split on thresholds, so 999 simply becomes its own branch and the magnitude is irrelevant. Linear and neural models multiply the value by a weight, so a 999 among values of 0–30 dominates the scale, wrecks normalisation and produces huge gradients. There, use a separate boolean flag plus a neutral fill." },
   { q: "Why is 'log the features you served, then train on those rows' such a strong defence against training/serving skew?", a: "It removes the possibility of two implementations disagreeing: the training rows ARE the serving rows, so the distributions match by construction. It costs only a logging change rather than new infrastructure, and it fixes skew for every model after the first." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Every feature is an **as-of join**: aggregate events with `event_ts < row.as_of`, bounded below by a window.
+- The label row carries an `as_of` timestamp. Everything is computed relative to it. No exceptions.
+- The leak check is one assertion: point-in-time features must see **strictly fewer** events than a whole-log aggregate.
+- Build user, item and **user×item** features. The last family is the ranker's only real advantage over retrieval.
+</ConceptBox>
 
 <QuizCard
   question="Your point-in-time features return exactly the same values as the naive whole-log aggregate for every row in a test batch. What should you conclude?"

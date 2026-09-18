@@ -1,14 +1,7 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ParamCountWidget from '../../components/widgets/deep-learning/ParamCountWidget.jsx'
 
 # Module 4: PyTorch — Data Handling & Parameters
-
-<ConceptBox title="TL;DR">
-- Three abstractions, three jobs: **`Dataset`** returns one sample, **`DataLoader`** batches/shuffles/parallelises, **`nn.Module`** holds the architecture and its parameters.
-- The split lets you swap datasets or add augmentation without touching model or training code.
-- **`nn.Parameter` = learnable**: auto `requires_grad=True`, appears in `model.parameters()`, updated by the optimizer.
-- **Buffer = state that isn't learned** (BatchNorm's running mean, a positional-encoding table). Saved in `state_dict`, moved by `.to(device)`, but *not* in `parameters()` and never updated by the optimizer.
-- Getting that distinction wrong is silent: register a learnable tensor as a plain attribute and the optimizer simply never sees it.
-</ConceptBox>
 
 <Bridge>
 **From Module 3:** You can create tensors, multiply them, and run them on GPU. The next step is structuring your code for real training: loading data in batches, defining models as reusable modules, and managing learnable parameters. PyTorch provides three abstractions for this — `Dataset`, `DataLoader`, and `nn.Module` — and together they define the standard deep learning workflow used everywhere from academic papers to production systems.
@@ -116,6 +109,12 @@ model = nn.Sequential(
 
 ## How: Parameters in PyTorch
 
+<PredictReveal
+  prompt="You assign a plain tensor to a module attribute and expect it to be trained. What happens?"
+  options={["It trains normally", "Nothing — it is never registered, so the optimiser never sees it and the model silently learns less than you think"]}
+  correct={1}
+>
+
 ### What is a Parameter?
 
 `nn.Parameter` is a tensor that is automatically registered as a learnable weight when assigned to a module attribute. `nn.Linear` creates parameters `weight` and `bias` for you.
@@ -173,11 +172,19 @@ torch.save(model.state_dict(), 'model.pt')
 
 # Load
 loaded = MLP(784, 256, 10)
-loaded.load_state_dict(torch.load('model.pt'))
+loaded.load_state_dict(torch.load('model.pt', weights_only=True))
 loaded.eval()
 ```
 
 ---
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What breaks if a learnable tensor is assigned as a plain attribute rather than registered as a parameter?", a: "It never appears in the model's parameter list, so the optimiser never updates it, it does not move to the device with the rest of the model, and it is not saved in the checkpoint. Nothing raises an error, which is what makes the bug hard to find." },
+]} />
+
+<ParamCountWidget />
 
 ## Mathematics: Batch Forward Propagation
 
@@ -204,7 +211,7 @@ For an MLP with layers $[n_0, n_1, n_2, \ldots, n_L]$:
 
 $$\text{Parameters} = \sum_{l=1}^{L} \underbrace{n^{[l]} \cdot n^{[l-1]}}_{\text{weights}} + \underbrace{n^{[l]}}_{\text{biases}} = \sum_{l=1}^{L} n^{[l]}(n^{[l-1]} + 1)$$
 
-Example: `[784, 256, 128, 10]` → $256 \cdot 785 + 128 \cdot 257 + 10 \cdot 129 = 234,634$ parameters.
+Example: `[784, 256, 128, 10]` → $256 \cdot 785 + 128 \cdot 257 + 10 \cdot 129 = 200{,}960 + 32{,}896 + 1{,}290 = 235{,}146$ parameters.
 
 </DerivationStep>
 
@@ -225,6 +232,14 @@ Larger batches: lower variance estimate but need more memory, may converge to sh
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Three abstractions, three jobs: **`Dataset`** returns one sample, **`DataLoader`** batches/shuffles/parallelises, **`nn.Module`** holds the architecture and its parameters.
+- The split lets you swap datasets or add augmentation without touching model or training code.
+- **`nn.Parameter` = learnable**: auto `requires_grad=True`, appears in `model.parameters()`, updated by the optimizer.
+- **Buffer = state that isn't learned** (BatchNorm's running mean, a positional-encoding table). Saved in `state_dict`, moved by `.to(device)`, but *not* in `parameters()` and never updated by the optimizer.
+- Getting that distinction wrong is silent: register a learnable tensor as a plain attribute and the optimizer simply never sees it.
+</ConceptBox>
 
 ## Quiz
 

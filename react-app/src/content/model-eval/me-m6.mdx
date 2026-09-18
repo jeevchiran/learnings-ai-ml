@@ -1,19 +1,27 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import FilterRankWidget from '../../components/widgets/model-eval/FilterRankWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Filters score each feature **independently, with no model fitted** — so they're cheap enough to run on thousands of columns as a first pass.
-- **Variance threshold is target-blind**: it only drops near-constant columns. A rare-but-critical flag looks dead to it.
-- Pearson catches **linear** relationships only; ANOVA F catches monotonic group differences; **mutual information** catches arbitrary dependence but has no clean p-value.
-- Chi-square needs **non-negative** inputs — counts or one-hot, never raw signed values.
-- The shared blind spot: scoring one feature at a time **cannot see interactions**. Latitude and longitude are each useless and jointly decisive.
-</ConceptBox>
+# Module 6: Filter-Based Methods
 
 ## Scoring Features One at a Time
+
+<PredictReveal
+  prompt="Two features are individually useless for predicting the target, but their difference predicts it perfectly. What does a filter method that scores one feature at a time do with them?"
+  options={["Keeps them, since together they are informative", "Discards both, because it never looks at two features together"]}
+  correct={1}
+>
 
 Filter methods score each feature by its relationship to the target — a statistic computed directly from the data, no model trained. Keep the top scorers (by count, fraction, or threshold), drop the rest. Because nothing gets fitted, they run on thousands of features as a first pass. Here are the five you'll reach for most, ordered by how much they assume. Toggle between the target-aware and target-blind ones:
 
 <FilterRankWidget />
+
+That blindness is the price of the speed. A filter scores every feature independently of the model and of every other feature, which makes it cheap enough to run on tens of thousands of columns and unable to see any interaction.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the fundamental blind spot of filter methods?", a: "They score each feature in isolation, so a pair of features that is only informative jointly gets discarded, and a set of features that are individually strong but mutually redundant gets kept in full. The upside is that they are model-independent and fast enough for very wide data." },
+]} />
 
 ## Variance Threshold
 
@@ -88,6 +96,12 @@ Like correlation, it's about means and variances — class separation *on averag
 
 ## Mutual Information
 
+<PredictReveal
+  prompt="A feature has a perfect but U-shaped relationship with the target. What does a correlation-based filter score it?"
+  options={["High, the relationship is perfect", "Near zero, because correlation only detects straight-line relationships"]}
+  correct={1}
+>
+
 Instead of testing for a specific relationship shape, MI asks a model-free question from information theory: *how much does knowing this feature reduce uncertainty about the target?* High if it narrows the target a lot, ≈0 if it tells you nothing. Crucially it captures *any* dependency — a U-shaped or periodic feature that correlation scores near 0 can register high MI.
 
 ```python
@@ -100,6 +114,12 @@ selector = SelectKBest(mutual_info_classif, k=2).fit(X, y)
 ```
 
 The generality is also its weakness: MI is estimated from finite samples (a k-NN estimator), getting noisier as data shrinks or features grow. And there's no standard p-value — you compare relative scores, you don't test a hypothesis.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does mutual information catch relationships correlation misses?", a: "Correlation measures only the linear component of a relationship, so a symmetric U-shape cancels out to near zero. Mutual information measures how much knowing one variable reduces uncertainty about the other, regardless of the shape of the dependence." },
+]} />
 
 ## Comparing the Five
 
@@ -118,6 +138,16 @@ Every method scores one feature at a time — what makes filters fast makes them
 <Bridge>
 Filters are fast and a sensible first pass, but the interaction blind spot is real: a jointly-powerful, individually-weak pair never survives. Module 7 introduces wrapper and embedded methods, folding a model's CV performance into selection — higher cost, but able to catch the interactions filters can't see.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Filters score each feature **independently, with no model fitted** — so they're cheap enough to run on thousands of columns as a first pass.
+- **Variance threshold is target-blind**: it only drops near-constant columns. A rare-but-critical flag looks dead to it.
+- Pearson catches **linear** relationships only; ANOVA F catches monotonic group differences; **mutual information** catches arbitrary dependence but has no clean p-value.
+- Chi-square needs **non-negative** inputs — counts or one-hot, never raw signed values.
+- The shared blind spot: scoring one feature at a time **cannot see interactions**. Latitude and longitude are each useless and jointly decisive.
+</ConceptBox>
 
 ## Practice
 

@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import BlurAverageWidget from '../../components/widgets/gan/BlurAverageWidget.jsx'
 
 # Module 1: From Explicit to Implicit Density
 
@@ -23,6 +24,8 @@ There is no reconstruction loss, no KL term, no formula for p(x) at all. Instead
 ]} />
 
 ## Why not just minimize pixel distance to real images?
+
+<BlurAverageWidget />
 
 <PredictReveal
   prompt="Suppose instead we train G to directly minimize the average pixel-wise distance to real training images, like an autoencoder without an encoder. For an ambiguous input (say, a digit that could plausibly continue two different ways), what does that objective push G toward?"

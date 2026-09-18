@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import TimestepEmbeddingWidget from '../../components/widgets/diffusion/TimestepEmbeddingWidget.jsx'
 
 # Module 5: The U-Net Denoiser & Timestep Conditioning
 
@@ -30,6 +31,8 @@ Both tasks share the same underlying requirement: take an image, extract feature
 ]} />
 
 ## One network, every noise level
+
+<TimestepEmbeddingWidget />
 
 <PredictReveal
   prompt="The same U-Net must denoise x_t whether t = 1 (barely noisy) or t = 900 (almost pure noise) — very different tasks in practice. How does a single set of weights handle both?"

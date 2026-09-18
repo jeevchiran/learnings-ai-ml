@@ -1,26 +1,45 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import AprioriStepWidget from '../../components/widgets/association-rules/AprioriStepWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- $d$ items give $2^d-1$ possible itemsets. Brute force is dead on arrival; the whole game is **not generating** most candidates.
-- One property does all the work — **anti-monotonicity**: adding an item can never increase support, so *any superset of an infrequent set is infrequent*.
-- Apriori goes level by level: find $L_k$, join to propose $C_{k+1}$, **prune** candidates with an infrequent subset, then count only the survivors.
-- The saving is in the prune — a pruned candidate costs nothing because it never triggers a database scan.
-</ConceptBox>
+# Module 2: The Apriori Algorithm
+
+<Bridge>
+Module 1 defined what makes a rule worth having, assuming someone hands you the itemsets to score. Nobody does. With even a hundred products the number of possible itemsets is larger than the number of atoms in a person, so the real problem is finding the worthwhile ones without looking at the rest. This module is the algorithm that does it.
+</Bridge>
 
 ## The Combinatorial Wall
 
+<PredictReveal
+  prompt="A modest shop stocks 100 products. How many distinct non-empty combinations of those products could appear in a basket?"
+  options={["About ten thousand — manageable", "About 10 to the power 30, which is more than any computer will ever count"]}
+  correct={1}
+>
+
 To find rules we first need **frequent itemsets** — every itemset whose support clears a threshold `min_support`. The naive approach: enumerate all possible itemsets, count each. With $d$ distinct items there are $2^d - 1$ non-empty itemsets. A modest store with $d = 100$ products has $2^{100} \approx 10^{30}$ candidates. Counting them all is hopeless — we need to *avoid generating most of them*.
+
+</PredictReveal>
 
 Apriori (Agrawal & Srikant, 1994) does exactly that, using one structural fact about support.
 
 ## The Anti-Monotone (Downward-Closure) Property
+
+<PredictReveal
+  prompt="Cola appears in only 2 of 10 baskets, below your threshold. What can you say about cola together with milk, without counting anything?"
+  options={["Nothing yet — it must be counted separately", "It is also below threshold, because adding an item can only remove baskets, never add them"]}
+  correct={1}
+>
 
 <ConceptBox title="The one property that makes it work">
 If an itemset is frequent, then **every subset of it is also frequent**. Equivalently, in its contrapositive form used for pruning:
 
 $$\text{if } X \text{ is infrequent, then every superset of } X \text{ is also infrequent.}$$
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Prove the anti-monotone property in one sentence.", a: "The baskets containing a larger itemset are a subset of those containing any smaller part of it — adding a requirement can only remove baskets, never add them — so support never increases as an itemset grows." },
+]} />
 
 Why it holds: adding an item to an itemset can only *shrink or hold* the set of transactions containing it — never grow it. So support is **monotonically non-increasing** as an itemset grows:
 
@@ -66,7 +85,30 @@ With `min_support = 0.3` (≥ 3 of the 10 baskets):
 The subset-prune in step 3 is why Apriori beats brute force: a candidate whose subset already failed is thrown out *for free*, before the expensive database scan. Raise `min_support` and whole upper levels never get generated at all.
 </ConceptBox>
 
+<PredictReveal
+  prompt="You raise the minimum support from 1% to 5% to make the run finish faster. What have you given up?"
+  options={["Nothing — the same rules come out, just sooner", "Every genuine niche pattern living in 2% of baskets, which is often where the valuable discoveries are"]}
+  correct={1}
+>
+
 <AprioriStepWidget />
+
+Step the widget through the levels with different thresholds and watch how the first level's size decides everything above it. Because candidates grow combinatorially from the survivors, one item dropped at level 1 removes an entire subtree.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "You raise min_support from 0.01 to 0.05. What happens to runtime, and what do you lose?", a: "Runtime drops sharply, because the first level shrinks and candidates grow combinatorially from it, so whole upper levels may never be generated. What you lose is every genuine long-tail pattern that lives in a small fraction of baskets." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- $d$ items give $2^d-1$ possible itemsets. Brute force is dead on arrival; the whole game is **not generating** most candidates.
+- One property does all the work — **anti-monotonicity**: adding an item can never increase support, so *any superset of an infrequent set is infrequent*.
+- Apriori goes level by level: find $L_k$, join to propose $C_{k+1}$, **prune** candidates with an infrequent subset, then count only the survivors.
+- The saving is in the prune — a pruned candidate costs nothing because it never triggers a database scan.
+</ConceptBox>
 
 ## Practice
 

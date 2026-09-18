@@ -5,8 +5,12 @@ vi.mock('react-syntax-highlighter', () => ({ Prism: () => null }))
 vi.mock('react-syntax-highlighter/dist/esm/styles/prism', () => ({ oneLight: {}, oneDark: {} }))
 
 const { default: MDXRenderer } = await import('../components/MDXRenderer.jsx')
-// nlp-m8 holds the widest table in the content set (10 columns).
-const { default: Content } = await import('../content/nlp/nlp-m8.mdx')
+// cv-m16 is the widest markdown table in a module that imports no widget at all.
+// Three things disqualify an otherwise-wider module as a fixture: a table inside
+// <PredictReveal> is absent from the DOM until a reader answers the gate, a
+// widget's own <table> is styled by the widget rather than by the component map,
+// and a widget pulling in a charting library fails to load under jsdom.
+const { default: Content } = await import('../content/computer-vision/cv-m16.mdx')
 
 describe('MDX table overflow', () => {
   it('wraps every table in a scroll container', () => {

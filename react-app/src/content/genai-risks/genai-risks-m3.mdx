@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import RiskMatrixWidget from '../../components/widgets/genai-risks/RiskMatrixWidget.jsx'
 
 # Module 3: Why Hallucinations Occur — the Training Stage
 
@@ -29,6 +30,8 @@ Three corpus-level contributors compound this:
 <Recall items={[
   { q: "Why does uneven training-data coverage produce confident answers on obscure topics rather than expressions of uncertainty?", a: "The next-token objective is identical regardless of how well-covered a topic is: produce the most probable continuation. On a sparse topic the most probable continuation is assembled from the shape of similar, better-covered text — plausible-looking titles, dates, and statistics — without the grounding that made that shape correct elsewhere." },
 ]} />
+
+<RiskMatrixWidget />
 
 ## Where alignment training pushes back the wrong way
 

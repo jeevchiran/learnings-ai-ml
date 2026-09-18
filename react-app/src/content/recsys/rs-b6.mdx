@@ -1,12 +1,7 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import LTRLossWidget from '../../components/widgets/recsys/LTRLossWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Training rows = one positive per interaction + $n$ popularity-sampled negatives, each carrying **as-of** features.
-- Group rows by `(user, as_of)` — that group *is* the slate a pairwise or listwise ranker learns to order.
-- On NovaCart the ranker **loses to the recency baseline** (NDCG@3 0.250 vs 0.438). That is the honest result on 55 rows, and its feature importances explain exactly why.
-- Ship the pipeline, not the score. Everything here scales; the toy result does not.
-</ConceptBox>
+# Build — LTR Training
 
 ## Build the training rows
 
@@ -55,6 +50,12 @@ clf.fit(ltr[FEATS], ltr.label)                     # pointwise: rows are indepen
 
 ## The pairwise upgrade
 
+<PredictReveal
+  prompt="Your pointwise ranker predicts click probability per item. Switching to a pairwise objective changes what it optimises. To what?"
+  options={["More accurate probabilities", "Whether item A should outrank item B, which is the only thing the final list depends on"]}
+  correct={1}
+>
+
 ```python
 import lightgbm as lgb
 
@@ -71,7 +72,13 @@ ranker.fit(ltr[FEATS], ltr.label, group=group_sizes)
 
 `group` is the whole difference. It tells LightGBM which rows compete against each other, so gradients are computed **within** a slate rather than across the dataset. Get the grouping wrong — rows not sorted to match `group_sizes`, or grouping by user instead of by `(user, as_of)` — and LambdaRank silently optimises comparisons between slates that were never shown together. It will not error. It will just be worse.
 
+</PredictReveal>
+
 <LTRLossWidget />
+
+<Recall items={[
+  { q: "What does a pairwise objective optimise that a pointwise one does not?", a: "Relative order. A pointwise model tries to get each item's absolute score right, which is harder than necessary and not what the output depends on. A pairwise model only has to get each comparison right, which is exactly what determines the final ordering." },
+]} />
 
 ## Score and evaluate
 
@@ -92,6 +99,12 @@ recency   hit=0.667 mrr=0.361 ndcg=0.438 cov=0.889   ← baseline still wins
 ```
 
 ## The ranker loses. Read why.
+
+<PredictReveal
+  prompt="After all that work, the learned ranker scores worse than a simple baseline. What is the most useful response?"
+  options={["Tune it until it wins", "Find out why — a ranker that loses on a small dataset is usually telling you something true about the data, not about the method"]}
+  correct={1}
+>
 
 ```python
 for name, imp in sorted(zip(FEATS, clf.feature_importances_), key=lambda t: -t[1]):
@@ -125,6 +138,12 @@ The failure mode to actually fear is the opposite — a ranker that **beats** ev
 Suspicion should scale with how good the result looks.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does it mean when a carefully built ranker loses to a simple baseline?", a: "Usually that the dataset is too small or too sparse for the extra capacity to pay off, or that the features carry less signal than expected. It is information about the problem rather than a failure of the method, and reporting it honestly is more valuable than tuning until the number looks right." },
+]} />
+
 ## The whole pipeline
 
 ```text
@@ -148,6 +167,15 @@ That is the full track: the concepts in Part 1, the pipeline in Part 2. The trac
   { q: "The ranker put 70% of its importance on `ui_days_since` and lost to the recency baseline. What is the diagnosis and the fix?", a: "It rediscovered recency from the only signal 11 positives can support, then approximated it worse than a GROUP BY does. The fix is features recency does not contain — the ALS score, category affinity, price fit, session context — and more positives. Not a different loss or a bigger model." },
   { q: "Why should a first-run ranker that beats every baseline by a wide margin make you MORE suspicious, not less?", a: "On real data that pattern is far more often leakage than skill. The checks: is a single feature dominating importance, is it an aggregate, and was it built with a strict as-of join? A modest honest gain is the normal shape of a real improvement; a large first-try gain usually means a feature is reading the label." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Training rows = one positive per interaction + $n$ popularity-sampled negatives, each carrying **as-of** features.
+- Group rows by `(user, as_of)` — that group *is* the slate a pairwise or listwise ranker learns to order.
+- On NovaCart the ranker **loses to the recency baseline** (NDCG@3 0.250 vs 0.438). That is the honest result on 55 rows, and its feature importances explain exactly why.
+- Ship the pipeline, not the score. Everything here scales; the toy result does not.
+</ConceptBox>
 
 <QuizCard
   question="You add the ALS score from module b4 as a feature in the ranker. What makes this the natural composition of the two stages, rather than double-counting?"
