@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import VaeGanDiffusionWidget from '../../components/widgets/vae/VaeGanDiffusionWidget.jsx'
 
 # Module 11: Diffusion in Context — Comparison & What's Next
 
@@ -27,6 +28,8 @@ VAEs and diffusion models are close cousins: both maximize a variational lower b
 <Recall items={[
   { q: "What is the deepest dividing line between GANs and the other two generative model families covered across these tracks?", a: "Whether training optimizes a likelihood-style variational bound or an adversarial classification game. VAEs and diffusion models both maximize a variational lower bound on log p(x) — diffusion is literally a hierarchical VAE — while GANs have no likelihood bound at all, only a minimax game against a discriminator." },
 ]} />
+
+<VaeGanDiffusionWidget />
 
 ## Why diffusion won on quality despite being slow
 

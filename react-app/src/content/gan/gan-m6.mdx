@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import WassersteinVsJsWidget from '../../components/widgets/gan/WassersteinVsJsWidget.jsx'
 
 # Module 6: Wasserstein GAN & Gradient Penalty
 
@@ -21,6 +22,8 @@ The original GAN objective corresponds to minimizing the Jensen-Shannon divergen
 <Recall items={[
   { q: "What is the deeper problem with JS-divergence-based GAN training that the non-saturating loss from Module 3 does not fix?", a: "JS divergence itself provides little useful gradient when the real and generated distributions have little or no overlapping support, which is the normal state early in training for high-dimensional data. The non-saturating rewrite changes gradient magnitude for a fixed divergence, but does not change which divergence is being minimized." },
 ]} />
+
+<WassersteinVsJsWidget />
 
 ## Wasserstein distance and the Lipschitz constraint
 

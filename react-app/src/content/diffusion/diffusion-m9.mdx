@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import LatentVsPixelCostWidget from '../../components/widgets/diffusion/LatentVsPixelCostWidget.jsx'
 
 # Module 9: Latent Diffusion
 
@@ -28,6 +29,8 @@ A pretrained autoencoder (VAE track) first compresses a $1024\times1024$ image i
 <Recall items={[
   { q: "What exactly does latent diffusion change compared to running diffusion directly on pixels?", a: "It runs the entire forward and reverse diffusion process inside a pretrained autoencoder's much smaller latent space instead of pixel space, decoding back to full-resolution pixels only once, after the reverse process finishes — rather than at every one of the T steps." },
 ]} />
+
+<LatentVsPixelCostWidget />
 
 ## Why this doesn't just trade one cost for another
 

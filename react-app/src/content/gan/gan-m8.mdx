@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, FactList, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import CycleConsistencyWidget from '../../components/widgets/gan/CycleConsistencyWidget.jsx'
 
 # Module 8: CycleGAN — Unpaired Image-to-Image Translation
 
@@ -42,6 +43,8 @@ CycleGAN trains **two** generator/discriminator pairs at once: $G: X \to Y$ with
 <Recall items={[
   { q: "What does CycleGAN's cycle-consistency loss actually penalize, and why does that not require paired training data?", a: "It penalizes the distance between F(G(x)) and the original x (and symmetrically G(F(y)) and y) — a round trip through both generators. This only requires each domain's own images, since the target of the round trip is the input itself, not a separately-collected paired example." },
 ]} />
+
+<CycleConsistencyWidget />
 
 ## What cycle-consistency alone does not guarantee
 

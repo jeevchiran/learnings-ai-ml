@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import NonSaturatingLossWidget from '../../components/widgets/gan/NonSaturatingLossWidget.jsx'
 
 # Module 3: Training Dynamics & the Non-Saturating Loss
 
@@ -23,6 +24,8 @@ Plot $\log(1-y)$ for $y$ near 0: the curve is nearly flat there. Its derivative 
 <Recall items={[
   { q: "Why does an early, highly confident discriminator create a problem for the generator's gradient?", a: "G's loss term log(1 - D(G(z))) is nearly flat when D(G(z)) is close to 0, which is exactly the regime an early, bad generator sits in. A confident discriminator therefore gives G almost no useful gradient right when G needs it most." },
 ]} />
+
+<NonSaturatingLossWidget />
 
 ## The non-saturating fix
 
