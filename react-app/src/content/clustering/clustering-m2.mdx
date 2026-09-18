@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import DistanceCentroidWidget from '../../components/widgets/clustering/DistanceCentroidWidget.jsx'
 
 # Module 2: Distance, Means, and Centroids
@@ -9,6 +9,12 @@ import DistanceCentroidWidget from '../../components/widgets/clustering/Distance
 K-means assigns each point to its "nearest" centroid — but nearest by what measure? The distance metric determines the cluster shapes the algorithm can find and what the centroid update means.
 </Bridge>
 
+<PredictReveal
+  prompt={"A taxi in Manhattan drives from one corner to another, three blocks east and four blocks north. A helicopter flies the same trip. Do they cover the same distance?"}
+  options={["Yes, the start and end points are identical", "No — the helicopter covers 5 blocks, the taxi 7"]}
+  correct={1}
+>
+
 Two points (2,3) and (5,7): how far apart? The straight-line (Euclidean) distance is one answer, but different problems call for different notions. A Manhattan taxi can't cut diagonally — it travels the grid. Two documents compare better by the *angle* between term-frequency vectors than by magnitude. **The metric should match the problem.**
 
 <ConceptBox title="Three questions a metric answers">
@@ -16,6 +22,12 @@ Two points (2,3) and (5,7): how far apart? The straight-line (Euclidean) distanc
 - **Centroid** — what point minimizes total distance? Mean (Euclidean), median (Manhattan)?
 - **Scale sensitivity** — does rescaling a feature change which points are nearest?
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does the choice of distance measure matter for clustering?", a: "The measure decides which points count as near, and therefore what shape a cluster can have — round under Euclidean, diamond-shaped under Manhattan, angular under cosine. It also decides what the centroid update must be, so it is not a cosmetic setting." },
+]} />
 
 ## Euclidean Distance
 
@@ -58,6 +70,12 @@ Example: $A=(1,2)$, $B=(2,4)$ (= 2A). $d_E \approx 2.24$ but $\cos\theta = \frac
 
 ## The Centroid Is the Mean
 
+<PredictReveal
+  prompt="K-means moves each centroid to the arithmetic mean of its points. Is that a convenient convention, or is the mean forced on us by something?"
+  options={["A convention — any central point would do", "Forced: the mean is provably the unique minimiser of squared Euclidean distance"]}
+  correct={1}
+>
+
 The centroid of $S = \{x_1,\ldots,x_n\}$ is the arithmetic mean $\mu = \frac{1}{n}\sum_i x_i$ — the balance point. Here's why it's the correct K-means update: it minimizes the within-cluster squared distance $f(\mu_k) = \sum_{i \in C_k} \|x_i - \mu_k\|^2$.
 
 <DerivationSteps>
@@ -76,7 +94,20 @@ $\frac{\partial^2 f}{\partial \mu_k^2} = 2|C_k| > 0$ ✓
 
 > **Euclidean distance and the mean are one decision.** The derivation works *because* distances are squared, making $f$ a convex quadratic with the mean as unique minimizer. A different metric gives a different optimal centroid. For L1 in 1D, $g(\mu) = \sum|x_i - \mu|$ is piecewise linear with slope $\#\{x_i<\mu\} - \#\{x_i>\mu\}$ — zero when equal counts lie on each side, i.e. the **median** (→ K-medians).
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Show that the mean is not a convention but the forced answer under squared Euclidean distance.", a: "Minimise the sum of squared distances to a candidate centre. Differentiating gives minus two times the sum of the deviations, set to zero, so the sum of the points equals the cluster size times the centre — the arithmetic mean. The second derivative is positive, confirming a minimum. Switch to absolute distance and the same procedure yields the median." },
+  { q: "Why can you not simply switch K-means to cosine distance and expect it to work?", a: "The update step is derived from the distance measure. The arithmetic mean minimises squared Euclidean distance; under cosine the optimal centre is the re-normalised mean of unit vectors. Keeping the Euclidean update alongside a cosine assignment means the two steps optimise different objectives, so the guarantee that cost never rises no longer holds." },
+]} />
+
 ## Feature Scaling
+
+<PredictReveal
+  prompt="Your table has age from 0 to 80 and income from 0 to 100,000, and you run K-means without scaling anything. What do the resulting clusters actually represent?"
+  options={["A sensible blend of age and income", "Income bands — a 60-year age gap contributes 3,600 to squared distance while a 1,000-rupee gap contributes 1,000,000"]}
+  correct={1}
+>
 
 Because Euclidean distance squares differences, large-range features dominate. With "age" (0–80) and "income" (0–100,000), income dwarfs age in any distance. Fix by standardizing:
 
@@ -89,6 +120,14 @@ Z-score gives mean 0, SD 1 per feature (preferred — min-max is outlier-sensiti
 **Example:** A = (age 10, income 50,000), B = (age 70, income 51,000). Unscaled: $d_E = \sqrt{3600 + 1{,}000{,}000} \approx 1001.8$ — income swamps age. After Z-scoring (age $\bar x=40,s=20$; income $\bar x=50500,s=500$): $A'=(-1.5,-1.0)$, $B'=(1.5,1.0)$, $d_E = \sqrt{9+4} \approx 3.61$ — now both contribute.
 
 <DistanceCentroidWidget />
+
+Toggle scaling on and off in the widget and watch the cluster boundaries swing round. Nothing about the data changed, only the units.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Z-score or min-max scaling before clustering, and why?", a: "Z-score. Min-max maps to a fixed range using the extremes, so a single outlier compresses every other point into a narrow band. Z-score uses the mean and standard deviation, which one extreme value distorts far less." },
+]} />
 
 ---
 

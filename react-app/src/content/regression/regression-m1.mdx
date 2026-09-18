@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import RegressionLineWidget from '../../components/widgets/regression/RegressionLineWidget.jsx'
 import AssumptionWidget from '../../components/widgets/regression/AssumptionWidget.jsx'
 import ResidualDiagnosticsWidget from '../../components/widgets/regression/ResidualDiagnosticsWidget.jsx'
@@ -27,6 +27,12 @@ Module 2 derives the closed-form solution.
 
 ## Assumptions
 
+<PredictReveal
+  prompt="You fit a straight line through data whose true relationship is a gentle curve. The fit still produces coefficients and an R-squared. What tells you something is wrong?"
+  options={["Nothing — the numbers look fine, so the model is fine", "The residuals: they stop looking like noise and take on a visible curved pattern"]}
+  correct={1}
+>
+
 OLS has its good properties (unbiasedness, efficiency) only when these hold:
 
 1. **Linearity** — the true relationship is linear; a curved one gets systematically misfit.
@@ -38,7 +44,19 @@ OLS has its good properties (unbiasedness, efficiency) only when these hold:
 
 <AssumptionWidget />
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are residual plots more informative than R-squared for checking a linear model?", a: "R-squared reports how much variance the fit captured, but it says nothing about the shape of what is left over. A systematically curved or fanning residual pattern reveals a broken assumption that a respectable R-squared can hide completely." },
+]} />
+
 ## Interpreting Coefficients
+
+<PredictReveal
+  prompt={"A house-price model gives a coefficient of 150 for square feet and 20,000 for bedrooms. Does that mean bedrooms matter more than floor area?"}
+  options={["Yes, the bigger coefficient is the more important feature", "No — the two are measured in different units, so their raw sizes are not comparable"]}
+  correct={1}
+>
 
 Each $\beta_j$ is the expected change in $y$ per one-unit increase in $x_j$, *holding others constant*:
 
@@ -54,7 +72,19 @@ $$\beta_j = \frac{\partial\, E[y \mid \mathbf{x}]}{\partial x_j}$$
 | $\beta_2$ Bedrooms | +\$20,000 | per additional bedroom |
 | $\beta_3$ Distance | −\$5,000 | per km from center |
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can you not rank feature importance by comparing raw regression coefficients?", a: "Each coefficient is expressed per one unit of its own predictor, and those units differ. A coefficient measured per square foot cannot be compared with one measured per bedroom. Standardising every variable to mean zero and unit standard deviation first makes the coefficients comparable." },
+]} />
+
 ## Evaluating Performance
+
+<PredictReveal
+  prompt="You add a completely random, meaningless column to your regression and refit. What happens to the R-squared value?"
+  options={["It falls, because the noise hurts the fit", "It rises, or at worst stays the same — R-squared never decreases when you add a predictor"]}
+  correct={1}
+>
 
 **R²** — proportion of variance explained:
 
@@ -65,6 +95,12 @@ $$R^2 = 1 - \frac{\sum (y_i - \hat{y}_i)^2}{\sum (y_i - \bar{y})^2}$$
 $$R^2_{\text{adj}} = 1 - \frac{(1 - R^2)(n - 1)}{n - p - 1}$$
 
 **MSE / RMSE** — RMSE is in the units of $y$: $\text{RMSE} = \sqrt{\frac{1}{n}\sum(y_i - \hat{y}_i)^2}$. RMSE \$15,000 = predictions off by ~\$15K.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does adjusted R-squared exist?", a: "Plain R-squared never falls when a predictor is added, even a purely random one, so it cannot be used to compare models with different numbers of predictors. Adjusted R-squared subtracts a penalty for each extra parameter, so it only rises when the new predictor earns its place." },
+]} />
 
 ## Residual Diagnostics
 

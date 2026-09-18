@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import SilhouetteWidget from '../../components/widgets/clustering/SilhouetteWidget.jsx'
 
 # Module 4: Silhouette Score and Evaluation
@@ -9,6 +9,12 @@ import SilhouetteWidget from '../../components/widgets/clustering/SilhouetteWidg
 
 ## Why WCSS Isn't Enough
 
+<PredictReveal
+  prompt="Two clusterings have identical within-cluster sum of squares. In one, the two clusters sit far apart. In the other, they nearly touch. Can that measure tell them apart?"
+  options={["Yes, overlapping clusters score worse", "No — it only measures tightness and never looks at the gap between clusters"]}
+  correct={1}
+>
+
 WCSS measures **cohesion** (tightness) but is blind to **separation**. Two failure modes with similar WCSS but poor clusterings:
 
 - **Tight but too close** — two low-scatter clusters that nearly touch; boundary points could belong to either.
@@ -16,7 +22,19 @@ WCSS measures **cohesion** (tightness) but is blind to **separation**. Two failu
 
 We need a metric capturing **cohesion AND separation** at once.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does the within-cluster sum of squares fail to measure?", a: "Separation. It sums each point's distance to its own centroid and never compares clusters with each other, so two tight clusters overlapping at the boundary look exactly as good as two tight clusters far apart." },
+]} />
+
 ## The Silhouette Score
+
+<PredictReveal
+  prompt={"A point's average distance to its own cluster is 4. Its average distance to the nearest other cluster is 2. What should a good score say about that point?"}
+  options={["That it is fine, since it still belongs to a cluster", "That it is probably in the wrong cluster, and the score should go negative"]}
+  correct={1}
+>
 
 Rousseeuw (1987) scores every point in $[-1, 1]$ by how well it fits its cluster versus the best alternative.
 
@@ -64,6 +82,12 @@ Overall score $S = \frac{1}{n}\sum_i s(i) \in [-1, 1]$:
 | $x_4$ | 1 | 5.5 | 0.818 |
 
 Overall $S = 0.798$ — two tight, well-separated clusters.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What do the three silhouette regimes mean?", a: "A score near 1 means the point's own cluster is much tighter than the nearest alternative, so the assignment is confident. A score near 0 means the point sits on the boundary, equidistant from both. A negative score means the point is on average closer to a competing cluster than to its own, so it is likely misassigned." },
+]} />
 
 ## Silhouette Plots
 

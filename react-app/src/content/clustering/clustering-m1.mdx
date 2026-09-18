@@ -1,7 +1,11 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import KMeansWidget from '../../components/widgets/clustering/KMeansWidget.jsx'
 
 # Module 1: Why Clustering? Intuition and K-Means
+
+<ConceptBox title="Before you start">
+You need two things from the Maths for ML track: how to measure the distance between two points written as vectors (Module 1) and what an arithmetic mean is (Module 7). Nothing else. This is the first track here with no labels at all, so expect the goal itself to feel different from anything supervised.
+</ConceptBox>
 
 ## Why Clustering?
 
@@ -45,6 +49,12 @@ You walk into a room of 100 people and must form 3 discussion groups, knowing no
 4. Some people are now closer to a different leader; they switch. Repeat from 3.
 5. When nobody moves, it has *converged*.
 
+<PredictReveal
+  prompt="You have 300 unlabelled points and want 3 groups. You pick 3 points at random to act as group centres, then send every point to its nearest centre. What should happen next?"
+  options={["Stop — the groups are decided", "Move each centre to the average of the points that joined it, then re-assign everyone"]}
+  correct={1}
+>
+
 That's K-means exactly — leaders = centroids, "closest" = Euclidean distance, "center" = arithmetic mean. Formally:
 
 <DerivationSteps>
@@ -67,7 +77,19 @@ If any centroid moved, return to step 2; else stop (a tolerance or max-iteration
 
 It alternates optimizing assignments (centroids fixed) and centroids (assignments fixed). Each step can only lower or hold the cost — never raise it — which is why it always terminates.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What are the two alternating steps of K-means?", a: "Assignment, which sends every point to its nearest centroid with the centroids held fixed, and update, which moves every centroid to the mean of the points now assigned to it. The algorithm repeats the pair until no point changes cluster." },
+]} />
+
 ## Convergence
+
+<PredictReveal
+  prompt="Each K-means iteration re-assigns points and then moves centroids. Can the total within-cluster distance ever go UP between one iteration and the next?"
+  options={["Yes, it can bounce around before settling", "No — each step can only lower it or leave it unchanged, which is why the algorithm must stop"]}
+  correct={1}
+>
 
 Why does it stop? Three parts. The objective is the **Within-Cluster Sum of Squares**:
 
@@ -81,7 +103,20 @@ $$\text{WCSS} = \sum_{k=1}^{K} \sum_{i:\, c_i = k} \|\mathbf{x}_i - \boldsymbol{
 
 > **Time complexity:** each iteration is $O(nKp)$; iterations to converge are usually few (10–100), so it scales to millions of points when K and p are modest.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Prove K-means terminates, in three steps.", a: "First, neither step can increase the within-cluster sum of squares: assignment only moves a point to a strictly closer centroid, and the mean provably minimises squared distance within a set. Second, there are at most K to the power n possible assignments, which is finite. Third, a non-increasing quantity over finitely many states cannot cycle forever, so it halts." },
+  { q: "K-means always converges. Why is that weaker than it sounds?", a: "It converges to a local minimum, not the global one — the optimal partitioning problem is NP-hard. Two runs from different starting points can land on genuinely different clusterings with different costs, which is why libraries repeat the run several times and keep the best." },
+]} />
+
 ## K-Means++ Initialization
+
+<PredictReveal
+  prompt="Plain K-means drops all K starting centroids uniformly at random. Two of them happen to land inside the same dense blob. What goes wrong?"
+  options={["Nothing — the update step pulls them apart", "That blob gets split in two while a real cluster elsewhere gets no centroid, and iterating never escapes it"]}
+  correct={1}
+>
 
 Uniform-random init can place two centroids in the same dense region while a real cluster gets none → a poor local minimum. **K-means++** (Arthur & Vassilvitskii, 2007) spreads them probabilistically:
 
@@ -105,6 +140,14 @@ K-means++ gives expected WCSS at most $O(\log K)$ times optimal — impossible t
 </ConceptBox>
 
 <KMeansWidget />
+
+Re-seed the widget a few times with plain random initialisation and watch how often one true cluster ends up split while another is swallowed. Switch to K-means++ and the seeds spread out on their own.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Explain the exact failure K-means++ prevents.", a: "Uniform random initialisation can drop two centroids inside the same dense blob while a well-separated real cluster gets none. The algorithm then splits one true cluster and merges two others, and no amount of iteration escapes it. Sampling proportional to squared distance makes far-from-everything points overwhelmingly likely to be chosen next." },
+]} />
 
 ---
 
