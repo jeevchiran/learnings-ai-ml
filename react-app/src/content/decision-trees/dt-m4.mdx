@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import PruningWidget from '../../components/widgets/decision-trees/PruningWidget.jsx'
 
 # Module 4: Advantages, Limitations, and Pruning
@@ -35,6 +35,18 @@ Classifying a single sample requires traversing one root-to-leaf path: $O(\text{
 
 ## 2. Limitations of Decision Trees
 
+<PredictReveal
+  prompt="You remove one training row from a dataset and retrain the tree. How different can the new tree be?"
+  options={["Barely different — one row out of thousands", "Potentially unrecognisable, because a changed root split rewrites every branch beneath it"]}
+  correct={1}
+>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a single decision tree described as high-variance?", a: "Splits are chosen greedily, so a small change in the data can flip the winner at the root, and every subtree below is then built on a different partition. The result is that two trees fitted to nearly identical samples can look completely different, even when they predict similarly." },
+]} />
+
 <ConceptBox title="High Variance">
 Small perturbations in the training data can produce drastically different tree structures. Because the greedy algorithm commits to a split at each node without reconsidering earlier decisions, a different ordering of tied splits, or a single mislabeled point near a decision boundary, can flip the entire tree topology. Two training sets that differ by one point can yield trees with no split in common.
 </ConceptBox>
@@ -65,6 +77,12 @@ In the tree context:
 
 ## 4. Pre-Pruning (Early Stopping)
 
+<PredictReveal
+  prompt="Let a tree grow with no limits until every leaf is pure. What is its accuracy on the training data, and what does that tell you about new data?"
+  options={["High on both — a pure tree has learned the pattern", "100% on training and nothing about new data, because it has memorised individual rows"]}
+  correct={1}
+>
+
 Pre-pruning stops tree growth before full depth by enforcing constraints during training:
 
 | Parameter | Effect | Trade-off |
@@ -78,7 +96,19 @@ Pre-pruning stops tree growth before full depth by enforcing constraints during 
 
 **Disadvantage:** Myopic — stops even when a split with small immediate gain would enable large gains deeper in the tree.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does an unrestricted tree always reach perfect training accuracy, and why is that worthless?", a: "It can keep splitting until every leaf holds a single sample, which trivially classifies the training set perfectly. Those deepest splits describe individual rows rather than any real pattern, so they do not transfer to new data at all." },
+]} />
+
 ## 5. Cost-Complexity Post-Pruning (CCP)
+
+<PredictReveal
+  prompt="Early stopping halts a split when it does not improve things enough. What can that miss?"
+  options={["Nothing, a useless split stays useless", "A weak split whose children would have allowed an excellent split underneath it"]}
+  correct={1}
+>
 
 Post-pruning grows the full tree first, then removes subtrees that do not justify their complexity. The **cost-complexity criterion** introduces a regularization parameter $\alpha \geq 0$:
 
@@ -125,7 +155,13 @@ Evaluate the validation error of each tree in the sequence using $k$-fold cross-
 </DerivationStep>
 </DerivationSteps>
 
+</PredictReveal>
+
 <PruningWidget />
+
+<Recall items={[
+  { q: "Why is post-pruning generally preferred to early stopping?", a: "Early stopping is short-sighted: it rejects a split that looks weak on its own, even when that split would have exposed a genuinely useful one beneath it. Growing the full tree first and then pruning back evaluates each subtree against what it actually contributes." },
+]} />
 
 ## 6. Practical Decision Checklist
 
