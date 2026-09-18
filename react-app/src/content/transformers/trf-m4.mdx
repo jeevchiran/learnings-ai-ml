@@ -16,7 +16,7 @@ Module 3 treated attention as a black box inside each block. This module opens i
   correct={1}
 >
 
-<QueryKeyWidget />
+<QueryKeyWidget defaultCausal={false} />
 
 Every token's embedding is projected two different ways by two learned matrices:
 
@@ -29,6 +29,31 @@ $q_i$ (**Query**) encodes what position $i$ is looking for. $k_j$ (**Key**) enco
 <Recall items={[
   { q: "What do the Query and Key vectors each represent, and why can they be compared with a dot product?", a: "The Query encodes what a position is looking for; the Key encodes what a position has to offer. Both are produced by projecting the same embeddings through learned matrices (W_Q and W_K) into the same vector space, which is exactly what makes a dot product between them meaningful as a similarity/relevance score." },
 ]} />
+
+## One row of attention, by hand
+
+Take just three tokens — fluffy, blue and creature — and let creature be the query. The vectors are the toy two-dimensional ones the widgets use, with the recency bonus left out so the arithmetic stays clean.
+
+<DerivationSteps>
+<DerivationStep number={1} title="Scores: one dot product per key">
+
+$q_{\text{creature}} = [1.0,\ 0]$. The keys are $k_{\text{fluffy}} = [1.00,\ 0.10]$, $k_{\text{blue}} = [0.90,\ 0.15]$ and $k_{\text{creature}} = [0.10,\ 1.00]$.
+
+$$q \cdot k_{\text{fluffy}} = 1.00 \qquad q \cdot k_{\text{blue}} = 0.90 \qquad q \cdot k_{\text{creature}} = 0.10$$
+
+The two adjectives score high because their keys point along the axis the query is asking about. The noun scores low.
+
+</DerivationStep>
+<DerivationStep number={2} title="Softmax: scores become weights that sum to 1">
+
+$$\alpha = \text{softmax}([1.00,\ 0.90,\ 0.10]) = [0.433,\ 0.391,\ 0.176]$$
+
+With $d_k = 2$ the scaling would divide every score by 1.41 first; that is skipped here so the numbers stay readable. The three weights add to 1, so creature spends 43 percent of its attention on fluffy, 39 percent on blue and 18 percent on itself.
+
+</DerivationStep>
+</DerivationSteps>
+
+Module 5 finishes this calculation — those three weights are about to be multiplied against Value vectors.
 
 ## Masking and softmax: turning scores into a distribution
 
@@ -44,7 +69,7 @@ Masking is done by setting the disallowed positions' raw scores to $-\infty$ *be
 
 $$\alpha_{ij} = \text{softmax}_j\!\left(\frac{q_i \cdot k_j}{\sqrt{d_k}}\right), \qquad \text{score}_{ij} = -\infty \text{ if } j > i$$
 
-$e^{-\infty} = 0$, so those positions get exactly zero weight after softmax — not approximately zero, exactly zero, with no gradient leaking through them either. The $\sqrt{d_k}$ scaling is the same variance-control trick from the previous track's Module 10, needed here for the same reason: without it, scores computed from higher-dimensional Query/Key vectors would grow large enough to saturate softmax.
+$e^{-\infty} = 0$, so those positions get exactly zero weight after softmax — not approximately zero, exactly zero, with no gradient leaking through them either. The $\sqrt{d_k}$ scaling is the same variance-control trick from the previous track's Module 10, needed here for the same reason: without it, scores computed from higher-dimensional Query/Key vectors would grow large enough to saturate softmax. Here $d_k$ is simply the length of the Query and Key vectors — 64 in the PyTorch demonstration of Module 7, and 128 per head in GPT-3.
 
 </PredictReveal>
 

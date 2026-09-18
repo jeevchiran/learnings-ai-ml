@@ -35,6 +35,8 @@ Multi-head attention runs $h$ independent copies of Query/Key/Value projections 
 
 Each head's $W_V$ is actually two matrices: a **down-projection** into a small space (matching the head's Query/Key dimension) and an **up-projection** back to full embedding size. Multiplying these two smaller matrices costs far less than one giant matrix would, which is exactly what makes dozens of heads per layer affordable.
 
+In real code you will rarely see the up-projection written out per head. Implementations stack every head's up-projection side by side into one **output matrix** applied once over all the concatenated heads — mathematically the same thing, one matrix multiplication instead of $h$. Module 7's `out_proj` is exactly that matrix.
+
 <ConceptBox title="GPT-3, for scale">
 GPT-3 has 96 attention heads per layer and 96 layers. Its Query, Key, Value, and Output matrices together account for roughly **57.9 billion** of its 175 billion total parameters — practically a third of the entire model is attention machinery, and the low-rank Value trick above is a meaningful part of why that number is affordable at all rather than orders of magnitude larger.
 </ConceptBox>

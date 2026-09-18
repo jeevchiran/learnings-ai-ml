@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import TokenizerMaskWidget from '../../components/widgets/transformers/TokenizerMaskWidget.jsx'
 
 # Module 11: Fine-Tuning BERT for Classification
 
@@ -45,6 +46,8 @@ Raw strings are not input. Four transformations stand between a sentence and a t
    two halves of a sentence pair.
 4. **Attention masks** — short sequences are padded up to a common length with `[PAD]`, and a mask marks which positions
    are real.
+
+<TokenizerMaskWidget />
 
 ```python
 texts = ["the plot dragged but the acting saved it", "an absolute waste of two hours"]

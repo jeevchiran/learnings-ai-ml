@@ -23,6 +23,12 @@ The final update to word $i$'s embedding is a weighted sum of every other word's
 
 $$\Delta e_i = \sum_j \alpha_{ij}\, v_j$$
 
+Continuing Module 4's hand example, with $\alpha = [0.433,\ 0.391,\ 0.176]$ over fluffy, blue and creature, and the toy Value vectors $v_{\text{fluffy}} = [0.9,\ 0.1]$, $v_{\text{blue}} = [0.7,\ 0.15]$ and $v_{\text{creature}} = [0.15,\ 0.9]$:
+
+$$\Delta e_{\text{creature}} = 0.433\,[0.9,\ 0.1] + 0.391\,[0.7,\ 0.15] + 0.176\,[0.15,\ 0.9] = [0.690,\ 0.260]$$
+
+Axis 0 is the toy texture-and-colour axis, so the update is mostly *descriptive* content — exactly what a noun collecting its adjectives should absorb.
+
 </PredictReveal>
 
 <Recall items={[
@@ -40,6 +46,8 @@ $$\Delta e_i = \sum_j \alpha_{ij}\, v_j$$
 <ValueUpdateWidget />
 
 $$e_i' = e_i + \Delta e_i$$
+
+For the hand example, $e_{\text{creature}} = [0.2,\ 0.5]$, so $e' = [0.2 + 0.690,\ 0.5 + 0.260] = [0.890,\ 0.760]$. Select creature in the widget above; its numbers differ slightly only because the widget includes all eight tokens and a small recency bonus.
 
 Attention never throws away the original embedding — it *adds* a context-dependent correction to it. "Creature" still means creature; it now also means *this specific* creature, fluffy and blue. Run this for every word in the sentence and the whole sequence goes from a bag of dictionary definitions to a set of vectors that actually encode this sentence, this meaning, this context.
 

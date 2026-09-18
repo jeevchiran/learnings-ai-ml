@@ -89,7 +89,7 @@ print(out.shape)                                # torch.Size([2, 6, 512])
 assert out.shape == x.shape
 ```
 
-Concatenating 8 heads of dimension 64 gives back exactly `embed_dim=512` — by design, so a multi-head block's output can be added straight back onto the residual stream, the same shape it started with. The final `out_proj` linear layer mixes information across heads before that addition happens.
+Concatenating 8 heads of dimension 64 gives back exactly `embed_dim=512` — by design, so a multi-head block's output can be added straight back onto the residual stream, the same shape it started with. The final `out_proj` linear layer is Module 6's up-projection for every head at once: each head's `Wv` is the down-projection, and `out_proj` maps the concatenated small outputs back to `embed_dim` while mixing information across heads.
 
 </PredictReveal>
 

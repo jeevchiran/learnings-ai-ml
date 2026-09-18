@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import ThreeAttentionsWidget from '../../components/widgets/transformers/ThreeAttentionsWidget.jsx'
 
 # Module 2: Encoder-Decoder in a Transformer
 
@@ -16,7 +17,7 @@ Module 1 established the two flavours of attention a transformer uses: self-atte
 
 The **encoder** stack runs self-attention with no mask at all: every word can attend to every other word, before and after it, because the encoder's whole job is to build the richest possible representation of an input it already has completely.
 
-The **decoder** stack runs *masked* self-attention — the causal mask from Module 1's intuition, made concrete: when generating word 5, the decoder can only attend to words 1 through 5 of what it has generated so far, never word 6 onward, because word 6 doesn't exist yet. Predicting it by looking at it would be cheating during training and impossible at inference.
+The **decoder** stack runs *masked* self-attention. A **causal mask** is a rule that hides every position to the right of the one being processed: when generating word 5, the decoder can only attend to words 1 through 5 of what it has generated so far, never word 6 onward, because word 6 doesn't exist yet. Predicting it by looking at it would be cheating during training and impossible at inference.
 
 </PredictReveal>
 
@@ -31,6 +32,8 @@ The **decoder** stack runs *masked* self-attention — the causal mask from Modu
   options={["It doesn't — the decoder only ever sees its own previous output", "Through a separate cross-attention layer, querying the encoder's output"]}
   correct={1}
 >
+
+<ThreeAttentionsWidget />
 
 Each decoder block has *two* attention layers, not one: masked self-attention over what it has generated so far, followed by cross-attention where the decoder's queries meet the *encoder's* keys and values. This is exactly the attention mechanism from the previous track's Modules 6–10 — a decoder step attending to encoder states — just now sitting inside a much larger, fully-attention-based architecture instead of wrapping an RNN.
 
