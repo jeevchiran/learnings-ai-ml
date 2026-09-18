@@ -1,6 +1,8 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import GradientBoostingWidget from '../../components/widgets/decision-trees/GradientBoostingWidget.jsx'
 
+# Module 6: Gradient Boosting
+
 <Bridge>
 **From variance reduction to bias reduction.** Module 5 showed that bagging and random forests reduce variance. But what if the fundamental problem is **bias**? Consider a depth-1 decision tree — a stump. No matter how many stumps you average, the resulting ensemble is still constrained by what a stump can express. To reduce bias, we need **sequential learning**: train models one after another, where each new model specifically targets the errors made by all previous models combined.
 </Bridge>

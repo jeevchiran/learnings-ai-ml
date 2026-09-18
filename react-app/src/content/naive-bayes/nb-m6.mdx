@@ -1,6 +1,8 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LogSpaceWidget from '../../components/widgets/naive-bayes/LogSpaceWidget.jsx'
 
+# Module 6: Numerical Stability and Log-Space Computation
+
 <ConceptBox title="TL;DR">
 - Multiplying thousands of sub-1 probabilities underflows to **exactly 0.0** — float64 stops near $10^{-308}$, and a realistic document needs $10^{-1500}$.
 - Then every class scores 0, the arg-max is decided by tie-breaking, and the *representation* destroyed the answer, not the model.

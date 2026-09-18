@@ -1,6 +1,8 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import BaggingRandomForestWidget from '../../components/widgets/decision-trees/BaggingRandomForestWidget.jsx'
 
+# Module 5: Bagging and Random Forests
+
 <Bridge>
 **From instability to ensemble design.** Module 4 identified a core tension: a fully grown tree memorizes training data (high variance, low bias), while an aggressively pruned tree underfits. Pruning helps, but even a well-tuned single tree suffers from instability — small changes to the training data can produce entirely different tree structures. The insight is that variance can be reduced by averaging, but only if the things being averaged are not perfectly correlated. The entire engineering challenge of ensemble methods is reducing that correlation — making the base learners diverse enough that their errors cancel out when aggregated.
 </Bridge>

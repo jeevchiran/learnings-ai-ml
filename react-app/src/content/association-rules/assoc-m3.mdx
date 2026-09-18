@@ -1,6 +1,8 @@
 import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import RuleTableWidget from '../../components/widgets/association-rules/RuleTableWidget.jsx'
 
+# Module 3: Rule Generation & Evaluation
+
 <ConceptBox title="TL;DR">
 - A frequent $k$-itemset splits into $2^k-2$ candidate rules. **All of them share the same support**, so rule generation filters on confidence alone.
 - Confidence is anti-monotone too: shrink the antecedent and confidence can only fall — so one failed rule prunes a whole family.

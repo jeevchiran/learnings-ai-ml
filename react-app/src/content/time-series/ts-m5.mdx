@@ -3,6 +3,8 @@ import ARForecastWidget from '../../components/widgets/time-series/ARForecastWid
 import ACFPACFWidget from '../../components/widgets/time-series/ACFPACFWidget.jsx'
 import MAProcessWidget from '../../components/widgets/time-series/MAProcessWidget.jsx'
 
+# Module 5: Autoregressive Models & Forecast Intervals
+
 <ConceptBox title="TL;DR">
 - AR(p) is linear regression of the series **on its own past values**. MA(q) is a weighted sum of the last $q$ **shocks**. Both need the stationarity from Module 4, since the coefficients are assumed fixed over time.
 - **Read $p$ off the PACF's cutoff and $q$ off the ACF's cutoff.** The cutoff swaps panels depending on which family you're in — that asymmetry is the whole identification rule.

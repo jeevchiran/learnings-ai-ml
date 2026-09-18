@@ -1,6 +1,8 @@
 import { ConceptBox, Bridge, QuizCard, DerivationSteps, DerivationStep, Recall } from '../../components/learning/index.js'
 import LIMEWidget from '../../components/widgets/xai/LIMEWidget.jsx'
 
+# Module 3: LIME — Intuition & Formulation
+
 <ConceptBox title="TL;DR">
 - One insight: **a boundary that is hopelessly nonlinear globally looks straight if you zoom in far enough.** So fit a line locally instead of explaining the whole model.
 - Four steps: perturb around $x$ → query the black box → weight samples by proximity → fit a sparse linear model. Its coefficients *are* the explanation.

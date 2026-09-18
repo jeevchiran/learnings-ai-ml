@@ -1,6 +1,8 @@
 import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 import RankingMetricsWidget from '../../components/widgets/recsys/RankingMetricsWidget.jsx'
 
+# Build — Metrics Harness
+
 <ConceptBox title="TL;DR">
 - The harness is one function: **give it a `rank_fn(user) -> [item_ids]`, get back a dict of metrics.** Every model in this track plugs into that one interface.
 - Unit-test the metrics against hand-computed values *before* trusting them on a model. A broken NDCG produces confident nonsense forever.

@@ -1,6 +1,8 @@
 import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 import LTRLossWidget from '../../components/widgets/recsys/LTRLossWidget.jsx'
 
+# Build — LTR Training
+
 <ConceptBox title="TL;DR">
 - Training rows = one positive per interaction + $n$ popularity-sampled negatives, each carrying **as-of** features.
 - Group rows by `(user, as_of)` — that group *is* the slate a pairwise or listwise ranker learns to order.

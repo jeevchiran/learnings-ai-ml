@@ -1,6 +1,8 @@
 import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import AprioriStepWidget from '../../components/widgets/association-rules/AprioriStepWidget.jsx'
 
+# Module 2: The Apriori Algorithm
+
 <ConceptBox title="TL;DR">
 - $d$ items give $2^d-1$ possible itemsets. Brute force is dead on arrival; the whole game is **not generating** most candidates.
 - One property does all the work — **anti-monotonicity**: adding an item can never increase support, so *any superset of an infrequent set is infrequent*.

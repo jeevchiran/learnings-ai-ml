@@ -1,6 +1,8 @@
 import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 import SplitLeakageWidget from '../../components/widgets/recsys/SplitLeakageWidget.jsx'
 
+# Module 5: Evaluation Splits & Leakage Prevention
+
 <ConceptBox title="TL;DR">
 - A recommender is deployed **forward in time**. Evaluate it that way: one global time cut-off, train on the past, test on the future.
 - **Random splits leak.** They let the model train on day 30 and be tested on day 2 — an information advantage it will never have in production.

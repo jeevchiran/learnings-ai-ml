@@ -1,6 +1,8 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import ALSFactorWidget from '../../components/widgets/recsys/ALSFactorWidget.jsx'
 
+# Module 8: Implicit Matrix Factorization
+
 <ConceptBox title="TL;DR">
 - Replace the huge sparse matrix $R$ with two thin dense ones: $R \approx X Y^\top$, where each shopper and each product become a $k$-dimensional vector.
 - The **implicit** variant (Hu, Koren & Volinsky 2008) trains on **every cell**, weighting each by confidence $c_{ui}=1+\alpha r_{ui}$. Not just the observed ones.

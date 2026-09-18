@@ -1,5 +1,7 @@
 import { ConceptBox, Bridge, QuizCard, DerivationSteps, DerivationStep, Recall } from '../../components/learning/index.js'
 
+# Module 9: DeepLIFT Method
+
 <ConceptBox title="TL;DR">
 - Gradients answer "sensitivity to a tiny nudge," not "how much did this feature contribute." A **saturated** neuron has gradient ≈0, so gradients call the feature that holds it there irrelevant.
 - DeepLIFT explains a **finite difference against a reference**: contributions sum exactly to $f(x)-f(x^0)$. No saturation, because it spans the whole range instead of reading a local slope.

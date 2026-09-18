@@ -1,6 +1,8 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import DecisionBoundaryWidget from '../../components/widgets/decision-trees/DecisionBoundaryWidget.jsx'
 
+# Module 1: Decision Trees — Intuition and Structure
+
 <ConceptBox title="TL;DR">
 - A tree is a learned flowchart: each internal node asks $x_j\le t$, each leaf stores an answer (majority class, or the mean for regression).
 - Prediction is one root-to-leaf traversal — $O(\text{depth})$, so inference is very fast.
