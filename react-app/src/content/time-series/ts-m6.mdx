@@ -2,13 +2,6 @@ import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz,
 import ARIMAIntegrationWidget from '../../components/widgets/time-series/ARIMAIntegrationWidget.jsx'
 import SARIMAWidget from '../../components/widgets/time-series/SARIMAWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- **ARMA(p,q)** = AR terms + MA terms on an already-stationary series. **ARIMA(p,d,q)** = the same model fit to the $d$-times-differenced series, with forecasts integrated back up. **SARIMA(p,d,q)(P,D,Q)$_m$** = ARIMA plus a second copy of the same machinery operating at lag $m$.
-- The backshift operator turns all four into one line: $\phi(B)\Phi(B^m)\,\nabla^d\nabla_m^D\, y_t = \theta(B)\Theta(B^m)\,\varepsilon_t$.
-- The seasonal block **multiplies** rather than adds — which is why SARIMA(1,0,0)(1,0,0)$_{12}$ secretly contains a lag-**13** term nobody typed.
-- Box–Jenkins is a loop, not a formula: identify → estimate → **diagnose the residuals** → forecast. If the residuals aren't white noise, there's signal you haven't modelled yet.
-</ConceptBox>
-
 ## Why This Module Exists
 
 Module 5 left you with two ingredients (AR and MA) and one precondition (stationarity, from Module 4). Real series rarely arrive stationary and rarely have pure-AR or pure-MA structure. This module is the assembly: how differencing folds into the model instead of sitting outside it, and how the whole apparatus gets duplicated at the seasonal lag.
@@ -126,6 +119,15 @@ mean, ci = fc.predicted_mean, fc.conf_int(alpha=0.05)
 ```
 
 Grid-searching the orders by hand is tedious; `pmdarima.auto_arima(y, seasonal=True, m=12)` walks the AIC surface for you. Treat its answer as a strong candidate, not a verdict — it still can't run step 3 for you.
+
+---
+
+<ConceptBox title="TL;DR">
+- **ARMA(p,q)** = AR terms + MA terms on an already-stationary series. **ARIMA(p,d,q)** = the same model fit to the $d$-times-differenced series, with forecasts integrated back up. **SARIMA(p,d,q)(P,D,Q)$_m$** = ARIMA plus a second copy of the same machinery operating at lag $m$.
+- The backshift operator turns all four into one line: $\phi(B)\Phi(B^m)\,\nabla^d\nabla_m^D\, y_t = \theta(B)\Theta(B^m)\,\varepsilon_t$.
+- The seasonal block **multiplies** rather than adds — which is why SARIMA(1,0,0)(1,0,0)$_{12}$ secretly contains a lag-**13** term nobody typed.
+- Box–Jenkins is a loop, not a formula: identify → estimate → **diagnose the residuals** → forecast. If the residuals aren't white noise, there's signal you haven't modelled yet.
+</ConceptBox>
 
 ## Practice
 

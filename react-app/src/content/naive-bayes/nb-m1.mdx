@@ -2,13 +2,6 @@ import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/
 
 # Module 1: Intuition Behind Probabilistic Classification
 
-<ConceptBox title="TL;DR">
-- A probabilistic classifier estimates $P(y\mid\mathbf{x})$ and takes the arg-max — the **Bayes decision rule**, provably optimal if the probabilities were exact.
-- **Prior** = belief before evidence (the base rate). **Posterior** = belief after. Everything here is machinery for that update.
-- **Discriminative** models draw the boundary ($P(y\mid\mathbf{x})$ directly). **Generative** models build a per-class simulator ($P(\mathbf{x}\mid y)$ and $P(y)$) and let Bayes do the rest.
-- Generative buys you extras: sampling, graceful handling of missing features by marginalising, and incremental updates.
-</ConceptBox>
-
 ## Why Probabilistic Classification?
 
 A spam filter can decide "spam or not" in several ways. A decision tree walks yes/no questions to a leaf. Logistic regression checks which side of a boundary the email falls on. Both give a label — neither directly answers the question a human actually asks: *given everything I know about this email, how likely is it to be spam?*
@@ -46,6 +39,15 @@ A generative model asks not "where is the boundary?" but "if I were to *generate
 <Bridge>
 Naive Bayes is the simplest generative classifier: each class's "simulator" is just a product of independent per-feature distributions. That assumption turns Bayes' theorem into a closed-form algorithm — no gradient descent. The next module derives Bayes' theorem from the definition of conditional probability, so every symbol later has a precise meaning.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- A probabilistic classifier estimates $P(y\mid\mathbf{x})$ and takes the arg-max — the **Bayes decision rule**, provably optimal if the probabilities were exact.
+- **Prior** = belief before evidence (the base rate). **Posterior** = belief after. Everything here is machinery for that update.
+- **Discriminative** models draw the boundary ($P(y\mid\mathbf{x})$ directly). **Generative** models build a per-class simulator ($P(\mathbf{x}\mid y)$ and $P(y)$) and let Bayes do the rest.
+- Generative buys you extras: sampling, graceful handling of missing features by marginalising, and incremental updates.
+</ConceptBox>
 
 ## Practice
 

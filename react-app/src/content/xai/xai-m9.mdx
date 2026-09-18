@@ -2,14 +2,6 @@ import { ConceptBox, Bridge, QuizCard, DerivationSteps, DerivationStep, Recall }
 
 # Module 9: DeepLIFT Method
 
-<ConceptBox title="TL;DR">
-- Gradients answer "sensitivity to a tiny nudge," not "how much did this feature contribute." A **saturated** neuron has gradient ≈0, so gradients call the feature that holds it there irrelevant.
-- DeepLIFT explains a **finite difference against a reference**: contributions sum exactly to $f(x)-f(x^0)$. No saturation, because it spans the whole range instead of reading a local slope.
-- Multipliers obey a chain rule, so the whole thing runs in **one backward pass** — as cheap as ordinary backprop.
-- Two credit rules: **Rescale** (proportional, the default) and **RevealCancel** (separates positive and negative so cancelling effects don't vanish).
-- **The reference defines the question.** Black baseline asks "why this vs. nothing"; blurred asks "why this vs. the general scene." Always report it.
-</ConceptBox>
-
 ## Why Not Just Use Gradients?
 
 For a neural net, the obvious explanation is the gradient: how much does the output change if I nudge this input? But gradients **saturate**. Picture a ReLU or sigmoid neuron already deep in its flat region — the gradient is ~0, so a plain-gradient method says the feature *doesn't matter*, even though it's the very feature holding the neuron on. Gradients measure *sensitivity to a tiny nudge*, not *how much a feature contributed to getting here*.
@@ -71,6 +63,16 @@ Using a *distribution* of references (the background set) and averaging turns De
 <Bridge>
 You now have three families — LIME, SHAP (Kernel/Tree/Deep), and DeepLIFT. The final module puts them side by side: which to reach for, given your model, data, and constraints.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Gradients answer "sensitivity to a tiny nudge," not "how much did this feature contribute." A **saturated** neuron has gradient ≈0, so gradients call the feature that holds it there irrelevant.
+- DeepLIFT explains a **finite difference against a reference**: contributions sum exactly to $f(x)-f(x^0)$. No saturation, because it spans the whole range instead of reading a local slope.
+- Multipliers obey a chain rule, so the whole thing runs in **one backward pass** — as cheap as ordinary backprop.
+- Two credit rules: **Rescale** (proportional, the default) and **RevealCancel** (separates positive and negative so cancelling effects don't vanish).
+- **The reference defines the question.** Black baseline asks "why this vs. nothing"; blurred asks "why this vs. the general scene." Always report it.
+</ConceptBox>
 
 ## Practice
 

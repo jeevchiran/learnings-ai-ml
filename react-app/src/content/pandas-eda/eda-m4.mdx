@@ -3,14 +3,6 @@ import IQRBoxplotWidget from '../../components/widgets/pandas-eda/IQRBoxplotWidg
 
 # Outlier Detection & Treatment (IQR)
 
-<ConceptBox title="TL;DR">
-- **Tukey fences**: $Q1-k\cdot IQR$ and $Q3+k\cdot IQR$, with $k=1.5$ standard and $k=3$ for "far" outliers.
-- IQR beats z-scores because **Q1 and Q3 are unaffected by the very outliers you're hunting** — the mean and SD are not.
-- Detection is step one, not the decision. A $399 fare is a meter fault; a $52 fare is a legitimate JFK flat rate. Both sit outside the fence.
-- **Extreme is not the same as wrong.** Only domain knowledge separates them.
-- Cap or remove is a judgement call: capping keeps the row and distorts the value, removing loses the row entirely.
-</ConceptBox>
-
 ## What, Why, and How
 
 <ConceptBox title="WHAT: Outliers and Tukey Fences">
@@ -96,6 +88,16 @@ The widget below lets you explore this interactively: change the column, adjust 
 </Bridge>
 
 <IQRBoxplotWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Tukey fences**: $Q1-k\cdot IQR$ and $Q3+k\cdot IQR$, with $k=1.5$ standard and $k=3$ for "far" outliers.
+- IQR beats z-scores because **Q1 and Q3 are unaffected by the very outliers you're hunting** — the mean and SD are not.
+- Detection is step one, not the decision. A $399 fare is a meter fault; a $52 fare is a legitimate JFK flat rate. Both sit outside the fence.
+- **Extreme is not the same as wrong.** Only domain knowledge separates them.
+- Cap or remove is a judgement call: capping keeps the row and distorts the value, removing loses the row entirely.
+</ConceptBox>
 
 ## Practice
 

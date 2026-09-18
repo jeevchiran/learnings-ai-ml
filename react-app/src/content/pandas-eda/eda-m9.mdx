@@ -2,13 +2,6 @@ import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall }
 
 # Capstone — End-to-End EDA Workflow
 
-<ConceptBox title="TL;DR">
-- **The order is not arbitrary.** Outlier fences computed before invalid rows are removed are contaminated by them; a correlation matrix computed before cleaning describes the errors as much as the data.
-- Nine steps mapping to Modules 1–8: inspect → missing → invalid → outliers → features → univariate → bivariate → multivariate → report.
-- Cleaning is **subtractive and irreversible** — record what you dropped and why, so row counts reconcile at the end.
-- The deliverable isn't a clean DataFrame, it's a short findings report: what you found, what you changed, what still can't be trusted.
-</ConceptBox>
-
 ## The EDA Pipeline
 
 <ConceptBox title="A real EDA project follows a repeatable pipeline">
@@ -118,6 +111,15 @@ Based on all pipeline steps applied to the 30-row NYC taxi sample:
 3. **4 rows have zero trip distance** (ids 5, 11, 20, 30) — likely cancelled trips where meter started but ride did not complete.
 4. **RatecodeID=2 trips explain high-fare outliers** — flat-rate $45/$52 airport fares (ids 6, 18) fall above the IQR fence but are legitimate data, not errors.
 5. **`fare_amount` and `trip_distance` show strong positive correlation** — but confounded by the flat-rate pricing regime. Segment by RatecodeID to see the true per-mile relationship.
+
+---
+
+<ConceptBox title="TL;DR">
+- **The order is not arbitrary.** Outlier fences computed before invalid rows are removed are contaminated by them; a correlation matrix computed before cleaning describes the errors as much as the data.
+- Nine steps mapping to Modules 1–8: inspect → missing → invalid → outliers → features → univariate → bivariate → multivariate → report.
+- Cleaning is **subtractive and irreversible** — record what you dropped and why, so row counts reconcile at the end.
+- The deliverable isn't a clean DataFrame, it's a short findings report: what you found, what you changed, what still can't be trusted.
+</ConceptBox>
 
 ## Quiz
 

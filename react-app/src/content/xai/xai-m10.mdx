@@ -3,14 +3,6 @@ import XAICompareWidget from '../../components/widgets/xai/XAICompareWidget.jsx'
 
 # Module 10: Comparison of XAI Libraries
 
-<ConceptBox title="TL;DR">
-- Four dimensions decide everything: **speed, fidelity, consistency, generality**. No method wins all four.
-- The shortcut: tree model → Tree SHAP. Neural net or images → Deep SHAP / Integrated Gradients. Sealed API → Kernel SHAP (principled) or LIME (fast).
-- **LIME vs SHAP** in one line: LIME is a fast heuristic local fit that can vary between runs; SHAP is game-theoretic, deterministic, exactly additive, and consistent.
-- Use SHAP where the explanation must be defended (audits, compliance, feature ranking); LIME for a quick gut-check.
-- **Explanations describe the model, not the world.** Cross-check with a second method and stay sceptical when features are correlated.
-</ConceptBox>
-
 ## No Single Winner
 
 Every method trades off along the same dimensions: **speed**, **fidelity** (how truly it reflects the model), **consistency** (theoretical guarantees), and **generality** (range of models it fits). Pick a method and read its profile:
@@ -56,6 +48,16 @@ Every method here explains the **model**, not the world — and every method mak
 <Bridge>
 That completes the toolkit: the accuracy–interpretability trade-off, global vs. local scope, LIME's local surrogates, SHAP's game-theoretic fairness with its Kernel/Tree/Deep variants, and DeepLIFT's reference-based attributions. The track quiz pulls it together.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Four dimensions decide everything: **speed, fidelity, consistency, generality**. No method wins all four.
+- The shortcut: tree model → Tree SHAP. Neural net or images → Deep SHAP / Integrated Gradients. Sealed API → Kernel SHAP (principled) or LIME (fast).
+- **LIME vs SHAP** in one line: LIME is a fast heuristic local fit that can vary between runs; SHAP is game-theoretic, deterministic, exactly additive, and consistent.
+- Use SHAP where the explanation must be defended (audits, compliance, feature ranking); LIME for a quick gut-check.
+- **Explanations describe the model, not the world.** Cross-check with a second method and stay sceptical when features are correlated.
+</ConceptBox>
 
 ## Practice
 

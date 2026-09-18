@@ -8,14 +8,6 @@ import GradientDescentWidget from '../../components/widgets/regression/GradientD
 **Bridge from Module 1:** In Module 1, we fit a line by minimizing the sum of squared residuals. We stated the result; now we derive it from first principles. Why does OLS work? How do we compute the optimal parameters analytically and iteratively? What guarantees does the solution carry?
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- Squared error isn't arbitrary — it's the **maximum-likelihood** loss when errors are i.i.d. Gaussian.
-- Set the gradient of $J$ to zero and you get the **normal equations** $\mathbf{X}^T\mathbf{X}\boldsymbol{\beta}=\mathbf{X}^T\mathbf{y}$, hence $\hat{\boldsymbol{\beta}}=(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}$ — valid only when $\mathbf{X}$ has full column rank.
-- **Geometrically it's a projection**: $\hat{\mathbf{y}}$ is $\mathbf{y}$'s shadow on the column space of $\mathbf{X}$, and the residual is perpendicular to it. That perpendicularity *is* the normal equations.
-- $J$ is convex (Hessian $\tfrac1n\mathbf{X}^T\mathbf{X}$ is PSD), so gradient descent has no local minima to get stuck in — it's the fallback when $\mathbf{X}^T\mathbf{X}$ is too big or ill-conditioned to invert.
-- **Gauss-Markov**: under assumptions 1–5 (normality *not* required), OLS is BLUE — minimum variance among linear unbiased estimators.
-</ConceptBox>
-
 ## The Cost Function
 
 We seek parameters $\boldsymbol{\beta} \in \mathbb{R}^{p+1}$ that minimize the mean squared error. In scalar form:
@@ -201,6 +193,16 @@ Fitting a linear trend to global temperature anomalies (1880-present): $\text{An
   { q: "Why is convexity the property that makes gradient descent safe here, and what supplies it?", a: "Convexity guarantees every local minimum is the global one, so descent cannot be trapped. It comes from the Hessian (1/n) X^T X being positive semi-definite — any matrix of the form A^T A has non-negative eigenvalues, since v^T A^T A v = ||Av||^2 >= 0." },
   { q: "Gauss-Markov says OLS is BLUE. Name the two words people over-read.", a: "'Best' means minimum variance ONLY among LINEAR UNBIASED estimators — a biased estimator like ridge can and often does beat it on mean squared error. And 'BLUE' does not require normality; normality is needed for exact t and F inference, not for the theorem." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Squared error isn't arbitrary — it's the **maximum-likelihood** loss when errors are i.i.d. Gaussian.
+- Set the gradient of $J$ to zero and you get the **normal equations** $\mathbf{X}^T\mathbf{X}\boldsymbol{\beta}=\mathbf{X}^T\mathbf{y}$, hence $\hat{\boldsymbol{\beta}}=(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}$ — valid only when $\mathbf{X}$ has full column rank.
+- **Geometrically it's a projection**: $\hat{\mathbf{y}}$ is $\mathbf{y}$'s shadow on the column space of $\mathbf{X}$, and the residual is perpendicular to it. That perpendicularity *is* the normal equations.
+- $J$ is convex (Hessian $\tfrac1n\mathbf{X}^T\mathbf{X}$ is PSD), so gradient descent has no local minima to get stuck in — it's the fallback when $\mathbf{X}^T\mathbf{X}$ is too big or ill-conditioned to invert.
+- **Gauss-Markov**: under assumptions 1–5 (normality *not* required), OLS is BLUE — minimum variance among linear unbiased estimators.
+</ConceptBox>
 
 <QuizCard
   question="In the Normal Equation, what condition is required for (X^T X)^{-1} to exist?"

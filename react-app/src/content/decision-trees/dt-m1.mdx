@@ -3,14 +3,6 @@ import DecisionBoundaryWidget from '../../components/widgets/decision-trees/Deci
 
 # Module 1: Decision Trees — Intuition and Structure
 
-<ConceptBox title="TL;DR">
-- A tree is a learned flowchart: each internal node asks $x_j\le t$, each leaf stores an answer (majority class, or the mean for regression).
-- Prediction is one root-to-leaf traversal — $O(\text{depth})$, so inference is very fast.
-- **A tree with $K$ leaves is a piecewise-constant function over $K$ rectangular regions.** That single sentence explains both its power and its limits.
-- Structural win over linear models: XOR is unlearnable by logistic regression and trivial for a depth-2 tree.
-- Different samples use different features — a feature can be decisive on one path and never consulted on another.
-</ConceptBox>
-
 ## Why Decision Trees?
 
 A cardiologist diagnoses by a chain of focused questions: "Over 50?" → "Smoker?" → "BP above 140?" — each narrowing the space until a leaf: *high risk, refer*. That protocol *is* a decision tree encoded in expert reasoning — and it can be drawn as a graph and learned from data.
@@ -88,6 +80,16 @@ We know *what* a tree is — a piecewise-constant function over an axis-aligned 
 </Bridge>
 
 <DecisionBoundaryWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- A tree is a learned flowchart: each internal node asks $x_j\le t$, each leaf stores an answer (majority class, or the mean for regression).
+- Prediction is one root-to-leaf traversal — $O(\text{depth})$, so inference is very fast.
+- **A tree with $K$ leaves is a piecewise-constant function over $K$ rectangular regions.** That single sentence explains both its power and its limits.
+- Structural win over linear models: XOR is unlearnable by logistic regression and trivial for a depth-2 tree.
+- Different samples use different features — a feature can be decisive on one path and never consulted on another.
+</ConceptBox>
 
 ## Practice
 

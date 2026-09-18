@@ -1,12 +1,5 @@
 import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 
-<ConceptBox title="TL;DR">
-- Tabular: pass the training data so LIME learns each feature's distribution for realistic perturbation; `discretize_continuous` turns weights into readable *"feature in this range"* rules.
-- Text: interpretable features are the words, and perturbation is **deleting words** and watching the score move.
-- Weight sign = direction of push toward the predicted class; `num_features` is the $\Omega$ knob.
-- **LIME is non-deterministic.** Same row, two runs, possibly different signs. Re-run before trusting; raise `num_samples`, fix the seed, or switch to SHAP.
-</ConceptBox>
-
 ## Running LIME on Tabular Data
 
 The `lime` library packages the perturb → weight → fit loop. On a tabular classifier you pass the training data (so it knows each feature's distribution for perturbing), then explain one row:
@@ -89,6 +82,15 @@ Re-run an explanation a few times before trusting it. If the top features and th
 <Bridge>
 LIME's honesty problem — *is this the "right" explanation, or just one of many?* — has a principled answer. SHAP starts from game theory and asks: what is the *uniquely fair* way to divide a prediction among its features? The next module derives it.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Tabular: pass the training data so LIME learns each feature's distribution for realistic perturbation; `discretize_continuous` turns weights into readable *"feature in this range"* rules.
+- Text: interpretable features are the words, and perturbation is **deleting words** and watching the score move.
+- Weight sign = direction of push toward the predicted class; `num_features` is the $\Omega$ knob.
+- **LIME is non-deterministic.** Same row, two runs, possibly different signs. Re-run before trusting; raise `num_samples`, fix the seed, or switch to SHAP.
+</ConceptBox>
 
 ## Practice
 

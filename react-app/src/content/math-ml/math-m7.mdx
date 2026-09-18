@@ -3,13 +3,6 @@ import ExpectationCovarianceWidget from '../../components/widgets/math-ml/Expect
 
 # Module 7: Expectation, Variance & Covariance
 
-<ConceptBox title="TL;DR">
-- $E[X]$ is the probability-weighted average — a long-run average, not necessarily an achievable value.
-- $\text{Var}(X)=E[X^2]-(E[X])^2$ is the one-pass shortcut; $\sigma=\sqrt{\text{Var}}$ puts it back in readable units.
-- **Covariance's sign is meaningful, its size is not** (it carries units). Divide by both standard deviations and you get correlation $r\in[-1,1]$.
-- $r=0$ rules out a *linear* relationship only. $Y=X^2$ has $r\approx0$ and is perfectly deterministic — plot the scatter.
-</ConceptBox>
-
 ## Expectation — The Probability-Weighted Average
 
 $$E[X] = \sum_x x\,P(X{=}x) \qquad\text{(discrete)} \qquad\qquad E[X] = \int x\,f(x)\,dx \qquad\text{(continuous)}$$
@@ -57,6 +50,15 @@ print(X.mean(), X.var())          # E[X], Var(X)  (ddof=0 by default)
 print(np.cov(X, Y, ddof=1))       # 2x2 covariance matrix
 print(np.corrcoef(X, Y))          # 2x2 correlation matrix, diagonal = 1
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- $E[X]$ is the probability-weighted average — a long-run average, not necessarily an achievable value.
+- $\text{Var}(X)=E[X^2]-(E[X])^2$ is the one-pass shortcut; $\sigma=\sqrt{\text{Var}}$ puts it back in readable units.
+- **Covariance's sign is meaningful, its size is not** (it carries units). Divide by both standard deviations and you get correlation $r\in[-1,1]$.
+- $r=0$ rules out a *linear* relationship only. $Y=X^2$ has $r\approx0$ and is perfectly deterministic — plot the scatter.
+</ConceptBox>
 
 ## Practice
 

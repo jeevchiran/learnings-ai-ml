@@ -9,14 +9,6 @@ import ResidualDiagnosticsWidget from '../../components/widgets/regression/Resid
 **Why?** A client asks "how much is my 2,200 sq ft house worth?" You have hundreds of past sales. You need a principled way to model how each feature drives price — not guessing or averaging. That's linear regression.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- Model $y$ as a weighted sum of predictors, and pick the weights that minimise **squared** residuals (OLS).
-- Each $\beta_j$ reads as "expected change in $y$ per unit of $x_j$, **holding the others fixed**." Standardise before comparing importance across scales.
-- Six assumptions; two matter most in practice. **Homoscedasticity** failing breaks your standard errors (not your predictions); **linearity** failing biases everything.
-- $R^2$ only ever rises as you add predictors — use **adjusted $R^2$** to compare models, RMSE to state error in real units.
-- **Residual plots are the diagnostic.** Curve = nonlinearity, funnel = heteroscedasticity, off-diagonal Q-Q = non-normal errors, high leverage + big residual = influential point.
-</ConceptBox>
-
 ## What Is Linear Regression?
 
 It models a continuous response $y$ as a linear function of predictors $x_1,\ldots,x_p$:
@@ -92,6 +84,16 @@ $h_{ii}$ = leverage (hat-matrix diagonal). Cook's distance $> 1$ flags points to
 </ConceptBox>
 
 <ResidualDiagnosticsWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- Model $y$ as a weighted sum of predictors, and pick the weights that minimise **squared** residuals (OLS).
+- Each $\beta_j$ reads as "expected change in $y$ per unit of $x_j$, **holding the others fixed**." Standardise before comparing importance across scales.
+- Six assumptions; two matter most in practice. **Homoscedasticity** failing breaks your standard errors (not your predictions); **linearity** failing biases everything.
+- $R^2$ only ever rises as you add predictors — use **adjusted $R^2$** to compare models, RMSE to state error in real units.
+- **Residual plots are the diagnostic.** Curve = nonlinearity, funnel = heteroscedasticity, off-diagonal Q-Q = non-normal errors, high leverage + big residual = influential point.
+</ConceptBox>
 
 ## Practice
 

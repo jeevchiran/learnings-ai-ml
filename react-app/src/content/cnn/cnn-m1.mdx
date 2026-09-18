@@ -3,13 +3,6 @@ import CNNParamsWidget from '../../components/widgets/cnn/CNNParamsWidget.jsx'
 
 # Module 1: Why CNNs? MLP Fails for Images
 
-<ConceptBox title="TL;DR">
-- An MLP *can* fit images — the objection is cost and inductive bias, not capability. One ImageNet-sized first layer alone is ~150M parameters.
-- **Three structural mismatches**: no locality (every pixel wired to every neuron), no weight sharing (the same edge relearned at every position), no translation equivariance (shifting an object rewrites the whole input vector).
-- Convolution fixes all three with one design: a **small kernel** (locality) **slid across every position** (sharing + equivariance).
-- Parameter count is the visible symptom; the inductive bias is the real win.
-</ConceptBox>
-
 <Bridge>
 **Coming from Foundations of Deep Learning:** you know how to build, train, and regularise a multi-layer perceptron. An MLP can approximate any continuous function — so why can't it just learn to classify images? It can, technically. The question is whether it will, and at what cost. This module exposes the three structural mismatches between fully-connected networks and image data, and shows exactly how the convolutional design pattern fixes each one.
 </Bridge>
@@ -139,6 +132,13 @@ This is the algebraic guarantee that convolution preserves relative spatial stru
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- An MLP *can* fit images — the objection is cost and inductive bias, not capability. One ImageNet-sized first layer alone is ~150M parameters.
+- **Three structural mismatches**: no locality (every pixel wired to every neuron), no weight sharing (the same edge relearned at every position), no translation equivariance (shifting an object rewrites the whole input vector).
+- Convolution fixes all three with one design: a **small kernel** (locality) **slid across every position** (sharing + equivariance).
+- Parameter count is the visible symptom; the inductive bias is the real win.
+</ConceptBox>
 
 ## Quiz
 

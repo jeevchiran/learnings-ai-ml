@@ -1,13 +1,6 @@
 import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 import FeatureWindowWidget from '../../components/widgets/recsys/FeatureWindowWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Every feature is an **as-of join**: aggregate events with `event_ts < row.as_of`, bounded below by a window.
-- The label row carries an `as_of` timestamp. Everything is computed relative to it. No exceptions.
-- The leak check is one assertion: point-in-time features must see **strictly fewer** events than a whole-log aggregate.
-- Build user, item and **user×item** features. The last family is the ranker's only real advantage over retrieval.
-</ConceptBox>
-
 ## The shape of a training row
 
 ```python
@@ -139,6 +132,15 @@ Features, labels and negatives — everything a ranker needs. Last module: train
   { q: "999 as a 'never interacted' sentinel is fine for trees and poison for neural nets. Why the difference?", a: "Trees split on thresholds, so 999 simply becomes its own branch and the magnitude is irrelevant. Linear and neural models multiply the value by a weight, so a 999 among values of 0–30 dominates the scale, wrecks normalisation and produces huge gradients. There, use a separate boolean flag plus a neutral fill." },
   { q: "Why is 'log the features you served, then train on those rows' such a strong defence against training/serving skew?", a: "It removes the possibility of two implementations disagreeing: the training rows ARE the serving rows, so the distributions match by construction. It costs only a logging change rather than new infrastructure, and it fixes skew for every model after the first." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Every feature is an **as-of join**: aggregate events with `event_ts < row.as_of`, bounded below by a window.
+- The label row carries an `as_of` timestamp. Everything is computed relative to it. No exceptions.
+- The leak check is one assertion: point-in-time features must see **strictly fewer** events than a whole-log aggregate.
+- Build user, item and **user×item** features. The last family is the ranker's only real advantage over retrieval.
+</ConceptBox>
 
 <QuizCard
   question="Your point-in-time features return exactly the same values as the naive whole-log aggregate for every row in a test batch. What should you conclude?"

@@ -3,14 +3,6 @@ import ShapForceWidget from '../../components/widgets/xai/ShapForceWidget.jsx'
 
 # Module 7: Features of SHAP
 
-<ConceptBox title="TL;DR">
-- One equation carries the module: $f(x) = \phi_0 + \sum_i \phi_i$. The explanation reconstructs the **exact** prediction — LIME only approximates it.
-- That turns an explanation into a story: *you started at the average, this pushed up, that pushed down, here you landed.*
-- **Consistency** is the guarantee others lack: make the model rely on a feature more, and its SHAP value cannot fall. XGBoost's gain importance can and does.
-- Three plots: **force/waterfall** (one decision), **beeswarm** (global importance *and* direction), **dependence** (one feature's nonlinearity and interactions).
-- Global importance = mean $|\phi_i|$ over the dataset — and it decomposes back to individual predictions.
-</ConceptBox>
-
 ## The Property That Makes SHAP Click: Additivity
 
 Every SHAP explanation obeys one equation:
@@ -61,6 +53,16 @@ Average the *absolute* SHAP values of a feature over the dataset: $\text{Imp}_i 
 <Bridge>
 Additivity and these plots are model-independent — but the raw material differs by data type. The next module runs SHAP end-to-end on a numerical tabular model and on an image classifier, where "a feature" becomes "a pixel region."
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- One equation carries the module: $f(x) = \phi_0 + \sum_i \phi_i$. The explanation reconstructs the **exact** prediction — LIME only approximates it.
+- That turns an explanation into a story: *you started at the average, this pushed up, that pushed down, here you landed.*
+- **Consistency** is the guarantee others lack: make the model rely on a feature more, and its SHAP value cannot fall. XGBoost's gain importance can and does.
+- Three plots: **force/waterfall** (one decision), **beeswarm** (global importance *and* direction), **dependence** (one feature's nonlinearity and interactions).
+- Global importance = mean $|\phi_i|$ over the dataset — and it decomposes back to individual predictions.
+</ConceptBox>
 
 ## Practice
 

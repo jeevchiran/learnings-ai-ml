@@ -3,14 +3,6 @@ import FeatureDetectWidget from '../../components/widgets/cv/FeatureDetectWidget
 
 # Module 5: Image Features
 
-<ConceptBox title="TL;DR">
-- A **feature** is a location you can find again in another image. Edges are not features — they slide along themselves (the *aperture problem*).
-- **Corners are**, because intensity changes in *both* directions. Harris measures this with the structure tensor $M$ and the score $R = \det M - k\,(\text{tr}\,M)^2$.
-- A **detector** finds where; a **descriptor** summarises the neighbourhood so it can be matched. SIFT and ORB are both.
-- **HOG** is a dense descriptor: gradient-orientation histograms per cell, block-normalised. It powered detection for a decade before CNNs.
-- CNNs did not replace this pipeline — they **learned** it. Layer 1 filters look like Gabor edges every time.
-</ConceptBox>
-
 <Bridge>
 Module 3 produced gradients. A gradient at one pixel says "something changes here" but nothing about *what*. Features are the step from a per-pixel response to a repeatable, describable, matchable location — the last hand-designed layer before CNNs took over.
 </Bridge>
@@ -130,6 +122,16 @@ Scale is different. Zoom in by $2\times$ and a corner that fit inside the 3×3 w
   { q: "Harris is invariant to rotation but not to scale. Why the asymmetry?", a: "Rotation conjugates the structure tensor by a rotation matrix, which preserves its eigenvalues, so R is unchanged. Scale changes the relationship between the fixed window size and the image structure: zoom in far enough and a corner no longer fits in the window, so it reads as a smooth edge. Fixing that requires searching over scales, which is what SIFT's difference-of-Gaussian pyramid does." },
   { q: "What is the difference between a detector and a descriptor, and which is HOG?", a: "A detector answers 'where are the interesting points'; a descriptor answers 'what does the neighbourhood of this point look like, in a form I can compare'. HOG is a descriptor only — it is computed densely on a fixed grid rather than at detected keypoints, which is why it pairs with a sliding window rather than with matching." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A **feature** is a location you can find again in another image. Edges are not features — they slide along themselves (the *aperture problem*).
+- **Corners are**, because intensity changes in *both* directions. Harris measures this with the structure tensor $M$ and the score $R = \det M - k\,(\text{tr}\,M)^2$.
+- A **detector** finds where; a **descriptor** summarises the neighbourhood so it can be matched. SIFT and ORB are both.
+- **HOG** is a dense descriptor: gradient-orientation histograms per cell, block-normalised. It powered detection for a decade before CNNs.
+- CNNs did not replace this pipeline — they **learned** it. Layer 1 filters look like Gabor edges every time.
+</ConceptBox>
 
 <QuizCard
   question="A 3×3 window has structure-tensor eigenvalues λ₁ = 0.9 and λ₂ = 0.02. With k = 0.04, what does Harris report?"

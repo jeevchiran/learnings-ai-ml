@@ -1,14 +1,6 @@
 import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import BiasVarianceWidget from '../../components/widgets/model-eval/BiasVarianceWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Training error measures **memorisation**, not understanding. It's the one number that always improves with complexity, which is exactly why it can't select a model.
-- $\text{Error}=\text{Bias}^2+\text{Variance}+\sigma^2$. You choose the first two; the third is a floor no model beats.
-- **Bias** = systematically wrong the same way (too simple). **Variance** = answer swings with the training sample (too flexible).
-- Diagnose from the *gap*: both errors high and close ⟹ underfit; training error tiny and test error far above ⟹ overfit.
-- More data mainly attacks **variance**, not bias. A line stays a line no matter how many points you give it.
-</ConceptBox>
-
 ## Two Models, Zero Training Error, One Winner
 
 Fit two models to 200 houses, predicting price from square footage. Model A is a straight line. Model B is a degree-15 polynomial that threads through every training point almost exactly. By training error, B wins in a landslide — near-zero error versus A's few-thousand-dollar misses.
@@ -90,6 +82,16 @@ So: underfitting (high bias) → more data won't help; you need a richer model o
 <Bridge>
 Judging a model by training error measures the wrong thing — it can be driven to zero by memorization. An honest comparison needs an estimate of performance on unseen data. The next module introduces the validation set, the rule governing how it may be used, and why a single split can itself be a noisy estimate.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Training error measures **memorisation**, not understanding. It's the one number that always improves with complexity, which is exactly why it can't select a model.
+- $\text{Error}=\text{Bias}^2+\text{Variance}+\sigma^2$. You choose the first two; the third is a floor no model beats.
+- **Bias** = systematically wrong the same way (too simple). **Variance** = answer swings with the training sample (too flexible).
+- Diagnose from the *gap*: both errors high and close ⟹ underfit; training error tiny and test error far above ⟹ overfit.
+- More data mainly attacks **variance**, not bias. A line stays a line no matter how many points you give it.
+</ConceptBox>
 
 ## Practice
 

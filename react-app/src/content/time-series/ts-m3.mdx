@@ -3,13 +3,6 @@ import SmoothingWidget from '../../components/widgets/time-series/SmoothingWidge
 
 # Module 3: Exponential Smoothing — SES, Holt, Holt-Winters
 
-<ConceptBox title="TL;DR">
-- A moving average uses a hard window; exponential smoothing gives **every** past point a geometrically decaying weight.
-- Three variants, one per component: **SES** = level only (flat forecast), **Holt** = level + trend (straight-line forecast), **Holt-Winters** = level + trend + seasonality.
-- Pick by asking two questions: does it trend? does it have fixed-period seasonality?
-- $\alpha,\beta,\gamma$ are **fitted** by minimising in-sample squared error, not chosen by hand. High $\alpha$ chases noise, low $\alpha$ reacts slowly.
-</ConceptBox>
-
 ## The Idea: Weight Recent Points More
 
 A moving average treats every point in its window equally and ignores everything outside it. **Exponential smoothing** instead gives *every* past point some weight — geometrically decaying, so recent points count most but nothing is thrown away entirely.
@@ -50,6 +43,15 @@ forecast = model.forecast(12)
 
 <ConceptBox title="Common confusion — which variant do I need?">
 Ask two questions: does the series **trend**? does it have **fixed-period seasonality**? No/no → SES. Yes/no → Holt. Yes/yes → Holt-Winters. Picking a model with components the data doesn't have just adds noisy, badly-estimated parameters; picking one with too few underfits systematically (e.g. SES on a trending series always forecasts flat and falls behind).
+</ConceptBox>
+
+---
+
+<ConceptBox title="TL;DR">
+- A moving average uses a hard window; exponential smoothing gives **every** past point a geometrically decaying weight.
+- Three variants, one per component: **SES** = level only (flat forecast), **Holt** = level + trend (straight-line forecast), **Holt-Winters** = level + trend + seasonality.
+- Pick by asking two questions: does it trend? does it have fixed-period seasonality?
+- $\alpha,\beta,\gamma$ are **fitted** by minimising in-sample squared error, not chosen by hand. High $\alpha$ chases noise, low $\alpha$ reacts slowly.
 </ConceptBox>
 
 ## Practice

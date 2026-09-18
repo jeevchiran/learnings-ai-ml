@@ -3,14 +3,6 @@ import NeuralNetworkWidget from '../../components/widgets/deep-learning/NeuralNe
 
 # Module 2: Hidden Layers & Multilayer Perceptrons
 
-<ConceptBox title="TL;DR">
-- Hidden layers are "hidden" because nothing supervises them — they're **learned intermediate representations**, not targets.
-- **The nonlinearity is what buys depth its power.** Stack linear layers without one and $W_3W_2W_1$ collapses into a single equivalent matrix.
-- **Universal approximation**: one hidden layer, enough neurons, approximates any continuous function on a compact domain.
-- Read that theorem carefully — it's an **existence** result. It says such weights exist, not that training finds them, and not that the layer is a sensible width.
-- Depth is usually more **parameter-efficient** than width: deep nets compose features hierarchically instead of enumerating them.
-</ConceptBox>
-
 <Bridge>
 **From Module 1:** A single perceptron draws one straight line. XOR is not linearly separable, so one perceptron fails. The solution: stack multiple perceptrons into layers. The intermediate layers are called **hidden layers** because their outputs are never directly observed as targets — they are internal representations that the network learns to construct. This module explains how stacking layers overcomes the XOR problem and, more profoundly, creates models that can approximate any function.
 </Bridge>
@@ -191,6 +183,14 @@ Network B: $100 \times 100 + 100 + 100 \times 100 + 100 + 100 \times 100 + 100 +
 Network B uses **72% fewer parameters** but has 4 composition steps instead of 2. Deeper and narrower is often more parameter-efficient for the same expressive power.
 
 ---
+
+<ConceptBox title="TL;DR">
+- Hidden layers are "hidden" because nothing supervises them — they're **learned intermediate representations**, not targets.
+- **The nonlinearity is what buys depth its power.** Stack linear layers without one and $W_3W_2W_1$ collapses into a single equivalent matrix.
+- **Universal approximation**: one hidden layer, enough neurons, approximates any continuous function on a compact domain.
+- Read that theorem carefully — it's an **existence** result. It says such weights exist, not that training finds them, and not that the layer is a sensible width.
+- Depth is usually more **parameter-efficient** than width: deep nets compose features hierarchically instead of enumerating them.
+</ConceptBox>
 
 ## Quiz
 

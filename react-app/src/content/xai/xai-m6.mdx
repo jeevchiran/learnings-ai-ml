@@ -1,13 +1,5 @@
 import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 
-<ConceptBox title="TL;DR">
-- **Kernel SHAP is LIME with one substitution**: swap the proximity kernel for the SHAP kernel, and the fitted coefficients *become* Shapley values.
-- That kernel up-weights very small and very large coalitions — the ones that isolate an individual feature's effect most cleanly.
-- **Tree SHAP** is exact and polynomial-time for tree ensembles: the tree structure already encodes which feature subsets reach which leaves.
-- "Absent" means *unknown*, not zero — the **background dataset** supplies the replacement values, so changing it changes your SHAP values.
-- Rule of thumb: tree model → always Tree SHAP. Anything else → Kernel SHAP, with `nsamples` and background size capped.
-</ConceptBox>
-
 ## The Computational Wall
 
 Exact Shapley values sum over $2^{|F|}$ feature subsets. With 30 features that's a billion evaluations *per prediction* — impossible. **Kernel SHAP** and **Tree SHAP** are the two escapes: one approximates for *any* model, the other computes *exactly* for trees.
@@ -69,6 +61,16 @@ Tree model? **Always use Tree SHAP** — exact and orders of magnitude faster. A
 <Bridge>
 Both produce the same object — a vector of Shapley values per prediction — with the same guarantees. The next module turns those numbers into the visual language of SHAP: force plots, summary plots, and dependence plots.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- **Kernel SHAP is LIME with one substitution**: swap the proximity kernel for the SHAP kernel, and the fitted coefficients *become* Shapley values.
+- That kernel up-weights very small and very large coalitions — the ones that isolate an individual feature's effect most cleanly.
+- **Tree SHAP** is exact and polynomial-time for tree ensembles: the tree structure already encodes which feature subsets reach which leaves.
+- "Absent" means *unknown*, not zero — the **background dataset** supplies the replacement values, so changing it changes your SHAP values.
+- Rule of thumb: tree model → always Tree SHAP. Anything else → Kernel SHAP, with `nsamples` and background size capped.
+</ConceptBox>
 
 ## Practice
 

@@ -3,13 +3,6 @@ import CFSimilarityWidget from '../../components/widgets/recsys/CFSimilarityWidg
 
 # Module 7: Collaborative Filtering
 
-<ConceptBox title="TL;DR">
-- Collaborative filtering uses **only the interaction matrix** — no product titles, no shopper demographics. "People like you liked this."
-- **Item-item CF** ("shoppers who viewed this also viewed…") beats user-user CF in practice: item neighbourhoods are stabler than user tastes, and the similarity matrix can be precomputed offline.
-- Similarity is cosine over columns of the matrix. Two products are similar if the **same shoppers** touched both.
-- Two structural failures: **cold-start** (a new product has an empty column, so it is similar to nothing) and **popularity bias** (popular items are similar to everything).
-</ConceptBox>
-
 ## The idea in one sentence
 
 Aarav and Bhavna both looked at the Earbuds, the Keyboard and the USB-C Hub. Bhavna also looked at the Steel Bottle. **Show Aarav the Steel Bottle.**
@@ -92,6 +85,15 @@ CF stores an item×item table. Next: compressing that same matrix into a few doz
   { q: "Cosine divides by the item's norm. Why does popularity bias survive anyway?", a: "Cosine controls bias in the SIMILARITY step, but a popular item sits in many items' neighbourhoods, so during the SCORE step it collects votes from many directions and rises for nearly everyone. The correction belongs in scoring — divide by pop(i)^β — or in how negatives are sampled during training." },
   { q: "Why is cold-start a self-reinforcing loop rather than a one-time problem?", a: "A new item's column is all zeros, so every similarity is exactly 0 and it can never enter a top-k. Never being shown means never being interacted with, which means the column stays empty. Nothing in the interaction data can break this — the escape must come from outside it, i.e. content or image features." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Collaborative filtering uses **only the interaction matrix** — no product titles, no shopper demographics. "People like you liked this."
+- **Item-item CF** ("shoppers who viewed this also viewed…") beats user-user CF in practice: item neighbourhoods are stabler than user tastes, and the similarity matrix can be precomputed offline.
+- Similarity is cosine over columns of the matrix. Two products are similar if the **same shoppers** touched both.
+- Two structural failures: **cold-start** (a new product has an empty column, so it is similar to nothing) and **popularity bias** (popular items are similar to everything).
+</ConceptBox>
 
 <QuizCard
   question="NovaCart adds a brand-new product. Item-item CF assigns it a similarity of exactly 0 to every other product. Why?"

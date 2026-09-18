@@ -3,12 +3,6 @@ import BaselineCompareWidget from '../../components/widgets/recsys/BaselineCompa
 
 # Build — Baselines
 
-<ConceptBox title="TL;DR">
-- Four baselines, each a closure returning `rank_fn`, each under ten lines.
-- On NovaCart, **recency wins**: NDCG@3 0.438 with 89% coverage, against popularity's 0.377 with 33%.
-- **Random ties popularity here.** With six users that is not a surprising result, it is a warning about your sample size — and worth internalising before you read any other number in this track as evidence.
-</ConceptBox>
-
 ## All four, in one screen
 
 Every one returns the same `rank_fn(user) -> [item_ids]` the harness expects.
@@ -110,6 +104,14 @@ Baselines are on the board. Time for the first real model.
   { q: "Why should a baseline return the full catalog rather than a short list?", a: "Metrics at k > list length silently cap recall, and coverage becomes incomparable across models that return different-length lists. Returning the full catalog (relevant items first, the rest appended) keeps every metric well-defined and every model comparable at any k." },
   { q: "Filtered for already-seen items, recency scores 0 on NovaCart. What does that number mean?", a: "That every recommendation recency makes is something the shopper already touched — it is pure memory with zero discovery. That is not a defect of the baseline but a precise measurement of what it does, and it is the right way to separate reminder value from recommendation value on a discovery surface." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Four baselines, each a closure returning `rank_fn`, each under ten lines.
+- On NovaCart, **recency wins**: NDCG@3 0.438 with 89% coverage, against popularity's 0.377 with 33%.
+- **Random ties popularity here.** With six users that is not a surprising result, it is a warning about your sample size — and worth internalising before you read any other number in this track as evidence.
+</ConceptBox>
 
 <QuizCard
   question="Your recency baseline returns an empty list for cold users, and the harness scores them 0. A teammate proposes falling back to popularity for those users. What is the tradeoff?"

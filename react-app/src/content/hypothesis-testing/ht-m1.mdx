@@ -7,14 +7,6 @@ import RejectionRegionWidget from '../../components/widgets/hypothesis-testing/R
 **Why it matters.** A drug company claims their new drug cuts mean recovery from 10 days to 8. You have data on 50 patients. Is the 2-day improvement real, or chance in a small sample? You can't measure every future patient, and intuition can't separate signal from noise. You need a principled procedure for deciding under uncertainty — **hypothesis testing**.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- The logic is indirect: assume $H_0$ (no effect), then ask how unlikely the observed data would be under it.
-- **You never accept $H_0$.** You reject it or fail to reject it — absence of evidence against it is not evidence for it.
-- Hypotheses are about the **population** ($\mu$, $p$), never the sample. $H_0:\bar{x}=10$ is always wrong.
-- Direction is chosen **before** seeing data. Matching the tail to the observed result afterwards invalidates the test.
-- Every test — Z, t, F, $\chi^2$ — is the same six steps and the same statistic shape: $T=(\hat\theta-\theta_0)/\text{SE}$, "how many standard errors from the null."
-</ConceptBox>
-
 ## What Is a Hypothesis Test?
 
 A formal procedure for deciding between two competing claims about a population from a sample. The logic is indirect: ask whether the observed data would be very unlikely if a baseline claim were true.
@@ -121,6 +113,16 @@ The sample mean sits 2.31 standard errors left of 10 — far into the left tail 
 **Step 6 — Conclusion.** At the 5% level, there's sufficient evidence that the drug reduces mean recovery below 10 days; chance alone is an implausible explanation.
 
 *This is statistical significance only. Whether the reduction is clinically meaningful, and whether the design supports causation, are separate questions.*
+
+---
+
+<ConceptBox title="TL;DR">
+- The logic is indirect: assume $H_0$ (no effect), then ask how unlikely the observed data would be under it.
+- **You never accept $H_0$.** You reject it or fail to reject it — absence of evidence against it is not evidence for it.
+- Hypotheses are about the **population** ($\mu$, $p$), never the sample. $H_0:\bar{x}=10$ is always wrong.
+- Direction is chosen **before** seeing data. Matching the tail to the observed result afterwards invalidates the test.
+- Every test — Z, t, F, $\chi^2$ — is the same six steps and the same statistic shape: $T=(\hat\theta-\theta_0)/\text{SE}$, "how many standard errors from the null."
+</ConceptBox>
 
 ## Practice
 

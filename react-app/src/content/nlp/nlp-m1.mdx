@@ -1,14 +1,6 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LevenshteinWidget from '../../components/widgets/nlp/LevenshteinWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- The pipeline runs shallow → deep: tokenize → normalize → morphology → syntax → semantics. Each stage assumes the one before it.
-- Whitespace tokenization breaks on punctuation, contractions, and hyphens — which is why `"fact,"` and `"fact"` become different types.
-- **Subword tokenization (BPE, WordPiece) is what modern models use**, because unknown words decompose into known pieces instead of hitting an `<UNK>`.
-- **Normalization is lossy on purpose, and the loss isn't always acceptable.** Lowercasing helps search and destroys the capitalization signal NER depends on.
-- Edit (Levenshtein) distance = minimum insertions, deletions, and substitutions to turn one string into another.
-</ConceptBox>
-
 ## NLP Pipeline — Big Picture
 
 <ConceptBox title="The NLP Pipeline">
@@ -127,6 +119,16 @@ print(edit_distance("kitten", "sitting"))  # 3
 Start at $d[m][n]$. At each cell, follow the minimum predecessor to reconstruct the alignment and the sequence of edit operations.
 
 <LevenshteinWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- The pipeline runs shallow → deep: tokenize → normalize → morphology → syntax → semantics. Each stage assumes the one before it.
+- Whitespace tokenization breaks on punctuation, contractions, and hyphens — which is why `"fact,"` and `"fact"` become different types.
+- **Subword tokenization (BPE, WordPiece) is what modern models use**, because unknown words decompose into known pieces instead of hitting an `<UNK>`.
+- **Normalization is lossy on purpose, and the loss isn't always acceptable.** Lowercasing helps search and destroys the capitalization signal NER depends on.
+- Edit (Levenshtein) distance = minimum insertions, deletions, and substitutions to turn one string into another.
+</ConceptBox>
 
 ## Practice
 

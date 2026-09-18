@@ -2,14 +2,6 @@ import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSel
 
 # Module 3: PyTorch — Tensors & Operations
 
-<ConceptBox title="TL;DR">
-- A tensor is an N-D array that **also records the operations applied to it**, which is what makes autograd possible.
-- Shape conventions worth memorising: `[B, T, C]` for sequences, `[B, C, H, W]` for images.
-- **Trailing underscore = in-place** (`add_`, `relu_`). Saves memory and can corrupt the values autograd needs for the backward pass.
-- **Broadcasting aligns shapes from the right**, stretching size-1 dimensions — it does *not* require equal rank.
-- `.to(device)` moves data without touching your operation code; `@` is matrix multiply, `*` is elementwise.
-</ConceptBox>
-
 <Bridge>
 **From Module 2:** We have the theory of MLPs — stacked layers, weight matrices, activations. Now we need a framework to compute these operations on real hardware, efficiently and with automatic differentiation. PyTorch is the dominant framework for deep learning research and increasingly for production. Its core abstraction is the **tensor** — an N-dimensional array with GPU support and a computation graph for gradients. This module covers everything you need to write real PyTorch code.
 </Bridge>
@@ -201,6 +193,14 @@ GPUs execute thousands of such multiplications in parallel via SIMD instructions
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- A tensor is an N-D array that **also records the operations applied to it**, which is what makes autograd possible.
+- Shape conventions worth memorising: `[B, T, C]` for sequences, `[B, C, H, W]` for images.
+- **Trailing underscore = in-place** (`add_`, `relu_`). Saves memory and can corrupt the values autograd needs for the backward pass.
+- **Broadcasting aligns shapes from the right**, stretching size-1 dimensions — it does *not* require equal rank.
+- `.to(device)` moves data without touching your operation code; `@` is matrix multiply, `*` is elementwise.
+</ConceptBox>
 
 ## Quiz
 

@@ -3,14 +3,6 @@ import WeightInitWidget from '../../components/widgets/deep-learning/WeightInitW
 
 # Module 9: Weight Initialization
 
-<ConceptBox title="TL;DR">
-- **Zero weights break symmetry, permanently.** Every neuron in a layer computes the same thing and receives the same gradient, so the layer is forever equivalent to one neuron. Random init exists to break that tie.
-- Biases at zero are fine — the random weights already break symmetry.
-- The goal is to **hold activation variance roughly constant across depth**. Too small and the signal vanishes layer by layer; too large and it explodes.
-- **Xavier/Glorot** targets tanh and sigmoid. **He/Kaiming** uses $2/n_{in}$ for ReLU — the factor 2 compensates for ReLU zeroing half its inputs.
-- "Small random normal" is *not* a safe default: at 50 layers it vanishes the signal just as reliably as a bad constant.
-</ConceptBox>
-
 <Bridge>
 **From Module 8:** You have loss functions and optimizers. Before training starts, there is one critical choice that determines whether gradients will flow at all: **how to initialize the weights**. Initialize wrong — all zeros, or too large, or too small — and backpropagation will fail before it begins. Initialize right, and even very deep networks train efficiently. This module derives exactly what "right" means from first principles.
 </Bridge>
@@ -173,6 +165,14 @@ For uniform init: $W \sim \mathcal{U}(-r, r)$ where $r = \sqrt{6/(n^{[l-1]}+n^{[
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- **Zero weights break symmetry, permanently.** Every neuron in a layer computes the same thing and receives the same gradient, so the layer is forever equivalent to one neuron. Random init exists to break that tie.
+- Biases at zero are fine — the random weights already break symmetry.
+- The goal is to **hold activation variance roughly constant across depth**. Too small and the signal vanishes layer by layer; too large and it explodes.
+- **Xavier/Glorot** targets tanh and sigmoid. **He/Kaiming** uses $2/n_{in}$ for ReLU — the factor 2 compensates for ReLU zeroing half its inputs.
+- "Small random normal" is *not* a safe default: at 50 layers it vanishes the signal just as reliably as a bad constant.
+</ConceptBox>
 
 ## Quiz
 

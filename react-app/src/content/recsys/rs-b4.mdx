@@ -1,13 +1,6 @@
 import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 import ALSFactorWidget from '../../components/widgets/recsys/ALSFactorWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Implicit ALS in ~20 lines of NumPy: build $R$, alternate two ridge solves, watch the loss fall monotonically.
-- The **Gram trick** ($Y^\top Y$ once per sweep, then a rank-$n_u$ update) is what makes the full-matrix sum affordable. It is two lines and it is the whole algorithm's viability.
-- Use `implicit` in production — it is the same math, in Cython, on sparse matrices.
-- Ship the **factors**, not the model: item vectors into an ANN index, user vectors into a key-value store.
-</ConceptBox>
-
 ## Build the matrix
 
 ```python
@@ -151,6 +144,15 @@ ALS gives you candidates from IDs alone. The ranker that orders them needs featu
   { q: "What breaks without `Sk=Sk` in the sweep lambda?", a: "All lambdas close over the same variable binding rather than its value, so after the loop finishes every one of them reads the final Sk. The table then reports the k=4 model on every row — a plausible-looking, entirely wrong result. Binding the value as a default argument freezes it per iteration." },
   { q: "Why can't a model whose final scoring step is an arbitrary neural network serve as the retrieval stage?", a: "ANN indexes search inner-product or metric spaces; they cannot enumerate a general function over millions of items. Retrieval requires the score to factor into a user vector and an item vector combined by a dot product, so the item side can be precomputed and indexed. That constraint is why cross features are impossible in retrieval and available in ranking." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Implicit ALS in ~20 lines of NumPy: build $R$, alternate two ridge solves, watch the loss fall monotonically.
+- The **Gram trick** ($Y^\top Y$ once per sweep, then a rank-$n_u$ update) is what makes the full-matrix sum affordable. It is two lines and it is the whole algorithm's viability.
+- Use `implicit` in production — it is the same math, in Cython, on sparse matrices.
+- Ship the **factors**, not the model: item vectors into an ANN index, user vectors into a key-value store.
+</ConceptBox>
 
 <QuizCard
   question="You replace the Gram-trick lines with the mathematically identical `A = Y.T @ np.diag(c) @ Y + reg*np.eye(k)`. The loss curve is unchanged. What happens at production scale?"

@@ -2,13 +2,6 @@ import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall }
 
 # Module 4: DataFrames: PySpark vs Pandas
 
-<ConceptBox title="TL;DR">
-- Same concept, different execution model: PySpark is **lazy, distributed, immutable, optimised**; Pandas is **eager, single-machine, mutable, unoptimised**.
-- Pick by data size and where it lives. Fits in one machine's RAM → Pandas, and its interactivity wins. Spread across a cluster → PySpark.
-- **Distributed isn't free.** On small data Spark's scheduling and shuffle overhead makes it slower than Pandas, not faster.
-- Schema-awareness is the point: named typed columns are what let Catalyst optimise, which RDDs could never offer.
-</ConceptBox>
-
 In Module 3, we worked with RDDs — Spark's low-level API using tuples and lambdas. DataFrames provide a higher-level, schema-aware interface with automatic optimizations through the Catalyst query planner.
 
 ## PySpark DataFrame vs Pandas DataFrame
@@ -114,6 +107,15 @@ df.groupBy("major").agg(avg("gpa"), count("*")).show()
 result = df.groupby("major").agg({"gpa": "mean", "student_id": "count"})
 print(result)
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- Same concept, different execution model: PySpark is **lazy, distributed, immutable, optimised**; Pandas is **eager, single-machine, mutable, unoptimised**.
+- Pick by data size and where it lives. Fits in one machine's RAM → Pandas, and its interactivity wins. Spread across a cluster → PySpark.
+- **Distributed isn't free.** On small data Spark's scheduling and shuffle overhead makes it slower than Pandas, not faster.
+- Schema-awareness is the point: named typed columns are what let Catalyst optimise, which RDDs could never offer.
+</ConceptBox>
 
 ## Practice Problems
 

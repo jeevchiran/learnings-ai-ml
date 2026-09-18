@@ -1,13 +1,6 @@
 import { ConceptBox, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import DistributionsWidget from '../../components/widgets/math-ml/DistributionsWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- A random variable turns outcomes into numbers so you can do arithmetic on uncertainty.
-- **PMF gives probability; PDF gives density.** A PDF value can exceed 1 — only the *area* under it is a probability.
-- Four workhorses: Bernoulli (one binary trial), Binomial (count of successes), Poisson (count of rare events per window), Gaussian (continuous noise).
-- Choosing a loss quietly chooses a distribution: MSE ⟺ "residuals are Gaussian."
-</ConceptBox>
-
 ## Random Variables
 
 A **random variable** $X$ maps outcomes to numbers: a coin flip → 0 or 1, a dice roll → 1 through 6, tomorrow's temperature → a real number. Once outcomes are numbers, you can do arithmetic and statistics on them — that's the whole point.
@@ -48,6 +41,15 @@ density = stats.norm.pdf(0, loc=0, scale=1)
 # Sample 1000 draws from Poisson(lambda=4)
 counts = stats.poisson.rvs(mu=4, size=1000)
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- A random variable turns outcomes into numbers so you can do arithmetic on uncertainty.
+- **PMF gives probability; PDF gives density.** A PDF value can exceed 1 — only the *area* under it is a probability.
+- Four workhorses: Bernoulli (one binary trial), Binomial (count of successes), Poisson (count of rare events per window), Gaussian (continuous noise).
+- Choosing a loss quietly chooses a distribution: MSE ⟺ "residuals are Gaussian."
+</ConceptBox>
 
 ## Practice
 

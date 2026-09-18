@@ -2,14 +2,6 @@ import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../com
 
 # Module 7: Advantages and Disadvantages of Naive Bayes
 
-<ConceptBox title="TL;DR">
-- Wins: one counting pass to train, instant prediction, excellent on **small data and huge sparse feature spaces**, naturally incremental, and per-feature interpretable.
-- Losses: **no feature interactions, ever** — "high income AND low expenses" is unlearnable by construction, at any data volume.
-- **The label is often right while the probability is wrong.** Correlated features double-count, pushing posteriors to 0 or 1. Treat `predict_proba` as a ranking, not a probability.
-- The zero-frequency trap is the classic from-scratch bug: one unseen pair zeroes a whole class. Add-$\alpha$ smoothing is mandatory, not optional.
-- Imbalance is handled cleanly *because* the prior is an explicit term — but resampling without adjusting that prior breaks it.
-</ConceptBox>
-
 ## Advantages
 
 <ConceptBox title="Where Naive Bayes genuinely wins">
@@ -51,6 +43,16 @@ Naive Bayes handles imbalance gracefully because the prior $P(y)$ is an explicit
 <Bridge>
 Every strength and weakness matters relative to the alternatives — "fast to train" only means something next to something slower. The final module places Naive Bayes beside logistic regression, decision trees, k-NN, and SVMs.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Wins: one counting pass to train, instant prediction, excellent on **small data and huge sparse feature spaces**, naturally incremental, and per-feature interpretable.
+- Losses: **no feature interactions, ever** — "high income AND low expenses" is unlearnable by construction, at any data volume.
+- **The label is often right while the probability is wrong.** Correlated features double-count, pushing posteriors to 0 or 1. Treat `predict_proba` as a ranking, not a probability.
+- The zero-frequency trap is the classic from-scratch bug: one unseen pair zeroes a whole class. Add-$\alpha$ smoothing is mandatory, not optional.
+- Imbalance is handled cleanly *because* the prior is an explicit term — but resampling without adjusting that prior breaks it.
+</ConceptBox>
 
 ## Practice
 

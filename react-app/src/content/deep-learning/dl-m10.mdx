@@ -3,15 +3,6 @@ import RegNormWidget from '../../components/widgets/deep-learning/RegNormWidget.
 
 # Module 10: Regularization & Normalization
 
-<ConceptBox title="TL;DR">
-- Two different problems: **regularization** constrains what the model may learn (overfitting); **normalization** controls the values flowing through it (instability).
-- L2 shrinks weights smoothly; L1 drives them to exact zeros. Dropout randomly zeroes activations, forcing redundant representations.
-- **BatchNorm normalizes across the batch, per feature**, then re-scales with learned $\gamma,\beta$.
-- **Its train and eval behaviour differ** — batch statistics while training, stored running statistics at inference. Those running values are **buffers**, not parameters.
-- That difference is why `model.eval()` is mandatory, not stylistic.
-- **LayerNorm normalizes across features within one sample**, so it is batch-size independent — which is why transformers use it.
-</ConceptBox>
-
 <Bridge>
 **From Module 9:** Good initialization gets training started. But as training progresses, two problems emerge: the model may **overfit** the training set (memorize noise), and training may become **unstable** (loss oscillates, gradients explode). Regularization and normalization are the two families of techniques that address these problems — the first by constraining what the model can learn, the second by controlling what values propagate through the network.
 </Bridge>
@@ -196,6 +187,15 @@ The inverted dropout scaling factor: since each neuron is kept with probability 
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Two different problems: **regularization** constrains what the model may learn (overfitting); **normalization** controls the values flowing through it (instability).
+- L2 shrinks weights smoothly; L1 drives them to exact zeros. Dropout randomly zeroes activations, forcing redundant representations.
+- **BatchNorm normalizes across the batch, per feature**, then re-scales with learned $\gamma,\beta$.
+- **Its train and eval behaviour differ** — batch statistics while training, stored running statistics at inference. Those running values are **buffers**, not parameters.
+- That difference is why `model.eval()` is mandatory, not stylistic.
+- **LayerNorm normalizes across features within one sample**, so it is batch-size independent — which is why transformers use it.
+</ConceptBox>
 
 ## Quiz
 

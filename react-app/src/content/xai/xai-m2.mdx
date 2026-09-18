@@ -3,13 +3,6 @@ import GlobalLocalWidget from '../../components/widgets/xai/GlobalLocalWidget.js
 
 # Module 2: Global vs Local Interpretability
 
-<ConceptBox title="TL;DR">
-- **Scope** is axis one: *global* = how the model behaves in general; *local* = why it output this, for this input.
-- A global explanation is roughly an average of local ones — and averages lie about individuals. Anyone owed a reason needs a **local** explanation.
-- **Access** is axis two: *model-agnostic* needs only `predict()`; *model-specific* exploits internals (tree structure, gradients) for speed and exactness.
-- Those two axes place every method: LIME (local/agnostic), Kernel SHAP (local/agnostic), Tree SHAP (both/tree-specific), DeepLIFT (local/net-specific).
-</ConceptBox>
-
 ## Two Questions, Two Kinds of Answer
 
 Every explanation answers one of two questions:
@@ -49,6 +42,15 @@ Two axes — *scope* (global/local) and *access* (agnostic/specific) — locate 
 <Bridge>
 LIME is the cleanest entry point: local scope, needs nothing but `predict()`. Its idea is almost embarrassingly simple — *near one point, even a wildly nonlinear model looks like a straight line, so fit a straight line there.* The next module builds it from that intuition.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- **Scope** is axis one: *global* = how the model behaves in general; *local* = why it output this, for this input.
+- A global explanation is roughly an average of local ones — and averages lie about individuals. Anyone owed a reason needs a **local** explanation.
+- **Access** is axis two: *model-agnostic* needs only `predict()`; *model-specific* exploits internals (tree structure, gradients) for speed and exactness.
+- Those two axes place every method: LIME (local/agnostic), Kernel SHAP (local/agnostic), Tree SHAP (both/tree-specific), DeepLIFT (local/net-specific).
+</ConceptBox>
 
 ## Practice
 

@@ -3,14 +3,6 @@ import YoloLabelWidget from '../../components/widgets/cv/YoloLabelWidget.jsx'
 
 # Module 17: Training YOLO on Your Own Data
 
-<ConceptBox title="TL;DR">
-- The dataset is **a folder convention plus one YAML**. Labels are `class cx cy w h`, all normalised to $[0,1]$, one `.txt` per image.
-- The loader finds labels by replacing `/images/` with `/labels/` in the path. Break that and you get a silent all-background dataset.
-- **Split by scene, not by frame.** Consecutive video frames in train and val is the most common cause of a beautiful val mAP and a useless model.
-- Start from COCO weights, freeze nothing, train `yolov8s` for ~100 epochs. Fine-tuning beats training from scratch by a wide margin on small datasets.
-- Read the **confusion matrix and the PR curve**, not the mAP number. mAP tells you *that* it failed, those tell you *where*.
-</ConceptBox>
-
 <Bridge>
 Module 16 ran a pretrained model. This module replaces its classes with yours, which is 90% data engineering and 10% training — in that ratio, and the modules order the material accordingly.
 </Bridge>
@@ -158,6 +150,16 @@ Exported graphs usually stop **before** NMS, so you are back to the raw `(1, 84,
   { q: "The confusion matrix shows most of one class leaking into the 'background' column. What does that mean and what does it not mean?", a: "It means those objects are being missed entirely — low recall for that class — not that they are being confused with another class. The fix is more positive examples, or a lower confidence threshold, or checking that class is actually labelled consistently. Leakage in the other direction, background predicted as the class, is the opposite failure and needs hard negative images instead." },
   { q: "Why is rotation augmentation off by default for detection?", a: "Because bounding boxes are stored axis-aligned. Rotating the image forces the box to be re-stored as the axis-aligned hull of the rotated corners, which is strictly larger — about 98% larger for a 100x60 box at 30 degrees. Every rotated sample then teaches the model that a large chunk of surrounding background belongs to the object." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The dataset is **a folder convention plus one YAML**. Labels are `class cx cy w h`, all normalised to $[0,1]$, one `.txt` per image.
+- The loader finds labels by replacing `/images/` with `/labels/` in the path. Break that and you get a silent all-background dataset.
+- **Split by scene, not by frame.** Consecutive video frames in train and val is the most common cause of a beautiful val mAP and a useless model.
+- Start from COCO weights, freeze nothing, train `yolov8s` for ~100 epochs. Fine-tuning beats training from scratch by a wide margin on small datasets.
+- Read the **confusion matrix and the PR curve**, not the mAP number. mAP tells you *that* it failed, those tell you *where*.
+</ConceptBox>
 
 <QuizCard
   question="An object at pixel box (x=40, y=90, w=120, h=60) in a 640×480 image. What is its YOLO label line for class 2?"

@@ -7,14 +7,6 @@ import GiniSplitWidget from '../../components/widgets/decision-trees/GiniSplitWi
 **Building on Module 2:** You now know how to *measure* node impurity using the Gini index and entropy. The next question is: given a continuous feature, how do we systematically *find* the split threshold that maximises impurity reduction?
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- A continuous feature has up to $n-1$ candidate thresholds — the **midpoints between adjacent sorted values**.
-- Midpoints because *any* threshold inside $(v_i, v_{i+1})$ gives the identical partition; the midpoint is just the canonical representative.
-- **Sort once, then sweep.** Maintaining running class counts makes each candidate $O(1)$, turning $O(n^2p)$ per node into $O(np\log n)$.
-- Choose $(j^*, s^*)$ maximising $\text{GiniGain}=G(t)-\frac{n_L}{n}G(t_L)-\frac{n_R}{n}G(t_R)$ — the same gain idea from Module 2, now searched exhaustively.
-- Categorical features have $2^{C-1}-1$ possible subsets, so sklearn sidesteps it: ordinal encoding treated as continuous, or one-hot beforehand.
-</ConceptBox>
-
 ## 1. The Core Problem of Splitting
 
 For a continuous feature $X$ with $n$ training samples, there are up to $n - 1$ candidate split thresholds — one midway between each pair of adjacent sorted values. The algorithm must evaluate every candidate at every feature.
@@ -138,6 +130,16 @@ For a categorical feature with $C$ unique values, there are $2^{C-1} - 1$ possib
   { q: "Write the Gini gain for a candidate split and name the term people forget.", a: "GiniGain(j,s) = G(t) - (n_L/n)G(t_L) - (n_R/n)G(t_R). The forgotten part is the n_L/n and n_R/n weights — without them a tiny pure child looks as valuable as a large one, and the tree fragments." },
   { q: "Why are truly nominal categorical features awkward for CART, and what does sklearn do?", a: "A feature with C categories has 2^(C-1) - 1 possible ways to split the categories into two groups, which is exponential and cannot be exhaustively searched for large C. sklearn does not implement subset splits at all: you either ordinal-encode and let it treat the codes as continuous — which imposes a false ordering — or one-hot encode first, which is correct but widens the feature space." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A continuous feature has up to $n-1$ candidate thresholds — the **midpoints between adjacent sorted values**.
+- Midpoints because *any* threshold inside $(v_i, v_{i+1})$ gives the identical partition; the midpoint is just the canonical representative.
+- **Sort once, then sweep.** Maintaining running class counts makes each candidate $O(1)$, turning $O(n^2p)$ per node into $O(np\log n)$.
+- Choose $(j^*, s^*)$ maximising $\text{GiniGain}=G(t)-\frac{n_L}{n}G(t_L)-\frac{n_R}{n}G(t_R)$ — the same gain idea from Module 2, now searched exhaustively.
+- Categorical features have $2^{C-1}-1$ possible subsets, so sklearn sidesteps it: ordinal encoding treated as continuous, or one-hot beforehand.
+</ConceptBox>
 
 <QuizCard
   question="Why are midpoints used as candidate split thresholds rather than the raw feature values themselves?"

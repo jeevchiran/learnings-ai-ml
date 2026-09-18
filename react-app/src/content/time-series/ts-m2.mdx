@@ -3,13 +3,6 @@ import NaiveForecastWidget from '../../components/widgets/time-series/NaiveForec
 
 # Module 2: Simple Forecasting Models & RMSE
 
-<ConceptBox title="TL;DR">
-- Three baselines to beat: **naive** (tomorrow = today), **mean** (tomorrow = average so far), **moving average** (tomorrow = average of last $w$).
-- A model that can't beat naive isn't earning its complexity. On a random walk, naive is *optimal*.
-- RMSE is the yardstick — same units as the series, big misses punished hardest.
-- **Split chronologically, never shuffle.** Shuffled k-fold trains on the future and tests on the past.
-</ConceptBox>
-
 ## Before Anything Fancy: The Simple Baselines
 
 Every forecasting project should start here — not because these models are good, but because a fancy model that can't beat them isn't earning its complexity.
@@ -53,6 +46,15 @@ print('Naive RMSE:', rmse(y, naive))
 print('Mean  RMSE:', rmse(y, mean_))
 print('MA(4) RMSE:', rmse(y, moving_avg))
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- Three baselines to beat: **naive** (tomorrow = today), **mean** (tomorrow = average so far), **moving average** (tomorrow = average of last $w$).
+- A model that can't beat naive isn't earning its complexity. On a random walk, naive is *optimal*.
+- RMSE is the yardstick — same units as the series, big misses punished hardest.
+- **Split chronologically, never shuffle.** Shuffled k-fold trains on the future and tests on the past.
+</ConceptBox>
 
 ## Practice
 

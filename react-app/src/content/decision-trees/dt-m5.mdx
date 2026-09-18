@@ -7,14 +7,6 @@ import BaggingRandomForestWidget from '../../components/widgets/decision-trees/B
 **From instability to ensemble design.** Module 4 identified a core tension: a fully grown tree memorizes training data (high variance, low bias), while an aggressively pruned tree underfits. Pruning helps, but even a well-tuned single tree suffers from instability — small changes to the training data can produce entirely different tree structures. The insight is that variance can be reduced by averaging, but only if the things being averaged are not perfectly correlated. The entire engineering challenge of ensemble methods is reducing that correlation — making the base learners diverse enough that their errors cancel out when aggregated.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- Averaging $B$ independent estimators divides variance by $B$. Trees on the same data **aren't** independent — so the whole engineering problem is **decorrelation**.
-- **Bootstrap**: sample $n$ points with replacement. Each tree sees ~63.2% of the data; the other ~36.8% is **out-of-bag** and gives a free validation estimate.
-- Bagging alone isn't enough: one dominant feature ends up at the root of every tree, so they stay correlated.
-- **Random forest's extra move** is sampling $m$ features *at each split* ($\sqrt p$ classification, $p/3$ regression) — forcing trees to use different features.
-- Variance floor: $\rho\sigma^2 + (1-\rho)\sigma^2/B$. More trees kill the second term only; **$\rho$ is what `max_features` attacks.**
-</ConceptBox>
-
 ## 1. The Averaging Idea
 
 Suppose we have $B$ independent, identically distributed random variables $T_1, T_2, \ldots, T_B$, each with variance $\sigma^2$. Their average has variance:
@@ -169,6 +161,16 @@ A large positive $\text{PI}(j)$ means feature $j$ matters. Permutation importanc
   { q: "What is OOB error and why is it nearly free?", a: "For each training point, average the predictions of only those trees that did not see it — about a third of them — and compare against its label. It costs no extra data and no separate fitting because those trees already exist; it is roughly equivalent to cross-validation, computed as a side effect of bootstrapping." },
   { q: "Why is permutation importance preferred over the built-in impurity importance?", a: "Impurity-based importance is computed from training-set splits and is biased toward high-cardinality and continuous features, which get more chances to look useful. Permutation importance shuffles one feature in the OOB data and measures the actual increase in held-out error, so it reports what the feature contributes to GENERALISATION." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Averaging $B$ independent estimators divides variance by $B$. Trees on the same data **aren't** independent — so the whole engineering problem is **decorrelation**.
+- **Bootstrap**: sample $n$ points with replacement. Each tree sees ~63.2% of the data; the other ~36.8% is **out-of-bag** and gives a free validation estimate.
+- Bagging alone isn't enough: one dominant feature ends up at the root of every tree, so they stay correlated.
+- **Random forest's extra move** is sampling $m$ features *at each split* ($\sqrt p$ classification, $p/3$ regression) — forcing trees to use different features.
+- Variance floor: $\rho\sigma^2 + (1-\rho)\sigma^2/B$. More trees kill the second term only; **$\rho$ is what `max_features` attacks.**
+</ConceptBox>
 
 <QuizCard
   question="In a random forest with p = 100 features, approximately how many features are considered at each split by default for a classification task, and why?"

@@ -3,13 +3,6 @@ import SupportConfidenceWidget from '../../components/widgets/association-rules/
 
 # Module 1: Why Association Rules? Support, Confidence, Lift
 
-<ConceptBox title="TL;DR">
-- Unsupervised, but not clustering: we group **items that co-occur**, not customers.
-- Three numbers judge a rule $A\Rightarrow B$: **support** = how often (is it worth acting on?), **confidence** = $P(B\mid A)$ (how reliable?), **lift** = $P(B\mid A)/P(B)$ (is it real?).
-- **Lift is the honest one.** Confidence alone rewards popular consequents — a rule can hit 0.9 confidence purely because $B$ is in most baskets.
-- Read lift as: $>1$ positive association, $=1$ independent, $<1$ negative.
-</ConceptBox>
-
 ## Why Association Rules?
 
 A supermarket has millions of receipts and one nagging question: **what gets bought together?** Nobody labeled these baskets — there is no target column, no "correct" answer to predict. This is unsupervised learning, but not clustering: we are not grouping *customers*, we are finding *items that co-occur*. The output is a set of human-readable rules like `{Diaper} ⇒ {Beer}` — "customers who buy diapers tend to buy beer" — that a merchandiser can act on directly.
@@ -84,6 +77,15 @@ Consider $\{Beer\} \Rightarrow \{Milk\}$: Beer in 7 baskets, both in 5, so confi
 </ConceptBox>
 
 <SupportConfidenceWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- Unsupervised, but not clustering: we group **items that co-occur**, not customers.
+- Three numbers judge a rule $A\Rightarrow B$: **support** = how often (is it worth acting on?), **confidence** = $P(B\mid A)$ (how reliable?), **lift** = $P(B\mid A)/P(B)$ (is it real?).
+- **Lift is the honest one.** Confidence alone rewards popular consequents — a rule can hit 0.9 confidence purely because $B$ is in most baskets.
+- Read lift as: $>1$ positive association, $=1$ independent, $<1$ negative.
+</ConceptBox>
 
 ## Practice
 

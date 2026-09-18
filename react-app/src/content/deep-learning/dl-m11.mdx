@@ -3,14 +3,6 @@ import OverfittingWidget from '../../components/widgets/deep-learning/Overfittin
 
 # Module 11: Preventing Overfitting & PyTorch Examples
 
-<ConceptBox title="TL;DR">
-- The diagnostic is the **gap**, not the absolute loss: training loss falling while validation loss rises is overfitting made visible.
-- Fix in order of leverage: **more data** → augmentation → early stopping → dropout/weight decay → smaller model.
-- Four lines the training loop must get right: `model.train()` / `model.eval()`, `torch.no_grad()` for validation, `optimizer.zero_grad()` before every `backward()`, and logits straight into `CrossEntropyLoss`.
-- **`model.eval()` isn't cosmetic** — it switches BatchNorm to running statistics and turns dropout off.
-- The one legitimate exception: **MC Dropout**, keeping dropout on at inference *deliberately* to sample an uncertainty estimate.
-</ConceptBox>
-
 <Bridge>
 **From Module 10:** You have the full toolkit: regularization (L1/L2, dropout) and normalization (BatchNorm, LayerNorm). This final module shows how to use them together to prevent overfitting — the gap between train and validation performance that kills real-world model utility. It also walks through a complete end-to-end PyTorch training loop so that everything from Module 1 to Module 10 comes together in working code.
 </Bridge>
@@ -265,6 +257,14 @@ $$\nabla_\theta J_\text{full} = \nabla_\theta J + \frac{\lambda_2}{m}\theta + \f
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- The diagnostic is the **gap**, not the absolute loss: training loss falling while validation loss rises is overfitting made visible.
+- Fix in order of leverage: **more data** → augmentation → early stopping → dropout/weight decay → smaller model.
+- Four lines the training loop must get right: `model.train()` / `model.eval()`, `torch.no_grad()` for validation, `optimizer.zero_grad()` before every `backward()`, and logits straight into `CrossEntropyLoss`.
+- **`model.eval()` isn't cosmetic** — it switches BatchNorm to running statistics and turns dropout off.
+- The one legitimate exception: **MC Dropout**, keeping dropout on at inference *deliberately* to sample an uncertainty estimate.
+</ConceptBox>
 
 ## Quiz
 

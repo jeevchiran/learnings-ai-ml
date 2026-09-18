@@ -1,14 +1,6 @@
 import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import SplitWidget from '../../components/widgets/model-eval/SplitWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Three splits, three jobs: **train** fits parameters, **validation** compares models and tunes knobs, **test** is used **exactly once** at the very end.
-- Any decision made from the test score — model choice, a knob, when to stop — converts it from an honest estimate into another validation set.
-- A single holdout score is itself **noisy**: changing only the split seed moved the same model 5 accuracy points here.
-- So a 1–2 point difference between candidates can easily be split luck, not model quality.
-- `stratify=y` preserves class proportions across splits — essential on imbalanced data.
-</ConceptBox>
-
 ## Splitting the Data Three Ways
 
 Training error can't judge a model, so evaluate on data it never touched while fitting. Split the dataset into up to three disjoint pieces, each with a distinct job:
@@ -76,6 +68,16 @@ A common mistake: try several hyperparameters, score each *on the test set*, kee
 <Bridge>
 The holdout's weakness is that one validation split is one noisy sample — lucky splits distort comparisons, and small datasets make it worse. The next module introduces cross-validation, which evaluates across multiple splits and combines them into a far more stable estimate.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Three splits, three jobs: **train** fits parameters, **validation** compares models and tunes knobs, **test** is used **exactly once** at the very end.
+- Any decision made from the test score — model choice, a knob, when to stop — converts it from an honest estimate into another validation set.
+- A single holdout score is itself **noisy**: changing only the split seed moved the same model 5 accuracy points here.
+- So a 1–2 point difference between candidates can easily be split luck, not model quality.
+- `stratify=y` preserves class proportions across splits — essential on imbalanced data.
+</ConceptBox>
 
 ## Practice
 

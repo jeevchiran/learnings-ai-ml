@@ -3,14 +3,6 @@ import TransferLearningWidget from '../../components/widgets/cnn/TransferLearnin
 
 # Module 8: Transfer Learning
 
-<ConceptBox title="TL;DR">
-- Pretrained features form a **hierarchy**: edges → textures → parts → semantics. The early layers are near-universal across vision tasks; only the deep ones are ImageNet-specific.
-- Two strategies: **freeze the backbone** and train a new head (small data), or **fine-tune** with a low learning rate (more data, bigger domain shift).
-- **You must reuse the pretraining normalisation statistics.** Different mean/std shifts every input off the distribution the frozen weights expect.
-- Always replace the classification head — its output dimension is 1,000 ImageNet classes, not yours.
-- **Progressive unfreezing** beats unfreezing everything at once: large gradients from a random head would otherwise wreck good pretrained weights in the first few steps.
-</ConceptBox>
-
 <Bridge>
 **From Module 7:** a well-tuned data pipeline can push a scratch-trained CNN to ~90% on CIFAR-10. But what if you have 1,000 images instead of 50,000? What if the images are medical scans, satellite imagery, or a private product catalogue with no public benchmark? Training from scratch fails — but a CNN that has already learned to see on ImageNet's 1.2M images has already built a general visual vocabulary. Transfer learning borrows that vocabulary.
 </Bridge>
@@ -176,6 +168,14 @@ where $\theta_0$ are the pretrained weights. This is an explicit penalty for dri
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Pretrained features form a **hierarchy**: edges → textures → parts → semantics. The early layers are near-universal across vision tasks; only the deep ones are ImageNet-specific.
+- Two strategies: **freeze the backbone** and train a new head (small data), or **fine-tune** with a low learning rate (more data, bigger domain shift).
+- **You must reuse the pretraining normalisation statistics.** Different mean/std shifts every input off the distribution the frozen weights expect.
+- Always replace the classification head — its output dimension is 1,000 ImageNet classes, not yours.
+- **Progressive unfreezing** beats unfreezing everything at once: large gradients from a random head would otherwise wreck good pretrained weights in the first few steps.
+</ConceptBox>
 
 ## Quiz
 

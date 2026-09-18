@@ -3,14 +3,6 @@ import NBVariantWidget from '../../components/widgets/naive-bayes/NBVariantWidge
 
 # Module 5: Multinomial, Bernoulli & Gaussian Naive Bayes
 
-<ConceptBox title="TL;DR">
-- The decision rule never changes. **Only the assumed shape of $P(x_i\mid y)$ does** — and it should match how the feature was generated.
-- **Multinomial** for counts, **Bernoulli** for 0/1 presence, **Gaussian** for continuous measurements.
-- Multinomial vs Bernoulli on text is not cosmetic: Bernoulli explicitly scores the **absence** of every vocabulary word, Multinomial only sees what's there.
-- Gaussian NB fits one $(\mu,\sigma^2)$ per (class, feature) pair — cheap, but it assumes per-class normality.
-- Picking the wrong variant degrades accuracy **silently**; nothing errors.
-</ConceptBox>
-
 ## Same Skeleton, Different Likelihood
 
 Every variant uses the identical rule from Module 3:
@@ -119,6 +111,16 @@ print(gnb.var_.round(2))     # per-class, per-feature variances
 <Bridge>
 Every formula multiplies many probabilities — one per feature. With ten features, fine; with ten thousand (a real vocabulary), the product of ten thousand sub-1 numbers underflows to exactly zero, silently breaking the classifier. Module 6 shows why and the log-space fix every production implementation uses.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- The decision rule never changes. **Only the assumed shape of $P(x_i\mid y)$ does** — and it should match how the feature was generated.
+- **Multinomial** for counts, **Bernoulli** for 0/1 presence, **Gaussian** for continuous measurements.
+- Multinomial vs Bernoulli on text is not cosmetic: Bernoulli explicitly scores the **absence** of every vocabulary word, Multinomial only sees what's there.
+- Gaussian NB fits one $(\mu,\sigma^2)$ per (class, feature) pair — cheap, but it assumes per-class normality.
+- Picking the wrong variant degrades accuracy **silently**; nothing errors.
+</ConceptBox>
 
 ## Practice
 

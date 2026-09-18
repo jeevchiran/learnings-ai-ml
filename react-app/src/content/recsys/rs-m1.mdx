@@ -13,13 +13,6 @@ collaborative filtering, implicit ALS, point-in-time features and learning to
 rank. The store is small enough that you can check any result by hand.
 </ConceptBox>
 
-<ConceptBox title="TL;DR">
-- A recommender **ranks a huge catalog into a few slots**. It is not "predict a rating" — that framing died with the Netflix Prize.
-- Every production system is a **funnel**: retrieval (millions → hundreds, must be fast, scored on *recall*) then ranking (hundreds → ten, may be expensive, scored on *precision*).
-- The catalog is enormous, the feedback is implicit, and **the model's own output becomes tomorrow's training data**. Those three facts cause every hard problem in the field.
-- Pick the problem type from the **surface** you are building for. "Similar items" on a product page and "for you" on the homepage are different problems wearing the same clothes.
-</ConceptBox>
-
 ## The store we will build
 
 Meet **NovaCart** — an online store with a catalog, shoppers who browse far more than they buy, and ten slots on the homepage. Every module in this track uses the same tiny NovaCart dataset: 6 shoppers, 9 products, 30 days of events. Small enough to check every number by hand, big enough that popularity, recency and collaborative filtering all give different answers.
@@ -89,6 +82,15 @@ Next: what NovaCart actually records when someone browses, and how to turn a str
   { q: "What is the feedback loop, in one sentence about NovaCart?", a: "The homepage only shows what the model picks, so shoppers can only interact with what the model picked, so tomorrow's training data confirms today's model — popularity concentrates and the long tail starves regardless of whether shoppers would have liked it." },
   { q: "Same model, two surfaces: homepage 'for you' and product-page 'similar items'. Why does one model rarely serve both?", a: "They condition on different things. 'Similar items' conditions on the item being viewed and should return substitutes/complements for it; 'for you' conditions on the whole user history and should span categories. Using the similar-items model on the homepage yields nine variants of the last thing viewed." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A recommender **ranks a huge catalog into a few slots**. It is not "predict a rating" — that framing died with the Netflix Prize.
+- Every production system is a **funnel**: retrieval (millions → hundreds, must be fast, scored on *recall*) then ranking (hundreds → ten, may be expensive, scored on *precision*).
+- The catalog is enormous, the feedback is implicit, and **the model's own output becomes tomorrow's training data**. Those three facts cause every hard problem in the field.
+- Pick the problem type from the **surface** you are building for. "Similar items" on a product page and "for you" on the homepage are different problems wearing the same clothes.
+</ConceptBox>
 
 <QuizCard
   question="Your retrieval stage returns 500 candidates. You change it so that the 500 are much more precise — fewer junk items — but recall@500 drops from 0.82 to 0.74. What happens end-to-end?"

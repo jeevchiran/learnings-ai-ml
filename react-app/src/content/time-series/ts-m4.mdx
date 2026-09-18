@@ -1,13 +1,6 @@
 import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import StationarityWidget from '../../components/widgets/time-series/StationarityWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Stationary = constant mean, constant variance, and autocovariance that depends only on the lag. AR models need it or their coefficients drift out of date.
-- **ADF's null hypothesis is "non-stationary"** — so here a *low* p-value is the good news. Backwards from most tests.
-- Three repair tools, one per symptom: difference for trend, seasonally difference for a repeating cycle, log for growing variance.
-- A slowly-decaying ACF is the visual tell for non-stationarity.
-</ConceptBox>
-
 ## Why This Module Exists
 
 Autoregressive models (next module) assume the relationship between $y_t$ and its past values is the **same at every point in time**. If the series is trending or its variance is changing, that relationship keeps shifting under the model's feet — coefficients fit on one stretch stop applying to the next. Stationarity is the precondition that makes AR modelling well-posed.
@@ -68,6 +61,15 @@ $$\rho_k = \frac{\sum_t (y_t-\bar y)(y_{t-k}-\bar y)}{\sum_t (y_t-\bar y)^2}$$
 A slowly-decaying ACF (still large at lag 15, 20…) is a visual tell for non-stationarity — the series "remembers" too far back, usually because of a trend. A properly stationary series' ACF drops toward the significance band ($\pm 1.96/\sqrt n$) within a handful of lags.
 
 <StationarityWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- Stationary = constant mean, constant variance, and autocovariance that depends only on the lag. AR models need it or their coefficients drift out of date.
+- **ADF's null hypothesis is "non-stationary"** — so here a *low* p-value is the good news. Backwards from most tests.
+- Three repair tools, one per symptom: difference for trend, seasonally difference for a repeating cycle, log for growing variance.
+- A slowly-decaying ACF is the visual tell for non-stationarity.
+</ConceptBox>
 
 ## Practice
 

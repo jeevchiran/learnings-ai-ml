@@ -3,14 +3,6 @@ import EventContractWidget from '../../components/widgets/recsys/EventContractWi
 
 # Module 3: Data Contracts & Event Semantics
 
-<ConceptBox title="TL;DR">
-- An **event contract** is the written agreement about what each event means, what fields it must carry, and what happens when it is malformed. Without one, your model silently learns your logging bugs.
-- Six fields carry almost all the weight: `event_id`, `user_id`, `item_id`, `event_type`, `event_ts`, `source`.
-- **Event time ≠ arrival time.** Mobile clients queue events offline; a day-old event can arrive after a fresh one.
-- Delivery is **at-least-once**, so duplicates are normal, so every event needs an idempotency key.
-- The rules with no obviously right answer — logged-out identity, refunds, bots — are precisely the ones that must be written down rather than left in one engineer's head.
-</ConceptBox>
-
 ## The bug you cannot see in the model code
 
 A NovaCart engineer ships a change: the mobile app now fires a `view` event when a product tile *scrolls into frame*, not when it is tapped. Nothing in the model repo changes. Two weeks later, homepage recommendations are noticeably worse and nobody can reproduce it.
@@ -85,6 +77,16 @@ With a contract in place we have trustworthy events. Next: how to score a rankin
   { q: "Delivery is at-least-once. What single field fixes the resulting problem, and what breaks without it?", a: "A client-generated event_id used as an idempotency/dedupe key. Without it, retries after transient 500s duplicate rows, and your popularity counts get inflated in proportion to your error rate — meaning a bad deploy day permanently distorts what the model thinks is popular." },
   { q: "NovaCart has a 14-day return window. Why does that make your freshest training data untrustworthy?", a: "A purchase can be reversed for 14 days, so purchase labels only mature after the window closes. Training on the last two weeks means training on labels that may still flip to negative — you will overestimate performance on recent data, and the correction arrives silently later." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- An **event contract** is the written agreement about what each event means, what fields it must carry, and what happens when it is malformed. Without one, your model silently learns your logging bugs.
+- Six fields carry almost all the weight: `event_id`, `user_id`, `item_id`, `event_type`, `event_ts`, `source`.
+- **Event time ≠ arrival time.** Mobile clients queue events offline; a day-old event can arrive after a fresh one.
+- Delivery is **at-least-once**, so duplicates are normal, so every event needs an idempotency key.
+- The rules with no obviously right answer — logged-out identity, refunds, bots — are precisely the ones that must be written down rather than left in one engineer's head.
+</ConceptBox>
 
 <QuizCard
   question="Your popularity counts for one product jump 5x overnight. The event contract is the first place to look. Which check most likely explains it?"

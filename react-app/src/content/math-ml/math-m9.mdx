@@ -3,13 +3,6 @@ import DerivativeWidget from '../../components/widgets/math-ml/DerivativeWidget.
 
 # Module 9: Derivatives & the Chain Rule
 
-<ConceptBox title="TL;DR">
-- A derivative is a slope; a **partial** derivative is the slope along one axis with the rest held still.
-- Stack the partials into the **gradient** $\nabla f$ — it points along steepest *ascent*, which is why descent subtracts it.
-- The **chain rule** multiplies the derivatives of composed functions. A network *is* a composition, so backprop is the chain rule run back-to-front.
-- $f'(x)=0$ marks a flat point, not necessarily a minimum — maxima and saddles are flat too.
-</ConceptBox>
-
 ## Starting the Calculus Track
 
 Vectors gave us space, probability gave us uncertainty — calculus gives us **optimization**: the machinery every training loop uses to turn "here's how wrong the model is" into "here's how to adjust it."
@@ -59,6 +52,15 @@ print(x.grad)                  # 9.0  ==  3*(2**2) - 3, the analytic derivative
 ```
 
 PyTorch's `autograd` is literally the chain rule applied automatically through every operation you write — this is what makes training arbitrary architectures practical without hand-deriving gradients.
+
+---
+
+<ConceptBox title="TL;DR">
+- A derivative is a slope; a **partial** derivative is the slope along one axis with the rest held still.
+- Stack the partials into the **gradient** $\nabla f$ — it points along steepest *ascent*, which is why descent subtracts it.
+- The **chain rule** multiplies the derivatives of composed functions. A network *is* a composition, so backprop is the chain rule run back-to-front.
+- $f'(x)=0$ marks a flat point, not necessarily a minimum — maxima and saddles are flat too.
+</ConceptBox>
 
 ## Practice
 

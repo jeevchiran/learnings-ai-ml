@@ -3,13 +3,6 @@ import AccuracyInterpretabilityWidget from '../../components/widgets/xai/Accurac
 
 # Module 1: What Is Explainable AI?
 
-<ConceptBox title="TL;DR">
-- Accuracy answers *what*, never *why*. A model can be right for entirely spurious reasons and a held-out score will not tell you.
-- **Interpretability** = the model is readable by construction. **Explainability** = a technique applied afterwards to an opaque model. XAI mostly means the second.
-- The old trade-off was "accurate or readable, pick one." XAI refuses it: keep the accurate model, bolt explanation on as a separate layer.
-- Four concrete payoffs: trust, debugging (Clever Hans leaks), legal compliance, and discovery.
-</ConceptBox>
-
 ## The Black-Box Problem
 
 A model can be extremely accurate and still be useless. A bank's neural network denies a loan; the applicant asks *why*; the bank shrugs. A hospital model flags a scan as malignant; the radiologist needs to know *what in the image* triggered it before acting. Accuracy alone answers "what" — it never answers "why."
@@ -46,6 +39,15 @@ A famous vision model classified horses correctly — by reading a copyright tag
 <Bridge>
 Before diving into specific methods, one distinction organises the whole field: does an explanation describe the model's behaviour **everywhere at once**, or its reasoning on **one specific prediction**? That's global vs. local interpretability — the subject of the next module, and the axis every method in this track sits on.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Accuracy answers *what*, never *why*. A model can be right for entirely spurious reasons and a held-out score will not tell you.
+- **Interpretability** = the model is readable by construction. **Explainability** = a technique applied afterwards to an opaque model. XAI mostly means the second.
+- The old trade-off was "accurate or readable, pick one." XAI refuses it: keep the accurate model, bolt explanation on as a separate layer.
+- Four concrete payoffs: trust, debugging (Clever Hans leaks), legal compliance, and discovery.
+</ConceptBox>
 
 ## Practice
 

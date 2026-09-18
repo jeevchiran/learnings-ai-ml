@@ -3,15 +3,6 @@ import ActivationMapWidget from '../../components/widgets/cnn/ActivationMapWidge
 
 # Module 9: Visualising & Interpreting CNN Activations
 
-<ConceptBox title="TL;DR">
-- Four uses, and debugging is the practical one: **95% accuracy from a watermark looks identical to 95% from real understanding** until you look inside.
-- **Saliency** = gradient of the class score w.r.t. input pixels ("which pixels would change the score"). Fast, noisy.
-- **Filter visualisation** runs gradient *ascent on the input* to synthesise what maximally excites a filter.
-- **CAM needs global average pooling before the output; Grad-CAM removes that constraint** and works on any architecture.
-- **Integrated Gradients** satisfies completeness — attributions sum exactly to the output change from the baseline (same axiom family as SHAP).
-- The **pointing game** scores attention objectively against ground-truth boxes, instead of "the heatmap looks right".
-</ConceptBox>
-
 <Bridge>
 **From Module 8:** transfer learning works because pretrained features generalise. But *which* features, and *where* in the image do they activate? Treating a CNN as a black box is both intellectually unsatisfying and practically risky — a model that achieves 95% accuracy by detecting a watermark instead of the actual object is worthless in deployment. This module covers the tools for looking inside.
 </Bridge>
@@ -182,6 +173,15 @@ IG satisfies the **completeness axiom**: $\sum_i \text{IG}_i = F(\mathbf{x}) - F
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Four uses, and debugging is the practical one: **95% accuracy from a watermark looks identical to 95% from real understanding** until you look inside.
+- **Saliency** = gradient of the class score w.r.t. input pixels ("which pixels would change the score"). Fast, noisy.
+- **Filter visualisation** runs gradient *ascent on the input* to synthesise what maximally excites a filter.
+- **CAM needs global average pooling before the output; Grad-CAM removes that constraint** and works on any architecture.
+- **Integrated Gradients** satisfies completeness — attributions sum exactly to the output change from the baseline (same axiom family as SHAP).
+- The **pointing game** scores attention objectively against ground-truth boxes, instead of "the heatmap looks right".
+</ConceptBox>
 
 ## Quiz
 

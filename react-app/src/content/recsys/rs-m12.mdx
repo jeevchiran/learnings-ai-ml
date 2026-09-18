@@ -3,13 +3,6 @@ import MultiModalWidget from '../../components/widgets/recsys/MultiModalWidget.j
 
 # Module 12: Multi-Modal Recommendation
 
-<ConceptBox title="TL;DR">
-- A brand-new product has an empty column, so pure collaborative filtering scores it **exactly zero** — not badly, but not at all. It can never be shown, so it never warms up.
-- **Content and image embeddings break the loop**: a product photo and title place a new item near its neighbours before anyone has clicked it.
-- Fusion happens at one of three points: **early** (concatenate features), **late** (blend scores), or **hybrid** (content initialises the ID embedding, behaviour takes over).
-- The blend weight should be a **function of how much interaction data the item has**, not a constant.
-</ConceptBox>
-
 ## The cold-start loop
 
 NovaCart lists the ANC Headphones. Zero views, zero carts, zero purchases.
@@ -90,6 +83,15 @@ That completes the fundamentals. Part 2 rebuilds all of it as a working pipeline
   { q: "Content similarity captures substitutes well and complements poorly. Give a concrete NovaCart example of each.", a: "Substitute: ANC Headphones and Earbuds — cos 0.95 from title and photo, both audio, and content nails it. Complement: Laptop Stand and USB-C Hub, or Yoga Mat and Steel Bottle — nothing in either photo says they go together, but co-purchase behaviour does. So use content for 'similar items' and behaviour for 'frequently bought together'." },
   { q: "New-user cold start is easier than new-item cold start. Why?", a: "Item-item CF needs only the user's current interaction to produce recommendations — after a single click you can serve that item's precomputed neighbours, so the user is warm almost immediately. A new item has no column at all and cannot be scored by any behavioural method until someone interacts with it, which requires it to be shown first." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A brand-new product has an empty column, so pure collaborative filtering scores it **exactly zero** — not badly, but not at all. It can never be shown, so it never warms up.
+- **Content and image embeddings break the loop**: a product photo and title place a new item near its neighbours before anyone has clicked it.
+- Fusion happens at one of three points: **early** (concatenate features), **late** (blend scores), or **hybrid** (content initialises the ID embedding, behaviour takes over).
+- The blend weight should be a **function of how much interaction data the item has**, not a constant.
+</ConceptBox>
 
 <QuizCard
   question="Your image encoder is excellent, and the 'similar items' row on a product page now shows nine near-identical listings of the same product from different sellers. What is the fix?"

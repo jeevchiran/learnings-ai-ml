@@ -3,14 +3,6 @@ import AugmentationWidget from '../../components/widgets/cnn/AugmentationWidget.
 
 # Module 7: Data Preparation & Augmentation
 
-<ConceptBox title="TL;DR">
-- `ToTensor` rescales to $[0,1]$ **and** reorders HWC → CHW; `Normalize` then centres each channel with dataset mean/std.
-- **Augmentation belongs on the training set only.** Augmenting validation makes the score noisy and no longer comparable.
-- **The right augmentations are the label-preserving ones** — and that's domain-specific. Horizontal flip is safe on CIFAR; vertical flip is not, and neither is any flip on digits or text.
-- Mixup and CutMix blend *both* images and labels, producing soft targets rather than a harder version of one image.
-- Cutout/random erasing forces the model to use the whole object instead of one discriminative patch.
-</ConceptBox>
-
 <Bridge>
 **From Module 6:** we can train a CNN end-to-end with backpropagation. But the model is only as good as the data pipeline feeding it. Before gradients even flow, every image must be normalised to a well-conditioned range, and during training the effective dataset must be expanded through augmentation. This module covers both: the mathematics of normalisation and the catalogue of augmentation techniques that close the gap between train and test performance.
 </Bridge>
@@ -153,6 +145,14 @@ This is equivalent to training with a smoother version of the label distribution
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- `ToTensor` rescales to $[0,1]$ **and** reorders HWC → CHW; `Normalize` then centres each channel with dataset mean/std.
+- **Augmentation belongs on the training set only.** Augmenting validation makes the score noisy and no longer comparable.
+- **The right augmentations are the label-preserving ones** — and that's domain-specific. Horizontal flip is safe on CIFAR; vertical flip is not, and neither is any flip on digits or text.
+- Mixup and CutMix blend *both* images and labels, producing soft targets rather than a harder version of one image.
+- Cutout/random erasing forces the model to use the whole object instead of one discriminative patch.
+</ConceptBox>
 
 ## Quiz
 

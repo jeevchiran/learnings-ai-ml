@@ -9,14 +9,6 @@ import CriticalValueWidget from '../../components/widgets/hypothesis-testing/Cri
 **Why it matters.** A jury can make exactly two mistakes: convict the innocent, or acquit the guilty. They pull opposite ways — a jury reluctant to convict rarely jails the innocent but lets more guilty walk. Every hypothesis test faces the same two errors. Understanding, quantifying, and balancing them is the most consequential decision in any analysis.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- **Type I ($\alpha$)** = false alarm, rejecting a true $H_0$. **Type II ($\beta$)** = missed effect. **Power** $=1-\beta$.
-- At fixed $n$, $\alpha$ and $\beta$ pull against each other. **Only a larger $n$ reduces both** — which is why sample size, $\alpha$, and target power are one decision.
-- The p-value is $P(\text{data this extreme}\mid H_0\text{ true})$ — **not** the probability that $H_0$ is true, not the probability the result was chance, not your error rate on rejecting.
-- Critical-value and p-value methods are the same geometry read two ways; they never disagree.
-- Memorise: two-tailed $z^*=1.96$ ($\alpha{=}.05$) and $2.576$ ($\alpha{=}.01$); one-tailed $1.645$ ($\alpha{=}.05$).
-</ConceptBox>
-
 ## Two Types of Error
 
 A test ends in reject / fail-to-reject; reality is $H_0$ true / false. Crossing them gives four outcomes:
@@ -132,6 +124,16 @@ In the rejection region — same decision.
 $p = 0.0244 < 0.05$ → **reject $H_0$**. At the 5% level, the mean fill weight is not 500g; recalibrate. Both methods agree, as they must.
 </DerivationStep>
 </DerivationSteps>
+
+---
+
+<ConceptBox title="TL;DR">
+- **Type I ($\alpha$)** = false alarm, rejecting a true $H_0$. **Type II ($\beta$)** = missed effect. **Power** $=1-\beta$.
+- At fixed $n$, $\alpha$ and $\beta$ pull against each other. **Only a larger $n$ reduces both** — which is why sample size, $\alpha$, and target power are one decision.
+- The p-value is $P(\text{data this extreme}\mid H_0\text{ true})$ — **not** the probability that $H_0$ is true, not the probability the result was chance, not your error rate on rejecting.
+- Critical-value and p-value methods are the same geometry read two ways; they never disagree.
+- Memorise: two-tailed $z^*=1.96$ ($\alpha{=}.05$) and $2.576$ ($\alpha{=}.01$); one-tailed $1.645$ ($\alpha{=}.05$).
+</ConceptBox>
 
 ## Practice
 

@@ -11,13 +11,6 @@ built twice: by hand in NumPy so the mechanism is visible, then the statsmodels
 call you would actually ship.
 </ConceptBox>
 
-<ConceptBox title="TL;DR">
-- Time series break two tabular-ML assumptions: **order matters** and **rows aren't independent**.
-- Decompose into trend + seasonality + residual (cycle usually gets absorbed into trend).
-- **Seasonality has a fixed known period; a cycle doesn't.** That's the whole distinction.
-- Constant-size seasonal swings → additive. Swings that grow with the level → multiplicative, and a log-transform converts it to additive.
-</ConceptBox>
-
 ## What Is a Time Series?
 
 A **time series** is a sequence of values indexed in time order: daily stock prices, monthly sales, hourly server load. Two things make it different from a regular tabular dataset — **order matters** (shuffling rows destroys the signal), and **observations are usually not independent** (today's value leans on yesterday's).
@@ -70,6 +63,15 @@ trend, seasonal, residual = result.trend, result.seasonal, result.resid
 
 <ConceptBox title="Common confusion — trend vs. stationarity">
 A series can have zero trend and still be non-stationary (e.g. its *variance* grows over time), and a trending series is by definition non-stationary. "Stationary" is a stronger, more precise condition than "no visible trend" — Module 4 makes this exact.
+</ConceptBox>
+
+---
+
+<ConceptBox title="TL;DR">
+- Time series break two tabular-ML assumptions: **order matters** and **rows aren't independent**.
+- Decompose into trend + seasonality + residual (cycle usually gets absorbed into trend).
+- **Seasonality has a fixed known period; a cycle doesn't.** That's the whole distinction.
+- Constant-size seasonal swings → additive. Swings that grow with the level → multiplicative, and a log-transform converts it to additive.
 </ConceptBox>
 
 ## Practice

@@ -3,14 +3,6 @@ import NBTennisWidget from '../../components/widgets/naive-bayes/NBTennisWidget.
 
 # Module 3: The Naive Bayes Classifier
 
-<ConceptBox title="TL;DR">
-- $P(\mathbf{x}\mid y)$ over $n$ binary features needs $2^n$ numbers per class. Hopeless.
-- The naive assumption factors it: $P(\mathbf{x}\mid y)=\prod_i P(x_i\mid y)$. **Exponential becomes linear.**
-- It claims **conditional** independence: once you know the class, one feature says nothing extra about another. "free" and "money" *are* correlated overall — that's allowed.
-- Final rule, all from counting: $\hat y=\arg\max_y P(y)\prod_i P(x_i\mid y)$.
-- Usually false, still works — because classification only needs the **ranking** right, and correlation distorts all classes' scores in the same direction.
-</ConceptBox>
-
 ## From Bayes' Theorem to a Classifier
 
 Substitute a class $y$ for $A$ and a feature vector $\mathbf{x} = (x_1,\ldots,x_n)$ for $B$:
@@ -88,6 +80,16 @@ Try every query yourself — and note what happens with *Overcast, False* (Overc
 <Bridge>
 The counting worked because both features were categorical. Real features come as counts, presence/absence flags, or continuous measurements — each needs a different shape for $P(x_i \mid y)$. Module 4 codes this counting classifier in Python and checks it against scikit-learn; Module 5 generalizes to the three likelihood families.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- $P(\mathbf{x}\mid y)$ over $n$ binary features needs $2^n$ numbers per class. Hopeless.
+- The naive assumption factors it: $P(\mathbf{x}\mid y)=\prod_i P(x_i\mid y)$. **Exponential becomes linear.**
+- It claims **conditional** independence: once you know the class, one feature says nothing extra about another. "free" and "money" *are* correlated overall — that's allowed.
+- Final rule, all from counting: $\hat y=\arg\max_y P(y)\prod_i P(x_i\mid y)$.
+- Usually false, still works — because classification only needs the **ranking** right, and correlation distorts all classes' scores in the same direction.
+</ConceptBox>
 
 ## Practice
 

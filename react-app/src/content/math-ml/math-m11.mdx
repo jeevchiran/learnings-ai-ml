@@ -1,13 +1,6 @@
 import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import GradientDescentWidget from '../../components/widgets/math-ml/GradientDescentWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- **Jacobian** = first derivatives of a *vector*-valued function. **Hessian** = second derivatives of a *scalar*-valued one. The Hessian is the Jacobian of the gradient.
-- The Hessian is curvature, and its **eigenvalues classify a flat point**: all positive → minimum, all negative → maximum, mixed → saddle.
-- In high dimensions all-positive is improbable, so most critical points are saddles — this, not local minima, is what stalls deep-net training.
-- Newton's method uses $H^{-1}\nabla f$ and converges faster but costs too much at network scale; Adam approximates the same information cheaply.
-</ConceptBox>
-
 ## Beyond the First Derivative
 
 The gradient (Module 9) tells you the slope. It says nothing about whether that slope is about to flatten out, keep going, or reverse — that's **curvature**, and it's the last piece needed to fully explain why gradient descent behaves the way it does.
@@ -56,6 +49,15 @@ print(hessian)
 # tensor([[ 2.,  0.],
 #         [ 0., -2.]])   -- matches the analytic [[2a,b],[b,2c]] formula, a=1,b=0,c=-1
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- **Jacobian** = first derivatives of a *vector*-valued function. **Hessian** = second derivatives of a *scalar*-valued one. The Hessian is the Jacobian of the gradient.
+- The Hessian is curvature, and its **eigenvalues classify a flat point**: all positive → minimum, all negative → maximum, mixed → saddle.
+- In high dimensions all-positive is improbable, so most critical points are saddles — this, not local minima, is what stalls deep-net training.
+- Newton's method uses $H^{-1}\nabla f$ and converges faster but costs too much at network scale; Adam approximates the same information cheaply.
+</ConceptBox>
 
 ## Practice
 

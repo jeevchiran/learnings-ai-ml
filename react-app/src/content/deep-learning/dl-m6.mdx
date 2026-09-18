@@ -3,14 +3,6 @@ import BackpropWidget from '../../components/widgets/deep-learning/BackpropWidge
 
 # Module 6: Backward Propagation
 
-<ConceptBox title="TL;DR">
-- Backprop is the chain rule run **output → input**, computing gradients for *all* $P$ parameters in **one** backward pass — not $O(P)$ passes.
-- The efficiency comes from **reuse**: each layer receives an upstream gradient, multiplies by its local gradient, and passes the product down.
-- It consumes exactly the $(\mathbf{Z}^{[l]}, \mathbf{A}^{[l]})$ that Module 5 cached.
-- Worth memorising: **softmax + cross-entropy gives $\hat{\mathbf{y}} - \mathbf{y}$** at the output. The messy Jacobians cancel.
-- **PyTorch accumulates gradients**, so `optimizer.zero_grad()` before each `backward()` — forget it and you silently train on a running sum of batches.
-</ConceptBox>
-
 <Bridge>
 **From Module 5:** Forward propagation computes the prediction and caches $(Z^{[l]}, A^{[l]})$ for each layer. Now we need to answer: given the loss, how should we update each weight to reduce it? The answer is **backpropagation** — applying the chain rule of calculus in reverse order through the network. This module derives every gradient from first principles and shows how PyTorch's autograd implements this automatically.
 </Bridge>
@@ -193,6 +185,14 @@ For $l = 1$ to $L$: compute $Z^{[l]} = W^{[l]} A^{[l-1]} + b^{[l]}$ and $A^{[l]}
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Backprop is the chain rule run **output → input**, computing gradients for *all* $P$ parameters in **one** backward pass — not $O(P)$ passes.
+- The efficiency comes from **reuse**: each layer receives an upstream gradient, multiplies by its local gradient, and passes the product down.
+- It consumes exactly the $(\mathbf{Z}^{[l]}, \mathbf{A}^{[l]})$ that Module 5 cached.
+- Worth memorising: **softmax + cross-entropy gives $\hat{\mathbf{y}} - \mathbf{y}$** at the output. The messy Jacobians cancel.
+- **PyTorch accumulates gradients**, so `optimizer.zero_grad()` before each `backward()` — forget it and you silently train on a running sum of batches.
+</ConceptBox>
 
 ## Quiz
 

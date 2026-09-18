@@ -3,13 +3,6 @@ import RankingMetricsWidget from '../../components/widgets/recsys/RankingMetrics
 
 # Module 4: Offline Evaluation Metrics
 
-<ConceptBox title="TL;DR">
-- Ranking metrics differ in **what they are indifferent to**. Pick the one whose blind spot you can live with.
-- **Precision@k** — of the slots you spent, what fraction paid off. **Recall@k** — of what they wanted, what fraction you found.
-- **MRR** cares only about the *first* hit. **MAP** averages precision at every hit. **NDCG** is the only common one that discounts by *position* and normalises by the best possible order.
-- Always report a **beyond-accuracy** metric too — coverage or intra-list diversity — or you will ship a model that recommends the same five products to everyone and scores well doing it.
-</ConceptBox>
-
 ## One slate, six numbers
 
 NovaCart's ranker returns eight products for a shopper. Three of them are things the shopper actually went on to buy. Every metric below reads that same slate and reports something different.
@@ -94,6 +87,15 @@ Every metric here assumed you had a trustworthy held-out set. Producing one is h
   { q: "Your model's NDCG@10 improves 4% and catalog coverage drops from 40% to 12%. What most likely happened?", a: "The model shifted toward recommending popular head items to everyone. Popular items are likely to be the held-out purchase by base rate, so accuracy rises, while the slate becomes near-identical across shoppers. This is the classic popularity collapse — the accuracy metric alone reports it as a win." },
   { q: "When is MRR the RIGHT metric rather than a lazy one?", a: "When the surface's job is to surface one specific thing and the session ends on finding it — search for a known item, 'resume where you left off', a support-article recommender. Its indifference to everything past the first hit is a correct model of the task there, and a bug on a browsing surface." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Ranking metrics differ in **what they are indifferent to**. Pick the one whose blind spot you can live with.
+- **Precision@k** — of the slots you spent, what fraction paid off. **Recall@k** — of what they wanted, what fraction you found.
+- **MRR** cares only about the *first* hit. **MAP** averages precision at every hit. **NDCG** is the only common one that discounts by *position* and normalises by the best possible order.
+- Always report a **beyond-accuracy** metric too — coverage or intra-list diversity — or you will ship a model that recommends the same five products to everyone and scores well doing it.
+</ConceptBox>
 
 <QuizCard
   question="Model A puts the shopper's purchase at rank 1. Model B puts it at rank 3 but also surfaces two other items they later bought, at ranks 2 and 4. Which metric most favours A, and which most favours B?"

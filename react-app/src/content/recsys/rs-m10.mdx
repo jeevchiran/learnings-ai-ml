@@ -3,15 +3,6 @@ import FeatureWindowWidget from '../../components/widgets/recsys/FeatureWindowWi
 import TimeDecayWidget from '../../components/widgets/recsys/TimeDecayWidget.jsx'
 import SessionFeatureWidget from '../../components/widgets/recsys/SessionFeatureWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Features come in four families: **user**, **item**, **user×item cross**, and **context**. The cross features are where the ranker earns its keep — retrieval structurally cannot use them.
-- Every aggregate must be **point-in-time correct**: computed only from events strictly *before* the row's timestamp. This is the single most common production recsys bug.
-- **Time decay** replaces a count with $\sum w \cdot 2^{-\Delta t / t_{1/2}}$, so *when* stops being thrown away. Half-life is the knob.
-- **Popularity** is a family, not one number: global, windowed, category-relative, trend ratio, rank percentile.
-- **Session features** are the shortest-lived and highest-signal of all — last item, last N, dwell time, category share. Dwell is what separates real interest from a bounce.
-- **MF scores are features.** Feeding the ALS score into the ranker is how retrieval and ranking actually compose: it supplies collaborative structure the ranker cannot learn from few labels.
-</ConceptBox>
-
 ## The four families
 
 | Family | Examples | Changes |
@@ -257,6 +248,17 @@ Features and a loss give you a trainable ranker. But a ranker needs negatives, a
   { q: "Why feed the ALS score into the ranker rather than the raw latent factors?", a: "The score is one well-conditioned column that already encodes the user–item interaction. The raw factors are individually meaningless — ALS axes are arbitrary and differ per run — so 128 noisy columns bury the handful of genuinely informative features in a tree model. Start with the score; add a few factor dims only if it measurably helps." },
   { q: "What is the leak hiding inside 'add als_score as a feature', and how do you avoid it?", a: "If ALS was fitted on all data including the test period, then every training row's als_score encodes the future — the leak sits one model upstream of the SQL people actually audit. The fix is the same as any other feature: the ALS model attached to a row dated t must be trained only on events before t, which means refitting per period (weekly is usually enough) and joining as-of." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Features come in four families: **user**, **item**, **user×item cross**, and **context**. The cross features are where the ranker earns its keep — retrieval structurally cannot use them.
+- Every aggregate must be **point-in-time correct**: computed only from events strictly *before* the row's timestamp. This is the single most common production recsys bug.
+- **Time decay** replaces a count with $\sum w \cdot 2^{-\Delta t / t_{1/2}}$, so *when* stops being thrown away. Half-life is the knob.
+- **Popularity** is a family, not one number: global, windowed, category-relative, trend ratio, rank percentile.
+- **Session features** are the shortest-lived and highest-signal of all — last item, last N, dwell time, category share. Dwell is what separates real interest from a bounce.
+- **MF scores are features.** Feeding the ALS score into the ranker is how retrieval and ranking actually compose: it supplies collaborative structure the ranker cannot learn from few labels.
+</ConceptBox>
 
 <QuizCard
   question="A feature `item_return_rate` is computed once from the current catalog table and joined onto training rows spanning the last year. What is wrong?"

@@ -3,14 +3,6 @@ import MissingValueWidget from '../../components/widgets/pandas-eda/MissingValue
 
 # Missing Values
 
-<ConceptBox title="TL;DR">
-- **`NaN != NaN`**, so you can never find missing values with `== NaN`. Use `.isna()` / `.notna()`.
-- `.isna().mean()` gives the missing *rate* per column — averaging a boolean column is the fraction of `True`.
-- Summary statistics don't warn you about holes; they silently compute on what's left.
-- **The fix depends on what the column means, not on how many cells are empty.** A missing `airport_fee` probably means "no airport", not "unknown".
-- Filling before splitting leaks — statistics used to impute must come from training data only.
-</ConceptBox>
-
 ## Why This Topic?
 
 Nulls break stats and ML silently. In Module 1, `.describe()` happily computed `fare_amount`'s mean and quartiles — but that same call never told you that three other columns in this exact dataset are partly empty. A summary statistic doesn't refuse to run just because some of its neighbors have holes in them; it just quietly ignores what isn't there, and unless you go looking, you'd never know.
@@ -75,6 +67,16 @@ Reading these numbers from printed output is fine for a one-time check. The widg
 </Bridge>
 
 <MissingValueWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- **`NaN != NaN`**, so you can never find missing values with `== NaN`. Use `.isna()` / `.notna()`.
+- `.isna().mean()` gives the missing *rate* per column — averaging a boolean column is the fraction of `True`.
+- Summary statistics don't warn you about holes; they silently compute on what's left.
+- **The fix depends on what the column means, not on how many cells are empty.** A missing `airport_fee` probably means "no airport", not "unknown".
+- Filling before splitting leaks — statistics used to impute must come from training data only.
+</ConceptBox>
 
 ## Practice
 

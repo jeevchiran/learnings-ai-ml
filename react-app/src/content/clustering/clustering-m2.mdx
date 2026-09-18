@@ -3,13 +3,6 @@ import DistanceCentroidWidget from '../../components/widgets/clustering/Distance
 
 # Module 2: Distance, Means, and Centroids
 
-<ConceptBox title="TL;DR">
-- The metric decides the cluster **shape** the algorithm can find: Euclidean → round, Manhattan → diamond, cosine → angular sector.
-- **Metric and centroid update are one decision, not two.** Squared Euclidean ⟹ the mean is the exact minimiser; L1 ⟹ the median (K-medians). Swapping the metric alone breaks convergence.
-- Cosine ignores magnitude, which is what you want for documents — but it doesn't drop into standard K-means without also changing the update.
-- **Always Z-score before K-means.** Euclidean distance is not scale-invariant, so an unscaled income column will cluster your data by units, not structure.
-</ConceptBox>
-
 ## Why Distance?
 
 <Bridge>
@@ -96,6 +89,15 @@ Z-score gives mean 0, SD 1 per feature (preferred — min-max is outlier-sensiti
 **Example:** A = (age 10, income 50,000), B = (age 70, income 51,000). Unscaled: $d_E = \sqrt{3600 + 1{,}000{,}000} \approx 1001.8$ — income swamps age. After Z-scoring (age $\bar x=40,s=20$; income $\bar x=50500,s=500$): $A'=(-1.5,-1.0)$, $B'=(1.5,1.0)$, $d_E = \sqrt{9+4} \approx 3.61$ — now both contribute.
 
 <DistanceCentroidWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- The metric decides the cluster **shape** the algorithm can find: Euclidean → round, Manhattan → diamond, cosine → angular sector.
+- **Metric and centroid update are one decision, not two.** Squared Euclidean ⟹ the mean is the exact minimiser; L1 ⟹ the median (K-medians). Swapping the metric alone breaks convergence.
+- Cosine ignores magnitude, which is what you want for documents — but it doesn't drop into standard K-means without also changing the update.
+- **Always Z-score before K-means.** Euclidean distance is not scale-invariant, so an unscaled income column will cluster your data by units, not structure.
+</ConceptBox>
 
 ## Practice
 

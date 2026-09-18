@@ -3,14 +3,6 @@ import PerceptronWidget from '../../components/widgets/deep-learning/PerceptronW
 
 # Module 1: The Perceptron
 
-<ConceptBox title="TL;DR">
-- One neuron = weighted sum + bias, then an activation: $z=\mathbf{w}^T\mathbf{x}+b$, $\hat y = g(z)$. Every modern architecture is this primitive, stacked.
-- The weights set the **orientation** of the decision boundary; the bias sets its **offset** from the origin.
-- **Convergence is guaranteed — but only if the data is linearly separable.** On non-separable data the rule never settles.
-- **XOR is the fatal counterexample**: no single line separates it, so one perceptron cannot solve it at any training budget.
-- Trained by a local update rule, not backprop — backprop only becomes necessary once there are hidden layers.
-</ConceptBox>
-
 <Bridge>
 **Where does it all begin?** In 1943, Warren McCulloch and Walter Pitts proposed the first mathematical model of a neuron. In 1957, Frank Rosenblatt built the Perceptron — a single artificial neuron that could learn to classify patterns. Every transformer, every diffusion model, every large language model you encounter today is built from stacking and connecting this one primitive. Understanding the perceptron from first principles is not a historical exercise — it is the foundation on which all of modern deep learning rests.
 </Bridge>
@@ -140,6 +132,14 @@ Notice: the gradient has the same beautiful form as the perceptron update rule �
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- One neuron = weighted sum + bias, then an activation: $z=\mathbf{w}^T\mathbf{x}+b$, $\hat y = g(z)$. Every modern architecture is this primitive, stacked.
+- The weights set the **orientation** of the decision boundary; the bias sets its **offset** from the origin.
+- **Convergence is guaranteed — but only if the data is linearly separable.** On non-separable data the rule never settles.
+- **XOR is the fatal counterexample**: no single line separates it, so one perceptron cannot solve it at any training budget.
+- Trained by a local update rule, not backprop — backprop only becomes necessary once there are hidden layers.
+</ConceptBox>
 
 ## Quiz
 

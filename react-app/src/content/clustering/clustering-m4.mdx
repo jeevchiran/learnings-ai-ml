@@ -7,14 +7,6 @@ import SilhouetteWidget from '../../components/widgets/clustering/SilhouetteWidg
 **The key insight.** A good clustering places each point closer to its own cluster than to any other — by a wide margin. The silhouette score quantifies that margin for every point, then averages them. WCSS can't: two clusters can each be tight yet sit right next to each other, overlapping at the boundary.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- Silhouette scores every point by **cohesion vs separation at once**: $s = (b-a)/\max(a,b)$, where $a$ is the mean distance inside its own cluster and $b$ the mean distance to the nearest *other* cluster.
-- Read the sign first. $s>0$ correctly clustered, $s\approx0$ on the boundary, **$s<0$ means the point is on average closer to a competing cluster** — a reassignment candidate.
-- Rough bands: above 0.7 strong, 0.5–0.7 reasonable, below 0.25 no real structure.
-- **Silhouette plots** show more than the mean: thickness = cluster size, bar length = confidence, negative bars = misfits.
-- Davies-Bouldin (lower better) and Calinski-Harabasz (higher better) are cheaper second opinions. **Pick $K$ where two or three metrics agree**, not where one is best.
-</ConceptBox>
-
 ## Why WCSS Isn't Enough
 
 WCSS measures **cohesion** (tightness) but is blind to **separation**. Two failure modes with similar WCSS but poor clusterings:
@@ -121,6 +113,16 @@ No single metric is definitive — use several and look for agreement:
   { q: "Mean silhouette is 0.62 but the plot shows one cluster entirely below the average line. What does that tell you?", a: "The mean is being propped up by the well-separated clusters while one cluster is genuinely poor — probably two real groups merged, or a group that overlaps a neighbour. The aggregate number hides it; this is exactly why you inspect the plot rather than trusting the single score." },
   { q: "Give the practical workflow for choosing K.", a: "Run K from 2 to 10 with n_init at least 10. Note the elbow in WCSS, the K maximising mean silhouette, the K minimising Davies-Bouldin, and the K maximising Calinski-Harabasz. Choose where two or three agree, then inspect silhouette plots for the top candidates before committing." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Silhouette scores every point by **cohesion vs separation at once**: $s = (b-a)/\max(a,b)$, where $a$ is the mean distance inside its own cluster and $b$ the mean distance to the nearest *other* cluster.
+- Read the sign first. $s>0$ correctly clustered, $s\approx0$ on the boundary, **$s<0$ means the point is on average closer to a competing cluster** — a reassignment candidate.
+- Rough bands: above 0.7 strong, 0.5–0.7 reasonable, below 0.25 no real structure.
+- **Silhouette plots** show more than the mean: thickness = cluster size, bar length = confidence, negative bars = misfits.
+- Davies-Bouldin (lower better) and Calinski-Harabasz (higher better) are cheaper second opinions. **Pick $K$ where two or three metrics agree**, not where one is best.
+</ConceptBox>
 
 <QuizCard
   question="A data point has a(i) = 3.2 and b(i) = 1.8. What does this indicate about its cluster assignment?"

@@ -3,14 +3,6 @@ import FilterRankWidget from '../../components/widgets/model-eval/FilterRankWidg
 
 # Module 6: Filter-Based Methods
 
-<ConceptBox title="TL;DR">
-- Filters score each feature **independently, with no model fitted** — so they're cheap enough to run on thousands of columns as a first pass.
-- **Variance threshold is target-blind**: it only drops near-constant columns. A rare-but-critical flag looks dead to it.
-- Pearson catches **linear** relationships only; ANOVA F catches monotonic group differences; **mutual information** catches arbitrary dependence but has no clean p-value.
-- Chi-square needs **non-negative** inputs — counts or one-hot, never raw signed values.
-- The shared blind spot: scoring one feature at a time **cannot see interactions**. Latitude and longitude are each useless and jointly decisive.
-</ConceptBox>
-
 ## Scoring Features One at a Time
 
 Filter methods score each feature by its relationship to the target — a statistic computed directly from the data, no model trained. Keep the top scorers (by count, fraction, or threshold), drop the rest. Because nothing gets fitted, they run on thousands of features as a first pass. Here are the five you'll reach for most, ordered by how much they assume. Toggle between the target-aware and target-blind ones:
@@ -120,6 +112,16 @@ Every method scores one feature at a time — what makes filters fast makes them
 <Bridge>
 Filters are fast and a sensible first pass, but the interaction blind spot is real: a jointly-powerful, individually-weak pair never survives. Module 7 introduces wrapper and embedded methods, folding a model's CV performance into selection — higher cost, but able to catch the interactions filters can't see.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Filters score each feature **independently, with no model fitted** — so they're cheap enough to run on thousands of columns as a first pass.
+- **Variance threshold is target-blind**: it only drops near-constant columns. A rare-but-critical flag looks dead to it.
+- Pearson catches **linear** relationships only; ANOVA F catches monotonic group differences; **mutual information** catches arbitrary dependence but has no clean p-value.
+- Chi-square needs **non-negative** inputs — counts or one-hot, never raw signed values.
+- The shared blind spot: scoring one feature at a time **cannot see interactions**. Latitude and longitude are each useless and jointly decisive.
+</ConceptBox>
 
 ## Practice
 

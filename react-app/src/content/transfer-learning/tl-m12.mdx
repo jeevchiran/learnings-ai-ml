@@ -2,14 +2,6 @@ import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/
 
 # Module 12: Demonstration — U-Net in PyTorch
 
-<ConceptBox title="TL;DR">
-- A full U-Net is about **60 lines**: a `DoubleConv` block, a down path, an up path with `torch.cat`, and a 1×1 head.
-- Build it **shape-first**. Run a random tensor through before you touch a dataset — every U-Net bug is a shape bug.
-- Train with **BCE + soft Dice**, monitor **Dice on the validation set**, not the loss.
-- Threshold at 0.5 to start, then **tune the threshold on validation** — it is free accuracy and almost everyone forgets.
-- The whole of this module runs in the track notebook, including the training loop and a Dice-vs-threshold sweep.
-</ConceptBox>
-
 <Bridge>
 Modules 6 through 11 built every component and the loss. This module assembles them into working code and trains it, so the architecture stops being a diagram.
 </Bridge>
@@ -31,7 +23,6 @@ class DoubleConv(nn.Module):
             nn.BatchNorm2d(out_ch), nn.ReLU(inplace=True),
         )
     def forward(self, x): return self.net(x)
-
 
 class UNet(nn.Module):
     def __init__(self, in_ch=3, classes=1, base=32, depth=4):
@@ -187,6 +178,16 @@ On imbalanced data the best threshold is routinely 0.3–0.4 rather than 0.5, an
   { q: "What does a threshold sweep typically buy, and why is 0.5 often wrong?", a: "Several points of Dice at zero training cost. 0.5 is only optimal when the predicted probabilities are calibrated and the classes balanced; with heavy foreground imbalance the model is systematically under-confident about the rare class, so a lower threshold around 0.3 to 0.4 usually scores better. Tune it on validation, not test." },
   { q: "Loss is falling but validation Dice sits near zero. What is happening?", a: "The model is predicting background everywhere. Cross-entropy is happy with that under imbalance, so the loss keeps dropping while every thresholded mask is empty and Dice stays at zero. Check that the Dice term is actually contributing to the loss and consider a pos_weight on the BCE term." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- A full U-Net is about **60 lines**: a `DoubleConv` block, a down path, an up path with `torch.cat`, and a 1×1 head.
+- Build it **shape-first**. Run a random tensor through before you touch a dataset — every U-Net bug is a shape bug.
+- Train with **BCE + soft Dice**, monitor **Dice on the validation set**, not the loss.
+- Threshold at 0.5 to start, then **tune the threshold on validation** — it is free accuracy and almost everyone forgets.
+- The whole of this module runs in the track notebook, including the training loop and a Dice-vs-threshold sweep.
+</ConceptBox>
 
 <QuizCard
   question="Your UNet(base=32, depth=4) returns a 248×248 output for a 250×250 input. What is the most likely cause?"

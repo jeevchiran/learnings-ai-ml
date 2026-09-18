@@ -8,14 +8,6 @@ import PairedVsIndependentWidget from '../../components/widgets/hypothesis-testi
 **Blood pressure treatment.** A cardiologist tests whether a 12-week lifestyle program lowers systolic BP, measuring each of 15 patients before and after. The key phrase is "each patient" — measured twice, so the two readings aren't independent: a patient high at the start tends to be high at the end. Treating this as two independent groups (Module 4) throws away that structure — and statistical power. The **paired t-test** exploits the link between the two measurements.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- **The paired t-test is a one-sample t-test on the differences $d_i$.** That's the whole idea — everything else follows.
-- Subtracting within a person **cancels that person's baseline**, removing between-subject noise that would otherwise sit in the SE and hide the effect.
-- Hence $t=\bar d/(s_d/\sqrt n)$ with $n-1$ df, where $n$ is the number of *pairs*, not observations.
-- **The design dictates the test.** Paired data analysed as independent throws away power and gets the error rates wrong — it isn't a choice.
-- Normality is required of the **differences**, not the raw measurements. Extreme outliers in $d_i$ push you to Wilcoxon signed-rank.
-</ConceptBox>
-
 ## Paired vs. Independent
 
 Module 4's two groups were different people with no correspondence. In a paired design the same subject (or a matched pair) appears in **both** conditions:
@@ -95,6 +87,16 @@ Eight patients, systolic BP before/after, $d_i = $ before − after (positive = 
 **Decision:** right-tailed $t^*(0.05, 7) = 1.895$; $13.31 \gg 1.895$ → **reject $H_0$** (p ≈ 0.0000012).
 
 **Conclusion:** Extremely strong evidence the program lowers systolic BP. Mean reduction 8.25 mmHg, 95% CI $8.25 \pm 2.365 \times 0.620 = [6.78, 9.72]$ mmHg.
+
+---
+
+<ConceptBox title="TL;DR">
+- **The paired t-test is a one-sample t-test on the differences $d_i$.** That's the whole idea — everything else follows.
+- Subtracting within a person **cancels that person's baseline**, removing between-subject noise that would otherwise sit in the SE and hide the effect.
+- Hence $t=\bar d/(s_d/\sqrt n)$ with $n-1$ df, where $n$ is the number of *pairs*, not observations.
+- **The design dictates the test.** Paired data analysed as independent throws away power and gets the error rates wrong — it isn't a choice.
+- Normality is required of the **differences**, not the raw measurements. Extreme outliers in $d_i$ push you to Wilcoxon signed-rank.
+</ConceptBox>
 
 ## Practice
 

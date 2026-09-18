@@ -3,13 +3,6 @@ import CorrelationScatterWidget from '../../components/widgets/pandas-eda/Correl
 
 # Bivariate Analysis
 
-<ConceptBox title="TL;DR">
-- Scatter for numeric-vs-numeric, grouped box plot for categorical-vs-numeric, Pearson $r$ to compress a relationship to one number.
-- **$r$ measures linear association only.** $r=0$ rules out a straight-line relationship, not a relationship — a perfect U-curve scores about 0.
-- **Always plot alongside `df.corr()`.** Identical $r$ values can come from wildly different scatter shapes, and one outlier can manufacture or destroy a correlation.
-- Distance predicts fare strongly *for metered rides* — flat-rate airport trips and the $399 meter fault break the pattern, which is a hint that a third variable is lurking.
-</ConceptBox>
-
 ## What, Why, and How
 
 <ConceptBox title="WHAT: Examining how two variables relate">
@@ -92,6 +85,15 @@ The interactive widget below lets you plot any pair of columns as a scatter with
 </Bridge>
 
 <CorrelationScatterWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- Scatter for numeric-vs-numeric, grouped box plot for categorical-vs-numeric, Pearson $r$ to compress a relationship to one number.
+- **$r$ measures linear association only.** $r=0$ rules out a straight-line relationship, not a relationship — a perfect U-curve scores about 0.
+- **Always plot alongside `df.corr()`.** Identical $r$ values can come from wildly different scatter shapes, and one outlier can manufacture or destroy a correlation.
+- Distance predicts fare strongly *for metered rides* — flat-rate airport trips and the $399 meter fault break the pattern, which is a hint that a third variable is lurking.
+</ConceptBox>
 
 ## Practice
 

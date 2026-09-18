@@ -2,15 +2,6 @@ import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../com
 
 # Module 8: Comparison with Other Classification Models
 
-<ConceptBox title="TL;DR">
-- NB and logistic regression are the **same functional form fitted two ways** — Gaussian NB with shared covariance yields a sigmoid-of-linear posterior.
-- Ng & Jordan: **NB converges faster to a higher error floor**; logistic regression starts worse and overtakes once data is plentiful. That one sentence decides most NB-vs-LR calls.
-- vs trees: trees learn interactions, NB cannot — but NB's assumption regularises it when data is scarce relative to features.
-- vs k-NN: NB compresses the training set to a few counts (instant prediction); k-NN keeps all of it (slow, and poor in high dimensions).
-- vs SVM: SVM has the higher accuracy ceiling but scales $O(N^2)$–$O(N^3)$ and outputs a distance, not a probability.
-- **NB is rarely the most accurate model. It is the fastest reasonable one** — and the right baseline to beat.
-</ConceptBox>
-
 ## Naive Bayes in Context
 
 Every classifier trades off assumptions, training cost, and expressive power. Naive Bayes sits at one extreme: strong assumptions, minimal training cost, no feature interactions. Here it is against the alternatives along the axes that decide which to reach for.
@@ -54,6 +45,17 @@ An SVM finds the maximum-margin boundary, optionally kernelized — usually high
 <Bridge>
 Naive Bayes is rarely the *most accurate* model — it is the fastest reasonable one, and often the best choice specifically when data is limited, features are numerous and sparse, or a fast, interpretable, incrementally-updatable baseline beats squeezing out the last accuracy points. Knowing exactly why it wins there, and loses elsewhere, is what understanding a classifier means.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- NB and logistic regression are the **same functional form fitted two ways** — Gaussian NB with shared covariance yields a sigmoid-of-linear posterior.
+- Ng & Jordan: **NB converges faster to a higher error floor**; logistic regression starts worse and overtakes once data is plentiful. That one sentence decides most NB-vs-LR calls.
+- vs trees: trees learn interactions, NB cannot — but NB's assumption regularises it when data is scarce relative to features.
+- vs k-NN: NB compresses the training set to a few counts (instant prediction); k-NN keeps all of it (slow, and poor in high dimensions).
+- vs SVM: SVM has the higher accuracy ceiling but scales $O(N^2)$–$O(N^3)$ and outputs a distance, not a probability.
+- **NB is rarely the most accurate model. It is the fastest reasonable one** — and the right baseline to beat.
+</ConceptBox>
 
 ## Practice
 

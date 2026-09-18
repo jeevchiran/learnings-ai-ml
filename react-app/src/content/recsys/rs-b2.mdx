@@ -3,12 +3,6 @@ import RankingMetricsWidget from '../../components/widgets/recsys/RankingMetrics
 
 # Build — Metrics Harness
 
-<ConceptBox title="TL;DR">
-- The harness is one function: **give it a `rank_fn(user) -> [item_ids]`, get back a dict of metrics.** Every model in this track plugs into that one interface.
-- Unit-test the metrics against hand-computed values *before* trusting them on a model. A broken NDCG produces confident nonsense forever.
-- Report accuracy **and** coverage together, always.
-</ConceptBox>
-
 ## The interface that makes everything else swappable
 
 Every recommender — popularity, ALS, a gradient-boosted ranker — reduces to the same signature:
@@ -155,6 +149,14 @@ The scoreboard exists. Now put something on it — the baselines any model must 
   { q: "Why return the per-user frame as well as the summary?", a: "The mean says whether something changed; only the per-user rows say who changed. Debugging a regression means finding which users got worse and what they have in common — cold users, long histories, one category. That is impossible from an aggregate." },
   { q: "When bootstrapping a confidence interval on NDCG, why resample users rather than (user, item) rows?", a: "Users are the independent sampling unit; rows within a user are correlated because they share a history and a model state. Resampling rows understates variance and produces intervals that are too narrow, which is exactly the error that makes noise look like a result." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- The harness is one function: **give it a `rank_fn(user) -> [item_ids]`, get back a dict of metrics.** Every model in this track plugs into that one interface.
+- Unit-test the metrics against hand-computed values *before* trusting them on a model. A broken NDCG produces confident nonsense forever.
+- Report accuracy **and** coverage together, always.
+</ConceptBox>
 
 <QuizCard
   question="Your `ndcg_at_k` divides by the IDCG of k items rather than min(k, |relevant|). A user with 1 relevant item, evaluated at k=10, has that item at rank 1. What score do they get?"

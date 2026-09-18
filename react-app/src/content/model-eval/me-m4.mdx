@@ -3,14 +3,6 @@ import HPOSearchWidget from '../../components/widgets/model-eval/HPOSearchWidget
 
 # Module 4: Hyperparameter Search Techniques
 
-<ConceptBox title="TL;DR">
-- Every setting costs $K$ fits, so this module is about **spending a fixed budget well**.
-- **Grid search cost is multiplicative** — one more hyperparameter multiplies the whole grid. Its own curse of dimensionality.
-- **Random search decouples budget from dimensionality**: you pick `n_iter` directly, and it beats grid when only a few hyperparameters actually matter, because it tries more distinct values of each.
-- **Bayesian optimisation** uses past evaluations to choose the next point — best when each fit is expensive.
-- **Successive halving / Hyperband** start everyone on a small budget and promote survivors, instead of paying full price for obviously bad settings.
-</ConceptBox>
-
 ## The Problem: Many Settings, Expensive Scoring
 
 Cross-validation scores *one* hyperparameter setting honestly — but that's $K$ model fits, not a cheap lookup. With several hyperparameters each having several values, the number of settings explodes combinatorially. This module is about spending a limited evaluation budget well.
@@ -108,6 +100,16 @@ halving_search.fit(X_train, y_train)
 
 <ConceptBox title="More evaluations isn't automatically better">
 "60 trials good, 600 better" holds only up to your budget — marginal improvement per trial shrinks fast near the best achievable score. You're really optimizing **score per unit of compute**. That's why random search, Bayesian optimization, and Hyperband exist instead of ever-bigger grids: reach a comparable score with a smaller budget by spending evaluations smartly, not by spending more.
+</ConceptBox>
+
+---
+
+<ConceptBox title="TL;DR">
+- Every setting costs $K$ fits, so this module is about **spending a fixed budget well**.
+- **Grid search cost is multiplicative** — one more hyperparameter multiplies the whole grid. Its own curse of dimensionality.
+- **Random search decouples budget from dimensionality**: you pick `n_iter` directly, and it beats grid when only a few hyperparameters actually matter, because it tries more distinct values of each.
+- **Bayesian optimisation** uses past evaluations to choose the next point — best when each fit is expensive.
+- **Successive halving / Hyperband** start everyone on a small budget and promote survivors, instead of paying full price for obviously bad settings.
 </ConceptBox>
 
 ## Practice

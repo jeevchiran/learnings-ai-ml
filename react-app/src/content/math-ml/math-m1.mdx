@@ -3,12 +3,6 @@ import VectorWidget from '../../components/widgets/math-ml/VectorWidget.jsx'
 
 # Module 1: Vectors & Dot Products
 
-<ConceptBox title="TL;DR">
-- A vector is a feature row or an embedding; its **norm** $\|\mathbf{v}\|$ is its length.
-- The dot product has two faces: $\sum_i a_ib_i$ (compute it) and $\|\mathbf{a}\|\|\mathbf{b}\|\cos\theta$ (interpret it) — positive = same direction, zero = perpendicular.
-- **Cosine similarity is the dot product with lengths divided out.** Use it when direction matters and magnitude doesn't — which is nearly always, in embedding search.
-</ConceptBox>
-
 ## Why Linear Algebra, First
 
 Every dataset you feed a model is a table of numbers — rows are **vectors**. Every layer of a neural net multiplies its input by a **matrix**. Every embedding, every similarity score, every gradient step is vector arithmetic. This track builds that machinery from the ground up, so the rest of the curriculum reads as "applying linear algebra" rather than magic.
@@ -49,6 +43,14 @@ cosine_sim = (a @ b) / (norm_a * np.linalg.norm(b))
 
 print(dot_product, norm_a, cosine_sim)
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- A vector is a feature row or an embedding; its **norm** $\|\mathbf{v}\|$ is its length.
+- The dot product has two faces: $\sum_i a_ib_i$ (compute it) and $\|\mathbf{a}\|\|\mathbf{b}\|\cos\theta$ (interpret it) — positive = same direction, zero = perpendicular.
+- **Cosine similarity is the dot product with lengths divided out.** Use it when direction matters and magnitude doesn't — which is nearly always, in embedding search.
+</ConceptBox>
 
 ## Practice
 

@@ -1,13 +1,6 @@
 import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import BayesWidget from '../../components/widgets/math-ml/BayesWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- $P(A\mid B) = P(A\cap B)/P(B)$ — and a classifier's output literally *is* $P(\text{class}\mid\text{features})$.
-- **Bayes flips a conditional**: it converts $P(\text{evidence}\mid\text{hypothesis})$, which you can measure, into $P(\text{hypothesis}\mid\text{evidence})$, which you want.
-- The denominator is the law of total probability — sum over *every* way the evidence could have arisen.
-- $P(B\mid A) \neq P(A\mid B)$. When the base rate is low, a highly accurate test still yields mostly false positives.
-</ConceptBox>
-
 ## Starting the Probability Track
 
 Linear algebra described *space*; probability describes *uncertainty* — the language for noisy labels, model confidence, and the loss functions used to fit almost every model in this curriculum.
@@ -58,6 +51,15 @@ def bayes(p_a, p_b_given_a, p_b_given_not_a):
 posterior = bayes(p_a=0.01, p_b_given_a=0.90, p_b_given_not_a=0.05)
 print(f'{posterior:.1%}')   # ~15.4% — most positives are false alarms
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- $P(A\mid B) = P(A\cap B)/P(B)$ — and a classifier's output literally *is* $P(\text{class}\mid\text{features})$.
+- **Bayes flips a conditional**: it converts $P(\text{evidence}\mid\text{hypothesis})$, which you can measure, into $P(\text{hypothesis}\mid\text{evidence})$, which you want.
+- The denominator is the law of total probability — sum over *every* way the evidence could have arisen.
+- $P(B\mid A) \neq P(A\mid B)$. When the base rate is low, a highly accurate test still yields mostly false positives.
+</ConceptBox>
 
 ## Practice
 

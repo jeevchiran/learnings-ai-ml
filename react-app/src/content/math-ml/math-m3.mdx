@@ -3,12 +3,6 @@ import EigenWidget from '../../components/widgets/math-ml/EigenWidget.jsx'
 
 # Module 3: Eigenvalues, Eigenvectors & Rank
 
-<ConceptBox title="TL;DR">
-- $\det(M)=0$ ⟺ $M$ collapses space ⟺ no inverse ⟺ some direction is destroyed. These are four ways of saying one thing.
-- An **eigenvector** is a direction the matrix only stretches, never rotates: $M\mathbf{v}=\lambda\mathbf{v}$. The eigenvalue $\lambda$ is the stretch factor.
-- Shortcuts worth memorising: $\det(M)=\lambda_1\lambda_2$, $\text{trace}(M)=\lambda_1+\lambda_2$, and a diagonal matrix's eigenvalues are its diagonal.
-</ConceptBox>
-
 ## Inverse, Determinant, Rank — Can You Undo M?
 
 <ConceptBox title="Three questions about a matrix M">
@@ -58,6 +52,14 @@ print(np.linalg.det(M))               # 8
 print(np.linalg.matrix_rank(M))       # 2
 print(np.linalg.inv(M))               # exists since det != 0
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- $\det(M)=0$ ⟺ $M$ collapses space ⟺ no inverse ⟺ some direction is destroyed. These are four ways of saying one thing.
+- An **eigenvector** is a direction the matrix only stretches, never rotates: $M\mathbf{v}=\lambda\mathbf{v}$. The eigenvalue $\lambda$ is the stretch factor.
+- Shortcuts worth memorising: $\det(M)=\lambda_1\lambda_2$, $\text{trace}(M)=\lambda_1+\lambda_2$, and a diagonal matrix's eigenvalues are its diagonal.
+</ConceptBox>
 
 ## Practice
 

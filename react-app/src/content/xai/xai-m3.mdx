@@ -3,14 +3,6 @@ import LIMEWidget from '../../components/widgets/xai/LIMEWidget.jsx'
 
 # Module 3: LIME — Intuition & Formulation
 
-<ConceptBox title="TL;DR">
-- One insight: **a boundary that is hopelessly nonlinear globally looks straight if you zoom in far enough.** So fit a line locally instead of explaining the whole model.
-- Four steps: perturb around $x$ → query the black box → weight samples by proximity → fit a sparse linear model. Its coefficients *are* the explanation.
-- The proximity kernel $\pi_x$ is what makes it *local*; drop it and you get a bad global fit.
-- The complexity term $\Omega(g)$ is what makes it *readable*; drop it and $g$ uses every feature with tiny weights.
-- $g$ is fit on human-readable features (is this word present? this superpixel? ), not raw pixels or embeddings.
-</ConceptBox>
-
 ## LIME in One Sentence
 
 **LIME** — *Local Interpretable Model-agnostic Explanations* — every word is a design decision:
@@ -61,6 +53,16 @@ $g$ isn't fit on raw pixels or embeddings — it's fit on a human-readable repre
 <Bridge>
 That's the whole algorithm: perturb, weight, fit a sparse line. The next module runs it on real tabular and text data with the `lime` library, reads the feature weights, and confronts LIME's one real weakness — instability.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- One insight: **a boundary that is hopelessly nonlinear globally looks straight if you zoom in far enough.** So fit a line locally instead of explaining the whole model.
+- Four steps: perturb around $x$ → query the black box → weight samples by proximity → fit a sparse linear model. Its coefficients *are* the explanation.
+- The proximity kernel $\pi_x$ is what makes it *local*; drop it and you get a bad global fit.
+- The complexity term $\Omega(g)$ is what makes it *readable*; drop it and $g$ uses every feature with tiny weights.
+- $g$ is fit on human-readable features (is this word present? this superpixel? ), not raw pixels or embeddings.
+</ConceptBox>
 
 ## Practice
 

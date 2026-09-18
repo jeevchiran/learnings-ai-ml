@@ -3,13 +3,6 @@ import RuleTableWidget from '../../components/widgets/association-rules/RuleTabl
 
 # Module 3: Rule Generation & Evaluation
 
-<ConceptBox title="TL;DR">
-- A frequent $k$-itemset splits into $2^k-2$ candidate rules. **All of them share the same support**, so rule generation filters on confidence alone.
-- Confidence is anti-monotone too: shrink the antecedent and confidence can only fall — so one failed rule prunes a whole family.
-- Three baseline-aware metrics beyond confidence: **lift** (ratio vs independence, symmetric), **leverage** (difference, frequency-weighted), **conviction** (directional, $\infty$ = never broken).
-- Same three items, opposite arrow, opposite verdict. **Direction matters** — report the one you'll act on.
-</ConceptBox>
-
 ## From Itemsets to Rules
 
 Apriori (Module 2) gives us frequent itemsets. But an itemset like $\{Bread, Milk, Diaper\}$ is not yet a rule — it says these three are bought together, not that one *implies* the others. **Rule generation** turns each frequent itemset into directional rules and keeps only the confident ones.
@@ -59,6 +52,15 @@ Lift is symmetric, so it can't tell $A{\Rightarrow}B$ from $B{\Rightarrow}A$. Bu
 </ConceptBox>
 
 <RuleTableWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- A frequent $k$-itemset splits into $2^k-2$ candidate rules. **All of them share the same support**, so rule generation filters on confidence alone.
+- Confidence is anti-monotone too: shrink the antecedent and confidence can only fall — so one failed rule prunes a whole family.
+- Three baseline-aware metrics beyond confidence: **lift** (ratio vs independence, symmetric), **leverage** (difference, frequency-weighted), **conviction** (directional, $\infty$ = never broken).
+- Same three items, opposite arrow, opposite verdict. **Direction matters** — report the one you'll act on.
+</ConceptBox>
 
 ## Practice
 

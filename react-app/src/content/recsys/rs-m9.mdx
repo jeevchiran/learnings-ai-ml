@@ -3,15 +3,6 @@ import LTRLossWidget from '../../components/widgets/recsys/LTRLossWidget.jsx'
 
 # Module 9: Learning to Rank
 
-<ConceptBox title="TL;DR">
-- Learning to rank optimises **order**, not per-item probability. Three families: **pointwise**, **pairwise**, **listwise**.
-- **Pointwise** scores each item alone against a 0/1 label. Simple, fast, calibrated — and only ranks correctly as a side effect.
-- **Pairwise** (RankNet, BPR, LambdaRank) trains on (positive, negative) pairs and depends only on score *differences*.
-- **Listwise** (ListNet, LambdaMART, softmax cross-entropy) scores the whole slate at once.
-- The tell: **add a constant to every score.** Pointwise loss changes; pairwise and listwise do not. Only two of the three are actually about ranking.
-
-</ConceptBox>
-
 ## Where ranking sits
 
 Retrieval handed you 500 candidates. Now order them, with a budget of tens of milliseconds and access to every feature you have — user features, item features, and crucially **user×item cross features** that retrieval could not use because it had to precompute embeddings independently.
@@ -92,6 +83,17 @@ Every loss here consumes features. Building them without leaking the future is n
   { q: "Your team logs only clicks, never impressions. Which LTR family is effectively unavailable, and why?", a: "Listwise. It needs the complete slate that was shown — including the items that were not clicked — to compute a softmax over the candidate list. Without impression logs you cannot reconstruct the slate. It also cripples position-bias correction, since you have no position field to condition on." },
   { q: "How do you use position as a feature without the model learning to just recommend whatever was at the top before?", a: "Include position during training so the model can attribute part of each click to placement rather than relevance, then hold it fixed (e.g. position=1) for every candidate at inference. The bias is absorbed into the position coefficient during training and neutralised at serving, leaving the relevance signal to drive the ranking." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Learning to rank optimises **order**, not per-item probability. Three families: **pointwise**, **pairwise**, **listwise**.
+- **Pointwise** scores each item alone against a 0/1 label. Simple, fast, calibrated — and only ranks correctly as a side effect.
+- **Pairwise** (RankNet, BPR, LambdaRank) trains on (positive, negative) pairs and depends only on score *differences*.
+- **Listwise** (ListNet, LambdaMART, softmax cross-entropy) scores the whole slate at once.
+- The tell: **add a constant to every score.** Pointwise loss changes; pairwise and listwise do not. Only two of the three are actually about ranking.
+
+</ConceptBox>
 
 <QuizCard
   question="You switch from pointwise log loss to a pairwise (BPR) objective. Offline NDCG@10 improves, but a downstream promo system that multiplies your score by item margin starts making bad choices. Why?"

@@ -3,13 +3,6 @@ import AprioriStepWidget from '../../components/widgets/association-rules/Aprior
 
 # Module 2: The Apriori Algorithm
 
-<ConceptBox title="TL;DR">
-- $d$ items give $2^d-1$ possible itemsets. Brute force is dead on arrival; the whole game is **not generating** most candidates.
-- One property does all the work — **anti-monotonicity**: adding an item can never increase support, so *any superset of an infrequent set is infrequent*.
-- Apriori goes level by level: find $L_k$, join to propose $C_{k+1}$, **prune** candidates with an infrequent subset, then count only the survivors.
-- The saving is in the prune — a pruned candidate costs nothing because it never triggers a database scan.
-</ConceptBox>
-
 ## The Combinatorial Wall
 
 To find rules we first need **frequent itemsets** — every itemset whose support clears a threshold `min_support`. The naive approach: enumerate all possible itemsets, count each. With $d$ distinct items there are $2^d - 1$ non-empty itemsets. A modest store with $d = 100$ products has $2^{100} \approx 10^{30}$ candidates. Counting them all is hopeless — we need to *avoid generating most of them*.
@@ -69,6 +62,15 @@ The subset-prune in step 3 is why Apriori beats brute force: a candidate whose s
 </ConceptBox>
 
 <AprioriStepWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- $d$ items give $2^d-1$ possible itemsets. Brute force is dead on arrival; the whole game is **not generating** most candidates.
+- One property does all the work — **anti-monotonicity**: adding an item can never increase support, so *any superset of an infrequent set is infrequent*.
+- Apriori goes level by level: find $L_k$, join to propose $C_{k+1}$, **prune** candidates with an infrequent subset, then count only the survivors.
+- The saving is in the prune — a pruned candidate costs nothing because it never triggers a database scan.
+</ConceptBox>
 
 ## Practice
 

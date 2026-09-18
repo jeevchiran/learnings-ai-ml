@@ -3,13 +3,6 @@ import ALSFactorWidget from '../../components/widgets/recsys/ALSFactorWidget.jsx
 
 # Module 8: Implicit Matrix Factorization
 
-<ConceptBox title="TL;DR">
-- Replace the huge sparse matrix $R$ with two thin dense ones: $R \approx X Y^\top$, where each shopper and each product become a $k$-dimensional vector.
-- The **implicit** variant (Hu, Koren & Volinsky 2008) trains on **every cell**, weighting each by confidence $c_{ui}=1+\alpha r_{ui}$. Not just the observed ones.
-- **ALS** alternates: fix $Y$, solve for $X$ in closed form; fix $X$, solve for $Y$. Each half-step is a ridge regression, so it is exact, parallel, and needs no learning rate.
-- The Gram-matrix trick makes the full-matrix sum cost the same as summing over observed entries only. That trick is why the algorithm is practical.
-</ConceptBox>
-
 ## From a table to two vectors
 
 Item-item CF stores an item×item similarity table. With a million products that table has $10^{12}$ entries, and it still cannot say anything about a product with an empty column.
@@ -92,6 +85,15 @@ Retrieval now returns a few hundred candidates. Ordering them precisely is a dif
   { q: "ALS loss never increases. Does that mean it finds the global optimum?", a: "No. Each half-step is the exact minimiser given the other factor fixed, so the loss is monotone non-increasing and converges — but the joint objective is non-convex, so it converges to a local optimum. Different random seeds yield different factorisations with comparable loss, which is why factor dimensions are not individually interpretable." },
   { q: "What breaks if you set α = 0, and why does that identify α as the core of the implicit method?", a: "All cells get confidence 1, observed and unobserved alike. Since the matrix is overwhelmingly zeros, the loss-minimising solution is to predict ≈0 everywhere, and the model learns nothing. α is what encodes 'a cell with evidence matters more than an empty one' — remove it and implicit MF degenerates." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Replace the huge sparse matrix $R$ with two thin dense ones: $R \approx X Y^\top$, where each shopper and each product become a $k$-dimensional vector.
+- The **implicit** variant (Hu, Koren & Volinsky 2008) trains on **every cell**, weighting each by confidence $c_{ui}=1+\alpha r_{ui}$. Not just the observed ones.
+- **ALS** alternates: fix $Y$, solve for $X$ in closed form; fix $X$, solve for $Y$. Each half-step is a ridge regression, so it is exact, parallel, and needs no learning rate.
+- The Gram-matrix trick makes the full-matrix sum cost the same as summing over observed entries only. That trick is why the algorithm is practical.
+</ConceptBox>
 
 <QuizCard
   question="You increase k from 32 to 256 and the training loss drops sharply, but NDCG@10 on the temporal test split gets worse. What is happening?"

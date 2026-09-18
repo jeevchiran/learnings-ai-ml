@@ -3,14 +3,6 @@ import LogSpaceWidget from '../../components/widgets/naive-bayes/LogSpaceWidget.
 
 # Module 6: Numerical Stability and Log-Space Computation
 
-<ConceptBox title="TL;DR">
-- Multiplying thousands of sub-1 probabilities underflows to **exactly 0.0** — float64 stops near $10^{-308}$, and a realistic document needs $10^{-1500}$.
-- Then every class scores 0, the arg-max is decided by tie-breaking, and the *representation* destroyed the answer, not the model.
-- Fix: **work in log-space.** $\log(ab)=\log a+\log b$ turns the product into a sum of moderate negatives.
-- $\log$ is monotonic, so **the predicted class is unchanged** — only the numerical path differs.
-- This is a baseline requirement, not an optimisation. Every production implementation does it.
-</ConceptBox>
-
 ## Where the Numbers Break
 
 The Naive Bayes score is a product of many sub-1 probabilities:
@@ -93,6 +85,16 @@ Every `P(x_i|y)` → `log P(x_i|y)`, every `*` → `+`, prior multiplication →
 <Bridge>
 Log-space changes nothing about what the model believes — only how reliably it expresses that belief in floating point. With the algorithm complete and numerically sound, Module 7 evaluates Naive Bayes honestly: where its speed is a genuine strength, and where the independence assumption costs it.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Multiplying thousands of sub-1 probabilities underflows to **exactly 0.0** — float64 stops near $10^{-308}$, and a realistic document needs $10^{-1500}$.
+- Then every class scores 0, the arg-max is decided by tie-breaking, and the *representation* destroyed the answer, not the model.
+- Fix: **work in log-space.** $\log(ab)=\log a+\log b$ turns the product into a sum of moderate negatives.
+- $\log$ is monotonic, so **the predicted class is unchanged** — only the numerical path differs.
+- This is a baseline requirement, not an optimisation. Every production implementation does it.
+</ConceptBox>
 
 ## Practice
 

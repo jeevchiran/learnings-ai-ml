@@ -1,13 +1,5 @@
 import { ConceptBox, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 
-<ConceptBox title="TL;DR">
-- `mlxtend` pipeline: `TransactionEncoder` → one-hot matrix → `apriori()` → `association_rules()`. Every metric from Module 3 arrives as a DataFrame column.
-- Apriori's cost is structural: **one full database scan per level**, plus candidate blow-up on dense data.
-- **FP-Growth** removes both — two scans total, no candidates, by compressing transactions into a prefix tree and mining it recursively.
-- Apriori, FP-Growth and Eclat all return the **identical** frequent itemsets. They differ only in how they search.
-- Tuning order: start strict, loosen `min_support` until the rule count is workable, then rank by lift or conviction — never by confidence.
-</ConceptBox>
-
 ## Apriori in Real Code
 
 You will almost never hand-roll Apriori. `mlxtend` implements the whole pipeline; your job is to shape the data and read the output. The input is a **one-hot matrix**: one row per transaction, one boolean column per item.
@@ -82,6 +74,16 @@ freq = fpgrowth(df, min_support=0.3, use_colnames=True)`}</CodeBlock>
 - **Eclat** — a third option using a vertical (item → transaction-id set) layout and set intersections; strong on sparse data.
 
 All three find the *same* frequent itemsets — they differ only in *how they search*. Rule generation and the metrics of Module 3 are identical afterward.
+</ConceptBox>
+
+---
+
+<ConceptBox title="TL;DR">
+- `mlxtend` pipeline: `TransactionEncoder` → one-hot matrix → `apriori()` → `association_rules()`. Every metric from Module 3 arrives as a DataFrame column.
+- Apriori's cost is structural: **one full database scan per level**, plus candidate blow-up on dense data.
+- **FP-Growth** removes both — two scans total, no candidates, by compressing transactions into a prefix tree and mining it recursively.
+- Apriori, FP-Growth and Eclat all return the **identical** frequent itemsets. They differ only in how they search.
+- Tuning order: start strict, loosen `min_support` until the rule count is workable, then rank by lift or conviction — never by confidence.
 </ConceptBox>
 
 ## Practice

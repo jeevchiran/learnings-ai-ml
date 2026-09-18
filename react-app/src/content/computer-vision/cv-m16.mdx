@@ -2,14 +2,6 @@ import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/
 
 # Module 16: YOLO in Code — Inference and Reading the Output
 
-<ConceptBox title="TL;DR">
-- Modern YOLO is three lines to run and one line to understand: `model(img)` returns a `Results` object holding `boxes.xyxy`, `boxes.conf`, `boxes.cls`.
-- `conf` and `iou` are **post-processing** arguments, not model weights — you can retune them without retraining.
-- The raw head output is $(1, 4 + C, N)$ **before NMS**; `Results` is what survives it. Knowing which you are holding prevents most confusions.
-- **Letterboxing**: the image is resized preserving aspect ratio and padded to a square. Boxes are mapped back for you — but not if you call the raw model.
-- Always audit predictions with a **confidence histogram** and a **per-class count**, not by eyeballing three images.
-</ConceptBox>
-
 <Bridge>
 Module 15 gave the output tensor and the loss. This module runs one, reads its output, and inspects the two things you actually control at inference: the score threshold and the NMS threshold.
 </Bridge>
@@ -126,6 +118,16 @@ Start with `n` or `s`. If it fails on your data, the fix is almost always **more
   { q: "A 1280x720 image is letterboxed to 640. What are the scale and the padding, and what breaks if you skip the padding when mapping boxes back?", a: "The scale is min(640/1280, 640/720) = 0.5, giving 640x360, and the vertical padding is (640-360)/2 = 140 pixels top and bottom. Skipping the padding subtraction shifts every box down by 140 pixels in letterbox space — 280 after dividing by the scale — and nothing errors, so it presents as a model that mysteriously predicts too low." },
   { q: "Your confidence histogram piles up just above the threshold. What does that indicate?", a: "That the threshold, not the model, is deciding what counts as a detection — the model is not confident about anything. It usually means a domain gap between training and deployment data: different camera, lighting, or object appearance. Raising the threshold will just trade recall away; the real fix is data that matches deployment." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Modern YOLO is three lines to run and one line to understand: `model(img)` returns a `Results` object holding `boxes.xyxy`, `boxes.conf`, `boxes.cls`.
+- `conf` and `iou` are **post-processing** arguments, not model weights — you can retune them without retraining.
+- The raw head output is $(1, 4 + C, N)$ **before NMS**; `Results` is what survives it. Knowing which you are holding prevents most confusions.
+- **Letterboxing**: the image is resized preserving aspect ratio and padded to a square. Boxes are mapped back for you — but not if you call the raw model.
+- Always audit predictions with a **confidence histogram** and a **per-class count**, not by eyeballing three images.
+</ConceptBox>
 
 <QuizCard
   question="A YOLOv8 model is called on an 800×600 image with imgsz=640. What are the letterbox scale factor and the vertical padding on each side?"

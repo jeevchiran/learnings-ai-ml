@@ -2,14 +2,6 @@ import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/
 
 # Module 4: Python Demonstration
 
-<ConceptBox title="TL;DR">
-- "Training" is counting. `fit` computes class fractions and per-feature frequency tables; there is no optimiser.
-- **Laplace smoothing** is `(count + α) / (n_c + α·|values|)` — it hands every category a pretend observation so no likelihood can be exactly 0.
-- `α=0` reproduces raw frequencies; large `α` washes the likelihoods toward uniform and the prediction collapses to the **prior**.
-- `CategoricalNB` is this same counting formula, vectorised. Writing it from scratch buys understanding, not speed.
-- `class_prior_` is the *empirical* class fraction of your training split, not a uniform default — and Gaussian NB's posteriors come out near-one-hot, i.e. overconfident.
-</ConceptBox>
-
 ## From Formula to Code
 
 Module 3 derived $\hat{y} = \arg\max_y P(y)\prod_i P(x_i\mid y)$ and worked it by hand on the Play Tennis table. Here we implement exactly that — first from scratch, then with scikit-learn — on the *same* data, so outputs can be checked against each other.
@@ -122,6 +114,16 @@ Two things: `class_prior_` isn't exactly `[1/3,1/3,1/3]` — it's the *empirical
 <Bridge>
 Both demos picked their likelihood by feature type: counts for categorical Outlook/Windy, a Gaussian for continuous Iris. That choice is the whole content of Module 5 — Multinomial, Bernoulli, and Gaussian as three answers to "what does $P(x_i\mid y)$ look like?"
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- "Training" is counting. `fit` computes class fractions and per-feature frequency tables; there is no optimiser.
+- **Laplace smoothing** is `(count + α) / (n_c + α·|values|)` — it hands every category a pretend observation so no likelihood can be exactly 0.
+- `α=0` reproduces raw frequencies; large `α` washes the likelihoods toward uniform and the prediction collapses to the **prior**.
+- `CategoricalNB` is this same counting formula, vectorised. Writing it from scratch buys understanding, not speed.
+- `class_prior_` is the *empirical* class fraction of your training split, not a uniform default — and Gaussian NB's posteriors come out near-one-hot, i.e. overconfident.
+</ConceptBox>
 
 ## Practice
 

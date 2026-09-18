@@ -8,14 +8,6 @@ import PowerCurveWidget from '../../components/widgets/hypothesis-testing/PowerC
 **Factory QC.** A cereal line targets 500 g per box, with a long-established known $\sigma = 8$ g. After maintenance, the manager samples 40 boxes and gets $\bar{x} = 497$ g. Is the 3 g shortfall random variation or systematic underfilling? To decide with a controlled error risk, she needs the **one-sample Z-test**.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- Four conditions, and the second is the one that decides everything: **$\sigma$ known** → Z-test; $\sigma$ estimated from the sample → t-test.
-- The **sampling distribution** describes how $\bar{x}$ moves across hypothetical samples — not how the data are spread. Its width is $\text{SE}=\sigma/\sqrt{n}$.
-- $Z=(\bar{x}-\mu_0)/\text{SE}$ reads as "observed minus predicted, in units of ordinary sampling wobble."
-- The CLT is what lets you use it on non-normal populations once $n\gtrsim30$.
-- Same data, different $\alpha$, different verdict — which is exactly why $\alpha$ is fixed first.
-</ConceptBox>
-
 ## When to Use It
 
 Compare *one* observed sample mean against a claimed population mean $\mu_0$. Four conditions must all hold:
@@ -117,6 +109,16 @@ At 5%, the mean output differs from 500 g; the 95% CI [494.52, 499.48] excludes 
 </DerivationSteps>
 
 <PowerCurveWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- Four conditions, and the second is the one that decides everything: **$\sigma$ known** → Z-test; $\sigma$ estimated from the sample → t-test.
+- The **sampling distribution** describes how $\bar{x}$ moves across hypothetical samples — not how the data are spread. Its width is $\text{SE}=\sigma/\sqrt{n}$.
+- $Z=(\bar{x}-\mu_0)/\text{SE}$ reads as "observed minus predicted, in units of ordinary sampling wobble."
+- The CLT is what lets you use it on non-normal populations once $n\gtrsim30$.
+- Same data, different $\alpha$, different verdict — which is exactly why $\alpha$ is fixed first.
+</ConceptBox>
 
 ## Practice
 

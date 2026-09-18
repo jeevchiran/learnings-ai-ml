@@ -1,13 +1,5 @@
 import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
 
-<ConceptBox title="TL;DR">
-- Tabular workflow: `TreeExplainer` → `waterfall` for one row, `beeswarm` for the model, `scatter` for one feature's shape.
-- **Verify additivity with an assert** — SHAP values plus base value must equal `model.predict()` on every row.
-- Images: a "feature" is a **region**, not a pixel, and absent regions are filled from a **baseline**. Deep SHAP is the fast path for nets.
-- Correlated features make SHAP split credit oddly because marginalising one creates unrealistic inputs. Interpret them as a group.
-- The payoff is debugging: a heatmap over the snow instead of the wolf exposes a leak no accuracy number can.
-</ConceptBox>
-
 ## Numerical Data: End-to-End
 
 The most common workflow — a gradient-boosted tabular model, explained exactly with Tree SHAP:
@@ -75,6 +67,16 @@ Run SHAP on a "dog vs. wolf" classifier and the heatmap lights up the **snow in 
 <Bridge>
 Deep SHAP borrows its engine from **DeepLIFT** — a neural-net-specific method that propagates contributions backward against a reference input, in a single pass. The next module opens that engine up.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- Tabular workflow: `TreeExplainer` → `waterfall` for one row, `beeswarm` for the model, `scatter` for one feature's shape.
+- **Verify additivity with an assert** — SHAP values plus base value must equal `model.predict()` on every row.
+- Images: a "feature" is a **region**, not a pixel, and absent regions are filled from a **baseline**. Deep SHAP is the fast path for nets.
+- Correlated features make SHAP split credit oddly because marginalising one creates unrealistic inputs. Interpret them as a group.
+- The payoff is debugging: a heatmap over the snow instead of the wolf exposes a leak no accuracy number can.
+</ConceptBox>
 
 ## Practice
 

@@ -2,14 +2,6 @@ import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall }
 
 # Datetime Parsing & Feature Engineering
 
-<ConceptBox title="TL;DR">
-- A datetime string is an opaque blob until parsed. `pd.to_datetime()` first, then the **`.dt` accessor** unlocks everything.
-- The three signals worth extracting from trip timestamps: **hour** (demand cycle), **dayofweek** (0=Mon, 6=Sun), and **duration** (dropoff − pickup).
-- You can't group by "rush hour" until hour exists as a column — extraction is the gateway to the entire time dimension.
-- Pass `format=` explicitly on large data; auto-detection is convenient and slow.
-- Duration is also a **quality check**: a 45-minute trip logging 120 miles is caught the moment you compute it.
-</ConceptBox>
-
 ## What, Why, and How
 
 <ConceptBox title="WHAT: Parsing Datetimes into Structured Features">
@@ -115,6 +107,16 @@ Subtracting two `datetime64` columns yields a `timedelta64`. Calling `.dt.total_
 <Bridge>
 The widget below lets you explore every row of the taxi dataset: pick any trip, see how its raw timestamps decompose into hour, day-of-week, and duration — and see the aggregate patterns that emerge across all 30 trips.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- A datetime string is an opaque blob until parsed. `pd.to_datetime()` first, then the **`.dt` accessor** unlocks everything.
+- The three signals worth extracting from trip timestamps: **hour** (demand cycle), **dayofweek** (0=Mon, 6=Sun), and **duration** (dropoff − pickup).
+- You can't group by "rush hour" until hour exists as a column — extraction is the gateway to the entire time dimension.
+- Pass `format=` explicitly on large data; auto-detection is convenient and slow.
+- Duration is also a **quality check**: a 45-minute trip logging 120 miles is caught the moment you compute it.
+</ConceptBox>
 
 ## Practice
 

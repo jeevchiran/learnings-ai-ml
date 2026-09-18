@@ -3,14 +3,6 @@ import CVSplitWidget from '../../components/widgets/model-eval/CVSplitWidget.jsx
 
 # Module 3: Cross-Validation Techniques
 
-<ConceptBox title="TL;DR">
-- One split gives one noisy sample of generalisation. **K-fold averages $K$ of them** — every point is validated once and trained on $K-1$ times.
-- **Report the standard deviation, not just the mean.** Equal means with different fold spread are not equally trustworthy.
-- $K$ has its own trade-off: small $K$ trains on less data (more bias, cheaper); large $K$ gives tiny noisy folds (more variance, costlier). **5 or 10 is the sweet spot.**
-- The $K$ models are scaffolding. **Deploy a single model retrained on all the data** with the validated hyperparameters.
-- Structure overrides the default: time series need `TimeSeriesSplit`, repeated-measure data needs group-aware splitting. Plain shuffled `KFold` leaks in both.
-</ConceptBox>
-
 ## Why Average Over Several Splits
 
 The holdout method (Module 2) splits once, and that single validation score has high variance — a lucky split flatters the model, an unlucky one doesn't, with no change to the model itself. Cross-validation stops relying on a single split.
@@ -117,6 +109,16 @@ Switch strategies below and watch the validation block move — shuffled strateg
 
 <ConceptBox title="Does K-Fold CV give you K models?">
 No. K-Fold gives $K$ performance **estimates** of one *training procedure* (e.g. "a random forest with `max_depth=8`"). Those scores answer "how good is this configuration, honestly?" Once you pick the best config, you **retrain once on the full training set** with those hyperparameters. The K fold-models are discarded — measurement tools, not the product. (Keeping and averaging them is a different technique, ensembling.)
+</ConceptBox>
+
+---
+
+<ConceptBox title="TL;DR">
+- One split gives one noisy sample of generalisation. **K-fold averages $K$ of them** — every point is validated once and trained on $K-1$ times.
+- **Report the standard deviation, not just the mean.** Equal means with different fold spread are not equally trustworthy.
+- $K$ has its own trade-off: small $K$ trains on less data (more bias, cheaper); large $K$ gives tiny noisy folds (more variance, costlier). **5 or 10 is the sweet spot.**
+- The $K$ models are scaffolding. **Deploy a single model retrained on all the data** with the validated hyperparameters.
+- Structure overrides the default: time series need `TimeSeriesSplit`, repeated-measure data needs group-aware splitting. Plain shuffled `KFold` leaks in both.
 </ConceptBox>
 
 ## Practice

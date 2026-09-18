@@ -2,14 +2,6 @@ import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSel
 
 # Module 4: PyTorch — Data Handling & Parameters
 
-<ConceptBox title="TL;DR">
-- Three abstractions, three jobs: **`Dataset`** returns one sample, **`DataLoader`** batches/shuffles/parallelises, **`nn.Module`** holds the architecture and its parameters.
-- The split lets you swap datasets or add augmentation without touching model or training code.
-- **`nn.Parameter` = learnable**: auto `requires_grad=True`, appears in `model.parameters()`, updated by the optimizer.
-- **Buffer = state that isn't learned** (BatchNorm's running mean, a positional-encoding table). Saved in `state_dict`, moved by `.to(device)`, but *not* in `parameters()` and never updated by the optimizer.
-- Getting that distinction wrong is silent: register a learnable tensor as a plain attribute and the optimizer simply never sees it.
-</ConceptBox>
-
 <Bridge>
 **From Module 3:** You can create tensors, multiply them, and run them on GPU. The next step is structuring your code for real training: loading data in batches, defining models as reusable modules, and managing learnable parameters. PyTorch provides three abstractions for this — `Dataset`, `DataLoader`, and `nn.Module` — and together they define the standard deep learning workflow used everywhere from academic papers to production systems.
 </Bridge>
@@ -225,6 +217,14 @@ Larger batches: lower variance estimate but need more memory, may converge to sh
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Three abstractions, three jobs: **`Dataset`** returns one sample, **`DataLoader`** batches/shuffles/parallelises, **`nn.Module`** holds the architecture and its parameters.
+- The split lets you swap datasets or add augmentation without touching model or training code.
+- **`nn.Parameter` = learnable**: auto `requires_grad=True`, appears in `model.parameters()`, updated by the optimizer.
+- **Buffer = state that isn't learned** (BatchNorm's running mean, a positional-encoding table). Saved in `state_dict`, moved by `.to(device)`, but *not* in `parameters()` and never updated by the optimizer.
+- Getting that distinction wrong is silent: register a learnable tensor as a plain attribute and the optimizer simply never sees it.
+</ConceptBox>
 
 ## Quiz
 

@@ -3,14 +3,6 @@ import CurseWidget from '../../components/widgets/model-eval/CurseWidget.jsx'
 
 # Module 5: Dimensionality & Feature Selection Overview
 
-<ConceptBox title="TL;DR">
-- "More features can't hurt, the model ignores the useless ones" is wrong often enough to be dangerous.
-- **The curse has two halves.** Covering space needs $k^d$ points (exponential), and pairwise distances concentrate until every point looks equidistant — which quietly breaks k-NN, clustering, and kernels.
-- Both are geometry. No smarter algorithm fixes them; only more data or fewer dimensions.
-- Three practical costs: noise features add variance, correlated features destabilise linear coefficients, and everything gets slower and less explainable.
-- **Selection keeps original, interpretable columns. Reduction (PCA) builds new mixed ones.** Different tools for different goals.
-</ConceptBox>
-
 ## More Columns Isn't Free
 
 Modules 1–4 took the feature set as fixed. This module asks the question that comes *before*: which features should be in the dataset at all?
@@ -69,6 +61,16 @@ Its honest goals are **generalization** (less noise variance), **speed**, and **
 <Bridge>
 Filter methods come first because they're the cheapest lever. Module 6 works through the concrete techniques — variance thresholds, correlation, chi-square, ANOVA F-tests, mutual information — what each assumes and where each breaks.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- "More features can't hurt, the model ignores the useless ones" is wrong often enough to be dangerous.
+- **The curse has two halves.** Covering space needs $k^d$ points (exponential), and pairwise distances concentrate until every point looks equidistant — which quietly breaks k-NN, clustering, and kernels.
+- Both are geometry. No smarter algorithm fixes them; only more data or fewer dimensions.
+- Three practical costs: noise features add variance, correlated features destabilise linear coefficients, and everything gets slower and less explainable.
+- **Selection keeps original, interpretable columns. Reduction (PCA) builds new mixed ones.** Different tools for different goals.
+</ConceptBox>
 
 ## Practice
 

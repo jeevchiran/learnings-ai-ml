@@ -3,14 +3,6 @@ import KMeansWidget from '../../components/widgets/clustering/KMeansWidget.jsx'
 
 # Module 1: Why Clustering? Intuition and K-Means
 
-<ConceptBox title="TL;DR">
-- K-means alternates two steps: **assign** each point to its nearest centroid, then **move** each centroid to its group's mean. Repeat until nobody switches.
-- Neither step can raise WCSS and there are finitely many assignments — so it **always terminates**.
-- But it converges to a **local** minimum that depends on where you started. Hence `n_init`: run it several times, keep the lowest WCSS.
-- **K-means++** seeds centroids with probability proportional to $D^2$, so far-away regions get represented — and buys an $O(\log K)$ approximation guarantee random init cannot offer.
-- $K$ is a hyperparameter. The algorithm will never tell you it's wrong.
-</ConceptBox>
-
 ## Why Clustering?
 
 Supervised learning needs labels — a spam filter knows which emails are spam. But labels are expensive: annotating a million transactions as fraud/legit takes reviewers, legal review, and days. **Unsupervised learning** finds structure *without labels*, and clustering is its most-used technique. Instead of predicting a target, it asks: which points are similar? Group similar together, keep dissimilar apart — and structure emerges that no one thought to label.
@@ -113,6 +105,16 @@ K-means++ gives expected WCSS at most $O(\log K)$ times optimal — impossible t
 </ConceptBox>
 
 <KMeansWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- K-means alternates two steps: **assign** each point to its nearest centroid, then **move** each centroid to its group's mean. Repeat until nobody switches.
+- Neither step can raise WCSS and there are finitely many assignments — so it **always terminates**.
+- But it converges to a **local** minimum that depends on where you started. Hence `n_init`: run it several times, keep the lowest WCSS.
+- **K-means++** seeds centroids with probability proportional to $D^2$, so far-away regions get represented — and buys an $O(\log K)$ approximation guarantee random init cannot offer.
+- $K$ is a hyperparameter. The algorithm will never tell you it's wrong.
+</ConceptBox>
 
 ## Practice
 

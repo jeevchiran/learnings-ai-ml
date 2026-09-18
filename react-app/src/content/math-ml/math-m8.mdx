@@ -3,14 +3,6 @@ import LikelihoodWidget from '../../components/widgets/math-ml/LikelihoodWidget.
 
 # Module 8: Maximum Likelihood Estimation
 
-<ConceptBox title="TL;DR">
-- **Likelihood is a PDF read backwards**: fix the data you saw, vary the parameter, ask "how probable would this data have been?"
-- MLE picks the parameter that maximises it. That single idea generates least squares, cross-entropy, and almost every loss you'll meet.
-- Take the **log** — products of tiny probabilities underflow, sums don't, and log is monotonic so the argmax is unchanged.
-- Minimising loss = maximising log-likelihood, sign-flipped to suit optimisers.
-- MLE has no scepticism: 1 head in 1 flip gives $\hat p = 1$. Regularisation is what supplies the missing prior.
-</ConceptBox>
-
 ## The Bridge to "Training a Model"
 
 Every model-fitting procedure in this curriculum — linear regression's least squares, logistic regression's cross-entropy, a neural net's loss function — is secretly the same idea: **pick the parameters that make the observed data most probable.** That idea has a name: **Maximum Likelihood Estimation.**
@@ -57,6 +49,16 @@ result = minimize_scalar(neg_log_likelihood, bounds=(1e-6, 1 - 1e-6), method='bo
 
 print(result.x, heads / n)   # both give ~0.70 — numerical optimization matches the closed form
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- **Likelihood is a PDF read backwards**: fix the data you saw, vary the parameter, ask "how probable would this data have been?"
+- MLE picks the parameter that maximises it. That single idea generates least squares, cross-entropy, and almost every loss you'll meet.
+- Take the **log** — products of tiny probabilities underflow, sums don't, and log is monotonic so the argmax is unchanged.
+- Minimising loss = maximising log-likelihood, sign-flipped to suit optimisers.
+- MLE has no scepticism: 1 head in 1 flip gives $\hat p = 1$. Regularisation is what supplies the missing prior.
+</ConceptBox>
 
 ## Practice
 

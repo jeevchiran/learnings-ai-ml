@@ -3,14 +3,6 @@ import LossOptimizerWidget from '../../components/widgets/deep-learning/LossOpti
 
 # Module 8: Loss Functions & Optimizers
 
-<ConceptBox title="TL;DR">
-- **The loss defines what "good" means; the optimizer decides how to get there.** Two separate choices, often confused.
-- Regression: MSE punishes big errors quadratically (outlier-sensitive); MAE is robust but has a constant gradient. Huber interpolates.
-- **`nn.CrossEntropyLoss` wants raw logits and integer labels** — it applies log-softmax internally for numerical stability. Adding your own softmax layer is a real, common bug.
-- Momentum accumulates a velocity to damp oscillation; **Adam** adds per-parameter adaptive step sizes on top.
-- Adam converges fast and is the sane default; well-tuned SGD+momentum often generalises slightly better.
-</ConceptBox>
-
 <Bridge>
 **From Module 7:** You now know how gradients flow through activation functions. Those gradients start from a **loss function** — the scalar value that measures how wrong the network is. The loss function defines what "good" means. The **optimizer** then uses the loss gradient to update weights. This module covers both: choosing the right loss for your task, and choosing the optimizer that finds the minimum fastest.
 </Bridge>
@@ -189,6 +181,14 @@ In PyTorch: `optim.lr_scheduler.CosineAnnealingLR`, `LinearLR`, `OneCycleLR`.
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- **The loss defines what "good" means; the optimizer decides how to get there.** Two separate choices, often confused.
+- Regression: MSE punishes big errors quadratically (outlier-sensitive); MAE is robust but has a constant gradient. Huber interpolates.
+- **`nn.CrossEntropyLoss` wants raw logits and integer labels** — it applies log-softmax internally for numerical stability. Adding your own softmax layer is a real, common bug.
+- Momentum accumulates a velocity to damp oscillation; **Adam** adds per-parameter adaptive step sizes on top.
+- Adam converges fast and is the sane default; well-tuned SGD+momentum often generalises slightly better.
+</ConceptBox>
 
 ## Quiz
 

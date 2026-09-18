@@ -3,14 +3,6 @@ import ImpurityWidget from '../../components/widgets/decision-trees/ImpurityWidg
 
 # Module 2: Impurity Measures and the Training Process
 
-<ConceptBox title="TL;DR">
-- Impurity $I(t)$ = 0 when a node is pure, maximal when classes are evenly mixed. **Gain** = parent impurity − weighted child impurity; pick the split that maximises it.
-- **Gini** = chance two random draws differ in class; binary max **0.5**. **Entropy** = bits to encode a label; binary max **1**.
-- **Misclassification rate is not used for splitting** — it's piecewise linear, so it can report zero gain for a split that genuinely improves separation.
-- Gini and entropy nearly always pick the same split. Gini is the default because it avoids a logarithm.
-- Weighting children by size is essential — otherwise a pure 1-sample child would look like a triumph.
-</ConceptBox>
-
 ## Why a Splitting Criterion?
 
 A tree recursively partitions data; at each node it must pick *which feature and threshold* give the best split. Without a measure of "good," candidate splits can't be compared. 10 patients (6 positive, 4 negative), two candidate splits:
@@ -116,6 +108,16 @@ BuildTree(data, depth, maxDepth, minSamples):
 **Complexity:** naive per-node $O(n^2 p)$; over depth $d$, $O(n^2 p d)$. scikit-learn pre-sorts each feature once, cutting per-node cost to $O(n \log n \cdot p)$.
 
 <ImpurityWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- Impurity $I(t)$ = 0 when a node is pure, maximal when classes are evenly mixed. **Gain** = parent impurity − weighted child impurity; pick the split that maximises it.
+- **Gini** = chance two random draws differ in class; binary max **0.5**. **Entropy** = bits to encode a label; binary max **1**.
+- **Misclassification rate is not used for splitting** — it's piecewise linear, so it can report zero gain for a split that genuinely improves separation.
+- Gini and entropy nearly always pick the same split. Gini is the default because it avoids a logarithm.
+- Weighting children by size is essential — otherwise a pure 1-sample child would look like a triumph.
+</ConceptBox>
 
 ## Practice
 

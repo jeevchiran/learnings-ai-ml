@@ -3,13 +3,6 @@ import BayesTheoremWidget from '../../components/widgets/naive-bayes/BayesTheore
 
 # Module 2: Deriving Bayes' Theorem from Conditional Probability
 
-<ConceptBox title="TL;DR">
-- The whole derivation is one move: **the joint can be written two ways**, $P(A\mid B)P(B)=P(B\mid A)P(A)$. Solve for what you want.
-- Four terms worth naming: posterior, likelihood, prior, evidence. The **evidence is just a normaliser** built by the law of total probability.
-- Because the denominator sums over every class, it's the same for all of them — which is why it can be dropped when you only need the arg-max.
-- **The medical-test paradox**: a 99%-accurate test on a 1%-prevalence disease gives a positive patient only ~17% chance of being ill. Rare disease ⟹ false positives outnumber true ones.
-</ConceptBox>
-
 ## Conditional Probability
 
 The probability of $A$ given $B$ occurred is *defined* as:
@@ -68,6 +61,15 @@ Despite a 99%-accurate test and a positive result, the patient's chance of disea
 <Bridge>
 Bayes' theorem here relates one event $A$ to one evidence $B$. Classification relates a class $y$ to a whole feature vector $\mathbf{x} = (x_1,\ldots,x_n)$, giving $P(y \mid \mathbf{x}) \propto P(\mathbf{x} \mid y)\,P(y)$ — but $P(\mathbf{x}\mid y)$ over many correlated features is intractable to estimate. The next module introduces the one assumption — conditional independence — that makes it tractable, and names the classifier.
 </Bridge>
+
+---
+
+<ConceptBox title="TL;DR">
+- The whole derivation is one move: **the joint can be written two ways**, $P(A\mid B)P(B)=P(B\mid A)P(A)$. Solve for what you want.
+- Four terms worth naming: posterior, likelihood, prior, evidence. The **evidence is just a normaliser** built by the law of total probability.
+- Because the denominator sums over every class, it's the same for all of them — which is why it can be dropped when you only need the arg-max.
+- **The medical-test paradox**: a 99%-accurate test on a 1%-prevalence disease gives a positive patient only ~17% chance of being ill. Rare disease ⟹ false positives outnumber true ones.
+</ConceptBox>
 
 ## Practice
 

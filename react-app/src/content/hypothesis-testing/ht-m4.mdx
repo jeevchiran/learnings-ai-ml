@@ -7,15 +7,6 @@ import TwoDistributionWidget from '../../components/widgets/hypothesis-testing/T
 **Which email wins?** A team sends subject line A to 200 subscribers (12% click) and B to another 200 (15% click). The 3-point gap — real, or chance even if both lines are equally good? To answer rigorously they run a **two-sample test**, the same framework used in clinical trials and QC whenever two groups are compared.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- Same skeleton as Module 3, new parameter: the **difference** $\mu_1-\mu_2$. Statistic = (estimate − null) / SE, always.
-- Variances add for independent groups, so $\text{SE}=\sqrt{s_1^2/n_1+s_2^2/n_2}$.
-- **Welch is the default.** The pooled t-test assumes equal variances, which is often false and then breaks the Type I error rate.
-- **Independence is a design property, not a choice.** Same subjects in both arms ⟹ paired test (Module 5).
-- A/B testing on a binary outcome is the **two-proportion Z-test**, pooling $\hat p$ under $H_0$.
-- With enough $n$, any difference becomes significant. **Always report effect size and a CI**, not just a verdict.
-</ConceptBox>
-
 ## The Two-Sample Framework
 
 Module 3 compared one mean $\bar{x}$ to a fixed $\mu_0$. Two-sample tests compare the means of **two independent populations** directly — the parameter of interest is the difference $\mu_1 - \mu_2$:
@@ -93,6 +84,17 @@ Cohen stressed these are rough guidelines — what counts as practically importa
   { q: "Same subjects measured in both conditions — why can't you just run the two-sample test?", a: "It assumes the two groups are independent, and repeated measures on one person are strongly correlated. The two-sample SE therefore includes all the person-to-person variability that pairing would have cancelled, inflating the standard error and losing power — and the stated error rates no longer hold." },
   { q: "What does Cohen's d add over the p-value, and what does its denominator do?", a: "It reports the size of the difference in standard-deviation units, which is comparable across studies and independent of sample size. Dividing by the pooled standard deviation is what makes it scale-free — a 5-point gap is large if the spread is 2 and trivial if the spread is 50." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Same skeleton as Module 3, new parameter: the **difference** $\mu_1-\mu_2$. Statistic = (estimate − null) / SE, always.
+- Variances add for independent groups, so $\text{SE}=\sqrt{s_1^2/n_1+s_2^2/n_2}$.
+- **Welch is the default.** The pooled t-test assumes equal variances, which is often false and then breaks the Type I error rate.
+- **Independence is a design property, not a choice.** Same subjects in both arms ⟹ paired test (Module 5).
+- A/B testing on a binary outcome is the **two-proportion Z-test**, pooling $\hat p$ under $H_0$.
+- With enough $n$, any difference becomes significant. **Always report effect size and a CI**, not just a verdict.
+</ConceptBox>
 
 <QuizCard
   question="In Welch's two-sample t-test, why is the pooled t-test generally NOT recommended as the default?"

@@ -3,15 +3,6 @@ import FeatureSelectionWidget from '../../components/widgets/model-eval/FeatureS
 
 # Module 7: Wrapper & Embedded Methods
 
-<ConceptBox title="TL;DR">
-- **Wrappers fit a real model on feature subsets**, so unlike filters they see interactions — at the cost of many fits.
-- **RFE** works backwards: fit, drop the weakest, refit, repeat. `RFECV` picks the subset size by cross-validation instead of your guess.
-- **Embedded methods select while fitting** — L1/Lasso drives coefficients to exactly zero; L2/Ridge only shrinks toward it.
-- Forward and backward selection are greedy, so they can and do land on different subsets. Neither is guaranteed optimal.
-- **Selection is model-specific.** Features Lasso keeps for a linear model are not necessarily what a random forest wants.
-- Caveat: impurity-based importance is biased toward high-cardinality features — prefer permutation importance.
-</ConceptBox>
-
 ## Wrapper Methods: Let a Model Vote on Subsets
 
 Filter methods (Module 6) score each feature *on its own*, so they miss interactions — two mediocre features that become powerful only together (like `latitude` and `longitude`, useless alone, jointly a location). Wrapper and embedded methods close the gap by involving a real model, which sees interactions because it's fit on feature *combinations*.
@@ -127,6 +118,17 @@ Switch modes below — the same 10 features (some predictive, some noise, some u
 
 <ConceptBox title="Are embedded methods strictly better than filters?">
 No — they're **model-specific**, a real limitation. Lasso's zeroed coefficients reflect what a *linear* model finds irrelevant; a feature with a nonlinear or threshold relationship can be zeroed by L1 yet be the best split at a tree's root. Tree importance has the mirror problem. The right method depends on the final model you deploy — selecting with Lasso then deploying a random forest throws away exactly the information you wanted. The selection step should be aware of, ideally identical to, the model doing the final prediction.
+</ConceptBox>
+
+---
+
+<ConceptBox title="TL;DR">
+- **Wrappers fit a real model on feature subsets**, so unlike filters they see interactions — at the cost of many fits.
+- **RFE** works backwards: fit, drop the weakest, refit, repeat. `RFECV` picks the subset size by cross-validation instead of your guess.
+- **Embedded methods select while fitting** — L1/Lasso drives coefficients to exactly zero; L2/Ridge only shrinks toward it.
+- Forward and backward selection are greedy, so they can and do land on different subsets. Neither is guaranteed optimal.
+- **Selection is model-specific.** Features Lasso keeps for a linear model are not necessarily what a random forest wants.
+- Caveat: impurity-based importance is biased toward high-cardinality features — prefer permutation importance.
 </ConceptBox>
 
 ## Practice

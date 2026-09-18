@@ -1,14 +1,6 @@
 import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import LeakagePipelineWidget from '../../components/widgets/model-eval/LeakagePipelineWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- **Select features on the full dataset and every score afterwards is dishonest** — the held-out rows helped choose the features being evaluated on them.
-- The demo is the whole lesson: 1,000 pure-noise features, a random target, and leaky selection reports 65–75% where the truth is 50%.
-- It's the same category of error as fitting a scaler before splitting, but easier to miss because "which columns to use" feels like prep, not fitting.
-- **The fix is structural**: put the selector inside a `Pipeline` and pass the pipeline to `cross_val_score`, so it refits on each training fold.
-- Tuning $k$ on the same folds you report is a milder version of the same leak. **Nested CV** is the honest answer — inner loop tunes, outer loop only reports.
-</ConceptBox>
-
 ## The Trap
 
 Filter, wrapper, and embedded methods all pick features by *looking at data*. If that step looks at *too much* data, everything you measure afterward becomes dishonest.
@@ -96,6 +88,16 @@ Toggle the leaky vs. correct pipeline on the pure-noise scenario and watch the r
 
 <ConceptBox title="'I never touched the test set, so I'm safe' — false">
 Leakage isn't specifically about the test set. The same leak happens between a CV *training* fold and its paired *validation* fold if selection happens before the split — even with the true test set locked away. The pure-noise example never mentioned a test set; the inflation happened entirely within 5-fold CV. The leak is between "data used to make a choice" and "data used to score that choice" — any such boundary, train/validation or train/test.
+</ConceptBox>
+
+---
+
+<ConceptBox title="TL;DR">
+- **Select features on the full dataset and every score afterwards is dishonest** — the held-out rows helped choose the features being evaluated on them.
+- The demo is the whole lesson: 1,000 pure-noise features, a random target, and leaky selection reports 65–75% where the truth is 50%.
+- It's the same category of error as fitting a scaler before splitting, but easier to miss because "which columns to use" feels like prep, not fitting.
+- **The fix is structural**: put the selector inside a `Pipeline` and pass the pipeline to `cross_val_score`, so it refits on each training fold.
+- Tuning $k$ on the same folds you report is a milder version of the same leak. **Nested CV** is the honest answer — inner loop tunes, outer loop only reports.
 </ConceptBox>
 
 ## Practice

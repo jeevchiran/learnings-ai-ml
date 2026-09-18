@@ -1,14 +1,6 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import CachingWidget from '../../components/widgets/etl-pyspark/CachingWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- Lazy evaluation means **every action replays the whole lineage from source**. Cache exists to stop that repetition.
-- Cache when a DataFrame is **reused** — multiple downstream actions, an iterative loop, or an expensive intermediate. Used once? Caching is pure waste.
-- `cache()` is exactly `persist(MEMORY_ONLY)`; `persist()` lets you pick a level that spills to disk instead of silently recomputing.
-- **`unpersist()` when done** — cached data holds executor memory that everything else has to compete for.
-- `broadcast()` is the other lever: ship a small table to every executor and the join needs **no shuffle at all**.
-</ConceptBox>
-
 <Bridge>
 In Module 9, we built complex transformations — joins, aggregations, pivots, and window functions. These pipelines can be expensive. This final module covers how to make them fast using caching and broadcast variables.
 </Bridge>
@@ -178,6 +170,16 @@ cleaned_df.unpersist()
   { q: "How does broadcast turn a shuffle join into no shuffle?", a: "A normal join repartitions BOTH sides by the join key so matching rows meet — that is the shuffle. If one side is small enough, Spark instead sends a full copy to every executor, so each executor joins its existing partition of the large table locally. No data from the large table moves at all." },
   { q: "Why call unpersist(), given Spark evicts cached blocks anyway?", a: "Because eviction is reactive and uses LRU, so a stale cached DataFrame can push out something that is actually in use before it is dropped. Explicit unpersist returns the memory at the point you know it is dead, which keeps executor memory available for shuffles and joins rather than for results nobody will read again." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Lazy evaluation means **every action replays the whole lineage from source**. Cache exists to stop that repetition.
+- Cache when a DataFrame is **reused** — multiple downstream actions, an iterative loop, or an expensive intermediate. Used once? Caching is pure waste.
+- `cache()` is exactly `persist(MEMORY_ONLY)`; `persist()` lets you pick a level that spills to disk instead of silently recomputing.
+- **`unpersist()` when done** — cached data holds executor memory that everything else has to compete for.
+- `broadcast()` is the other lever: ship a small table to every executor and the join needs **no shuffle at all**.
+</ConceptBox>
 
 <QuizCard
   question="A DataFrame is the result of an expensive 5-table join. You need to run 4 different aggregations on it. What should you do?"

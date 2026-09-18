@@ -3,14 +3,6 @@ import ConvolutionWidget from '../../components/widgets/cnn/ConvolutionWidget.js
 
 # Module 2: Convolution Operations
 
-<ConceptBox title="TL;DR">
-- Convolution is a **sliding dot product**: the response is large where the local patch matches the kernel pattern, small where it doesn't.
-- Frameworks actually compute **cross-correlation** (no kernel flip). Irrelevant in practice — the kernel just learns the flipped version.
-- Output size: $\lfloor (H + 2P - K)/S \rfloor + 1$. **Same padding** is $P=(K-1)/2$ at stride 1.
-- Padding exists so the kernel can centre on border pixels — without it, edges are undersampled and every layer shrinks the map.
-- **Padding and stride change the output size, never the parameter count.** Only $K$, $C_{in}$, and $C_{out}$ do that.
-</ConceptBox>
-
 <Bridge>
 **From Module 1:** we established that MLPs fail on images because they ignore locality, repeat redundant weights, and have no translation equivariance. The mechanism that fixes all three is the **convolution** — or more precisely, the *cross-correlation* that deep learning frameworks call convolution. This module goes into the full mechanics: what the operation computes, why it works, and how stride, padding, and kernel size affect the output.
 </Bridge>
@@ -151,6 +143,14 @@ The ratio is $\frac{K^2}{H \times W}$ — for a $28 \times 28$ image with $K=3$,
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- Convolution is a **sliding dot product**: the response is large where the local patch matches the kernel pattern, small where it doesn't.
+- Frameworks actually compute **cross-correlation** (no kernel flip). Irrelevant in practice — the kernel just learns the flipped version.
+- Output size: $\lfloor (H + 2P - K)/S \rfloor + 1$. **Same padding** is $P=(K-1)/2$ at stride 1.
+- Padding exists so the kernel can centre on border pixels — without it, edges are undersampled and every layer shrinks the map.
+- **Padding and stride change the output size, never the parameter count.** Only $K$, $C_{in}$, and $C_{out}$ do that.
+</ConceptBox>
 
 ## Quiz
 

@@ -3,13 +3,6 @@ import SignalWeightWidget from '../../components/widgets/recsys/SignalWeightWidg
 
 # Module 2: Data & Signals
 
-<ConceptBox title="TL;DR">
-- **Explicit** feedback (a 5-star review) is honest, rare, and biased toward extremes. **Implicit** feedback (views, carts, purchases) is abundant, noisy, and *positive-only*.
-- Implicit means: an interaction is weak evidence of interest; a non-interaction is mostly evidence of **nothing**. Missing ≠ negative.
-- The standard move is to collapse events into one number $r_{ui}$ with per-event weights, then split it into **preference** $p_{ui}\in\{0,1\}$ and **confidence** $c_{ui}$.
-- Signal strength runs opposite to signal volume: purchases are what you want and what you barely have.
-</ConceptBox>
-
 ## What NovaCart actually records
 
 A shopper never tells NovaCart "I rate this 4 stars". They leave a trail:
@@ -86,6 +79,15 @@ So far we have assumed the event log is clean. It is not. Next: the contract tha
   { q: "In the widget, why does setting the view weight to 0 nearly empty the matrix?", a: "Views are the overwhelming majority of events (most of the log). Purchases and carts are rare. This is the central tension of implicit feedback: the strongest signal is the scarcest, so a model trained only on purchases has almost no data, and a model trained on views optimises for browsing." },
   { q: "A colleague sets purchase weight to 100 to 'make purchases matter more'. What breaks?", a: "Confidence c = 1 + αr becomes ~100x for purchased cells, so ALS fits those few cells almost exactly and effectively ignores everything else — the model collapses toward memorising past purchases, which is both non-personalised for new behaviour and useless for discovery. Weight ratios control the effective sample weighting; extreme ratios discard data." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Explicit** feedback (a 5-star review) is honest, rare, and biased toward extremes. **Implicit** feedback (views, carts, purchases) is abundant, noisy, and *positive-only*.
+- Implicit means: an interaction is weak evidence of interest; a non-interaction is mostly evidence of **nothing**. Missing ≠ negative.
+- The standard move is to collapse events into one number $r_{ui}$ with per-event weights, then split it into **preference** $p_{ui}\in\{0,1\}$ and **confidence** $c_{ui}$.
+- Signal strength runs opposite to signal volume: purchases are what you want and what you barely have.
+</ConceptBox>
 
 <QuizCard
   question="NovaCart's matrix has r=0 for (Diya, Coffee Grinder). What does the implicit-feedback framing say this cell means?"

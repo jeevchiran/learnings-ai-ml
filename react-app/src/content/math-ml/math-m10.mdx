@@ -3,13 +3,6 @@ import GradientDescentWidget from '../../components/widgets/math-ml/GradientDesc
 
 # Module 10: Gradient Descent
 
-<ConceptBox title="TL;DR">
-- One rule runs nearly all of training: $\theta_{t+1} = \theta_t - \eta\,\nabla f(\theta_t)$.
-- The learning rate $\eta$ sits on a knife's edge — too small wastes steps, too large diverges. The tipping point is set by the curvature.
-- Convergence is only *guaranteed* on a convex bowl. Real loss surfaces have local minima, plateaus and saddles.
-- Momentum and Adam exist precisely to survive that non-convex reality.
-</ConceptBox>
-
 ## The Optimization Loop, Distilled
 
 Almost everything you'll train in this curriculum reduces to the same three lines: compute a gradient, step opposite to it, repeat.
@@ -57,6 +50,15 @@ print(theta, f(theta))   # converges toward [0, 0], f -> 0
 ```
 
 In practice you never hand-write `grad()` — autodiff (Module 9) computes it, and `torch.optim.SGD`/`Adam` wrap the update rule for you.
+
+---
+
+<ConceptBox title="TL;DR">
+- One rule runs nearly all of training: $\theta_{t+1} = \theta_t - \eta\,\nabla f(\theta_t)$.
+- The learning rate $\eta$ sits on a knife's edge — too small wastes steps, too large diverges. The tipping point is set by the curvature.
+- Convergence is only *guaranteed* on a convex bowl. Real loss surfaces have local minima, plateaus and saddles.
+- Momentum and Adam exist precisely to survive that non-convex reality.
+</ConceptBox>
 
 ## Practice
 

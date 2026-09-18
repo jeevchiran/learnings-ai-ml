@@ -3,13 +3,6 @@ import SVDPCAWidget from '../../components/widgets/math-ml/SVDPCAWidget.jsx'
 
 # Module 4: SVD & PCA Foundations
 
-<ConceptBox title="TL;DR">
-- **PCA = eigendecompose the covariance matrix.** Largest eigenvalue → direction of most spread (PC1); its eigenvalue *is* the variance along that direction.
-- Covariance matrices are symmetric, so the eigenvectors come out real and mutually perpendicular — no complex-rotation edge case.
-- **SVD** ($X=U\Sigma V^\top$) does the same job for any matrix and is what libraries actually run: same axes, better numerics.
-- PCA builds *new* axes from mixtures of your features. It is not feature selection, and the components usually have no clean name.
-</ConceptBox>
-
 ## From Eigenvectors to PCA
 
 Module 3 asked "what directions does a matrix leave unrotated?" Ask that question of a data cloud's **covariance matrix**, and the answer is **Principal Component Analysis**.
@@ -49,6 +42,15 @@ X_reduced = pca.fit_transform(X)     # project onto top 2 principal components
 print(pca.explained_variance_ratio_)  # e.g. [0.61, 0.23] — how much variance each PC captures
 print(pca.components_)                # the principal axes themselves, in original feature space
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- **PCA = eigendecompose the covariance matrix.** Largest eigenvalue → direction of most spread (PC1); its eigenvalue *is* the variance along that direction.
+- Covariance matrices are symmetric, so the eigenvectors come out real and mutually perpendicular — no complex-rotation edge case.
+- **SVD** ($X=U\Sigma V^\top$) does the same job for any matrix and is what libraries actually run: same axes, better numerics.
+- PCA builds *new* axes from mixtures of your features. It is not feature selection, and the components usually have no clean name.
+</ConceptBox>
 
 ## Practice
 

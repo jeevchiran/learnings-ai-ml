@@ -7,14 +7,6 @@ import WCSSElbowWidget from '../../components/widgets/clustering/WCSSElbowWidget
 **Building on Module 2:** updating a centroid to the mean of its points minimizes the sum of squared distances within that cluster. K-means does this across all K clusters at once. The single number it drives down is the **Within-Cluster Sum of Squares (WCSS)** — scikit-learn's **inertia**.
 </Bridge>
 
-<ConceptBox title="TL;DR">
-- WCSS (sklearn's `inertia_`) is the one number K-means drives down, and the two steps are **coordinate descent** on it.
-- **WCSS always falls as $K$ rises**, hitting 0 at $K=n$ — so it can never pick $K$ by itself. You look at the *rate* of decrease instead: the elbow.
-- The elbow is subjective, often has no visible kink, and measures **cohesion only** — it is blind to whether clusters overlap.
-- The **gap statistic** compares your log-WCSS against uniform random data, and can therefore say "there is no structure here." The elbow always returns some answer.
-- $\text{TSS}=\text{WCSS}+\text{BCSS}$, with TSS fixed — so tightening clusters and separating them are the same trade.
-</ConceptBox>
-
 ## What K-Means Optimizes
 
 For clusters $C_1,\ldots,C_K$ with centroids $\mu_1,\ldots,\mu_K$:
@@ -100,6 +92,16 @@ As K rises, WCSS falls and BCSS rises (TSS fixed). A good K makes clusters tight
   { q: "What can the gap statistic tell you that the elbow structurally cannot?", a: "That there is no cluster structure at all. It compares observed log-WCSS to the expected log-WCSS on uniform random data in the same bounding box; if the gap stays near zero for every K, the data is essentially structureless. The elbow, applied to uniform noise, will still produce a plausible-looking kink." },
   { q: "TSS = WCSS + BCSS with TSS constant. What does that identity buy you?", a: "It means minimising within-cluster spread is exactly the same as maximising between-cluster spread — they are not two goals to balance but one quantity viewed from either side. It also underpins the Calinski-Harabasz ratio, which scores a clustering by BCSS over WCSS with degrees-of-freedom corrections." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- WCSS (sklearn's `inertia_`) is the one number K-means drives down, and the two steps are **coordinate descent** on it.
+- **WCSS always falls as $K$ rises**, hitting 0 at $K=n$ — so it can never pick $K$ by itself. You look at the *rate* of decrease instead: the elbow.
+- The elbow is subjective, often has no visible kink, and measures **cohesion only** — it is blind to whether clusters overlap.
+- The **gap statistic** compares your log-WCSS against uniform random data, and can therefore say "there is no structure here." The elbow always returns some answer.
+- $\text{TSS}=\text{WCSS}+\text{BCSS}$, with TSS fixed — so tightening clusters and separating them are the same trade.
+</ConceptBox>
 
 <QuizCard
   question="Why can't WCSS alone be used to select the optimal number of clusters K?"

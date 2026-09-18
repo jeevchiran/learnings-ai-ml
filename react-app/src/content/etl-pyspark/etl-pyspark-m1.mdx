@@ -1,12 +1,5 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
-<ConceptBox title="TL;DR">
-- **E**xtract from sources → **T**ransform (clean, filter, reshape, enrich) → **L**oad to a destination. Every pipeline is this shape.
-- `SparkSession` is the entry point; `spark.read.csv(...)` returns a **DataFrame** — a distributed table of named columns.
-- `inferSchema=True` costs an extra pass over the file. Convenient for exploration, wasteful in production — supply an explicit schema there.
-- Transform is where filtering and computed columns live; that's the phase this whole track expands on.
-</ConceptBox>
-
 ## Introduction: What is ETL?
 
 ETL stands for **Extract, Transform, Load** — the three fundamental steps in any data pipeline. Whether you're building a dashboard, training a machine learning model, or migrating data between systems, you'll almost certainly follow this pattern. It's one of the first things every data engineer learns because it structures how raw data becomes useful information.
@@ -112,6 +105,15 @@ print("CSV: output/students_honor_roll_csv/")
 ```
 
 **Why Parquet?** Parquet is a columnar storage format that compresses well and supports efficient querying. It's the standard output format in most Spark pipelines. CSV is useful when you need human-readable output or compatibility with tools that don't support Parquet.
+
+---
+
+<ConceptBox title="TL;DR">
+- **E**xtract from sources → **T**ransform (clean, filter, reshape, enrich) → **L**oad to a destination. Every pipeline is this shape.
+- `SparkSession` is the entry point; `spark.read.csv(...)` returns a **DataFrame** — a distributed table of named columns.
+- `inferSchema=True` costs an extra pass over the file. Convenient for exploration, wasteful in production — supply an explicit schema there.
+- Transform is where filtering and computed columns live; that's the phase this whole track expands on.
+</ConceptBox>
 
 ## Practice Problems
 

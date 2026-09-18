@@ -3,13 +3,6 @@ import HistogramSkewWidget from '../../components/widgets/pandas-eda/HistogramSk
 
 # Univariate Visualization
 
-<ConceptBox title="TL;DR">
-- **Mean and SD cannot distinguish symmetric, skewed, bimodal, and uniform.** Two very different columns can share both numbers. Plotting is the only way to see the shape.
-- **Histogram** = binned counts (bin count changes the story). **KDE** = smoothed version (bandwidth changes the story). **Box plot** = five-number summary plus flagged outliers, compact enough to stack.
-- The **mean-versus-median gap is your skew detector**: fares average $26 with a median of $11.75, and that gap *is* the $399 outlier.
-- A histogram immediately reveals a discrete column — `passenger_count` takes only 1–6, mode 1.
-</ConceptBox>
-
 ## What, Why, and How
 
 <ConceptBox title="WHAT: Charts for a single variable">
@@ -89,6 +82,15 @@ The widget below lets you explore these three columns with either a histogram (a
 </Bridge>
 
 <HistogramSkewWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- **Mean and SD cannot distinguish symmetric, skewed, bimodal, and uniform.** Two very different columns can share both numbers. Plotting is the only way to see the shape.
+- **Histogram** = binned counts (bin count changes the story). **KDE** = smoothed version (bandwidth changes the story). **Box plot** = five-number summary plus flagged outliers, compact enough to stack.
+- The **mean-versus-median gap is your skew detector**: fares average $26 with a median of $11.75, and that gap *is* the $399 outlier.
+- A histogram immediately reveals a discrete column — `passenger_count` takes only 1–6, mode 1.
+</ConceptBox>
 
 ## Practice
 

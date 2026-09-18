@@ -2,14 +2,6 @@ import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSel
 
 # Module 6: CNN Training & Backpropagation
 
-<ConceptBox title="TL;DR">
-- **Weight sharing is what makes conv backprop different**: one kernel weight is used at every position, so its gradient is the *sum* of contributions from every output position.
-- Three gradients per layer: w.r.t. the kernel (a cross-correlation), w.r.t. the input (a full convolution with the **flipped** kernel), and w.r.t. the bias (just a sum).
-- **Max pooling routes the gradient only to the argmax** — every other position in the window gets exactly zero. Average pooling splits it evenly.
-- ReLU backward is a binary mask: pass the gradient where the pre-activation was positive, zero elsewhere.
-- Batch size doesn't change the *shape* of a kernel gradient — contributions accumulate across the batch too.
-</ConceptBox>
-
 <Bridge>
 **From Foundations of Deep Learning Module 6:** backpropagation computes gradients layer-by-layer using the chain rule. For FC layers, the gradient of the loss with respect to the weight matrix is a straightforward outer product. For conv layers, the weight is *shared* across positions — every application of the kernel at every spatial location contributes to the gradient of that same kernel. This sharing makes the backward pass a *cross-correlation* operation, mirroring the forward pass.
 </Bridge>
@@ -168,6 +160,14 @@ This summation over positions is the price of weight sharing — gradients from 
 </DerivationSteps>
 
 ---
+
+<ConceptBox title="TL;DR">
+- **Weight sharing is what makes conv backprop different**: one kernel weight is used at every position, so its gradient is the *sum* of contributions from every output position.
+- Three gradients per layer: w.r.t. the kernel (a cross-correlation), w.r.t. the input (a full convolution with the **flipped** kernel), and w.r.t. the bias (just a sum).
+- **Max pooling routes the gradient only to the argmax** — every other position in the window gets exactly zero. Average pooling splits it evenly.
+- ReLU backward is a binary mask: pass the gradient where the pre-activation was positive, zero elsewhere.
+- Batch size doesn't change the *shape* of a kernel gradient — contributions accumulate across the batch too.
+</ConceptBox>
 
 ## Quiz
 

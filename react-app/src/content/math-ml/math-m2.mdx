@@ -3,12 +3,6 @@ import MatrixTransformWidget from '../../components/widgets/math-ml/MatrixTransf
 
 # Module 2: Matrices & Linear Transformations
 
-<ConceptBox title="TL;DR">
-- A matrix is not a grid of numbers — it's a **function that moves every point**, keeping lines straight and the origin fixed.
-- **Read the columns.** Column $j$ is where basis vector $j$ lands. That one fact tells you what any matrix does.
-- $AB$ means "apply $B$, then $A$" — so stacking layers is composing transformations, and $AB \neq BA$ is why layer order matters.
-</ConceptBox>
-
 ## A Matrix Is a Transformation
 
 Stop reading a matrix as "a grid of numbers." Read it as a **function that moves every point in space** — a linear one: straight lines stay straight, the origin stays fixed, and grid spacing stays even (parallel lines stay parallel).
@@ -59,6 +53,14 @@ A = np.array([[0, -1], [1, 0]])   # 90° rotation
 B = np.array([[2, 0], [0, 2]])    # scale by 2
 composed = A @ B                  # scale then rotate
 ```
+
+---
+
+<ConceptBox title="TL;DR">
+- A matrix is not a grid of numbers — it's a **function that moves every point**, keeping lines straight and the origin fixed.
+- **Read the columns.** Column $j$ is where basis vector $j$ lands. That one fact tells you what any matrix does.
+- $AB$ means "apply $B$, then $A$" — so stacking layers is composing transformations, and $AB \neq BA$ is why layer order matters.
+</ConceptBox>
 
 ## Practice
 

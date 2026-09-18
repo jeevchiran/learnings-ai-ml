@@ -3,16 +3,6 @@ import NegativeSamplingWidget from '../../components/widgets/recsys/NegativeSamp
 
 # Module 11: Negative Sampling Strategies
 
-<ConceptBox title="TL;DR">
-- Implicit data has positives only. **You invent the negatives**, and that invention is a modelling decision as consequential as the architecture.
-- **Uniform/random** negatives are easy and weak — almost every one is an obvious mismatch, so the model plateaus early.
-- **Popularity$^\beta$** ($\beta \approx 0.75$) is the reliable default: the model must learn to reject popular items for the *wrong* shopper.
-- **Time-aware** sampling draws from the catalog *as it stood* at the positive's timestamp — no items from the future, and popularity from a trailing window rather than all time.
-- **Hard negatives** are the most informative and the most dangerous, because many are **false negatives**.
-- **In-batch** negatives are free and implicitly popularity-weighted, which is why they need a **logQ correction**.
-- Two biases come free with the choice: **random sampling bias** (your sampled loss is not the loss you meant to minimise) and **exposure bias** (you never observed what was never shown). Both have standard corrections.
-</ConceptBox>
-
 ## Why you have to make them up
 
 Aarav interacted with 4 products out of 9. That gives you 4 positive rows. To train anything discriminative you need to say what *not* to recommend — and nothing in the log says that. A non-interaction can mean "disliked", "never shown", or "bought it in a shop last week".
@@ -184,6 +174,18 @@ Every strategy so far reads the interaction matrix. For an item with no interact
   { q: "IPS removes exposure bias in expectation. What does it cost, and what is the standard guard?", a: "Variance. Weighting by 1/p̂ means a propensity of 0.01 gives one row a weight of 100, so a handful of rarely-exposed rows can dominate a batch and destabilise training. The standard guard is clipping — use max(p̂, τ) with τ around 0.01–0.05 — trading a little residual bias for a large variance reduction." },
   { q: "Why does batch size stop being 'just a throughput knob' in two-tower training?", a: "With in-batch negatives, each positive is contrasted against the other B−1 items in the batch, so batch size directly sets the number of negatives per positive. Halving the batch halves the contrastive signal — the model gets weaker, not merely slower. This is why two-tower training pushes toward very large batches." },
 ]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- Implicit data has positives only. **You invent the negatives**, and that invention is a modelling decision as consequential as the architecture.
+- **Uniform/random** negatives are easy and weak — almost every one is an obvious mismatch, so the model plateaus early.
+- **Popularity$^\beta$** ($\beta \approx 0.75$) is the reliable default: the model must learn to reject popular items for the *wrong* shopper.
+- **Time-aware** sampling draws from the catalog *as it stood* at the positive's timestamp — no items from the future, and popularity from a trailing window rather than all time.
+- **Hard negatives** are the most informative and the most dangerous, because many are **false negatives**.
+- **In-batch** negatives are free and implicitly popularity-weighted, which is why they need a **logQ correction**.
+- Two biases come free with the choice: **random sampling bias** (your sampled loss is not the loss you meant to minimise) and **exposure bias** (you never observed what was never shown). Both have standard corrections.
+</ConceptBox>
 
 <QuizCard
   question="Your team switches from uniform to purely hard negatives (top-scoring non-interactions from the catalog). Training loss drops fast but online CTR falls. What is the most likely cause?"

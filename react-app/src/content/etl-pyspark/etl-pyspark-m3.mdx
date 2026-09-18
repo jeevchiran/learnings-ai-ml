@@ -1,13 +1,6 @@
 import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LazyEvaluationWidget from '../../components/widgets/etl-pyspark/LazyEvaluationWidget.jsx'
 
-<ConceptBox title="TL;DR">
-- The name is the definition. **R**esilient = rebuildable from lineage; **D**istributed = partitioned across nodes; **D**ataset = just a collection of elements.
-- **Immutability is what makes resilience possible.** Because every transformation returns a new RDD and the source is unchanged, a lost partition can be recomputed by replaying its lineage.
-- That's fault tolerance without replication — Spark stores the *recipe*, not a backup copy.
-- RDDs are the low-level API: raw tuples and lambdas, no schema, no Catalyst optimisation. DataFrames exist because of that gap.
-</ConceptBox>
-
 In Module 2, we saw how Spark keeps data in memory and uses lazy evaluation with DAGs. Now we'll look at the data structure that makes this possible: the RDD.
 
 ## What is an RDD?
@@ -167,6 +160,15 @@ for major, count in major_counts.items():
 ```
 
 <LazyEvaluationWidget />
+
+---
+
+<ConceptBox title="TL;DR">
+- The name is the definition. **R**esilient = rebuildable from lineage; **D**istributed = partitioned across nodes; **D**ataset = just a collection of elements.
+- **Immutability is what makes resilience possible.** Because every transformation returns a new RDD and the source is unchanged, a lost partition can be recomputed by replaying its lineage.
+- That's fault tolerance without replication — Spark stores the *recipe*, not a backup copy.
+- RDDs are the low-level API: raw tuples and lambdas, no schema, no Catalyst optimisation. DataFrames exist because of that gap.
+</ConceptBox>
 
 ## Practice Problems
 
