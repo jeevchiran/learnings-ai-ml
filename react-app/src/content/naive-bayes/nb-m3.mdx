@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import NBTennisWidget from '../../components/widgets/naive-bayes/NBTennisWidget.jsx'
 
 # Module 3: The Naive Bayes Classifier
@@ -17,15 +17,39 @@ You never need $P(\mathbf{x})$ to classify — only to report calibrated probabi
 
 ## The Problem: $P(\mathbf{x} \mid y)$ Is Intractable
 
+<PredictReveal
+  prompt="You want the probability of a whole feature vector given a class. With 20 binary features, how many distinct combinations would that table need?"
+  options={["20, one per feature", "Over a million, and most of them never appear in any training set"]}
+  correct={1}
+>
+
 $P(\mathbf{x}\mid y)$ is a joint over all $n$ features. With binary features that's $2^n$ entries per class — over a million parameters for $n=20$, most feature combinations never seen in training. Direct estimation is impossible.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can the joint probability of a feature vector not be estimated directly?", a: "It needs one entry for every possible combination of feature values, which grows exponentially with the number of features. With twenty binary features that is over a million cells per class, and almost all of them have no training examples at all." },
+]} />
+
 ## The Naive Assumption
+
+<PredictReveal
+  prompt={"The naive assumption says that once you know an email is spam, seeing the word free tells you nothing extra about whether it contains money. Is that claim true of real email?"}
+  options={["Yes, that is why the method works", "Almost never — but the classifier usually still ranks the classes correctly"]}
+  correct={1}
+>
 
 Break the joint apart: **features are conditionally independent given the class**.
 
 $$P(\mathbf{x} \mid y) = \prod_{i=1}^{n} P(x_i \mid y)$$
 
 This is *not* unconditional independence. "free" and "money" are correlated across all emails — but the assumption only claims that *once you know an email is spam*, seeing "free" tells you nothing extra about "money". Usually false — hence "naive". The payoff is enormous: instead of one $2^n$ table per class, you estimate $n$ small one-dimensional distributions $P(x_i \mid y)$. Linear, not exponential.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Is the naive independence assumption usually true, and does it matter?", a: "It is almost always false, since real features are correlated. It matters less than it should because classification only needs the ranking of the class scores to be right, not their exact values, and correlated features tend to distort every class's score in the same direction." },
+]} />
 
 <ConceptBox title="Why 'naive' still classifies well">
 Classification needs only the *ranking* of $P(y\mid\mathbf{x})$ across classes to be right, not the exact values. Correlated features often distort every class's score in the same direction, leaving the ranking — and thus the label — intact. Naive Bayes can even be Bayes-optimal when independence is badly violated.

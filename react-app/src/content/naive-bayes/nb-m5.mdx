@@ -1,9 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import NBVariantWidget from '../../components/widgets/naive-bayes/NBVariantWidget.jsx'
 
 # Module 5: Multinomial, Bernoulli & Gaussian Naive Bayes
 
 ## Same Skeleton, Different Likelihood
+
+<PredictReveal
+  prompt="Word counts, yes-or-no flags, and continuous measurements are very different kinds of feature. What has to change in naive Bayes to handle each?"
+  options={["The whole algorithm, one per data type", "Only the likelihood term — the prior, the independence assumption and the decision rule are identical"]}
+  correct={1}
+>
 
 Every variant uses the identical rule from Module 3:
 
@@ -20,6 +26,14 @@ Only the assumed *shape* of $P(x_i \mid y)$ changes — and it should match how 
 Toggle the three and see how each models one feature:
 
 <NBVariantWidget />
+
+Switch between the variants in the widget and watch only the middle term change. Everything around it stays put, which is why there are three names but one algorithm.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the only difference between multinomial, Bernoulli and Gaussian naive Bayes?", a: "The distribution used for the likelihood of a feature given the class: counts for multinomial, presence or absence for Bernoulli, and a normal distribution for continuous values. The prior, the conditional independence assumption and the arg-max decision rule are identical in all three." },
+]} />
 
 ## Multinomial NB
 
@@ -57,6 +71,12 @@ print(mnb.predict_proba(test).round(4))   # [[0.0229 0.9771]]  -> P(ham), P(spam
 
 ## Bernoulli NB
 
+<PredictReveal
+  prompt="A document mentions a word five times. Multinomial naive Bayes uses the count. What does Bernoulli use, and when does that help?"
+  options={["The same count, just scaled", "Only whether the word is present at all, which helps on short texts where repetition means little"]}
+  correct={1}
+>
+
 For **binary presence/absence** — did the word appear, ignoring count. Each $x_i \in \{0,1\}$:
 
 $$P(x_i \mid y) = p_{y,i}^{\,x_i} \,(1-p_{y,i})^{\,1-x_i}$$
@@ -76,6 +96,12 @@ Even more extreme (99.87%) — it also credits the *absence* of ham words like "
 <ConceptBox title="Multinomial vs Bernoulli, concretely">
 "buy buy buy now": Multinomial sees "buy" ×3 as three pieces of evidence; Bernoulli sees only "buy present" — one occurrence and a hundred look identical. Choose Multinomial when frequency carries signal; Bernoulli when only occurrence matters (short texts, rare keywords).
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "When is the Bernoulli variant preferable to the multinomial one?", a: "On short documents, where whether a word appears carries more signal than how often it appears, and where the absence of a word is itself informative. Bernoulli explicitly models non-occurrence, which the multinomial form ignores." },
+]} />
 
 ## Gaussian NB
 

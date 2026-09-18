@@ -1,8 +1,18 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Module 1: Intuition Behind Probabilistic Classification
 
+<ConceptBox title="Before you start">
+One prerequisite carries the whole track: Bayes' theorem and conditional probability from the Maths for ML track, Module 5. If the medical-test example there still surprises you, reread it before continuing, because this track is that one idea turned into a classifier.
+</ConceptBox>
+
 ## Why Probabilistic Classification?
+
+<PredictReveal
+  prompt="A classifier labels an email as spam. A second one says it is spam with probability 0.51. Which output is more useful to the team building the inbox?"
+  options={["The label — it is a clean decision", "The probability, because it lets the threshold be set by what a mistake costs"]}
+  correct={1}
+>
 
 A spam filter can decide "spam or not" in several ways. A decision tree walks yes/no questions to a leaf. Logistic regression checks which side of a boundary the email falls on. Both give a label — neither directly answers the question a human actually asks: *given everything I know about this email, how likely is it to be spam?*
 
@@ -16,6 +26,12 @@ This is the **Bayes decision rule**, and it is provably optimal: if you knew $P(
 $P(y \mid \mathbf{x})$ is the **posterior** — belief *after* seeing the features. Before seeing any, your best guess is the base rate each class occurs at: the **prior**. Observing $\mathbf{x}$ updates prior → posterior. This whole track is machinery to compute that update correctly and cheaply.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a probability more useful than a bare label?", a: "A probability lets the decision threshold be chosen separately from the model, according to what each kind of mistake costs. A borderline spam email can be sent to a review folder rather than deleted, and the same model can serve two teams with different tolerances." },
+]} />
+
 ## A Weather-Forecaster Analogy
 
 A forecaster estimating rain combines two things:
@@ -27,6 +43,12 @@ The forecaster doesn't discard the base rate just because it looks stormy, nor i
 
 ## Generative vs. Discriminative
 
+<PredictReveal
+  prompt="One model learns the boundary between spam and ham directly. Another learns what spam typically looks like and what ham typically looks like, then compares. Which one could generate a plausible fake spam email?"
+  options={["The one that learns the boundary", "The one that models what each class looks like"]}
+  correct={1}
+>
+
 Two ways to model $P(y \mid \mathbf{x})$:
 
 | Approach | What it models | Examples |
@@ -35,6 +57,12 @@ Two ways to model $P(y \mid \mathbf{x})$:
 | **Generative** | $P(\mathbf{x} \mid y)$ and $P(y)$ separately, combined via Bayes' theorem | Naive Bayes, GDA, HMMs |
 
 A generative model asks not "where is the boundary?" but "if I were to *generate* an example of class $y$, what would its features look like?" It builds a small simulator per class, and classification falls out of comparing how well each class's simulator explains $\mathbf{x}$. The payoff: because it represents $P(\mathbf{x}\mid y)$, it can also generate samples, handle missing features by marginalizing, and update incrementally.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What distinguishes a generative classifier from a discriminative one?", a: "A discriminative model learns the boundary between classes directly. A generative model learns what each class's data looks like and applies Bayes' theorem to turn that into a classification, which means it could also produce new samples of a class. Naive Bayes is generative." },
+]} />
 
 <Bridge>
 Naive Bayes is the simplest generative classifier: each class's "simulator" is just a product of independent per-feature distributions. That assumption turns Bayes' theorem into a closed-form algorithm — no gradient descent. The next module derives Bayes' theorem from the definition of conditional probability, so every symbol later has a precise meaning.

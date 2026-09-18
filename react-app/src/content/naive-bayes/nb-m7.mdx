@@ -1,8 +1,14 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 
 # Module 7: Advantages and Disadvantages of Naive Bayes
 
 ## Advantages
+
+<PredictReveal
+  prompt="You have 200 labelled emails and a vocabulary of 5,000 words. Which is more likely to work: naive Bayes or a model that learns feature interactions?"
+  options={["The interaction model, since it is more expressive", "Naive Bayes, because it estimates one small distribution per feature rather than a joint over all of them"]}
+  correct={1}
+>
 
 <ConceptBox title="Where Naive Bayes genuinely wins">
 - **Training is one counting pass.** Class frequencies for the prior, per-feature stats for likelihoods — no gradient descent, no convergence check. $O(Nn)$ and trivially parallel.
@@ -12,6 +18,12 @@ import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../com
 - **Naturally incremental.** New examples just update counts (or running mean/variance) — hence `partial_fit`.
 - **Interpretable.** The log-space score decomposes into a per-feature attribution: which features pushed the score toward this class, by how much.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does naive Bayes hold up well on small datasets?", a: "The independence assumption reduces the estimation problem to one small one-dimensional distribution per feature per class, which needs very few examples each. A model that estimates interactions needs data for every combination, and with a few hundred examples there is not enough to go round." },
+]} />
 
 ## Disadvantages
 
@@ -25,6 +37,20 @@ import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../com
 </ConceptBox>
 
 ## The Zero-Frequency Problem, Concretely
+
+<PredictReveal
+  prompt="Naive Bayes reports 0.999 confidence on a document. Should you trust that number as a calibrated probability?"
+  options={["Yes, the model computed it from probabilities", "No — treating correlated features as independent multiplies the same evidence repeatedly, so confidences are pushed towards the extremes"]}
+  correct={1}
+>
+
+The ranking is usually still right, which is why the classifier works. The magnitudes are not, so a naive Bayes score should be read as a comparison between classes rather than as a real probability.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are naive Bayes probability estimates poorly calibrated?", a: "Correlated features are treated as independent, so evidence that is really one signal is counted several times over. The product swings much further towards 0 or 1 than the evidence justifies. The ordering of classes usually survives this, which is why the classifier performs well despite the unreliable numbers." },
+]} />
 
 The most common way a from-scratch NB silently fails. Suppose "cryptocurrency" never appeared in any training ham email:
 

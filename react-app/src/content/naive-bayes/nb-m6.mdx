@@ -1,9 +1,15 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LogSpaceWidget from '../../components/widgets/naive-bayes/LogSpaceWidget.jsx'
 
 # Module 6: Numerical Stability and Log-Space Computation
 
 ## Where the Numbers Break
+
+<PredictReveal
+  prompt="You multiply two thousand probabilities, each around 0.2, in ordinary floating point. What is the result?"
+  options={["A very small but usable number", "Exactly zero — the true value is far below what a 64-bit float can represent"]}
+  correct={1}
+>
 
 The Naive Bayes score is a product of many sub-1 probabilities:
 
@@ -33,7 +39,19 @@ Slide the feature count up and watch the raw product hit zero while log-space st
 
 <LogSpaceWidget />
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does the raw naive Bayes score underflow, and why is that worse than being inaccurate?", a: "The score is a product of many probabilities below 1, so it shrinks exponentially with the number of features and falls below the smallest representable double, around ten to the minus 308. The result is exactly zero for every class, so the comparison between classes becomes zero against zero and the ranking information is destroyed by the arithmetic rather than by the model." },
+]} />
+
 ## The Log-Space Trick
+
+<PredictReveal
+  prompt="Taking the logarithm of the score turns the product into a sum. Does that change which class wins?"
+  options={["Yes, logs distort the comparison", "No — the logarithm is strictly increasing, so it preserves the ordering exactly"]}
+  correct={1}
+>
 
 One identity: logs turn products into sums.
 
@@ -59,6 +77,12 @@ print(log_score)     # -3705.74...
 ```
 
 A large negative but perfectly finite float — the same information the raw product would carry with infinite precision.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is it safe to compare log scores instead of raw scores?", a: "The logarithm is strictly increasing, so if one score exceeds another then its logarithm does too. The arg-max is therefore unchanged, while the arithmetic becomes a sum of moderate negative numbers instead of a product that underflows." },
+]} />
 
 ## Recovering Probabilities: `logsumexp`
 
