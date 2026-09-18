@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import EventContractWidget from '../../components/widgets/recsys/EventContractWidget.jsx'
 
 # Module 3: Data Contracts & Event Semantics
@@ -12,6 +12,12 @@ What happened is that `view` stopped meaning "chose to look at this" and started
 **This is the failure mode of the whole data layer.** It is never a stack trace. It is a definition drifting.
 
 ## The minimum event schema
+
+<PredictReveal
+  prompt="An event log records what a user did and when. What is missing that makes the log almost unusable for training a ranker?"
+  options={["Nothing important", "What was shown and not clicked — without the impression, you cannot tell disinterest from never having seen it"]}
+  correct={1}
+>
 
 ```json
 {
@@ -35,6 +41,12 @@ Two of those fields are the ones teams most often skip and most regret:
 - **`position` + `request_id`** — without them you cannot tell "not clicked" from "never shown", and you cannot attribute a purchase to the model version that recommended it. Log your impressions, not just your clicks.
 - **`schema_v`** — when the meaning of `view` changes, the version changes with it, and your training query can exclude or reweight the boundary.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why must impressions be logged as well as clicks?", a: "Without a record of what was displayed, an absent click is ambiguous between rejection and never having been shown. Impression logs turn the unobserved majority into a known set of shown-and-not-chosen items, which is what makes honest negatives possible." },
+]} />
+
 ## The rules that make a contract
 
 <EventContractWidget />
@@ -51,6 +63,12 @@ Rule of thumb: **compute features by `event_ts`, decide when a partition is safe
 
 ## Identity: the decision nobody wants to make
 
+<PredictReveal
+  prompt="A user browses logged out, then signs in and buys. Are those the same user in your logs?"
+  options={["Yes, obviously", "Only if identity stitching was designed in — otherwise the anonymous session and the account are two different users"]}
+  correct={1}
+>
+
 A shopper browses logged out, then signs in and buys. Two identities, one human.
 
 | Approach | Gain | Cost |
@@ -60,6 +78,12 @@ A shopper browses logged out, then signs in and buys. Two identities, one human.
 | Keep both, model on `anon_id` | Session-level recs work for everyone | No long-term profile |
 
 There is no right answer — only an answer you have written down. Most e-commerce stores stitch forward from the login event and accept the shared-device noise, because the pre-login browse session is usually the strongest intent signal they will ever get.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is user identity a design decision rather than a given?", a: "The same person appears as a device identifier before signing in and an account identifier afterwards. Whether those are stitched into one history determines how much signal each user has, and stitching retroactively is a rewrite of history that can leak future information into past rows." },
+]} />
 
 ## Refunds and other retroactive negatives
 

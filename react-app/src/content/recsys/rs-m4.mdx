@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import RankingMetricsWidget from '../../components/widgets/recsys/RankingMetricsWidget.jsx'
 
 # Module 4: Offline Evaluation Metrics
@@ -10,6 +10,12 @@ NovaCart's ranker returns eight products for a shopper. Three of them are things
 <RankingMetricsWidget />
 
 ## The formulas
+
+<PredictReveal
+  prompt="Two rankers both place exactly one relevant item in the top ten. One puts it first, the other tenth. Should a good metric score them equally?"
+  options={["Yes, both found it within ten", "No — a metric must discount by position, or it cannot tell a good ranking from a lucky one"]}
+  correct={1}
+>
 
 Let $R$ be the set of relevant items and $\text{rel}(i)=1$ if the item at rank $i$ is in $R$.
 
@@ -34,6 +40,12 @@ $$DCG@k = \sum_{i=1}^{k} \frac{\text{rel}(i)}{\log_2(i+1)}, \qquad NDCG@k = \fra
 The $\log_2(i+1)$ discount says a hit at rank 1 is worth 1.00, rank 2 is worth 0.63, rank 3 is worth 0.50. $IDCG@k$ is the DCG of the perfect ordering (all relevant items stacked at the top), so NDCG lands in $[0,1]$ and is comparable across users with different numbers of relevant items.
 </DerivationStep>
 </DerivationSteps>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What distinguishes a rank-aware metric from plain recall at k?", a: "Recall at k only asks whether relevant items appear anywhere in the top k, so it cannot distinguish first place from last place within the cut-off. Rank-aware metrics apply a discount that decreases with position, which rewards putting the best item highest rather than merely somewhere in the list." },
+]} />
 
 ## Worked example — the same slate, four answers
 
@@ -66,6 +78,12 @@ which is just a smoothed version of MRR. In that setup NDCG and MRR rank your mo
 
 ## Accuracy is not enough
 
+<PredictReveal
+  prompt="A recommender achieves excellent ranking scores by showing everyone the same ten bestsellers. Is anything wrong?"
+  options={["No, the metrics say it works", "Yes — it has no coverage or diversity, so it recommends nothing anyone could not have found alone"]}
+  correct={1}
+>
+
 A model that recommends the five best-selling products to every shopper can post a respectable HitRate. It is also useless — it sells nothing that would not have sold anyway, and it starves the catalog.
 
 | Metric | Question | Failure it catches |
@@ -76,6 +94,12 @@ A model that recommends the five best-selling products to every shopper can post
 | **Serendipity** | Are hits ones the shopper would *not* have found alone? | The model recommends what they already bought |
 
 Report at least one of these alongside NDCG. In the next module's baseline table you will see the popularity model post a real HitRate with **33% coverage** — three products out of nine ever shown. The accuracy number alone would not have told you.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are coverage and diversity reported alongside accuracy?", a: "Popularity alone scores well on accuracy metrics because popular items genuinely are bought often, yet a system that only surfaces bestsellers adds no value over a simple chart. Coverage and diversity detect that failure, which accuracy on its own actively rewards." },
+]} />
 
 <Bridge>
 Every metric here assumed you had a trustworthy held-out set. Producing one is harder than it looks — next.

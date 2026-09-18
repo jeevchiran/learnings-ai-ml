@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import RankingMetricsWidget from '../../components/widgets/recsys/RankingMetricsWidget.jsx'
 
 # Build — Metrics Harness
@@ -14,6 +14,12 @@ rank_fn(user_id: str) -> list[str]   # item_ids, best first
 Commit to that and the harness never changes again. Baselines, models and ablations all become one-liners.
 
 ## The metrics
+
+<PredictReveal
+  prompt="You write the metric functions and the model in the same sitting. Which should you test first?"
+  options={["The model, it is the interesting part", "The metrics — a broken metric makes every later comparison meaningless, and it fails silently"]}
+  correct={1}
+>
 
 ```python
 import numpy as np, pandas as pd
@@ -54,6 +60,12 @@ Three details that are bugs if you get them wrong:
 - **`enumerate(..., start=1)`** — ranks are 1-based, so the discount is $\log_2(i+1)$. Start at 0 and rank 1 divides by $\log_2(1)=0$.
 - **`min(k, len(relevant))`** in both AP and IDCG. Without it, a user with 1 relevant item and $k=10$ has their score divided by the IDCG of 10 items and can never reach 1.0.
 - **The `if idcg else 0.0` guard.** A user with no relevant items must return 0, not `NaN`. One `NaN` silently poisons the mean over all users.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why build and test the metric harness before any model?", a: "Every decision that follows is a comparison of numbers the harness produces. If it is wrong, every comparison is wrong and nothing downstream can be trusted, yet it fails quietly rather than crashing. Testing it against hand-computed cases first makes everything after it interpretable." },
+]} />
 
 ## The runner
 

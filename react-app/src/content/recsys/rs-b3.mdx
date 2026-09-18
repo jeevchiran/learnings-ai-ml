@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import BaselineCompareWidget from '../../components/widgets/recsys/BaselineCompareWidget.jsx'
 
 # Build — Baselines
@@ -45,6 +45,12 @@ Four things in that code carry real weight:
 
 ## Running them
 
+<PredictReveal
+  prompt="Your matrix factorisation model scores 0.31 and the popularity baseline scores 0.29. Is the model worth shipping?"
+  options={["Yes, it is better", "Probably not — a two-point gain for a far more complex system is rarely worth the serving cost and the maintenance"]}
+  correct={1}
+>
+
 ```python
 rankers = {
     "random":   random_ranker(),
@@ -65,7 +71,13 @@ recency   hit=0.667 mrr=0.361 ndcg=0.438 cov=0.889
 covisit   hit=0.500 mrr=0.222 ndcg=0.294 cov=0.556
 ```
 
+</PredictReveal>
+
 <BaselineCompareWidget />
+
+<Recall items={[
+  { q: "How should a small improvement over a baseline be judged?", a: "Against the cost of the added complexity, not against zero. A model that barely beats popularity brings training infrastructure, serving latency and an ongoing maintenance burden, all for a gain that may not survive the variance of the evaluation itself." },
+]} />
 
 ## Reading the output honestly
 

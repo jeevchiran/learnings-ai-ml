@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import LTRLossWidget from '../../components/widgets/recsys/LTRLossWidget.jsx'
 
 # Module 9: Learning to Rank
@@ -12,6 +12,12 @@ The label is what the shopper did: purchased = 1, ignored = 0 (or graded: purcha
 <LTRLossWidget />
 
 ## The three families
+
+<PredictReveal
+  prompt="A model trained to predict each item's click probability independently gets every probability slightly wrong but in the same direction. Does the ranking suffer?"
+  options={["Yes, wrong probabilities mean a wrong ranking", "No — and that is the insight behind pairwise losses, which optimise order directly rather than absolute scores"]}
+  correct={1}
+>
 
 <DerivationSteps>
 <DerivationStep number={1} title="Pointwise — each item judged alone">
@@ -35,6 +41,12 @@ $$\lambda_{ij} = \frac{-1}{1+e^{s_i - s_j}}\cdot\bigl|\Delta NDCG_{ij}\bigr|$$
 A swap between ranks 1 and 2 moves NDCG a lot and gets a big gradient; a swap between 200 and 201 gets almost none. **LambdaMART** = LambdaRank gradients inside gradient-boosted trees, and it remains the default production ranker.
 </DerivationStep>
 </DerivationSteps>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What distinguishes pointwise, pairwise and listwise ranking losses?", a: "Pointwise treats each item as an independent regression or classification problem and ignores order. Pairwise learns which of two items should rank higher, optimising order directly. Listwise scores the whole ordered list against the metric you actually care about, which is the closest to the real objective and the hardest to optimise." },
+]} />
 
 ## The experiment that separates them
 

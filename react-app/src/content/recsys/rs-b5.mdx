@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import FeatureWindowWidget from '../../components/widgets/recsys/FeatureWindowWidget.jsx'
 
 # Build — Feature Generation
@@ -17,6 +17,12 @@ labels = pd.DataFrame({
 `as_of` is the timestamp of the impression or decision being modelled — not "now", not the end of the training window. Every feature attached to this row must be computable from events strictly before it.
 
 ## User features, as-of
+
+<PredictReveal
+  prompt="You compute each user's average order value once and join it onto every training row. What have you done?"
+  options={["Saved computation sensibly", "Leaked the future into every row dated before the last order that average includes"]}
+  correct={1}
+>
 
 ```python
 def as_of_user_features(labels, events, windows=(1, 7, 30)):
@@ -52,6 +58,12 @@ feats = pd.merge_asof(
 ```
 
 `allow_exact_matches=False` is the `<` from module 10. Leave it at its default `True` and an event sharing a timestamp with the label enters its own feature window. One keyword argument, one silent leak.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why must a user aggregate be recomputed per row rather than once per user?", a: "A single aggregate over the user's whole history includes behaviour from after most of their rows. Joining it everywhere gives each early row knowledge of what the user did later, which is unavailable at serving time and inflates every offline metric." },
+]} />
 
 ## User × item features — the ranker's edge
 

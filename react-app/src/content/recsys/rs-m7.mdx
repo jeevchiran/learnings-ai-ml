@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import CFSimilarityWidget from '../../components/widgets/recsys/CFSimilarityWidget.jsx'
 
 # Module 7: Collaborative Filtering
@@ -10,6 +10,12 @@ Aarav and Bhavna both looked at the Earbuds, the Keyboard and the USB-C Hub. Bha
 No one told the system what a keyboard *is*. The only input is the matrix of who touched what.
 
 ## Two directions through the same matrix
+
+<PredictReveal
+  prompt="You can find similar users and recommend what they liked, or find similar items to what this user liked. In a catalogue with millions of users and thousands of items, which similarity matrix is cheaper to maintain?"
+  options={["User similarity, since users drive the recommendation", "Item similarity — there are far fewer items, and item neighbourhoods change much more slowly"]}
+  correct={1}
+>
 
 <CFSimilarityWidget />
 
@@ -27,6 +33,12 @@ They read the same matrix along different axes, and in production item-item wins
 | Explainability | "Similar shoppers liked it" | "Because you viewed the Keyboard" — shows the actual reason |
 
 That last row matters more than it looks. "Because you viewed X" is a real explanation the shopper can verify, which is why item-item CF has survived a decade of deep-learning replacements.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is item-based collaborative filtering usually preferred to user-based?", a: "There are typically far fewer items than users, so the similarity matrix is smaller and cheaper to compute. Item neighbourhoods also change slowly, meaning the matrix can be recomputed nightly, whereas a user's profile changes within a single session." },
+]} />
 
 ## The math
 
@@ -67,6 +79,12 @@ What cosine does **not** fix is the *score* step. A popular item is in many shop
 
 ## Where CF structurally fails
 
+<PredictReveal
+  prompt="A brand-new product is added to the catalogue. How does collaborative filtering rank it?"
+  options={["Based on its description and category", "It cannot rank it at all — with no interactions there is nothing to compare, which is the cold-start problem"]}
+  correct={1}
+>
+
 **Cold-start.** The ANC Headphones (P9) have zero interactions, so their column is all zeros, so every similarity is exactly 0. CF cannot rank them — not badly, but *at all*. Since they cannot be recommended, they cannot earn interactions, so they stay cold. Module 12 breaks this loop with content.
 
 **Sparsity.** Real e-commerce matrices are ~99.9% empty. Most item pairs share zero shoppers, so most similarities are 0 and the useful signal is concentrated in the head of the catalog.
@@ -74,6 +92,12 @@ What cosine does **not** fix is the *score* step. A popular item is in many shop
 **No features.** Price, brand, "in stock", "on sale", time of day — CF sees none of it. A CF model will happily recommend an out-of-stock product to someone who bought it yesterday.
 
 Each of these has an answer in the following modules: latent factors for sparsity (module 8), features and a ranker for the third (modules 9–10), and content embeddings for cold-start (module 12).
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does collaborative filtering fail on new items?", a: "It works entirely from the interaction matrix, so an item with no interactions has an empty row and no similarity to anything. Nothing about the item's own content is used, which is precisely what content and multi-modal features are brought in to fix." },
+]} />
 
 <Bridge>
 CF stores an item×item table. Next: compressing that same matrix into a few dozen latent factors, which fixes sparsity and gives you a vector you can actually serve.

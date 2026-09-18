@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import MultiModalWidget from '../../components/widgets/recsys/MultiModalWidget.jsx'
 
 # Module 12: Multi-Modal Recommendation
@@ -26,6 +26,12 @@ Encode text with a sentence transformer, images with a vision encoder (CLIP give
 
 ## The three fusion points
 
+<PredictReveal
+  prompt="You have a product image, a text description and an interaction history. Should they be combined before the model, inside it, or after it?"
+  options={["Always before, so the model sees one input", "It depends — early fusion learns interactions between modalities, late fusion is simpler to debug and lets each part fail independently"]}
+  correct={1}
+>
+
 **Early fusion — concatenate.** Feed content embeddings alongside ID embeddings into one ranker: `[user_emb ‖ item_id_emb ‖ text_emb ‖ image_emb ‖ price]`. The model learns the interaction between modalities. Most expressive, most data-hungry, and it degrades gracefully when `item_id_emb` is a fresh random vector because the other blocks still carry signal.
 
 **Late fusion — blend scores.** Run CF and a content model separately, then combine:
@@ -47,6 +53,12 @@ $$w_i = \frac{m}{m + n_i}$$
 
 with $n_i$ the item's interactions and $m$ a constant around 50. A brand-new item is fully content-driven ($w=1$); an item with 500 interactions is 9% content ($w \approx 0.09$). Each product migrates across the slider on its own schedule as it warms up. This is the same shrinkage formula as target encoding in module 10, doing the same job: trust the specific evidence in proportion to how much of it you have.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the trade-off between early and late fusion of modalities?", a: "Early fusion concatenates the representations before the model, so it can learn interactions between them, at the cost of retraining everything when one modality changes. Late fusion scores each modality separately and combines the scores, which is easier to debug, cheaper to update and degrades gracefully when one signal is missing." },
+]} />
 
 ## The four cold-starts
 

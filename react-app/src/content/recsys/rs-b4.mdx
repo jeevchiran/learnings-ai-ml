@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import ALSFactorWidget from '../../components/widgets/recsys/ALSFactorWidget.jsx'
 
 # Build — Implicit MF (ALS)
@@ -20,6 +20,12 @@ R = build_matrix(train)          # 6 x 9, and P9's column is all zeros
 Dense is fine at this size. At real scale use `scipy.sparse.csr_matrix` — a 10M×1M dense matrix is 80 TB, and the same matrix at 0.01% density is about 800 MB.
 
 ## ALS
+
+<PredictReveal
+  prompt="The interaction matrix for a realistic catalogue is over 99% empty. Should it be stored as a dense array?"
+  options={["Yes, arrays are fast", "No — a sparse format stores only the non-zero entries, and the dense version would not fit in memory at all"]}
+  correct={1}
+>
 
 ```python
 def als(R, k=3, alpha=1.0, reg=0.1, iters=20, seed=7):
@@ -63,6 +69,12 @@ That is the Gram trick from module 8, made concrete. `GtG` accounts for **every*
 The `assert` on monotone loss is your correctness check. Each half-step is an exact minimiser, so a rising loss means a bug in the solve — nothing else.
 
 <ALSFactorWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is the interaction matrix stored in a sparse format?", a: "It is overwhelmingly empty, so a dense array would spend almost all its memory on zeros and would not fit for a realistic user and item count. A sparse format stores only the observed interactions, and the factorisation algorithms are written to iterate over exactly those." },
+]} />
 
 ## Rank and evaluate
 

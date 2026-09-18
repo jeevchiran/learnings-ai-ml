@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import NegativeSamplingWidget from '../../components/widgets/recsys/NegativeSamplingWidget.jsx'
 
 # Module 11: Negative Sampling Strategies
@@ -12,6 +12,12 @@ So you sample. The distribution you sample from determines what the model learns
 <NegativeSamplingWidget />
 
 ## The five strategies
+
+<PredictReveal
+  prompt="Training a ranker needs negatives, but users only ever generate positives. If you sample negatives uniformly from the catalogue, what do you get?"
+  options={["A fair sample of what users reject", "Mostly obscure items the user would never have seen, which are far too easy to rank down"]}
+  correct={1}
+>
 
 ### Uniform (random)
 
@@ -67,6 +73,12 @@ $$s'_{ui} = x_u^\top y_i - \log P(i)$$
 
 Every production two-tower implementation does this. Skipping it is one of the most common reasons a two-tower model underperforms ALS.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is wrong with sampling negatives uniformly from the catalogue?", a: "Almost every item drawn is obscure and utterly irrelevant, so the model learns to separate popular from unpopular rather than to separate what this user wants from what they nearly wanted. The hard cases that decide real ranking quality are never seen during training." },
+]} />
+
 ## How many?
 
 | Setting | Typical ratio |
@@ -79,6 +91,12 @@ Every production two-tower implementation does this. Skipping it is one of the m
 More negatives is generally better and eventually stops paying. Note that in two-tower training, **batch size stops being just a throughput knob** — it directly controls how many negatives each positive is contrasted against, so a smaller batch is a weaker model, not merely a slower one.
 
 ## The two biases you just introduced
+
+<PredictReveal
+  prompt="You switch to sampling only the hardest negatives, the items the model currently scores highest. What new risk appears?"
+  options={["None, harder examples are always better", "Many of them are actually relevant items the user simply has not bought yet, so you train the model to suppress good recommendations"]}
+  correct={1}
+>
 
 Sampling negatives buys tractability and costs correctness. Two distinct biases arrive, and confusing them wastes a lot of time because **they have different cures**:
 
@@ -159,6 +177,12 @@ ALS (module 8) does not *sample* negatives. It sums over every cell of the matri
 
 Sampling exists for models where the full sum is not affordable — anything trained by SGD over a large catalog, i.e. essentially every neural recommender. Same problem (implicit data has no negatives), two different solutions: **weight them all** or **sample a few**.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the risk of hard negative mining in recommendation?", a: "The hardest negatives are the items most similar to what the user liked, which frequently means items they would in fact enjoy and simply have not encountered. Training the model to push those down teaches it to suppress exactly the recommendations that would have been most valuable." },
+]} />
 
 <Bridge>
 Every strategy so far reads the interaction matrix. For an item with no interactions at all, none of them can help — the last fundamental module fixes that.

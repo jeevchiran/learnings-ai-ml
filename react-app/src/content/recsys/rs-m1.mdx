@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import FunnelWidget from '../../components/widgets/recsys/FunnelWidget.jsx'
 
 # Module 1: Framing & Problem Types
@@ -21,6 +21,12 @@ The business question is always the same: **which ten products, for this shopper
 
 ## Why this is not just classification
 
+<PredictReveal
+  prompt="A classifier scores every product for a user and you show the ten highest. What is wrong with judging that by classification accuracy?"
+  options={["Nothing, high accuracy means good recommendations", "Accuracy treats all mistakes equally, but only the order of the top few positions is ever seen by anyone"]}
+  correct={1}
+>
+
 You could frame it as "predict P(purchase | user, item)" and train a classifier. People do. But three things make it its own field:
 
 | Fact | Consequence |
@@ -30,6 +36,12 @@ You could frame it as "predict P(purchase | user, item)" and train a classifier.
 | Your output becomes your next training set | Recommend only popular items and you generate data proving popular items are what people want. |
 
 That last one has a name — the **feedback loop** — and it is the reason offline metrics and online results diverge so often.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is recommendation not simply a classification problem?", a: "The output is an ordered short list, not a label, and only the top few positions are ever seen. A model that is confidently wrong about items nobody will scroll to costs nothing, while a small error at position one costs everything, so the evaluation has to be rank-aware." },
+]} />
 
 ## The funnel
 
@@ -65,12 +77,24 @@ The mistakes here are expensive and common. Serving a "similar items" model on t
 
 ## Position bias, the tax on every log
 
+<PredictReveal
+  prompt="Your logs show that the item at position one gets clicked far more than the item at position ten. Does that mean it is a better item?"
+  options={["Yes, users clicked it more", "Not necessarily — it was seen more, and the position itself drives most of the gap"]}
+  correct={1}
+>
+
 Items at the top get clicked more **because they are at the top**, not only because they are better. Your training log records the outcome of your own layout as if it were shopper preference.
 
 Two consequences you will meet repeatedly:
 
 - A "non-click" on position 30 is nearly meaningless — the shopper probably never scrolled that far. Treating it as a negative teaches the model your old ranking was correct.
 - Offline improvement on logged data can be pure **position-bias exploitation**. This is why the last word always belongs to an online A/B test.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is position bias and why does it poison training data?", a: "Items shown higher get clicked more simply because they get seen more. A model trained on raw click logs learns to reproduce whatever the previous ranker showed at the top, so it inherits that ranker's preferences rather than learning what users actually want." },
+]} />
 
 <Bridge>
 Next: what NovaCart actually records when someone browses, and how to turn a stream of clicks into a number a model can consume.

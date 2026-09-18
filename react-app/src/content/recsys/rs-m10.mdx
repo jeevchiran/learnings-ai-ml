@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import FeatureWindowWidget from '../../components/widgets/recsys/FeatureWindowWidget.jsx'
 import TimeDecayWidget from '../../components/widgets/recsys/TimeDecayWidget.jsx'
 import SessionFeatureWidget from '../../components/widgets/recsys/SessionFeatureWidget.jsx'
@@ -18,7 +18,19 @@ The cross family matters most and is most often skipped. Retrieval **cannot** us
 
 ## Point-in-time correctness
 
+<PredictReveal
+  prompt="A training row is dated the 3rd of March. Its feature says the user has made 40 purchases. When were those 40 purchases counted?"
+  options={["It does not matter as long as the label is later", "It matters completely — if any fell after the 3rd, the model is reading the future"]}
+  correct={1}
+>
+
 <FeatureWindowWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does point-in-time correctness mean for a feature?", a: "Every feature attached to a row must be computed using only information that existed at that row's timestamp. Computing an aggregate over the whole history and attaching it to every row leaks later behaviour into earlier examples, producing offline scores that collapse in production." },
+]} />
 
 The rule is one character wide:
 
@@ -68,6 +80,12 @@ But windows are still a blunt instrument: inside a 30-day window, an event from 
 
 ## Recency with time decay
 
+<PredictReveal
+  prompt="A user bought running shoes two years ago and a laptop yesterday. Should both count equally in their profile?"
+  options={["Yes, both are real purchases", "No — interest decays, so older interactions should be down-weighted by age"]}
+  correct={1}
+>
+
 A count throws away *when*. Decay keeps it:
 
 $$a_{ui}(t) = \sum_{e \,\in\, \text{events}(u,i),\; t_e < t} w_{\text{type}(e)} \cdot 2^{-(t - t_e)/t_{1/2}}$$
@@ -90,6 +108,12 @@ Decay past state, add what arrived. You never re-scan history, so this is cheap 
 </DerivationSteps>
 
 <TimeDecayWidget />
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why apply time decay to interaction features?", a: "Interest changes, so a purchase from two years ago is much weaker evidence of current intent than one from yesterday. Weighting each interaction by an exponentially decaying function of its age lets recent behaviour dominate without discarding history entirely." },
+]} />
 
 **Worked example.** Bhavna's raw affinities as of day 24: Keyboard = 4, Steel Bottle = 4. A dead tie, and the count cannot break it. Her Keyboard cart was day 8; her Bottle cart was day 14. With $t_{1/2}=7$:
 

@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import SplitLeakageWidget from '../../components/widgets/recsys/SplitLeakageWidget.jsx'
 
 # Module 5: Evaluation Splits & Leakage Prevention
@@ -12,6 +12,12 @@ Every split strategy is an approximation to that question. Some approximate it w
 <SplitLeakageWidget />
 
 ## The three splits, ranked
+
+<PredictReveal
+  prompt="You split interactions randomly into train and test. What has the model been allowed to see?"
+  options={["Nothing improper, the rows are disjoint", "The future — a user's later purchases can sit in training while their earlier ones are in test"]}
+  correct={1}
+>
 
 | Split | Leaks? | Use it when |
 |---|---|---|
@@ -29,6 +35,12 @@ Randomly holding out 20% of NovaCart's events puts Farida's day-30 purchase in t
 The result is uniformly optimistic and *differentially* optimistic — it flatters the models best at memorising, which are usually not the ones you want to ship.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a random split wrong for recommendation?", a: "Interactions are ordered in time, and a random split puts some of a user's later behaviour into training while earlier behaviour is tested. The model then predicts the past from the future, which is impossible at serving time, so the offline score is optimistic by an unknown margin." },
+]} />
+
 ## Leave-one-out, and why papers use it anyway
 
 Hold out each shopper's most recent event. Every shopper contributes exactly one test case, so per-user metrics are balanced and no shopper is excluded for having little history.
@@ -38,6 +50,12 @@ The cost: shoppers' "last events" happen at different times. Chen's last event i
 Toggle the widget to leave-one-out and count the red dots. It is a mild leak, not a catastrophic one — which is exactly why it survives: results are comparable across papers, and the bias is roughly constant across models. **Use it to compare with published numbers; use the temporal split to decide what to ship.**
 
 ## The other leaks
+
+<PredictReveal
+  prompt="Your features include an item's total purchase count computed over the whole dataset. The split is by time. Is the evaluation still honest?"
+  options={["Yes, the split handles it", "No — the count includes purchases from after the cut-off, so a future signal leaked in through the feature"]}
+  correct={1}
+>
 
 Fixing the split is necessary, not sufficient. Four more, in the order teams usually hit them:
 
@@ -59,6 +77,12 @@ Check three things before believing it.
 ## The NovaCart split
 
 Everything in this track uses one global cut-off at **day 24**: 34 training events, 6 held-out purchases from days 25–30, one per shopper. Zero leaked events. Every number in the following modules comes from that split.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "How can a feature leak the future even when the split is by time?", a: "Any aggregate computed over the whole dataset includes activity from after the cut-off. An item's lifetime purchase count tells the model which items became popular later, which is unavailable at serving time. Every feature must be computed as of the row's own timestamp." },
+]} />
 
 <Bridge>
 A split and a metric make a scoreboard. Next: the baselines that scoreboard must beat before any model is worth building.

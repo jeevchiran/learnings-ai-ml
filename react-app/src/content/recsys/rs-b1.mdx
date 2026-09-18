@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import SplitLeakageWidget from '../../components/widgets/recsys/SplitLeakageWidget.jsx'
 
 # Build — Dataset & Splits
@@ -13,6 +13,12 @@ This module: load the events, split them by time, and write the assertions that 
 </ConceptBox>
 
 ## Step 1 — the event frame
+
+<PredictReveal
+  prompt="You derive the item list from the events table rather than the catalogue. Which items just disappeared from your evaluation?"
+  options={["None, every item has events", "Every item nobody has interacted with — precisely the cold-start cases the system is supposed to help"]}
+  correct={1}
+>
 
 One tidy DataFrame. Everything downstream reads this shape and nothing else.
 
@@ -30,6 +36,12 @@ USERS = sorted(events.user_id.unique())
 ```
 
 `ITEMS` comes from the **catalog**, not from `events`. Derive it from the event log and you silently delete every cold item — including the ones your cold-start work in module 12 exists to serve. This one line decides whether your evaluation can even see the problem.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why must the item universe come from the catalogue rather than the event log?", a: "Items derived from events are by definition items that already have interactions, so every cold item silently vanishes. The evaluation then cannot see the cold-start problem at all, and any work aimed at it appears to have no effect." },
+]} />
 
 ## Step 2 — split by time, and prove it
 
@@ -81,6 +93,12 @@ Run this on NovaCart and `valid` comes back **empty** — days 21–23 happen to
 
 ## Step 5 — the sanity checks worth writing down
 
+<PredictReveal
+  prompt="Your split code looks correct. Should you write an assertion that no training timestamp exceeds the cut-off?"
+  options={["No, the code is already reviewed", "Yes — leakage produces good-looking scores rather than errors, so only an explicit check catches it"]}
+  correct={1}
+>
+
 ```python
 def audit(train, test, targets, items):
     print(f"train {len(train):>6}  test {len(test):>6}")
@@ -109,6 +127,21 @@ Each line answers a question you will otherwise ask at 2am:
 The split governs **events**. It says nothing about **features**, which get computed later and are the more common leak (module 10, and b5 next). It also says nothing about anything you fit before splitting — scalers, encoders, popularity tables, item embeddings.
 
 A useful habit: treat the cut-off as a wall the pipeline may never look over, and audit each artefact separately for whether it does. The split assert covers events. You will need a different assert for features.
+</ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why assert the split invariants instead of trusting the code?", a: "Leakage does not raise an error; it raises the score. A pipeline with a leak looks like a pipeline that is working well, so the only reliable defence is an explicit assertion that no training row is dated after the cut-off and that no user appears on both sides in a way the design forbids." },
+]} />
+
+---
+
+<ConceptBox title="TL;DR">
+- One tidy event frame feeds everything downstream, and the item universe comes from the **catalogue**, never from the event log, or every cold item disappears from the evaluation.
+- The split is by **time**, not at random, because a production model only ever sees the past.
+- A separate validation window absorbs every tuning decision so the test window stays untouched until the end.
+- The invariants are written down as **assertions**, because a leak improves the score instead of raising an error.
 </ConceptBox>
 
 <Bridge>

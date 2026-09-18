@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import LTRLossWidget from '../../components/widgets/recsys/LTRLossWidget.jsx'
 
 # Build — LTR Training
@@ -50,6 +50,12 @@ clf.fit(ltr[FEATS], ltr.label)                     # pointwise: rows are indepen
 
 ## The pairwise upgrade
 
+<PredictReveal
+  prompt="Your pointwise ranker predicts click probability per item. Switching to a pairwise objective changes what it optimises. To what?"
+  options={["More accurate probabilities", "Whether item A should outrank item B, which is the only thing the final list depends on"]}
+  correct={1}
+>
+
 ```python
 import lightgbm as lgb
 
@@ -66,7 +72,13 @@ ranker.fit(ltr[FEATS], ltr.label, group=group_sizes)
 
 `group` is the whole difference. It tells LightGBM which rows compete against each other, so gradients are computed **within** a slate rather than across the dataset. Get the grouping wrong — rows not sorted to match `group_sizes`, or grouping by user instead of by `(user, as_of)` — and LambdaRank silently optimises comparisons between slates that were never shown together. It will not error. It will just be worse.
 
+</PredictReveal>
+
 <LTRLossWidget />
+
+<Recall items={[
+  { q: "What does a pairwise objective optimise that a pointwise one does not?", a: "Relative order. A pointwise model tries to get each item's absolute score right, which is harder than necessary and not what the output depends on. A pairwise model only has to get each comparison right, which is exactly what determines the final ordering." },
+]} />
 
 ## Score and evaluate
 
@@ -87,6 +99,12 @@ recency   hit=0.667 mrr=0.361 ndcg=0.438 cov=0.889   ← baseline still wins
 ```
 
 ## The ranker loses. Read why.
+
+<PredictReveal
+  prompt="After all that work, the learned ranker scores worse than a simple baseline. What is the most useful response?"
+  options={["Tune it until it wins", "Find out why — a ranker that loses on a small dataset is usually telling you something true about the data, not about the method"]}
+  correct={1}
+>
 
 ```python
 for name, imp in sorted(zip(FEATS, clf.feature_importances_), key=lambda t: -t[1]):
@@ -119,6 +137,12 @@ The failure mode to actually fear is the opposite — a ranker that **beats** ev
 
 Suspicion should scale with how good the result looks.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does it mean when a carefully built ranker loses to a simple baseline?", a: "Usually that the dataset is too small or too sparse for the extra capacity to pay off, or that the features carry less signal than expected. It is information about the problem rather than a failure of the method, and reporting it honestly is more valuable than tuning until the number looks right." },
+]} />
 
 ## The whole pipeline
 
