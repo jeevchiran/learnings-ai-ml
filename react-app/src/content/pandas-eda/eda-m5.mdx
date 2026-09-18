@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Datetime Parsing & Feature Engineering
 
@@ -44,6 +44,12 @@ Once features are numeric, `df.groupby('hour').size()` immediately gives rides-p
 </ConceptBox>
 
 ## Code Walkthrough
+
+<PredictReveal
+  prompt="A timestamp column is loaded as text. You want to group trips by hour of day. What must happen first?"
+  options={["Nothing, string slicing can extract the hour", "The column must be parsed into a real datetime type, or every extraction is brittle string manipulation"]}
+  correct={1}
+>
 
 ```python
 # Step 1: parse string columns → datetime64
@@ -103,6 +109,12 @@ rides_by_day = df.groupby('day_name').size()
 $$\text{duration\_min} = \frac{t_{\text{dropoff}} - t_{\text{pickup}}}{60}$$
 
 Subtracting two `datetime64` columns yields a `timedelta64`. Calling `.dt.total_seconds()` converts the timedelta to a float in seconds; dividing by 60 gives minutes. Without the `pd.to_datetime()` step first, the subtraction would fail — you cannot subtract strings.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why parse a timestamp column rather than slicing the string?", a: "A parsed datetime exposes the hour, weekday and elapsed duration as properties, handles different input formats and time zones, and supports arithmetic between two timestamps. String slicing breaks on any format variation and cannot subtract one time from another." },
+]} />
 
 <Bridge>
 The widget below lets you explore every row of the taxi dataset: pick any trip, see how its raw timestamps decompose into hour, day-of-week, and duration — and see the aggregate patterns that emerge across all 30 trips.

@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import ShuffleWidget from '../../components/widgets/etl-pyspark/ShuffleWidget.jsx'
 
 <Bridge>
@@ -6,6 +6,12 @@ In Module 8, we explored our clean dataset — examining distributions, statisti
 </Bridge>
 
 ## Joins
+
+<PredictReveal
+  prompt="A join between two large distributed tables is usually the slowest step in a pipeline. What makes it expensive?"
+  options={["Comparing every row against every other row", "The shuffle — matching keys must be moved onto the same machine, which means sending data across the network"]}
+  correct={1}
+>
 
 Joins combine rows from two DataFrames based on a shared key column.
 
@@ -30,6 +36,12 @@ left_joined.show(5)
 no_enrollments = students_df.join(enrollments_df, "student_id", "anti")
 no_enrollments.show()`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a join between two large distributed tables expensive?", a: "Rows sharing a key can start out on different machines, so the engine must redistribute both sides by key before matching, which sends data across the network and writes it to disk. That redistribution, the shuffle, dominates the cost and is why a small table is broadcast instead whenever it fits." },
+]} />
 
 ## Aggregation with agg()
 
@@ -76,6 +88,12 @@ pivoted.show()
 
 ## Window Functions
 
+<PredictReveal
+  prompt="You want each row alongside its group's average, keeping every original row. Does a groupBy do that?"
+  options={["Yes, that is what grouping is for", "No — grouping collapses each group to one row, so you need a window function to keep the rows and add the aggregate"]}
+  correct={1}
+>
+
 Window functions compute values across related rows **without collapsing groups**. You define a window spec (partition + order), then apply ranking or analytic functions over it.
 
 | Function | Behavior |
@@ -120,6 +138,12 @@ with_lag.select("name", "major", "gpa", "prev_gpa", "gpa_diff").show()
 # Alice: prev_gpa = null (first in partition)
 # David: prev_gpa = 3.8, gpa_diff = -0.6`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does a window function do that a groupBy cannot?", a: "It computes an aggregate over a group while keeping every original row, attaching the group's value to each of them. A groupBy collapses each group to a single row, so any per-row detail is lost and would have to be joined back." },
+]} />
 
 <ShuffleWidget />
 

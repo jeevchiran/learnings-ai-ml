@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 
 <Bridge>
 In Module 6, we wrote UDFs to apply custom logic to our data. Now we face a real-world challenge: our dataset has problems. Before any analysis, we need to clean it.
@@ -31,6 +31,12 @@ messy_df.show(10)
 
 ## Handling Nulls
 
+<PredictReveal
+  prompt={"You filter rows where a column does not equal the string unknown. Rows where that column is null are dropped too. Why?"}
+  options={["They should be kept, this is a bug in the engine", "Any comparison with null evaluates to null rather than true, and a filter keeps only rows that evaluate to true"]}
+  correct={1}
+>
+
 PySpark gives you three strategies depending on whether you want to find, drop, or fill nulls.
 
 ### Finding Nulls
@@ -58,6 +64,12 @@ valid_students = messy_df.dropna(subset=["student_id"])`}
 {`# Fill null grades with 0
 filled_df = messy_df.fillna({"grade": 0})`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why do null rows disappear from a filter that was not about nulls?", a: "Comparisons involving null return null, not true or false, and a filter keeps only rows evaluating to true. Any row with a null in the compared column is therefore silently excluded, whichever way the comparison points. Explicit null handling has to be written in." },
+]} />
 
 ## Removing Duplicates
 

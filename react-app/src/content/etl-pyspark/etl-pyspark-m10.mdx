@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import CachingWidget from '../../components/widgets/etl-pyspark/CachingWidget.jsx'
 
 <Bridge>
@@ -6,6 +6,12 @@ In Module 9, we built complex transformations — joins, aggregations, pivots, a
 </Bridge>
 
 ## When to Cache
+
+<PredictReveal
+  prompt="You cache every intermediate DataFrame in your pipeline, just to be safe. What goes wrong?"
+  options={["Nothing, caching is always an improvement", "Memory fills with results used once, which evicts the ones that are genuinely reused and can push work to disk"]}
+  correct={1}
+>
 
 Spark's lazy evaluation means every time you call an action on a DataFrame, Spark re-executes the entire lineage of transformations from the source data. This is fine for one-off computations, but wasteful when the same DataFrame feeds multiple downstream operations.
 
@@ -17,6 +23,12 @@ Cache a DataFrame when:
 
 If a DataFrame is used exactly once, caching wastes memory without benefit.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "When is caching worth it, and when does it hurt?", a: "It pays when a DataFrame is used by more than one action, since the plan would otherwise be recomputed each time. It hurts when applied indiscriminately, because cached results occupy memory that the executors need for computation, and evicting a genuinely reused result to hold a single-use one makes the job slower." },
+]} />
 
 ## cache() vs persist()
 
@@ -60,6 +72,12 @@ When done with a cached DataFrame, call `unpersist()` to free memory. Important 
 
 ## Broadcast Variables
 
+<PredictReveal
+  prompt="You join a billion-row table against a two-hundred-row lookup table. Does that need a full shuffle?"
+  options={["Yes, every join shuffles", "No — the small table can be broadcast to every machine, so the large one never moves"]}
+  correct={1}
+>
+
 When joining a large DataFrame with a small one, Spark's default strategy shuffles data across the network. Broadcast joins solve this: the small table is sent to every worker node, so each partition of the large table does a local lookup without any shuffle.
 
 <ConceptBox title="When to Broadcast">
@@ -91,6 +109,12 @@ enriched.show(5)
 # +----------+---------+----------+----------------+-------+
 # |      1001|    CS101|   Fall 24|Computer Science|      3|`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does broadcasting a small table achieve in a join?", a: "It sends a complete copy of the small side to every executor, so each partition of the large table can be joined locally. No redistribution of the large table is needed, which removes the shuffle that would otherwise dominate the cost." },
+]} />
 
 ## Accumulator Variables
 

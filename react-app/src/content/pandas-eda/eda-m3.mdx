@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Data Quality & Invalid Values
 
@@ -10,11 +10,23 @@ Passing every `isna()` check doesn't mean a value is valid. Module 1 flagged a *
 A **missing** value is absent — `NaN`, caught by `.isna()`. An **invalid** value is present but violates a domain rule specific to what the column means: a fare can't be negative, a rate code must come from a documented set. Catching the second kind requires knowing the business rules of the data, not just calling a generic pandas method.
 </ConceptBox>
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "What is the difference between a missing value and an invalid one?", a: "A missing value is absent and any null check will find it. An invalid value is present and well-formed but violates a rule about what the column means, such as a negative fare or an undocumented category code. Only domain knowledge catches the second kind." },
+]} />
+
 <Bridge>
 This dataset is NYC taxi trips, so the domain constraints are concrete: fares can't be negative; a zero-distance trip charged a real fare is suspicious (not impossible — a canceled ride can still trigger a minimum charge); and rate codes outside the documented set are worth a sanity check.
 </Bridge>
 
 ## What / How — Domain Constraints as Boolean Masks
+
+<PredictReveal
+  prompt="A fare column contains the value -12.50. Every null check passes. What catches it?"
+  options={["A stricter null check", "Nothing generic — only a rule that says a fare cannot be negative, which comes from knowing what the column means"]}
+  correct={1}
+>
 
 Each constraint becomes a boolean mask: a condition that should never be true for a healthy row. Filtering the DataFrame with that mask surfaces exactly the rows that broke the rule.
 

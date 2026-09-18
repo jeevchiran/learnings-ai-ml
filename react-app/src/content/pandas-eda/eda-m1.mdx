@@ -1,6 +1,10 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
 # EDA Foundations & First Look
+
+<ConceptBox title="Before you start">
+You need basic Python — lists, dictionaries, calling a method on an object — and nothing else. No statistics is assumed; the few summary numbers that appear are explained where they are used. This is the track everything else in the curriculum starts from, because every model begins with a table someone had to understand first.
+</ConceptBox>
 
 ## Why This Topic?
 
@@ -18,7 +22,19 @@ Before touching any of that, we need the five methods every pandas session opens
 
 ## What / How — First-Look Methods
 
+<PredictReveal
+  prompt="You load a CSV you expect to have 30 rows, and the DataFrame reports 30 rows and 12 columns. Are you ready to start analysing?"
+  options={["Yes, the shape is what you expected", "Not quite — the column types matter as much as the count, and a numeric column read as text will break everything downstream"]}
+  correct={1}
+>
+
 Every pandas exploratory session starts with the same handful of calls. Each answers a different question about the DataFrame, and together they form a quick "vitals check" before any cleaning begins.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is checking column types as important as checking the row count?", a: "A numeric column silently loaded as text will not aggregate, will not plot, and will sort alphabetically, all without raising an error. The type report is the first place a malformed value, a stray currency symbol or a wrongly parsed date announces itself." },
+]} />
 
 <DerivationSteps>
 <DerivationStep number={1} title=".shape — how big is this?">

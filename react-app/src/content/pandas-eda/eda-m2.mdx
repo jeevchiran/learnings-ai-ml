@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import MissingValueWidget from '../../components/widgets/pandas-eda/MissingValueWidget.jsx'
 
 # Missing Values
@@ -16,6 +16,12 @@ Before deciding how to fix missing data, find out exactly how much of it there i
 </Bridge>
 
 ## What / How — Measuring Missingness
+
+<PredictReveal
+  prompt="Three columns are each missing 7% of their values. Should the same fix be applied to all three?"
+  options={["Yes, the same proportion means the same problem", "No — the right fix depends on what the column means and why the values are absent, not on how many are absent"]}
+  correct={1}
+>
 
 `.isna()` turns every cell into `True` (missing) or `False` (present). Averaging a boolean column gives the fraction of `True` values, so chaining `.mean()` after `.isna()` gives the missing *rate* per column directly — multiply by 100 for a percentage:
 
@@ -65,6 +71,12 @@ print(df.isna().sum().sum())
 <Bridge>
 Reading these numbers from printed output is fine for a one-time check. The widget below lets you pick any of the three affected columns and try each fix strategy live, watching the row count and table change.
 </Bridge>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is the percentage of missing values not enough to decide how to handle a column?", a: "The proportion says how much is absent but nothing about why. A value missing because it does not apply, missing at random, or missing precisely because of what it would have been all call for different treatment, and the third case will bias any model if the absence is simply filled in." },
+]} />
 
 <MissingValueWidget />
 

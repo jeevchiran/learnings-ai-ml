@@ -1,14 +1,30 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Module 1: ETL with PySpark
 
+<ConceptBox title="Before you start">
+You need Python and some familiarity with tables, ideally from the Pandas and EDA track. Nothing about distributed systems is assumed. The one habit to unlearn is that a line of data code runs when you write it — here, most of them do not.
+</ConceptBox>
+
 ## Introduction: What is ETL?
+
+<PredictReveal
+  prompt="Your data is 40 gigabytes and your laptop has 16 gigabytes of memory. Pandas cannot load it. What does a distributed framework change?"
+  options={["It compresses the data to fit", "It splits the data across machines and brings the computation to each piece, so nothing ever has to fit in one place"]}
+  correct={1}
+>
 
 ETL stands for **Extract, Transform, Load** — the three fundamental steps in any data pipeline. Whether you're building a dashboard, training a machine learning model, or migrating data between systems, you'll almost certainly follow this pattern. It's one of the first things every data engineer learns because it structures how raw data becomes useful information.
 
 In the **Extract** phase, you pull data from one or more sources — databases, APIs, flat files like CSVs, or streaming systems. During the **Transform** phase, you clean, filter, reshape, and enrich that data so it's ready for its intended use. Finally, in the **Load** phase, you persist the results somewhere — a data warehouse, a file system, or another database.
 
 In this module, we'll walk through each phase using PySpark, a distributed data processing framework widely used in industry. We'll also show equivalent operations in Pandas so you can see how the concepts translate to a library you may already know.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does a distributed framework change about processing a dataset too large for one machine?", a: "It partitions the data across many machines and sends the computation to where each partition lives, so the whole dataset never needs to exist in one memory space. The programming model looks like operating on one table, while the execution happens in parallel over the pieces." },
+]} />
 
 ## Extract: Reading Data from Sources
 

@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Multivariate Analysis
 
@@ -38,6 +38,12 @@ In Module 7 we saw that `fare_amount` and `trip_distance` correlate well for met
 </ConceptBox>
 
 ## Code Walkthrough
+
+<PredictReveal
+  prompt="Across the whole dataset, longer trips earn bigger tips. Split by rate code and the relationship disappears inside every group. Which picture is right?"
+  options={["The overall one, since it uses all the data", "Both are arithmetically correct — a relationship can reverse or vanish once a confounding variable is held fixed"]}
+  correct={1}
+>
 
 ```python
 # Pivot table: mean fare by RatecodeID × passenger_count
@@ -85,6 +91,12 @@ RatecodeID=1 points (metered) scatter along a rising diagonal; RatecodeID=2 poin
 ```
 
 **NaN cells in pivot tables are informative, not errors.** A NaN in a pivot table cell means no row matched that row×column combination — e.g., RatecodeID=2 with passenger_count=3 never occurred in the sample. Always check whether NaN means "missing data" or "that combination does not exist."
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why can a relationship visible overall disappear within subgroups?", a: "Because a third variable differs between the subgroups and drives both of the others. The overall pattern is then a comparison between groups rather than a relationship within them. Which view answers your question depends on whether the confounder should be held fixed, which is a judgement about the domain, not about the arithmetic." },
+]} />
 
 <Bridge>
 The widgets below let you build pivot tables with any value field and aggregation, and plot the color-encoded scatter that reveals how RatecodeID creates two completely different fare regimes.

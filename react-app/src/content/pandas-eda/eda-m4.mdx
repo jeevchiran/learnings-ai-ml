@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import IQRBoxplotWidget from '../../components/widgets/pandas-eda/IQRBoxplotWidget.jsx'
 
 # Outlier Detection & Treatment (IQR)
@@ -48,6 +48,12 @@ A boxplot is the natural companion to IQR — its whiskers sit exactly at the Tu
 
 ## Code Walkthrough
 
+<PredictReveal
+  prompt="The interquartile range rule flags three fares as outliers. Two of them turn out to be flat-rate airport trips, which are entirely legitimate. Should they be removed?"
+  options={["Yes, the rule flagged them", "No — the rule detects statistical extremes, and deciding whether an extreme is an error needs domain knowledge"]}
+  correct={1}
+>
+
 ```python
 Q1 = df['fare_amount'].quantile(0.25)   # 6.125
 Q3 = df['fare_amount'].quantile(0.75)   # 19.125
@@ -82,6 +88,12 @@ Rows after removal: 27
 ```
 
 **Statistical outlier ≠ data error — always investigate before removing.** IDs 6 ($45) and 18 ($52) are flagged by the IQR method at k=1.5, but their `RatecodeID=2` marks them as JFK airport flat-rate fares — a documented, legitimate fare structure. Blindly deleting them would remove valid data about a real trip type. Only ID 26 ($399, standard RatecodeID=1, 6.7-mile trip) has no legitimate explanation — that is the true error most likely caused by a meter malfunction.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does an outlier rule actually tell you, and what does it not?", a: "It tells you a value sits far from the bulk of the distribution. It says nothing about whether the value is wrong. A legitimate flat-rate fare and a data-entry error look identical to the rule, so the decision to cap, drop or keep is a judgement made with knowledge of the domain." },
+]} />
 
 <Bridge>
 The widget below lets you explore this interactively: change the column, adjust k, and see exactly which points are flagged and what treatment does to the data.

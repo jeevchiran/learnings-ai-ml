@@ -1,10 +1,16 @@
-import { ConceptBox, Bridge, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 
 # Module 4: DataFrames: PySpark vs Pandas
 
 In Module 3, we worked with RDDs — Spark's low-level API using tuples and lambdas. DataFrames provide a higher-level, schema-aware interface with automatic optimizations through the Catalyst query planner.
 
 ## PySpark DataFrame vs Pandas DataFrame
+
+<PredictReveal
+  prompt="Your dataset is 50 megabytes. Should you reach for the distributed engine or for pandas?"
+  options={["The distributed engine — it is always faster", "Pandas, because scheduling and shuffle overhead makes the distributed engine slower on small data"]}
+  correct={1}
+>
 
 Both PySpark and Pandas DataFrames represent the same concept: tabular data with named columns. The difference lies in their execution model.
 
@@ -15,6 +21,12 @@ Both PySpark and Pandas DataFrames represent the same concept: tabular data with
 | Mutability | Immutable (transforms return new DF) | Mutable (in-place operations) |
 | Optimization | Catalyst optimizer | None (manual) |
 | Use case | Big data (GBs-TBs) | Small-medium data (MBs-GBs) |
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "When is a distributed engine the wrong tool?", a: "When the data comfortably fits in one machine's memory. The engine pays a fixed cost for scheduling, serialisation and shuffling between partitions, which a single-machine library never incurs, so on small data it is reliably slower as well as harder to debug." },
+]} />
 
 ## Side-by-Side Comparisons
 

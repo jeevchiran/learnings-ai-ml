@@ -1,10 +1,16 @@
-import { ConceptBox, Bridge, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 
 <Bridge>
 In Module 7, we cleaned our messy dataset — removed nulls, duplicates, fixed casing, and filtered invalid values. Now we explore the clean data to understand what we're working with.
 </Bridge>
 
 ## Schema Inspection
+
+<PredictReveal
+  prompt="You let the engine infer the schema from a large CSV instead of declaring it. What does that cost?"
+  options={["Nothing, inference is free", "An extra full pass over the data, plus the risk that a column's type is guessed from rows that are not representative"]}
+  correct={1}
+>
 
 Before any analysis, know what you're working with. Schema inspection tells you column names, data types, and nullable flags.
 
@@ -20,6 +26,12 @@ Before any analysis, know what you're working with. Schema inspection tells you 
 print("dtypes:", students_df.dtypes)
 print("columns:", students_df.columns)`}
 </CodeBlock>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why declare a schema rather than letting it be inferred?", a: "Inference requires an additional scan of the data purely to work out the types, and it guesses from whatever it samples, so a column that looks numeric in the first rows and contains text later will be typed wrongly. An explicit schema is both faster and deterministic." },
+]} />
 
 ## Descriptive Statistics
 
