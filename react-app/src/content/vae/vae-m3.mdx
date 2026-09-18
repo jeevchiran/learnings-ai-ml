@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import GenerativeStoryWidget from '../../components/widgets/vae/GenerativeStoryWidget.jsx'
 
 # Module 3: The Probabilistic Framework
 
@@ -45,6 +46,8 @@ Nothing here is new machinery — step 2 is the decoder, and $p(z)$ is the stand
 <Recall items={[
   { q: "What are the two steps of the generative story, and which parts of the autoencoder do they correspond to?", a: "First draw a latent code z from a simple fixed prior p(z) = N(0, I); then generate data from p_θ(x|z), a network conditioned on that code. The second step is the decoder, and the prior is the standard normal region Module 2 wanted every encoded cloud pulled toward." },
 ]} />
+
+<GenerativeStoryWidget />
 
 ## The quantity we want, and why we cannot have it
 

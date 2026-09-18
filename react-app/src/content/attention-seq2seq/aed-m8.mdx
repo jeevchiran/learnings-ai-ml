@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import AlignmentCostWidget from '../../components/widgets/attention-seq2seq/AlignmentCostWidget.jsx'
 
 # Module 8: Training an Attention-Based Encoder-Decoder
 
@@ -31,6 +32,8 @@ The score function — whether it's Bahdanau's small feedforward network $e_{ij}
 >
 
 The plain decoder does one RNN-cell update per output step: $O(T_{tgt})$ work total. With attention, every decoder step scores against *every* encoder hidden state — $O(T_{src})$ extra work per decoder step, so $O(T_{src} \times T_{tgt})$ overall. For short sentences this is negligible; it's the reason attention wasn't the obvious first move even though the idea itself is simple — quadratic-ish cost in sequence length matters a lot more once sequences get long, which is exactly the tension Module 11 returns to.
+
+<AlignmentCostWidget />
 
 ```python
 class BahdanauAttention(nn.Module):

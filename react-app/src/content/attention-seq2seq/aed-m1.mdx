@@ -1,4 +1,5 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import StaticEmbeddingWidget from '../../components/widgets/attention-seq2seq/StaticEmbeddingWidget.jsx'
 
 # Module 1: Word Embeddings — Strengths and Limits
 
@@ -35,6 +36,8 @@ The result is a lookup table: one fixed vector per vocabulary word, typically 10
 >
 
 A classic embedding table is a fixed lookup: `embedding["bank"]` returns one vector, always, regardless of what surrounds it in a given sentence. "bank" in "river bank" and "bank" in "savings bank" are the exact same 300 numbers. The model has folded every sense of the word into a single average-ish point in space.
+
+<StaticEmbeddingWidget />
 
 This is the ceiling of this approach: embeddings are **context-independent**. They tell you what a word tends to mean *in general*, not what it means *right here*. There's also no mechanism for words the table has never seen (out-of-vocabulary tokens just fail to resolve) and no notion of word order at all — the table has no idea if "bank" was the 1st word or the 41st.
 
