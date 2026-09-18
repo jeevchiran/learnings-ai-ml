@@ -1,13 +1,25 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import CVSplitWidget from '../../components/widgets/model-eval/CVSplitWidget.jsx'
 
 # Module 3: Cross-Validation Techniques
 
 ## Why Average Over Several Splits
 
+<PredictReveal
+  prompt="You evaluate a model on one held-out split and get 87% accuracy. You reshuffle and split again, getting 81%. Which number should you report?"
+  options={["The first one, it was measured first", "Neither alone — a single split is one noisy sample, so the average over several is the honest estimate"]}
+  correct={1}
+>
+
 The holdout method (Module 2) splits once, and that single validation score has high variance — a lucky split flatters the model, an unlucky one doesn't, with no change to the model itself. Cross-validation stops relying on a single split.
 
 The idea: validate on several different chunks and average. Each chunk is a noisy estimate of true generalization; averaging several gives a far more stable one — the same logic as polling more people to shrink the margin of error.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why average over several splits instead of trusting one holdout?", a: "A single holdout score depends on which rows happened to land in it, so it carries substantial variance, especially on small datasets. Averaging across folds both reduces that variance and gives a spread that tells you how uncertain the estimate is." },
+]} />
 
 ## K-Fold CV: Mechanics
 
@@ -76,6 +88,12 @@ LOO looks maximally thorough — $K=N$, nearly unbiased since each model trains 
 
 ## Group and Time-Series CV
 
+<PredictReveal
+  prompt="Your dataset has ten measurements per patient. You shuffle rows and run ordinary five-fold cross-validation. What has leaked?"
+  options={["Nothing, the rows are distinct", "The same patient appears in both training and validation folds, so the model recognises the patient rather than the pattern"]}
+  correct={1}
+>
+
 Plain K-Fold assumes independent rows. Two situations break that:
 
 **Grouped data.** Multiple rows per patient/user/device — a random split puts some of a patient's rows in train and others in validation, so the model "recognizes" that patient and inflates its score. `GroupKFold` keeps each group wholly in one fold.
@@ -106,6 +124,14 @@ Fold 4: train [1........2..3.4]  val [5]
 Switch strategies below and watch the validation block move — shuffled strategies scatter it across the data; time-series keeps it at the leading edge:
 
 <CVSplitWidget />
+
+Switch to grouped and time-ordered splitting in the widget and watch the folds change shape. Both variants exist because plain random splitting quietly assumes rows are independent and in no particular order, which real data frequently is not.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "When does plain K-fold cross-validation give a dishonest estimate?", a: "Whenever rows are not independent. With repeated measurements per subject, the same subject lands in both training and validation folds and the model can recognise the subject rather than learn the pattern. With time-ordered data, random folds let the model train on the future and predict the past." },
+]} />
 
 <ConceptBox title="Does K-Fold CV give you K models?">
 No. K-Fold gives $K$ performance **estimates** of one *training procedure* (e.g. "a random forest with `max_depth=8`"). Those scores answer "how good is this configuration, honestly?" Once you pick the best config, you **retrain once on the full training set** with those hyperparameters. The K fold-models are discarded — measurement tools, not the product. (Keeping and averaging them is a different technique, ensembling.)

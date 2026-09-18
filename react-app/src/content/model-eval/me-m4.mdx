@@ -1,4 +1,4 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import HPOSearchWidget from '../../components/widgets/model-eval/HPOSearchWidget.jsx'
 
 # Module 4: Hyperparameter Search Techniques
@@ -8,6 +8,12 @@ import HPOSearchWidget from '../../components/widgets/model-eval/HPOSearchWidget
 Cross-validation scores *one* hyperparameter setting honestly — but that's $K$ model fits, not a cheap lookup. With several hyperparameters each having several values, the number of settings explodes combinatorially. This module is about spending a limited evaluation budget well.
 
 ## Grid Search: Exhaustive but Expensive
+
+<PredictReveal
+  prompt="You have five hyperparameters, each with five candidate values, and five-fold cross-validation. How many model fits does an exhaustive grid need?"
+  options={["25, one per parameter-value pair", "15,625 — the grid is the product of every axis, multiplied by the folds"]}
+  correct={1}
+>
 
 **Grid search** tries every combination in the Cartesian product of specified values.
 
@@ -27,7 +33,19 @@ print(grid.best_params_, grid.best_score_)
 
 Cost grows **multiplicatively**: 5×5×5 = 125 settings × 5-fold CV = 625 fits. A fourth hyperparameter (5 values) jumps to 3,125 settings (15,625 fits). Grid search scales as (values)^(hyperparameters) — its own curse of dimensionality.
 
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does grid search become impractical quickly?", a: "Its cost is the product of the number of values on every axis, multiplied again by the cross-validation folds, so adding one more hyperparameter multiplies the total rather than adding to it. Five parameters at five values each already means over three thousand fits before folds are counted." },
+]} />
+
 ## Random Search: Sample Instead of Enumerate
+
+<PredictReveal
+  prompt="Of your five hyperparameters, only one really matters. A grid spends 5 distinct values on it. Random search with the same budget tries how many distinct values of it?"
+  options={["Also about 5", "As many as there are trials, because every draw samples a fresh value on every axis"]}
+  correct={1}
+>
 
 **Random search** samples a fixed number of settings from distributions.
 
@@ -47,6 +65,12 @@ random_search.fit(X_train, y_train)
 ### Why Random Often Beats Grid
 
 The **Bergstra & Bengio** result: in most models only a few hyperparameters matter much; the rest are near-flat. Grid search spends its budget *evenly across every axis* — if `min_samples_leaf` barely matters, it still tries all 5 values combined with everything else, re-testing near-equivalent points. Random search never repeats a value along any axis, so its samples project to a denser, more varied set along *each* hyperparameter — including the ones that matter. More effective exploration of the important dimensions, for free.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why does random search often beat grid search at the same budget?", a: "A grid repeats the same values on the important axis over and over while varying axes that do not matter. Random sampling gives a distinct value on every axis in every trial, so with the same number of fits it explores far more distinct values of whichever parameter actually drives performance." },
+]} />
 
 ## Bayesian Optimization: Learn From Past Trials
 

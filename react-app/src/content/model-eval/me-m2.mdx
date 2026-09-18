@@ -1,9 +1,15 @@
-import { ConceptBox, Bridge, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import SplitWidget from '../../components/widgets/model-eval/SplitWidget.jsx'
 
 # Module 2: Validation Sets
 
 ## Splitting the Data Three Ways
+
+<PredictReveal
+  prompt="You tune twenty hyperparameter settings, pick the one with the best test score, and report that score as your expected performance. What is wrong?"
+  options={["Nothing — the test set was held out", "The test set has now been used to choose a model, so its score is optimistic and no longer an honest estimate"]}
+  correct={1}
+>
 
 Training error can't judge a model, so evaluate on data it never touched while fitting. Split the dataset into up to three disjoint pieces, each with a distinct job:
 
@@ -14,6 +20,14 @@ Training error can't judge a model, so evaluate on data it never touched while f
 | **Test** | One final, honest estimate of generalization | **Exactly once**, at the end |
 
 <SplitWidget />
+
+That is why three splits exist rather than two: the validation set absorbs the selection decisions, and the test set stays untouched until the very end.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why are three splits needed rather than two?", a: "Any set used to make a choice becomes part of the fitting process. The training set fits parameters, the validation set chooses hyperparameters and models, and the test set is touched once at the end. Reusing the test set for selection makes its score optimistic by exactly the amount you selected on it." },
+]} />
 
 The test-set rule is easy to state and easy to violate: **use it exactly once, after every modeling decision is locked in.** Never to pick a model, tune a knob, decide when to stop, or choose features. The moment a decision is made from the test score, it stops being an honest estimate — you've begun fitting to it, one comparison at a time.
 
@@ -48,6 +62,12 @@ Same model, same data — a 5-point swing (0.902–0.951) purely from the split.
 
 ## Stratification
 
+<PredictReveal
+  prompt="A dataset is 2% fraud. You split it randomly into five folds. What can go wrong?"
+  options={["Nothing, random splitting is unbiased", "A fold can end up with almost no fraud cases, making its score meaningless and unstable"]}
+  correct={1}
+>
+
 A plain random split can distort class balance. On 95% negative / 5% positive data, a random 25% validation set might come out 3% or 7% positive by chance — enough to move precision/recall with no model change. **Stratified splitting** preserves each class's proportion in train and validation:
 
 ```python
@@ -55,6 +75,12 @@ X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.25, random_s
 ```
 
 `stratify=y` costs nothing and removes one source of split noise — default for classification, near-mandatory when a class is a small minority.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does stratification do and when is it essential?", a: "It preserves each class's proportion in every split. It matters most when a class is rare, because plain random splitting can leave a fold with very few or no examples of it, producing a score that reflects the split rather than the model." },
+]} />
 
 ## When One Holdout Isn't Enough
 
