@@ -1,9 +1,19 @@
-import { ConceptBox, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, QuizCard, Recall } from '../../components/learning/index.js'
 import NaiveForecastWidget from '../../components/widgets/time-series/NaiveForecastWidget.jsx'
 
 # Module 2: Simple Forecasting Models & RMSE
 
+<Bridge>
+Module 1 broke a series into trend, seasonality and noise. Before fitting anything to those pieces, you need to know what counts as a good forecast at all — and the honest answer starts with the dumbest possible model.
+</Bridge>
+
 ## Before Anything Fancy: The Simple Baselines
+
+<PredictReveal
+  prompt="Your new forecasting model achieves a root mean squared error of 42 on daily sales. Is that good?"
+  options={["Yes, the error is low in absolute terms", "Unanswerable until you know what simply repeating yesterday's value would score"]}
+  correct={1}
+>
 
 Every forecasting project should start here — not because these models are good, but because a fancy model that can't beat them isn't earning its complexity.
 
@@ -12,6 +22,12 @@ Every forecasting project should start here — not because these models are goo
 - **Mean / average** — tomorrow = the average of everything seen so far: $\hat y_{t+1} = \tfrac{1}{t}\sum_{i=1}^{t} y_i$. Only sensible for a flat, trendless series.
 - **Moving average** — tomorrow = the average of the last $w$ points: $\hat y_{t+1} = \tfrac{1}{w}\sum_{i=t-w+1}^{t} y_i$. Smooths noise, but always lags behind a trend.
 </ConceptBox>
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why must a forecasting result always be quoted against a naive baseline?", a: "An error figure has no meaning on its own, because it is in the units of the series and depends entirely on how volatile that series is. Repeating the last observed value is free and often surprisingly hard to beat, so it is the bar any model must clear before it is worth deploying." },
+]} />
 
 ## Judging a Forecast: RMSE
 
@@ -23,7 +39,21 @@ $$\text{RMSE} = \sqrt{\frac{1}{n}\sum_{t=1}^{n} (y_t - \hat y_t)^2}$$
 Cross-validation randomly shuffles rows for i.i.d. data — doing that here leaks the future into training. Always split **chronologically**: train on the earlier segment, test on the later one (`sklearn.model_selection.TimeSeriesSplit` does rolling-origin splits correctly).
 </ConceptBox>
 
+<PredictReveal
+  prompt="A series has a strong weekly pattern. Would the plain naive forecast, repeating yesterday's value, or the seasonal naive forecast, repeating the value from the same day last week, do better?"
+  options={["The plain one, since yesterday is closer in time", "The seasonal one, because the same weekday is far more similar than the adjacent day"]}
+  correct={1}
+>
+
 <NaiveForecastWidget />
+
+Switch between the baselines in the widget on a seasonal series and watch the error gap. Nearness in time and nearness in behaviour are not the same thing.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "When does the seasonal naive baseline beat the plain naive one?", a: "Whenever the series has a strong repeating pattern of known period. Repeating the value from one full period ago matches like with like — the same weekday, the same month — while repeating the immediately previous value carries the pattern's phase error straight into the forecast." },
+]} />
 
 ## In Python
 

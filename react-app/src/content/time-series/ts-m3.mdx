@@ -1,11 +1,27 @@
-import { ConceptBox, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
+import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import SmoothingWidget from '../../components/widgets/time-series/SmoothingWidget.jsx'
 
 # Module 3: Exponential Smoothing — SES, Holt, Holt-Winters
 
+<Bridge>
+Module 2's baselines use exactly one past observation and throw the rest away. A moving average uses several but treats them as equals and ignores everything outside its window. This module keeps all of the history and simply cares about it less the further back it goes.
+</Bridge>
+
 ## The Idea: Weight Recent Points More
 
+<PredictReveal
+  prompt="Simple exponential smoothing tracks a level and nothing else. What does its forecast look like ten steps into the future?"
+  options={["It continues whatever direction the series was heading", "A flat line at the last level, because nothing in the model represents a direction"]}
+  correct={1}
+>
+
 A moving average treats every point in its window equally and ignores everything outside it. **Exponential smoothing** instead gives *every* past point some weight — geometrically decaying, so recent points count most but nothing is thrown away entirely.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "Why is a simple exponential smoothing forecast flat?", a: "The model carries a single state, the current level, and the forecast for every future step is that level. Nothing in it represents a slope, so it cannot extrapolate a direction. Adding a second smoothed component for the trend is exactly what Holt's method does." },
+]} />
 
 <DerivationSteps>
 <DerivationStep number={1} title="Simple Exponential Smoothing (SES) — level only">
@@ -26,6 +42,12 @@ A third component $s_t$ (period $m$) tracks the seasonal offset (additive form s
 
 ## How Are α, β, γ Actually Chosen?
 
+<PredictReveal
+  prompt="The smoothing parameter alpha sits between 0 and 1. You set it to 0.95. What behaviour have you asked for?"
+  options={["Heavy smoothing, since the value is near 1", "Almost no smoothing — the forecast will chase the newest observation, noise included"]}
+  correct={1}
+>
+
 Not by hand. In practice you **fit** them by minimizing in-sample squared error (equivalent to maximum likelihood under Gaussian errors) — the same grid-search-and-pick-the-best idea used everywhere else in ML, just over 1–3 parameters:
 
 ```python
@@ -39,7 +61,23 @@ print(model.params['smoothing_level'], model.params['smoothing_trend'], model.pa
 forecast = model.forecast(12)
 ```
 
+</PredictReveal>
+
+<PredictReveal
+  prompt="How should the smoothing parameters be chosen in practice?"
+  options={["By eye, adjusting until the curve looks right", "By fitting them, minimising in-sample squared error, which is maximum likelihood under Gaussian errors"]}
+  correct={1}
+>
+
 <SmoothingWidget />
+
+Slide alpha towards 1 in the widget and watch the smoothed line collapse onto the raw data; slide it towards 0 and watch it flatten into a near-constant. The fitted value is whichever point on that spectrum minimises error on the history you have.
+
+</PredictReveal>
+
+<Recall items={[
+  { q: "What does a high smoothing parameter do, and how is the value chosen?", a: "A value near 1 puts almost all the weight on the newest observation, so the model reacts instantly and tracks noise; a value near 0 averages over a long history and reacts slowly. The value is not chosen by eye but fitted, by minimising in-sample squared error, which under Gaussian errors is maximum likelihood." },
+]} />
 
 <ConceptBox title="Common confusion — which variant do I need?">
 Ask two questions: does the series **trend**? does it have **fixed-period seasonality**? No/no → SES. Yes/no → Holt. Yes/yes → Holt-Winters. Picking a model with components the data doesn't have just adds noisy, badly-estimated parameters; picking one with too few underfits systematically (e.g. SES on a trending series always forecasts flat and falls behind).
