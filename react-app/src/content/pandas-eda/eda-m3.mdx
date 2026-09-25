@@ -99,7 +99,7 @@ Write the boolean mask that finds rows with a negative fare.
 
 Should you always drop every row where `trip_distance == 0`?
 
-**Solution:** Not necessarily — a genuinely canceled trip can still incur a minimum charge with 0 recorded distance, which is a real (if edge-case) business event, not a data error. The safer move is to flag and inspect rather than blindly delete: check whether the fare is also $0 (truly a non-event) versus a positive minimum fare (a real but unusual charge). This dataset's own zero-distance rows (ids 5, 11, 20, 30) all carry a small positive fare — exactly the minimum-charge case, not a true non-event.
+**Solution:** Not necessarily — a genuinely canceled trip can still incur a minimum charge with 0 recorded distance, which is a real (if edge-case) business event, not a data error. The safer move is to flag and inspect rather than blindly delete: check whether the fare is also USD 0 (truly a non-event) versus a positive minimum fare (a real but unusual charge). This dataset's own zero-distance rows (ids 5, 11, 20, 30) all carry a small positive fare — exactly the minimum-charge case, not a true non-event.
 
 ### Problem 3: Do the Two Problems Overlap?
 

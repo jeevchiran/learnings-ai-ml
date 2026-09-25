@@ -1,0 +1,32 @@
+[
+  {
+    "file": "notebook\\recsys\\recsys-lab.ipynb",
+    "executed": 22,
+    "errors": []
+  },
+  {
+    "file": "notebook\\time-series\\time-series-lab.ipynb",
+    "executed": 24,
+    "errors": []
+  },
+  {
+    "file": "notebook\\genai-risks\\genai-risks-lab.ipynb",
+    "executed": 8,
+    "errors": []
+  },
+  {
+    "file": "pandas-eda/eda-m9.mdx",
+    "rows_after_cleaning": 24,
+    "outlier_ids": [
+      6,
+      18,
+      26
+    ],
+    "errors": []
+  },
+  {
+    "file": "recsys/rs-b5.mdx",
+    "check": "Cumulative as-of lookup and reference window: strict boundary, timestamp ties, empty history, expired events",
+    "errors": []
+  }
+]

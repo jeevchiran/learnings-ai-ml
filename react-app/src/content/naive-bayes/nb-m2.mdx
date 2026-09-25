@@ -56,8 +56,8 @@ The denominator sums over *every* class, so it doesn't depend on which $A_i$ you
 ## Worked Example: The Medical-Test Paradox
 
 <PredictReveal
-  prompt="A test catches 99% of a disease that affects 1 person in 10,000, and wrongly flags 1% of healthy people. You test positive. Roughly what is the chance you have it?"
-  options={["About 99%, matching the test", "About 1%, because the healthy population is ten thousand times larger"]}
+  prompt="A test detects 99% of cases of a disease affecting 1% of people, and wrongly flags 5% of healthy people. Among positive results, roughly what fraction are real cases?"
+  options={["About 99%, matching sensitivity", "About 17%, because false positives from the much larger healthy group outnumber true positives"]}
   correct={1}
 >
 
@@ -72,16 +72,16 @@ $$P(D \mid \text{pos}) = \frac{0.0099}{0.0594} \approx 0.167$$
 </DerivationStep>
 </DerivationSteps>
 
-Despite a 99%-accurate test and a positive result, the patient's chance of disease is only **≈16.7%**. The disease is so rare that false positives (5% of the 99% healthy) outnumber true positives (99% of the 1% sick) roughly 5-to-1. A low prior cannot be ignored just because the evidence looks strong. Move the sliders and watch the posterior collapse as prevalence drops:
+In this hypothetical population, **99% sensitivity is not 99% positive predictive value**. Imagine 10,000 people: 100 have the disease, giving about 99 true positives; 9,900 do not, giving about 495 false positives. Only $99/(99+495)\approx16.7\%$ of positive results are real cases. This is a teaching example, not an interpretation of an individual's medical test.
 
 <BayesTheoremWidget />
 
-Drag the prevalence slider down and watch the posterior collapse while the test's own accuracy never moves. The classifier's prior term does exactly this job, which is why a rare class is not predicted without strong evidence.
+Drag the prevalence slider down and watch the posterior collapse while sensitivity and the false-positive rate stay fixed. The classifier's prior term does exactly this job, which is why a rare class is not predicted without strong evidence.
 
 </PredictReveal>
 
 <Recall items={[
-  { q: "Why does a highly accurate test still produce mostly false positives for a rare condition?", a: "The false positives come from the healthy group, which is vastly larger. A 1% error rate applied to 9,999 healthy people produces about a hundred false alarms, against a single true case. The base rate, not the test's accuracy, dominates the answer." },
+  { q: "Why does a highly accurate test still produce mostly false positives for a rare condition?", a: "The false positives come from the healthy group, which is vastly larger. In this example, 5% of 9,900 healthy people gives 495 false positives, while 99% of 100 affected people gives 99 true positives. The base rate, not the test's accuracy, dominates the answer." },
 ]} />
 
 <Bridge>
@@ -94,7 +94,7 @@ Bayes' theorem here relates one event $A$ to one evidence $B$. Classification re
 - The whole derivation is one move: **the joint can be written two ways**, $P(A\mid B)P(B)=P(B\mid A)P(A)$. Solve for what you want.
 - Four terms worth naming: posterior, likelihood, prior, evidence. The **evidence is just a normaliser** built by the law of total probability.
 - Because the denominator sums over every class, it's the same for all of them — which is why it can be dropped when you only need the arg-max.
-- **The medical-test paradox**: a 99%-accurate test on a 1%-prevalence disease gives a positive patient only ~17% chance of being ill. Rare disease ⟹ false positives outnumber true ones.
+- **The medical-test paradox**: a test with 99% sensitivity and a 5% false-positive rate on a 1%-prevalence disease gives a positive patient only ~17% chance of being ill. Rare disease ⟹ false positives outnumber true ones.
 </ConceptBox>
 
 ## Practice

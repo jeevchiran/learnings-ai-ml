@@ -87,7 +87,7 @@ plt.show()
 ```
 
 ```
-RatecodeID=1 points (metered) scatter along a rising diagonal; RatecodeID=2 points (flat-rate airport) cluster at upper-right at fixed $45/$52 regardless of exact distance
+RatecodeID=1 points (metered) scatter along a rising diagonal; RatecodeID=2 points (flat-rate airport) cluster at upper-right at fixed USD 45/USD 52 regardless of exact distance
 ```
 
 **NaN cells in pivot tables are informative, not errors.** A NaN in a pivot table cell means no row matched that row×column combination — e.g., RatecodeID=2 with passenger_count=3 never occurred in the sample. Always check whether NaN means "missing data" or "that combination does not exist."
@@ -131,11 +131,11 @@ The equivalent using groupby: `df.groupby([index_col, col_col])[value_col].mean(
 
 In the color-encoded scatter (trip_distance vs fare_amount, colored by RatecodeID), why do RatecodeID=2 points cluster differently from RatecodeID=1 points?
 
-**Solution:** RatecodeID=2 trips are **flat-rate airport fares**. NYC taxi rules fix the fare to Manhattan from JFK at $52 and to Newark (EWR) at $45 — regardless of the exact mileage driven on that specific trip. The fare does not grow with distance the way metered (RatecodeID=1) fares do.
+**Solution:** RatecodeID=2 trips are **flat-rate airport fares**. NYC taxi rules fix the fare to Manhattan from JFK at USD 52 and to Newark (EWR) at USD 45 — regardless of the exact mileage driven on that specific trip. The fare does not grow with distance the way metered (RatecodeID=1) fares do.
 
 This means:
 
-- RatecodeID=2 points sit at constant y-values ($45 or $52) even though their x-values (trip_distance) vary.
+- RatecodeID=2 points sit at constant y-values (USD 45 or USD 52) even though their x-values (trip_distance) vary.
 - RatecodeID=1 points follow a rising diagonal because each additional mile adds a metered increment to the fare.
 
 The "third variable" RatecodeID is a *confounder*: without it, the bivariate scatter shows a messy cluster in the upper-right that looks like a noisy extension of the metered pattern, when in reality it is an entirely different pricing rule.
@@ -188,7 +188,7 @@ You hypothesise that high passenger_count trips have lower average tip_amount pe
   { q: "Why did the distance-fare relationship need a THIRD variable to be understood?", a: "Because two different pricing regimes were mixed together. Metered rides scale with distance; RatecodeID 2 airport trips charge a flat rate regardless. Averaged into one scatter they produce a single mediocre line that describes neither group. Splitting on RatecodeID reveals a clean relationship in one group and a flat band in the other." },
   { q: "Give the groupby equivalent of a pivot_table with aggfunc='mean', and say what .unstack() does.", a: "df.groupby(['RatecodeID','passenger_count'])['fare_amount'].mean().unstack(). The groupby produces a Series with a two-level MultiIndex; unstack moves the inner level into columns, converting that long Series into the same 2-D table pivot_table returns directly." },
   { q: "When should you facet rather than colour-encode a third variable?", a: "When the groups overlap heavily in the x-y plane. Colour puts every group in one set of axes, so dense regions become an unreadable pile and the later-drawn group hides the earlier one. Faceting gives each group its own panel on shared axes, which preserves comparability while removing occlusion." },
-  { q: "A pivot cell shows a mean fare of $87. What must you check before reporting it?", a: "How many rows it aggregates. A pivot table renders a mean over two observations with exactly the same authority as one over two thousand, and rare category combinations produce cells that are pure noise. Run the same pivot with aggfunc='count' alongside it, and treat thin cells as unreliable." },
+  { q: "A pivot cell shows a mean fare of USD 87. What must you check before reporting it?", a: "How many rows it aggregates. A pivot table renders a mean over two observations with exactly the same authority as one over two thousand, and rare category combinations produce cells that are pure noise. Run the same pivot with aggfunc='count' alongside it, and treat thin cells as unreliable." },
 ]} />
 
 <QuizCard

@@ -9,7 +9,9 @@ Item-item CF stores an item×item similarity table. With a million products that
 
 Matrix factorization takes a different route: assume the matrix is **low-rank**. Every shopper is a point in a $k$-dimensional taste space; every product is a point in the same space; the score is their dot product.
 
-$$r_{ui} \approx x_u^\top y_i, \qquad x_u, y_i \in \mathbb{R}^k$$
+$$s_{ui} = x_u^\top y_i, \qquad x_u, y_i \in \mathbb{R}^k$$
+
+Here $s_{ui}$ is a recommendation score. Rating models can fit it to observed ratings; the implicit model below fits binary preferences with confidence weights.
 
 For NovaCart: 6 shoppers + 9 products at $k=3$ is 45 numbers instead of 54 matrix cells — a poor trade at this scale, but for 10M shoppers and 1M products at $k=64$ it is 704M numbers instead of $10^{13}$. And the compression is the *point*: forcing everything through $k$ dimensions means the model must find shared structure rather than memorise.
 
@@ -113,10 +115,10 @@ Retrieval now returns a few hundred candidates. Ordering them precisely is a dif
 ---
 
 <ConceptBox title="TL;DR">
-- Replace the huge sparse matrix $R$ with two thin dense ones: $R \approx X Y^\top$, where each shopper and each product become a $k$-dimensional vector.
+- Represent each shopper and product by a $k$-dimensional vector. In implicit ALS, $X Y^\top$ fits the binary **preference** matrix $P$ using confidence weights derived from interaction counts $R$; it does not directly reconstruct the raw counts.
 - The **implicit** variant (Hu, Koren & Volinsky 2008) trains on **every cell**, weighting each by confidence $c_{ui}=1+\alpha r_{ui}$. Not just the observed ones.
 - **ALS** alternates: fix $Y$, solve for $X$ in closed form; fix $X$, solve for $Y$. Each half-step is a ridge regression, so it is exact, parallel, and needs no learning rate.
-- The Gram-matrix trick makes the full-matrix sum cost the same as summing over observed entries only. That trick is why the algorithm is practical.
+- The Gram-matrix trick precomputes the contribution shared by all users, then adds corrections for observed interactions. This avoids explicitly visiting every missing entry for every user update; matrix operations and a solve still have a cost.
 </ConceptBox>
 
 <QuizCard

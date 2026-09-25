@@ -47,7 +47,7 @@ The mean of the 28 known values is **1.46** — fractional passengers aren't phy
 Rate codes are labels (1 = standard rate, 2 = JFK, etc.), not magnitudes — averaging them is meaningless. The mode is **1** (26 of 28 rows), the dominant category, and a fill that's guaranteed to be a valid code.
 </DerivationStep>
 <DerivationStep number={3} title="airport_fee — mostly flat, occasionally a surcharge">
-Almost every trip pays $0; only flat-rate airport trips pay $1.25. The mode is **0** (26 of 28 rows) — and neither of the two missing rows is actually an airport trip, so filling with the typical value ($0) matches reality better than any average would.
+Almost every trip pays USD 0; only flat-rate airport trips pay USD 1.25. The mode is **0** (26 of 28 rows) — and neither of the two missing rows is actually an airport trip, so filling with the typical value (USD 0) matches reality better than any average would.
 </DerivationStep>
 </DerivationSteps>
 

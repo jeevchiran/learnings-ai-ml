@@ -1,0 +1,186 @@
+[
+  {
+    "file": "etl-pyspark/notebooks/01-etl-pyspark.ipynb",
+    "cells": 26,
+    "python_cells": 12,
+    "ipython_cells": 1,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "etl-pyspark/notebooks/02-in-memory-processing.ipynb",
+    "cells": 28,
+    "python_cells": 13,
+    "ipython_cells": 1,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "etl-pyspark/notebooks/03-spark-rdds.ipynb",
+    "cells": 28,
+    "python_cells": 13,
+    "ipython_cells": 1,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "etl-pyspark/notebooks/04-dataframes-pyspark-vs-pandas.ipynb",
+    "cells": 33,
+    "python_cells": 14,
+    "ipython_cells": 1,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "etl-pyspark/notebooks/05-pyspark-sql.ipynb",
+    "cells": 30,
+    "python_cells": 13,
+    "ipython_cells": 1,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "etl-pyspark/notebooks/06-udfs-pyspark.ipynb",
+    "cells": 24,
+    "python_cells": 10,
+    "ipython_cells": 1,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "etl-pyspark/notebooks/07-data-cleaning.ipynb",
+    "cells": 37,
+    "python_cells": 16,
+    "ipython_cells": 1,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "etl-pyspark/notebooks/08-data-exploration.ipynb",
+    "cells": 28,
+    "python_cells": 13,
+    "ipython_cells": 1,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "etl-pyspark/notebooks/09-transformation-operations.ipynb",
+    "cells": 35,
+    "python_cells": 17,
+    "ipython_cells": 1,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "etl-pyspark/notebooks/10-caching-broadcasting.ipynb",
+    "cells": 33,
+    "python_cells": 15,
+    "ipython_cells": 1,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "notebook/attention-seq2seq/attention-seq2seq-lab.ipynb",
+    "cells": 25,
+    "python_cells": 13,
+    "ipython_cells": 0,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "notebook/computer-vision/computer-vision-lab.ipynb",
+    "cells": 80,
+    "python_cells": 50,
+    "ipython_cells": 2,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "notebook/diffusion/diffusion-lab.ipynb",
+    "cells": 17,
+    "python_cells": 8,
+    "ipython_cells": 0,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "notebook/gan/gan-lab.ipynb",
+    "cells": 21,
+    "python_cells": 10,
+    "ipython_cells": 0,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "notebook/genai-risks/genai-risks-lab.ipynb",
+    "cells": 18,
+    "python_cells": 8,
+    "ipython_cells": 0,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "notebook/recsys/recsys-lab.ipynb",
+    "cells": 40,
+    "python_cells": 22,
+    "ipython_cells": 0,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "notebook/rnn/rnn-lab.ipynb",
+    "cells": 19,
+    "python_cells": 9,
+    "ipython_cells": 0,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "notebook/time-series/time-series-lab.ipynb",
+    "cells": 41,
+    "python_cells": 24,
+    "ipython_cells": 0,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "notebook/transfer-learning/transfer-learning-lab.ipynb",
+    "cells": 41,
+    "python_cells": 26,
+    "ipython_cells": 0,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "notebook/transformers/transformers-lab.ipynb",
+    "cells": 30,
+    "python_cells": 18,
+    "ipython_cells": 0,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "notebook/vae/vae-lab.ipynb",
+    "cells": 23,
+    "python_cells": 11,
+    "ipython_cells": 0,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "Regression/notebooks/01_linear_regression_lab.ipynb",
+    "cells": 21,
+    "python_cells": 11,
+    "ipython_cells": 0,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  },
+  {
+    "file": "Regression/notebooks/02_logistic_regression_lab.ipynb",
+    "cells": 25,
+    "python_cells": 16,
+    "ipython_cells": 0,
+    "errors": [],
+    "execution": "Not executed by this syntax audit"
+  }
+]

@@ -21,7 +21,7 @@ Knowing a column's distribution in isolation tells you nothing about whether it 
 - Do card-paying passengers tip more than cash passengers? (Group comparison)
 - Are there variables that seem correlated only because both depend on a third variable? (Confounder detection)
 
-In this dataset, `fare_amount` and `trip_distance` have a strong positive relationship for metered rides — but airport flat-rate fares (RatecodeID=2) and the $399 meter error row break that pattern. Bivariate analysis surfaces these complications before you build a model.
+In this dataset, `fare_amount` and `trip_distance` have a strong positive relationship for metered rides — but airport flat-rate fares (RatecodeID=2) and the USD 399 meter error row break that pattern. Bivariate analysis surfaces these complications before you build a model.
 </ConceptBox>
 
 <ConceptBox title="HOW: Scatter plots, df.corr(), and Pearson r">
@@ -60,7 +60,7 @@ plt.show()
 ```
 
 ```
-Points cluster along a rising line from bottom-left to upper-right — with two outliers: the $399 row and the 120-mile trip
+Points cluster along a rising line from bottom-left to upper-right — with two outliers: the USD 399 row and the 120-mile trip
 ```
 
 ```python
@@ -70,7 +70,7 @@ print(corr_matrix.round(2))
 ```
 
 ```
-4×4 symmetric table; diagonal all 1.00; fare_amount–trip_distance cell shows a large positive value distorted by the $399 outlier
+4×4 symmetric table; diagonal all 1.00; fare_amount–trip_distance cell shows a large positive value distorted by the USD 399 outlier
 ```
 
 ```python
@@ -84,7 +84,7 @@ plt.show()
 Grid of coloured cells — strong-positive cells are deep red, near-zero cells are white, negative cells shade blue
 ```
 
-**Correlation does not imply causation.** `fare_amount` and `trip_distance` correlate because longer trips cost more — but a third variable (RatecodeID=2 flat-rate fares for airport trips) breaks this for some rows: the fare is fixed at $45 or $52 regardless of the exact distance. Always ask *why* a correlation exists before acting on it.
+**Correlation does not imply causation.** `fare_amount` and `trip_distance` correlate because longer trips cost more — but a third variable (RatecodeID=2 flat-rate fares for airport trips) breaks this for some rows: the fare is fixed at USD 45 or USD 52 regardless of the exact distance. Always ask *why* a correlation exists before acting on it.
 
 </PredictReveal>
 
@@ -104,7 +104,7 @@ The interactive widget below lets you plot any pair of columns as a scatter with
 - Scatter for numeric-vs-numeric, grouped box plot for categorical-vs-numeric, Pearson $r$ to compress a relationship to one number.
 - **$r$ measures linear association only.** $r=0$ rules out a straight-line relationship, not a relationship — a perfect U-curve scores about 0.
 - **Always plot alongside `df.corr()`.** Identical $r$ values can come from wildly different scatter shapes, and one outlier can manufacture or destroy a correlation.
-- Distance predicts fare strongly *for metered rides* — flat-rate airport trips and the $399 meter fault break the pattern, which is a hint that a third variable is lurking.
+- Distance predicts fare strongly *for metered rides* — flat-rate airport trips and the USD 399 meter fault break the pattern, which is a hint that a third variable is lurking.
 </ConceptBox>
 
 ## Practice
@@ -121,8 +121,8 @@ NYC taxi fare is calculated from distance, yet `fare_amount` vs `trip_distance` 
 
 **Solution:** Several factors add variance beyond distance:
 
-- **Flat-rate airport fares** (RatecodeID=2, rows 6 and 18): fare is $45/$52 regardless of the exact mileage — a fixed amount that breaks the distance-to-price proportionality.
-- **The $399 meter error** (row 26): a 6.7-mile trip with a $399 fare is almost certainly a meter malfunction. This single point pulls the correlation away from the metered-trip pattern.
+- **Flat-rate airport fares** (RatecodeID=2, rows 6 and 18): fare is USD 45/USD 52 regardless of the exact mileage — a fixed amount that breaks the distance-to-price proportionality.
+- **The USD 399 meter error** (row 26): a 6.7-mile trip with a USD 399 fare is almost certainly a meter malfunction. This single point pulls the correlation away from the metered-trip pattern.
 - **Negative fares** (rows 7, 15): refunds or voids recorded as negative amounts have no valid relationship to distance.
 - **Time-based metering**: slow traffic adds time-based charges, so two trips of the same distance can have different fares depending on traffic speed.
 
@@ -171,7 +171,7 @@ Describe how you would use the correlation matrix to do feature selection for a 
 
 <Recall items={[
   { q: "r = 0.02 between two columns. Can you conclude they are unrelated?", a: "No — only that they have no LINEAR relationship. A perfectly deterministic U-shaped relationship gives r near zero, because the rising and falling halves cancel in the covariance sum. Plot the scatter before concluding anything; correlation is a summary of one specific kind of structure." },
-  { q: "Why can a single point change r dramatically?", a: "Because the covariance sum weights each point by its deviation from BOTH means, so a far-out point contributes an enormous product. A single meter error at $399 can create the appearance of a strong distance-fare relationship, or mask a real one, depending on where it sits. This is why you inspect the scatter and consider a robust alternative such as Spearman." },
+  { q: "Why can a single point change r dramatically?", a: "Because the covariance sum weights each point by its deviation from BOTH means, so a far-out point contributes an enormous product. A single meter error at USD 399 can create the appearance of a strong distance-fare relationship, or mask a real one, depending on where it sits. This is why you inspect the scatter and consider a robust alternative such as Spearman." },
   { q: "Distance predicts fare well overall, but some points sit far off the line. What does that pattern suggest?", a: "That more than one regime is mixed together. Metered rides follow a distance-based rule; JFK flat-rate trips charge a fixed amount regardless of distance, so they form a horizontal band the single line cannot fit. The bivariate view has hit its limit — you need RatecodeID as a third variable to separate them." },
   { q: "When do you reach for a grouped box plot rather than a scatter?", a: "When one variable is categorical. A scatter of payment_type against fare_amount produces meaningless vertical stripes; a box plot per payment type shows each group's median, spread and outliers side by side, which is what the comparison actually calls for." },
 ]} />

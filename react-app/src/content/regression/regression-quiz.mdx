@@ -11,13 +11,14 @@ This quiz covers all 4 modules of the Regression track: linear regression assump
 <MultiSelectQuiz
   question="Which of the following are formal assumptions of the classical linear regression model required for OLS to be BLUE (Best Linear Unbiased Estimator)? (Select all that apply)"
   options={[
-    'The relationship between predictors and response is linear',
+    'The conditional mean is linear in the coefficients, with zero conditional mean error',
     'The error variance is constant across all observations (homoscedasticity)',
-    'The errors are independent of each other',
+    'The errors are uncorrelated across observations',
     'The errors follow a normal distribution',
     'All predictor variables must be standardised to zero mean and unit variance before fitting'
   ]}
-  correct={[0, 1, 2, 3]}
+  correct={[0, 1, 2]}
+  explanation="Gauss–Markov requires a correctly specified linear mean, zero conditional mean errors, full column rank, and uncorrelated errors with constant variance. Normality is not required for BLUE; it supports exact finite-sample t and F inference."
 />
 
 <QuizCard

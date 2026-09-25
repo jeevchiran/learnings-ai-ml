@@ -135,7 +135,7 @@ Toggle scaling on and off in the widget and watch the cluster boundaries swing r
 - The metric decides the cluster **shape** the algorithm can find: Euclidean → round, Manhattan → diamond, cosine → angular sector.
 - **Metric and centroid update are one decision, not two.** Squared Euclidean ⟹ the mean is the exact minimiser; L1 ⟹ the median (K-medians). Swapping the metric alone breaks convergence.
 - Cosine ignores magnitude, which is what you want for documents — but it doesn't drop into standard K-means without also changing the update.
-- **Always Z-score before K-means.** Euclidean distance is not scale-invariant, so an unscaled income column will cluster your data by units, not structure.
+- **Choose scaling to match the meaning of distance.** Standardizing can help when unrelated units such as income and age would otherwise dominate unequally. It is not automatic: coordinates already in comparable physical units, sparse data or intentionally weighted features may need a different choice.
 </ConceptBox>
 
 ## Practice

@@ -110,8 +110,8 @@ Next: what NovaCart actually records when someone browses, and how to turn a str
 ---
 
 <ConceptBox title="TL;DR">
-- A recommender **ranks a huge catalog into a few slots**. It is not "predict a rating" — that framing died with the Netflix Prize.
-- Every production system is a **funnel**: retrieval (millions → hundreds, must be fast, scored on *recall*) then ranking (hundreds → ten, may be expensive, scored on *precision*).
+- This track focuses on **ranking a catalog into a few display slots**. Rating prediction is another useful recommendation task; choose the task to match the product's purpose.
+- Large-catalog systems often use a **funnel**: retrieval narrows millions of candidates to hundreds, then ranking orders a short list. Smaller catalogs may be scored directly. Evaluate retrieval coverage and final ranking quality separately.
 - The catalog is enormous, the feedback is implicit, and **the model's own output becomes tomorrow's training data**. Those three facts cause every hard problem in the field.
 - Pick the problem type from the **surface** you are building for. "Similar items" on a product page and "for you" on the homepage are different problems wearing the same clothes.
 </ConceptBox>

@@ -111,10 +111,10 @@ This quiz covers all nine modules of the Pandas EDA track — from first-look in
 />
 
 <QuizCard
-  question="You create a pivot table: `df.pivot_table(values='fare_amount', index='day_of_week', columns='hour', aggfunc='mean')`. A heatmap of the result shows very high fares in the top-right corner. What does the top-right corner represent?"
+  question="A heatmap has day_of_week increasing from 0 (Monday) at the top to 6 (Sunday) at the bottom, and hour increasing from 0 at the left to 23 at the right. What does its top-right corner represent?"
   options={[
     "Low day-of-week index combined with early morning hours",
-    "High day-of-week index combined with late evening hours — e.g., Saturday/Sunday late night",
+    "Monday late-evening trips: low day-of-week index and high hour",
     "Weekday morning rush-hour trips",
     "Missing values that were imputed with the column maximum"
   ]}

@@ -99,7 +99,7 @@ $$z_{\text{new}} = z_{\text{input}} + \gamma \cdot v_{\text{smile}}$$
 ---
 
 <ConceptBox title="TL;DR">
-- A trained decoder maps *any* latent coordinate to an image, so the latent space can be explored directly — sweep a 2D grid and every cell decodes to a valid sample.
+- A trained decoder maps *any* latent coordinate to an image, so the latent space can be explored directly — sweep a 2D grid and every cell produces an output, though unrealistic or poorly learned regions can remain.
 - **Interpolating** between two codes produces a smooth semantic morph rather than a pixel crossfade, because the path passes through regions the KL term kept populated.
 - In higher dimensions prefer **slerp** over **lerp**: Gaussian mass concentrates on a shell at roughly constant radius, and a straight line cuts through the sparse low-density interior.
 - Latent directions can carry consistent meaning, so **vector arithmetic** on codes can add or remove an attribute.

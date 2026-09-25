@@ -20,7 +20,8 @@ export default function MissingValueWidget() {
   const known = RAW.filter(v => v !== null)
   const mean = known.reduce((a, b) => a + b, 0) / known.length
   const sorted = [...known].sort((a, b) => a - b)
-  const median = sorted[Math.floor(sorted.length / 2)]
+  const mid = Math.floor(sorted.length / 2)
+  const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 
   const apply = () => {
     if (strat === 'drop') return RAW.map(v => v)
@@ -40,6 +41,7 @@ export default function MissingValueWidget() {
 
   return (
     <div>
+      <p style={{ fontSize: '0.85rem' }}>This separate eight-value example has known fares 7.5, 8, 8.4, 9.6, 11 and 42. Their median is (8.4 + 9.6) / 2 = 9. Choose a strategy and compare the two filled cells with the resulting mean.</p>
       <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.7rem', flexWrap: 'wrap' }}>
         {STRATEGIES.map(x => (
           <button key={x.key} onClick={() => setStrat(x.key)}

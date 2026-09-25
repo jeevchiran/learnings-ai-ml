@@ -144,7 +144,7 @@ Filters are fast and a sensible first pass, but the interaction blind spot is re
 <ConceptBox title="TL;DR">
 - Filters score each feature **independently, with no model fitted** — so they're cheap enough to run on thousands of columns as a first pass.
 - **Variance threshold is target-blind**: it only drops near-constant columns. A rare-but-critical flag looks dead to it.
-- Pearson catches **linear** relationships only; ANOVA F catches monotonic group differences; **mutual information** catches arbitrary dependence but has no clean p-value.
+- Pearson catches **linear** relationships only; ANOVA F compares between-class and within-class variation; **mutual information** catches arbitrary dependence but has no clean p-value.
 - Chi-square needs **non-negative** inputs — counts or one-hot, never raw signed values.
 - The shared blind spot: scoring one feature at a time **cannot see interactions**. Latitude and longitude are each useless and jointly decisive.
 </ConceptBox>

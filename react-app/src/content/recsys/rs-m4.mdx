@@ -107,7 +107,7 @@ Every metric here assumed you had a trustworthy held-out set. Producing one is h
 
 <Recall items={[
   { q: "Precision@k and Recall@k share a numerator. Why can they move in opposite directions as k grows?", a: "The denominators differ. Recall divides by |R|, which is fixed, so adding slots can only keep or increase it. Precision divides by k, which grows, so unless each new slot is a hit, precision falls. They only agree when k equals |R|." },
-  { q: "You hold out exactly one purchase per shopper. Why is reporting both MRR and NDCG@10 nearly redundant?", a: "With |R|=1, IDCG@k = 1, so NDCG@k reduces to 1/log2(rank+1) — a monotone transform of the same rank MRR reads. They will order your models almost identically. NDCG only adds information with multiple or graded relevance." },
+  { q: "With one relevant item per shopper, how do MRR and NDCG@10 differ?", a: "Both depend on the relevant item's rank. Reciprocal rank uses 1/rank; NDCG@10 uses 1/log2(rank+1) inside the top ten and zero outside. Their different discounts and cutoff can produce different model rankings after averaging over shoppers." },
   { q: "Your model's NDCG@10 improves 4% and catalog coverage drops from 40% to 12%. What most likely happened?", a: "The model shifted toward recommending popular head items to everyone. Popular items are likely to be the held-out purchase by base rate, so accuracy rises, while the slate becomes near-identical across shoppers. This is the classic popularity collapse — the accuracy metric alone reports it as a win." },
   { q: "When is MRR the RIGHT metric rather than a lazy one?", a: "When the surface's job is to surface one specific thing and the session ends on finding it — search for a known item, 'resume where you left off', a support-article recommender. Its indifference to everything past the first hit is a correct model of the task there, and a bug on a browsing surface." },
 ]} />
@@ -117,12 +117,12 @@ Every metric here assumed you had a trustworthy held-out set. Producing one is h
 <ConceptBox title="TL;DR">
 - Ranking metrics differ in **what they are indifferent to**. Pick the one whose blind spot you can live with.
 - **Precision@k** — of the slots you spent, what fraction paid off. **Recall@k** — of what they wanted, what fraction you found.
-- **MRR** cares only about the *first* hit. **MAP** averages precision at every hit. **NDCG** is the only common one that discounts by *position* and normalises by the best possible order.
+- **MRR** cares only about the *first* hit. **MAP** averages precision at relevant positions. **NDCG** supports graded relevance, discounts later positions, and divides by the score of the best possible order for the same relevance labels.
 - Always report a **beyond-accuracy** metric too — coverage or intra-list diversity — or you will ship a model that recommends the same five products to everyone and scores well doing it.
 </ConceptBox>
 
 <QuizCard
-  question="Model A puts the shopper's purchase at rank 1. Model B puts it at rank 3 but also surfaces two other items they later bought, at ranks 2 and 4. Which metric most favours A, and which most favours B?"
+  question="There are three relevant items. In the top four, A finds only one, at rank 1. B finds all three at ranks 2, 3 and 4. Compare MRR, MAP@4 and NDCG@4 with binary relevance and AP divided by the three relevant items. Which model does each favour?"
   options={[
     'Both favour A, since rank 1 dominates every metric',
     'MRR most favours A (it only sees the first hit); MAP and NDCG favour B, which finds more relevant items early',

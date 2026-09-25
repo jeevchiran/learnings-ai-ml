@@ -1,6 +1,8 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, CodeBlock, QuizCard, Recall } from '../../components/learning/index.js'
 import NoisyChannelWidget from '../../components/widgets/nlp/NoisyChannelWidget.jsx'
 
+# Stemming, Lemmatization & Noisy Channel
+
 <Bridge>
 Module 1 normalized text by lowercasing and removing noise. But "running", "runs", and "ran" are still three separate types — a search for "run" misses the other five. **Morphological processing** maps these variants to a single canonical form, boosting recall without losing precision.
 </Bridge>
@@ -187,9 +189,9 @@ The noisy channel model only handles *non-word* errors (typos not in the diction
 
 <ConceptBox title="TL;DR">
 - **Inflectional** morphology marks tense/number without changing word class — almost always safe to collapse. **Derivational** morphology creates new words ("compute" → "computation") — collapsing it loses real meaning.
-- **Stemming** chops endings by rule; the output needn't be a word. **Lemmatization** uses a dictionary and POS tag; the output always is.
+- **Stemming** chops endings by rule; the output needn't be a word. **Lemmatization** uses lexical and morphological information to estimate a base form, but unknown words and tagging errors can still cause mistakes.
 - Two failure modes to name: **over-stemming** merges distinct words (hurts precision), **under-stemming** fails to merge related ones (hurts recall).
-- Stemming is fast and crude; lemmatization is slower, needs a POS tag, and is correct.
+- Stemming is fast and crude; lemmatization can use POS information and is usually more linguistically informed, but is not error-free.
 - The **noisy channel** picks the correction maximising $P(\text{word})\times P(\text{typo}\mid\text{word})$ — prior times likelihood, i.e. Bayes.
 - It only fixes **non-word** errors. "their" → "there" is a real word, so only a context model catches it.
 </ConceptBox>

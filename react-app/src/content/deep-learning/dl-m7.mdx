@@ -183,10 +183,10 @@ Unlike ReLU which hard-gates (0 or 1), GELU soft-gates proportional to the input
 
 <ConceptBox title="TL;DR">
 - $g'(\mathbf{Z}^{[l]})$ appears in **every** backprop step, so the activation's *derivative* — not its shape — decides whether the network trains.
-- **Sigmoid's derivative peaks at 0.25** and collapses when saturated. Multiply many of those and you get the vanishing gradient. tanh peaks at 1 and is zero-centred, so it's strictly better, and still saturates.
+- **Sigmoid's derivative peaks at 0.25** and becomes small when saturated. Repeated small factors can weaken gradients. tanh is zero-centred and has a maximum derivative of 1, but also saturates; neither is universally best.
 - **ReLU's derivative is exactly 1 on the positive side** — no shrinkage with depth. That single property is why it made deep networks trainable.
 - ReLU's real costs: **dying neurons** (derivative 0 for $z\le0$, permanently) and non-zero-centred output. It is *cheaper* than sigmoid, not more expensive.
-- Leaky ReLU / GELU keep a small negative slope so nothing dies permanently.
+- Leaky ReLU has a non-zero slope on negative inputs. GELU is a different smooth function, $x\Phi(x)$, and is not a constant-slope variant of ReLU. Neither choice guarantees successful training.
 </ConceptBox>
 
 ## Quiz

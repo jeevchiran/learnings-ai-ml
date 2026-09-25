@@ -44,7 +44,7 @@ The ensemble (bagging + feature randomness) does the variance reduction, so indi
 | `bootstrap` | True | OOB + decorrelation | enables OOB estimate |
 
 - **`n_estimators` (B):** in $\text{Var}(F_B) = \rho\sigma^2 + \frac{(1-\rho)\sigma^2}{B}$, more B shrinks the second term; the $\rho\sigma^2$ floor is irreducible — hence diminishing returns past ~100–200 trees. Use OOB error vs B, stop at the elbow.
-- **`max_features` (m):** the primary dial for tree correlation $\rho$. Smaller m decorrelates trees (lowers $\rho$) but raises individual bias ($\sigma^2$). Defaults: $\sqrt{p}$ (classification), $p/3$ (regression). **Usually the single most impactful RF knob.**
+- **`max_features` (m):** the primary dial for tree correlation $\rho$. Smaller m decorrelates trees (lowers $\rho$) but raises individual bias ($\sigma^2$). In scikit-learn, the defaults are $\sqrt{p}$ for classification and all features (`max_features=1.0`) for regression; $p/3$ is a traditional regression heuristic. **Usually the single most impactful RF knob.**
 - **`max_depth`:** grow full trees (`None`) — averaging controls ensemble variance, and limiting depth just adds bias.
 - **`min_samples_leaf`:** like kernel smoothing — larger leaves average more points, cutting variance. Try [1, 5, 10, 20]; larger helps noisy data.
 
@@ -124,8 +124,8 @@ print(f"Best iteration: {model.best_iteration}")
 
 <ConceptBox title="TL;DR">
 - Before turning any knob, name what you're fixing: **bias, variance, or compute**. Underfit → add complexity. Overfit → add regularisation.
-- **RF**: grow deep trees and let averaging handle variance. `max_features` is the highest-leverage knob because it's the only one that moves $\rho$.
-- More RF trees never hurt accuracy — they just stop helping. Read OOB error vs $B$ and stop at the elbow.
+- **RF**: grow deep trees and let averaging handle variance. `max_features` is the highest-leverage knob because feature subsampling can reduce correlation between trees.
+- More trees tend to stabilize a random forest, with diminishing returns. A finite validation score can fluctuate rather than improve monotonically; compare performance and compute cost.
 - **GB is far more sensitive**, because capacity compounds across iterations.
 - **Never tune $\eta$ and $M$ independently** — effective capacity is roughly $\eta\cdot M$. Halving $\eta$ needs roughly double $M$.
 - Early stopping on a validation set is what actually chooses $M$.

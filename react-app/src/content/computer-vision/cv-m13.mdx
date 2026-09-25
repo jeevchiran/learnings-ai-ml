@@ -171,7 +171,7 @@ Why does 300 beat selective search's 2,000? Because they are ranked by a *learne
 - RoI pooling maps *any* region to a fixed $7\times7$ grid, so a dense head can follow without warping the pixels.
 - Classification and box regression become **two heads with one multi-task loss** — end-to-end at last, and the SVMs and the disk cache both disappear.
 - **Faster R-CNN**: the 2-second selective search is replaced by a **Region Proposal Network** sliding over the same feature map. 10 ms, and it is learned.
-- The RPN introduces **anchors**: $k$ reference boxes per position, each with an objectness score and a 4-number refinement. Everything after this uses them.
+- The RPN introduces **anchors**: $k$ reference boxes per position, each with an objectness score and a 4-number refinement. Later detectors may use anchors or anchor-free prediction; anchors are not universal.
 </ConceptBox>
 
 <QuizCard

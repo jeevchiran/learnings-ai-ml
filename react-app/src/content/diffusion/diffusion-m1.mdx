@@ -45,7 +45,7 @@ Because the reverse process only reliably undoes *small* corruption steps, gener
 
 <ConceptBox title="TL;DR">
 - A diffusion model has **no adversarial game**: a fixed, known process gradually destroys data into noise, and a single network is trained with an ordinary regression loss to reverse one small step of that destruction.
-- This sidesteps GAN-style training instability entirely — no discriminator, no saddle point, no mode collapse.
+- This sidesteps GAN-style training instability entirely — no competing discriminator. Non-convex optimization, poor coverage and low diversity can still occur.
 - The cost is sampling speed: generating one sample requires many **sequential** network evaluations (undoing corruption one small step at a time), unlike a GAN's single forward pass.
 </ConceptBox>
 

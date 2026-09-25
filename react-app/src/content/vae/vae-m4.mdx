@@ -140,7 +140,7 @@ Substituting $p_\theta(x,z) = p_\theta(x|z)p(z)$ into the ELBO and splitting the
 ---
 
 <ConceptBox title="TL;DR">
-- $\log p_\theta(x)$ cannot be computed, so training maximises a computable **lower bound** on it instead — the **ELBO**. Pushing the bound up drags the target up with it.
+- $\log p_\theta(x)$ cannot be computed, so training maximises a computable **lower bound** on it instead — the **ELBO**. Raising the bound improves the training objective, but does not guarantee that the exact log-likelihood rises on every joint parameter update.
 - The ELBO splits into exactly two terms: a **reconstruction** term (rebuild $x$ from the sampled code) minus a **KL regulariser** (keep the encoder's cloud near the prior). The training loss is the negative of this.
 - The two terms are in genuine tension — reconstruction alone recreates the gap-filled latent space of Module 2; KL alone collapses every input to the same cloud.
 - Because $\log p_\theta(x) = \text{ELBO} + D_{KL}(q_\phi \| p_\theta(z|x))$ and the left side does not depend on $\phi$, maximising the ELBO **automatically** shrinks the gap to the intractable true posterior.

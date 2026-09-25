@@ -50,7 +50,7 @@ Drug trial: missing a drug that helps. Court: acquitting the guilty.
 </PredictReveal>
 
 <Recall items={[
-  { q: "With the sample size fixed, how do the two error rates relate, and what is the only way to reduce both?", a: "They move in opposite directions: shrinking the false-positive rate tightens the rejection region and therefore raises the chance of missing a real effect. The only way to lower both at once is to collect more data, which shrinks the standard error and separates the two distributions." },
+  { q: "With the sample size fixed, how do the two error rates relate, and what design changes can improve the trade-off?", a: "They move in opposite directions: shrinking the false-positive rate tightens the rejection region and therefore raises the chance of missing a real effect. More data or reduced measurement variability can improve power at a chosen alpha. To lower alpha as well, redesign the threshold and check the resulting power; a larger sample does not automatically change alpha." },
 ]} />
 
 ## The Significance Level α
@@ -66,7 +66,7 @@ $\alpha$ is the max Type I error rate you'll tolerate, set *before* data — set
 Field-specific standards go far tighter: particle physics uses "5-sigma" ($\alpha \approx 2.87\times10^{-7}$); genomics uses $\sim5\times10^{-8}$ after Bonferroni. Choosing $\alpha$ is a policy decision — "beyond reasonable doubt" is a very small $\alpha$; missing a treatable disease shifts the balance the other way.
 
 <ConceptBox title="The α–β trade-off (fixed n)">
-For fixed $n$, $\alpha$ and $\beta$ move inversely: shrinking $\alpha$ (tighter rejection region) raises $\beta$ (lower power). The **only way to cut both at once** is a larger $n$, which shrinks the standard error and pulls the null and alternative distributions apart. That's why sample-size choice is inseparable from $\alpha$ and target power.
+For fixed $n$, $\alpha$ and $\beta$ move inversely: shrinking $\alpha$ (tighter rejection region) raises $\beta$ (lower power). Larger samples or less noisy measurements can improve power. That improvement can support choosing a smaller alpha while retaining adequate power; sample size alone does not change the chosen alpha. That's why sample-size choice is inseparable from $\alpha$ and target power.
 </ConceptBox>
 
 ## The p-value
@@ -153,7 +153,7 @@ $p = 0.0244 < 0.05$ → **reject $H_0$**. At the 5% level, the mean fill weight 
 
 <ConceptBox title="TL;DR">
 - **Type I ($\alpha$)** = false alarm, rejecting a true $H_0$. **Type II ($\beta$)** = missed effect. **Power** $=1-\beta$.
-- At fixed $n$, $\alpha$ and $\beta$ pull against each other. **Only a larger $n$ reduces both** — which is why sample size, $\alpha$, and target power are one decision.
+- At fixed $n$, $\alpha$ and $\beta$ pull against each other. **More data or lower measurement noise can improve the trade-off** — which is why sample size, $\alpha$, and target power are one decision.
 - The p-value is $P(\text{data this extreme}\mid H_0\text{ true})$ — **not** the probability that $H_0$ is true, not the probability the result was chance, not your error rate on rejecting.
 - Critical-value and p-value methods are the same geometry read two ways; they never disagree.
 - Memorise: two-tailed $z^*=1.96$ ($\alpha{=}.05$) and $2.576$ ($\alpha{=}.01$); one-tailed $1.645$ ($\alpha{=}.05$).
@@ -175,7 +175,7 @@ New study app, historical $\mu_0 = 75$, $\sigma = 10$, $n = 25$, $\bar{x} = 79$.
 
 <Recall items={[
   { q: "State precisely what p = 0.03 means, then state three things it does NOT mean.", a: "It means: if H0 were true, 3% of samples would produce a statistic at least this extreme. It does NOT mean there is a 3% chance H0 is true — H0 is not random and p was computed assuming it. It does NOT mean a 3% chance the result was due to chance. And it does NOT mean a 3% chance you are wrong to reject; that depends on how often H0 holds across the tests you run." },
-  { q: "Why can't you reduce both alpha and beta at fixed n?", a: "They are two tails of the same picture. Shrinking alpha moves the rejection boundary further out, which necessarily puts more of the alternative distribution on the non-rejection side — raising beta. Only increasing n changes the picture, by shrinking the standard error so the two distributions overlap less." },
+  { q: "Why can't you reduce both alpha and beta at fixed n?", a: "They are two tails of the same picture. Shrinking alpha moves the rejection boundary further out, which necessarily puts more of the alternative distribution on the non-rejection side — raising beta. Increasing n or reducing measurement variability can shrink standard error. The inverse trade-off described here holds when the test, effect size and data-generating conditions are fixed." },
   { q: "A study reports p = 0.34 and concludes 'the drug has no effect.' What is wrong?", a: "Two things. It converts 'failed to reject' into 'accepted the null', which the test cannot support. And it ignores power: with a small sample or a noisy outcome, beta may be so high that a real, clinically important effect would usually go undetected. The honest statement is that this study did not detect an effect, plus the effect size it had power to find." },
   { q: "Why do particle physics and genomics use alpha far below 0.05?", a: "Because they run enormous numbers of tests. At alpha = 0.05, a million genomic comparisons yield 50,000 false positives by construction. Tightening alpha — 5-sigma in physics, Bonferroni-corrected thresholds in genomics — keeps the expected number of false discoveries near zero despite the multiplicity." },
   { q: "Show why the p-value and critical-value methods can never disagree.", a: "z* is DEFINED as the statistic whose tail area equals alpha. So |Z| = z* corresponds exactly to p = alpha, and because tail area decreases monotonically as the statistic grows, |Z| > z* is equivalent to p < alpha. They are the same inequality expressed on the statistic scale versus the probability scale." },

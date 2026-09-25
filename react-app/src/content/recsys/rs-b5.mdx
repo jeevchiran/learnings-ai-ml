@@ -40,24 +40,25 @@ def as_of_user_features(labels, events, windows=(1, 7, 30)):
     return out
 ```
 
-The row-at-a-time loop is honest and slow — fine for teaching, fatal at scale. The vectorised equivalent is `pd.merge_asof`, which is built precisely for this:
+The loop makes the exact time window easy to inspect. At scale, optimize it while checking against this reference. A backward `merge_asof` is useful for looking up historical snapshots. For example, the following computes a **cumulative count before each decision**, not a 30-day count:
 
 ```python
-# scalable version: sort both sides, merge backwards in time
-rolling = (events.set_index("event_ts")
-                 .groupby("user_id")["weight"]
-                 .rolling("30D").count()
-                 .reset_index(name="u_events_30d"))
+# Count all events up to each recorded timestamp, including timestamp ties.
+history = (events.groupby(["user_id", "event_ts"])
+                 .size().rename("events_at_time").reset_index()
+                 .sort_values("event_ts"))
+history["u_events_before_as_of"] = history.groupby("user_id")["events_at_time"].cumsum()
 
 feats = pd.merge_asof(
     labels.sort_values("as_of"),
-    rolling.sort_values("event_ts"),
+    history,
     left_on="as_of", right_on="event_ts", by="user_id",
     direction="backward", allow_exact_matches=False,   # ← this flag IS the strict <
 )
+feats["u_events_before_as_of"] = feats["u_events_before_as_of"].fillna(0).astype(int)
 ```
 
-`allow_exact_matches=False` is the `<` from module 10. Leave it at its default `True` and an event sharing a timestamp with the label enters its own feature window. One keyword argument, one silent leak.
+`allow_exact_matches=False` excludes events at the decision timestamp. A rolling count looked up at the most recent event is **not** an exact 30-day count at the decision time: events may have expired since that last event. Use the reference loop above, or subtract cumulative counts at both window boundaries. Test boundary timestamps and users with no history.
 
 </PredictReveal>
 
@@ -100,10 +101,11 @@ user_id item_id      as_of  u_events_1d  u_events_7d  u_events_30d  u_burst  ui_
 ```python
 whole_log = int((events.user_id == "U2").sum())          # 8
 point_in_time = int(f.u_events_30d.iloc[0])              # 4
-assert point_in_time < whole_log, "features are reading the future"
+assert point_in_time == 4, "this fixture has exactly four events in the window"
+assert point_in_time <= whole_log
 ```
 
-Bhavna has 8 events in total; only 4 happened before day 8. **That gap is the leak**, and this assertion is the feature-side counterpart to b1's split assertion. Write one per feature family, run them in CI, and the most expensive bug in recommender systems becomes a failing test instead of a flat A/B result.
+Bhavna has 8 events in total; this fixture has 4 in the historical window. Using all 8 would leak later information. The exact expected count is a useful fixture test. In general, also verify the contributing event IDs and timestamps: a smaller count by itself does not prove that no future event entered the feature.
 
 <FeatureWindowWidget />
 
@@ -152,7 +154,7 @@ Features, labels and negatives — everything a ranker needs. Last module: train
 <ConceptBox title="TL;DR">
 - Every feature is an **as-of join**: aggregate events with `event_ts < row.as_of`, bounded below by a window.
 - The label row carries an `as_of` timestamp. Everything is computed relative to it. No exceptions.
-- The leak check is one assertion: point-in-time features must see **strictly fewer** events than a whole-log aggregate.
+- Check that every contributing event precedes the row's `as_of` timestamp. A historical count cannot exceed the whole-log count, but equality can be valid when there are no later events. A smaller count alone does not prove that the right events were used.
 - Build user, item and **user×item** features. The last family is the ranker's only real advantage over retrieval.
 </ConceptBox>
 

@@ -1,0 +1,11 @@
+{
+  "base": "http://127.0.0.1:4173/learnings-ai-ml/",
+  "checks": [
+    "Gradient descent Run/Reset/Step, repeated three times",
+    "Navigate away during gradient descent animation",
+    "Lesson outline moves keyboard focus to selected section",
+    "Beta loss changes preferred candidate from B to A",
+    "Reading for 31 seconds does not mark a lesson complete"
+  ],
+  "errors": []
+}

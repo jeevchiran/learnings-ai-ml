@@ -4,7 +4,7 @@ import BetaVAETunableWidget from '../../components/widgets/vae/BetaVAETunableWid
 # Module 10: β-VAE & Disentangled Representations
 
 <ConceptBox title="The Disentanglement Objective">
-In a truly **disentangled representation**, each single latent dimension $z_j$ controls exactly one independent, human-interpretable generative factor (e.g. azimuth rotation, stroke thickness, lighting angle, scale) while remaining completely invariant to all other factors. **$\beta$-VAE** achieves this by placing an adjustable information bottleneck on the latent channel.
+The goal of a **disentangled representation** is to make separate latent coordinates control separate, interpretable factors, such as rotation or stroke thickness. **$\beta$-VAE** changes the pressure to compress information in the latent code. It can help toward this goal, but does not guarantee it.
 </ConceptBox>
 
 <Bridge>
@@ -21,28 +21,27 @@ $$\mathcal{L}_{\beta\text{-VAE}}(\theta, \phi; x) = \mathbb{E}_{q_\phi(z|x)}\big
 - When $\beta > 1$: Stronger information bottleneck, encouraging statistical independence and axis alignment.
 - When $\beta < 1$: Weaker regularization, prioritizing sharp reconstructions at the expense of latent structure.
 
-## Why Does $\beta > 1$ Force Disentanglement?
+## Why Can a Larger $\beta$ Encourage Disentanglement?
 
 The standard prior $p(z) = \mathcal{N}(0, I) = \prod_{j=1}^d \mathcal{N}(z_j; 0, 1)$ is **factorized** (all dimensions are statistically independent).
 
-Under the **Information Bottleneck Principle**:
-1. When $\beta > 1$, the encoder is severely restricted in the total number of nats/bits it can transmit through the latent channel $z$.
-2. To reconstruct $x$ with minimal channel capacity, the network must discover the most efficient representation possible: the true, orthogonal, independent generative factors of the data.
-3. Because the prior has diagonal covariance, the model aligns these independent factors with single coordinate axes.
+A larger KL weight makes encoding detailed input-specific information more expensive. On some datasets this encourages a simpler representation in which individual coordinates track useful factors. It does **not** force recovery of the true factors or guarantee alignment with individual axes. A diagonal Gaussian prior alone cannot identify a unique semantic coordinate system. See [Locatello et al. on the assumptions needed for disentanglement](https://arxiv.org/abs/1811.12359).
+
+For example, suppose one latent coordinate changes a digit's thickness while another changes its slant. That is useful disentanglement. If both coordinates change both properties, the representation is entangled. Inspect the decoded changes rather than assuming that increasing beta achieved the desired result.
 
 ## Interactive $\beta$ Tuner & Trade-Off Simulator
 
-Adjust $\beta$ to observe the fundamental trade-off between reconstruction sharpness, factor disentanglement, and the danger of posterior collapse:
+Start at beta = 1, then change it to 4. Compare the two hypothetical solutions' reconstruction and KL terms. Notice which solution has the lower total loss. This shows the objective's arithmetic; it does not measure sample quality or disentanglement.
 
 <BetaVAETunableWidget />
 
 ## The Hazard of $\beta \gg 1$: Posterior Collapse
 
 <PredictReveal
-  prompt="What happens if β is set too high (e.g. β = 20 or 50) during training?"
+  prompt="What failure becomes more likely when the KL penalty overwhelms the reconstruction term?"
   options={[
     "The model achieves perfect disentanglement across all dimensions.",
-    "Posterior Collapse occurs: the encoder outputs q_ϕ(z|x) ≈ p(z) for all inputs (KL → 0), and the decoder completely ignores z, outputting the blurry average of the entire dataset.",
+    "Posterior collapse: the encoded distribution can approach the same prior for every input, so the code carries little useful information about the input.",
     "The model overfits to the training set."
   ]}
   correct={1}
@@ -50,28 +49,28 @@ Adjust $\beta$ to observe the fundamental trade-off between reconstruction sharp
 
 When $\beta$ is excessively large, minimizing the KL divergence dominates the entire optimization. The easiest way for gradient descent to reduce loss is to set $\mu = 0$ and $\sigma^2 = 1$ everywhere.
 
-When $q_\phi(z|x) = \mathcal{N}(0, I)$ contains zero mutual information about $x$, the decoder receives no input signal and simply learns to output the unconditional mean image $\bar{x}$. This failure mode is known as **Posterior Collapse**.
+If $q_\phi(z|x) = p(z)$ for every input, the sampled code carries no information about which input produced it. This is **posterior collapse**. A decoder trained to return a point estimate with squared-error loss may fall back toward a mean image. A powerful probabilistic decoder can instead model an unconditional distribution; a blurry mean image is not the definition of collapse.
 
 </PredictReveal>
 
-## Strategies to Prevent Posterior Collapse
+## Strategies That Can Reduce Posterior Collapse
 
 1. **KL Annealing / Warm-up**: Start training with $\beta = 0$, gradually increasing $\beta \to 1$ or $\beta_{\text{target}}$ over the first $N$ epochs.
 2. **Free Bits / Minimum KL Constraint**: Replace $D_{KL}$ with $\max(\tau, D_{KL})$, giving each dimension a budget of $\tau$ bits for free before applying regularization.
 3. **Controlled Capacity Increase ($C$-VAE)**: Gradually increase a target capacity $C$: $\mathcal{L} = \mathcal{L}_{\text{recon}} - \gamma |D_{KL} - C|$.
 
 <Recall items={[
-  { q: "What is the primary motivation for using β > 1 in β-VAE?", a: "To impose a tighter information bottleneck that forces the network to learn statistically independent, axis-aligned, disentangled generative factors." },
-  { q: "What is posterior collapse and how does KL annealing prevent it?", a: "Posterior collapse occurs when the KL penalty is so strong that the encoder sets q(z|x) = p(z) for all inputs, causing the decoder to ignore the latent code. KL annealing prevents this by starting with β=0 so the encoder-decoder first learns to reconstruct before gradually introducing the KL regularizer." }
+  { q: "What is the motivation for using β > 1?", a: "A stronger KL penalty makes carrying input-specific information more expensive. This can encourage simpler, sometimes more disentangled representations, but axis alignment is not guaranteed." },
+  { q: "How can KL annealing help with posterior collapse?", a: "It starts with a small KL weight so reconstruction can first encourage use of the code, then increases regularization. It is a mitigation, not a guarantee; collapse also depends on the decoder, optimization and loss scaling." }
 ]} />
 
 ---
 
 <ConceptBox title="TL;DR">
-- **$eta$-VAE** simply weights the KL term: $\mathcal{L} = 	ext{reconstruction} - eta \, D_{KL}$. $eta = 1$ is the ordinary ELBO.
-- $eta > 1$ tightens the information bottleneck, forcing the encoder to spend limited capacity on the few genuinely independent factors — and because the prior is diagonal, those factors line up with individual axes (**disentanglement**).
-- The cost is reconstruction sharpness, so $eta$ is a **dial between disentanglement and fidelity**, not a free improvement.
-- Push $eta$ too far and you get **posterior collapse**: the encoder outputs the prior for every input, carrying zero information, and the decoder falls back to the dataset average. **KL annealing** and **free bits** are the standard defences.
+- **$\beta$-VAE** simply weights the KL term: $\mathcal{L} = \text{reconstruction} - \beta \, D_{KL}$. $\beta = 1$ is the ordinary ELBO.
+- $\beta > 1$ strengthens the KL penalty. It can encourage useful **disentanglement**, but neither independent semantic factors nor axis alignment is guaranteed.
+- The cost is reconstruction sharpness, so $\beta$ is a **dial between disentanglement and fidelity**, not a free improvement.
+- An overwhelming KL penalty can encourage **posterior collapse**: the code carries little or no input-specific information. **KL annealing** and **free bits** can help, but do not guarantee prevention.
 </ConceptBox>
 
 ## Summary Check

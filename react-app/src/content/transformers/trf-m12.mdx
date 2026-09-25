@@ -149,7 +149,7 @@ print(result["answer"], result["start"], result["end"])    # answer text plus it
 ---
 
 <ConceptBox title="TL;DR">
-- Translation needs an encoder-decoder because the output is a new sequence of different length and vocabulary — an encoder alone only gives one vector per input token.
+- The translation example here uses an encoder-decoder: one stack represents the source and another generates the target. Decoder-only models can also translate by conditioning on a source in the prompt; an encoder alone needs an added generation mechanism.
 - MarianMT translation runs four steps: tokenise the source, encode it once, decode the target one token at a time, detokenise the result.
 - At every generation step the decoder is conditioned on both the encoder output for the whole source and the target tokens it has already produced.
 - T5 frames QA as text-to-text and *generates* the answer string; BERT-style extractive QA is encoder-only and instead predicts start and end token positions over the context.

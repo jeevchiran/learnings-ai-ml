@@ -10,7 +10,7 @@ Modules 1 to 8 each covered one step in isolation. Doing them in the wrong order
 
 <PredictReveal
   prompt="You compute outlier fences first, then remove the rows with negative fares. Is that equivalent to doing it the other way round?"
-  options={["Yes, the same rows get removed either way", "No — the negative fares dragged the fences down, so genuine outliers were hidden by values you were about to delete"]}
+  options={["Yes, the same rows get removed either way", "Not necessarily: removing rows changes the data used to compute the quartiles and fences"]}
   correct={1}
 >
 
@@ -21,7 +21,7 @@ Each step builds on the previous one — you cannot meaningfully detect outliers
 </PredictReveal>
 
 <Recall items={[
-  { q: "Why must invalid values be removed before outlier fences are computed?", a: "The fences are computed from the data's own quartiles, so impossible values shift them. A negative fare pulls the lower fence further down, which widens the acceptable range and hides genuine extremes at the top. Cleaning first means the fences describe only plausible data." },
+  { q: "Why must invalid values be removed before outlier fences are computed?", a: "The fences use the current sample quartiles. Removing rows can change either fence, so define and validate the analysis population first. A negative fare does not always move a fence in the same direction." },
 ]} />
 
 <DerivationSteps>
@@ -32,7 +32,7 @@ Each step builds on the previous one — you cannot meaningfully detect outliers
 `isnull().sum()`, missing ratio — find which columns have nulls and how many.
 </DerivationStep>
 <DerivationStep number={3} title="Remove Invalid Data — Module 3">
-Negative fares, zero distances — apply domain-rule boolean masks to remove logically impossible rows.
+For this exercise, keep non-negative fares and positive distances. In real records, investigate refunds and canceled trips before treating those values as invalid.
 </DerivationStep>
 <DerivationStep number={4} title="Detect & Treat Outliers — Module 4">
 IQR fences, outlier count — flag statistical extremes; use domain knowledge to decide remove vs. cap.
@@ -54,7 +54,7 @@ Synthesize insights across all prior steps into a concise findings report.
 </DerivationStep>
 </DerivationSteps>
 
-**Order matters.** Outlier detection must come after removing invalid values — a negative fare of `-$12.50` would distort the IQR bounds and push the lower fence further negative, hiding genuine outliers. Always clean before you analyze.
+**Order matters.** Outlier detection must come after removing invalid values — including or excluding rows can change the quartiles and either fence. Validate domain rules first, document the analysis population, then recompute the summaries. The direction of the change depends on the data.
 
 ## Full EDA Notebook (Code)
 
@@ -66,8 +66,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # ── 1. Load ──────────────────────────────────────────────────────────────────
-df = pd.read_csv('nyc_taxi_sample.csv')
-print(df.shape)          # (30, 11)
+df = pd.read_csv('taxi_practice.csv')  # download from Module 1
+print(df.shape)          # (30, 12)
 print(df.dtypes)
 print(df.head())
 
@@ -77,8 +77,8 @@ print(df.isnull().mean() * 100)   # percentage missing per column
 # passenger_count: 6.67%  |  RatecodeID: 6.67%  |  airport_fee: 6.67%
 
 # ── 3. Invalid values ────────────────────────────────────────────────────────
-df = df[df['fare_amount'] >= 0]     # remove negative fares  (ids 7, 15)
-df = df[df['trip_distance'] > 0]   # remove zero-distance trips (ids 5, 11, 20, 30)
+df = df[df['fare_amount'] >= 0].copy()  # exercise scope: positive-fare trips
+df = df[df['trip_distance'] > 0].copy() # exclude zero-distance trips for this analysis
 print(f"Rows after cleaning: {len(df)}")   # 24
 
 # ── 4. Outliers (IQR) ────────────────────────────────────────────────────────
@@ -122,10 +122,10 @@ plt.show()
 
 Based on all pipeline steps applied to the 30-row NYC taxi sample:
 
-1. **`fare_amount` is right-skewed** — median ($11.75) is a better "typical fare" than mean ($26+), which is pulled up by a single $399 anomaly.
+1. **`fare_amount` is right-skewed** — median (USD 11.75) is a better "typical fare" than mean (USD 26+), which is pulled up by a single USD 399 anomaly.
 2. **2 rows have negative fares** (ids 7, 15) — data errors, not real transactions. Removed before analysis.
 3. **4 rows have zero trip distance** (ids 5, 11, 20, 30) — likely cancelled trips where meter started but ride did not complete.
-4. **RatecodeID=2 trips explain high-fare outliers** — flat-rate $45/$52 airport fares (ids 6, 18) fall above the IQR fence but are legitimate data, not errors.
+4. **RatecodeID=2 trips explain high-fare outliers** — flat-rate USD 45/USD 52 airport fares (ids 6, 18) fall above the IQR fence but are legitimate data, not errors.
 5. **`fare_amount` and `trip_distance` show strong positive correlation** — but confounded by the flat-rate pricing regime. Segment by RatecodeID to see the true per-mile relationship.
 
 ---
@@ -153,9 +153,9 @@ Based on all pipeline steps applied to the 30-row NYC taxi sample:
 - C: Flat-rate airport trips (RatecodeID=2) break the distance–fare linear relationship ✓
 - D: Missing values reduce correlation
 
-**3. You run `df['fare_amount'].mean()` and get $26. The median is $11.75. Which is more useful for reporting "typical NYC taxi fare"?**
+**3. You run `df['fare_amount'].mean()` and get USD 26. The median is USD 11.75. Which is more useful for reporting "typical NYC taxi fare"?**
 - A: Mean — it uses all data
-- B: Median — it is robust to the $399 outlier pulling mean up ✓
+- B: Median — it is robust to the USD 399 outlier pulling mean up ✓
 - C: Both equally useful
 - D: Neither — use mode
 
@@ -172,8 +172,8 @@ Based on all pipeline steps applied to the 30-row NYC taxi sample:
 - D: Module 8 — Multivariate Analysis (pivot table with RatecodeID × passenger_count) ✓
 
 <Recall items={[
-  { q: "Why must invalid-value removal come BEFORE outlier detection, not after?", a: "Because Tukey fences are computed from Q1 and Q3 of the column as it stands. Leaving a -12.50 fare and a $399 meter fault in place shifts those quartiles, so the fences themselves are derived from corrupted data. Clean the known-impossible values first, then let the statistics describe what remains." },
-  { q: "Why is a correlation matrix meaningless on uncleaned data?", a: "Because covariance weights every point by its deviation from the mean, so one 120-mile trip or one $399 fare dominates the sum. The resulting r describes the relationship between the errors as much as between the variables — and it can be strongly positive, strongly negative, or near zero depending purely on where the bad points landed." },
+  { q: "Why must invalid-value removal come BEFORE outlier detection, not after?", a: "Because Tukey fences are computed from Q1 and Q3 of the column as it stands. Leaving a -12.50 fare and a USD 399 meter fault in place shifts those quartiles, so the fences themselves are derived from corrupted data. Clean the known-impossible values first, then let the statistics describe what remains." },
+  { q: "Why is a correlation matrix meaningless on uncleaned data?", a: "Because covariance weights every point by its deviation from the mean, so one 120-mile trip or one USD 399 fare dominates the sum. The resulting r describes the relationship between the errors as much as between the variables — and it can be strongly positive, strongly negative, or near zero depending purely on where the bad points landed." },
   { q: "You started at 30 rows and finished at 24. What belongs in your report?", a: "The count and reason for every removal — 2 negative fares as impossible values, 4 zero-distance-with-fare rows as suspected cancellations — so the arithmetic reconciles and a reader can disagree with a specific decision. Cleaning is irreversible and subtractive; an unexplained row count is a result nobody can audit." },
   { q: "What is the actual deliverable of an EDA, if not a cleaned file?", a: "A findings report: what the data contains, which assumptions failed, what was changed and why, and which columns still cannot be trusted. The cleaned DataFrame is a by-product — the judgements are the thing a modeller or stakeholder needs, because they determine what questions the data can legitimately answer." },
 ]} />

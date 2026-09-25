@@ -56,7 +56,7 @@ VAEs remain the fastest and most stable choice when an explicit, invertible enco
 <ConceptBox title="TL;DR">
 - VAEs and diffusion models both optimize a **variational likelihood bound**; GANs optimize an **adversarial game** with no likelihood at all — the deepest structural divide across the three tracks.
 - Diffusion's plain regression loss scales more predictably with data and compute than GAN's adversarial dynamics do, which is why it came to dominate large-scale training despite its per-sample sampling cost.
-- Each family still wins somewhere: **VAEs** for explicit, invertible encoding; **GANs** for real-time generation and unpaired translation; **diffusion** for large-scale sample fidelity where training stability matters most.
+- Each family still wins somewhere: **VAEs** for an explicit approximate encoder; decoding is not an exact inverse; **GANs** for real-time generation and unpaired translation; **diffusion** for large-scale sample fidelity where training stability matters most.
 </ConceptBox>
 
 <QuizCard

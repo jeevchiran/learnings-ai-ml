@@ -44,13 +44,13 @@ Narrow the distribution in the widget and watch the peak climb past 1 while the 
 $$P(X{=}k) = \binom{n}{k}p^k(1-p)^{n-k} \quad\text{(Binomial)} \qquad\qquad f(x) = \frac{1}{\sigma\sqrt{2\pi}}e^{-\frac{(x-\mu)^2}{2\sigma^2}} \quad\text{(Gaussian)}$$
 
 <PredictReveal
-  prompt="You train a regression model with mean squared error and never mention probability anywhere. Have you still made an assumption about how the noise in your data is distributed?"
-  options={["No, squared error is just a convenient distance", "Yes — choosing squared error is equivalent to assuming the residuals are Gaussian"]}
+  prompt="Under independent Gaussian errors with fixed variance, which loss gives the same parameter estimate as maximum likelihood?"
+  options={["Absolute error", "Squared error, up to a positive scale and an additive constant"]}
   correct={1}
 >
 
-<ConceptBox title="Common confusion — why does MSE loss assume a Gaussian?">
-Minimizing squared error is equivalent to maximum likelihood estimation (Module 8) *under the assumption that residuals are Gaussian-distributed noise around the true value*. That's not a coincidence — it's baked into the choice of loss function, and it's why MSE is sensitive to outliers (a Gaussian assigns them very low but nonzero probability).
+<ConceptBox title="A useful connection: squared error and Gaussian likelihood">
+Independent Gaussian errors with fixed variance lead to squared error when maximizing likelihood. You can also choose squared error as a prediction objective without assuming Gaussian data. Its sensitivity to large errors follows directly from squaring them.
 </ConceptBox>
 
 That assumption has a practical edge. A Gaussian's tails fall away as exp(-x squared over 2), so a far-out point is assigned an extremely low probability and the loss punishes it enormously, dragging the whole fit towards it. Assume a heavier-tailed distribution instead and you get mean absolute error, which barely notices the same point.
@@ -82,7 +82,7 @@ counts = stats.poisson.rvs(mu=4, size=1000)
 - A random variable turns outcomes into numbers so you can do arithmetic on uncertainty.
 - **PMF gives probability; PDF gives density.** A PDF value can exceed 1 — only the *area* under it is a probability.
 - Four workhorses: Bernoulli (one binary trial), Binomial (count of successes), Poisson (count of rare events per window), Gaussian (continuous noise).
-- Choosing a loss quietly chooses a distribution: MSE ⟺ "residuals are Gaussian."
+- Gaussian errors with fixed variance lead to MSE under maximum likelihood. Using MSE alone does not establish that errors are Gaussian.
 </ConceptBox>
 
 ## Practice
@@ -119,7 +119,7 @@ counts = stats.poisson.rvs(mu=4, size=1000)
     'Binomial(n, p) is the sum of n independent Bernoulli(p) trials',
     'A Gaussian PDF value can exceed 1 for a small enough σ',
     'Poisson is typically used to model continuous measurements like height',
-    'As n grows, Binomial(n, p) starts to resemble a Gaussian shape',
+    'For fixed 0 < p < 1, Binomial(n, p) approaches a Gaussian shape as n grows',
     'Bernoulli has exactly two possible outcomes'
   ]}
   correct={[0, 1, 3, 4]}

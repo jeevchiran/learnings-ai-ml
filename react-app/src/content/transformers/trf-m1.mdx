@@ -23,7 +23,7 @@ Running example for this whole track: the sentence **"a fluffy blue creature roa
 
 This is the whole idea, and everything else in the track is machinery for doing it well.
 
-Every word starts with a generic, dictionary-style vector — one that has to cover every possible sense of the word, because nothing has read the sentence yet. Then, one layer at a time, each word is allowed to look at every other word and ask a question like *"is there an adjective sitting in front of me?"* — and if the answer is yes, it pulls that meaning into itself.
+Each **token** starts with a vector from a learned embedding table. A token may be a word or part of a word. Attention updates its representation by mixing information from allowed positions. Think of “which nearby words help interpret this token?” as an analogy: the model computes learned numerical scores, not literal grammatical questions. In a bidirectional encoder all non-padding positions may contribute; a causal decoder can use only the current and earlier positions.
 
 "Creature" starts as a blank slate. After attention, it has absorbed "fluffy" and "blue": its vector now encodes *specifically* a fluffy blue creature, not creatures in general. Same word, same starting vector, different ending vector — because a different sentence surrounded it.
 
@@ -82,7 +82,7 @@ That ceiling shows up as four separate failures, and it is worth naming all four
   { t: 'No sentence-level meaning', d: 'Negation, emphasis and sarcasm live above the word. A bag of word vectors cannot represent them.' },
 ]} />
 
-All three still hit the same ceiling: whichever produces it, the vector is fixed before the sentence is read. A transformer takes one of these as its *starting point* and then refines it — which is what the rest of the track builds.
+These methods introduce the idea of a context-independent lookup vector. A transformer normally learns its **own token embedding table jointly with the rest of the model**; it does not require Word2Vec, GloVe or FastText. The attention layers then create contextual representations from those initial vectors.
 
 </PredictReveal>
 
@@ -96,7 +96,7 @@ All three still hit the same ceiling: whichever produces it, the vector is fixed
 - A transformer's core move: every word **starts generic and gets refined** by looking at the other words in its sentence. The same word ends up with different vectors in different sentences.
 - **Self-attention** is a sequence attending to itself; **cross-attention** (the previous track's mechanism) is one sequence attending to another. Transformers use both.
 - Because every word can look at every other word at once, this runs **in parallel** — removing the sequential bottleneck an RNN has.
-- The starting vectors come from static embeddings: **Word2Vec** (skip-gram beats CBOW on rare words), **GloVe** (global co-occurrence counts), **FastText** (character n-grams, so unseen words still get a vector). All are fixed before the sentence is read — which is the ceiling attention lifts.
+- Transformers normally learn their own token embedding table. Word2Vec, GloVe and FastText are useful earlier examples of embeddings, not required transformer components.
 </ConceptBox>
 
 <QuizCard

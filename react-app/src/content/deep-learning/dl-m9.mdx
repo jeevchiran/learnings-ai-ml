@@ -191,7 +191,7 @@ For uniform init: $W \sim \mathcal{U}(-r, r)$ where $r = \sqrt{6/(n^{[l-1]}+n^{[
 ---
 
 <ConceptBox title="TL;DR">
-- **Zero weights break symmetry, permanently.** Every neuron in a layer computes the same thing and receives the same gradient, so the layer is forever equivalent to one neuron. Random init exists to break that tie.
+- **Identical zero initialization fails to break symmetry.** Identically connected neurons receive the same updates and cannot learn distinct features. Random weight initialization breaks that symmetry; zero biases are usually fine.
 - Biases at zero are fine — the random weights already break symmetry.
 - The goal is to **hold activation variance roughly constant across depth**. Too small and the signal vanishes layer by layer; too large and it explodes.
 - **Xavier/Glorot** targets tanh and sigmoid. **He/Kaiming** uses $2/n_{in}$ for ReLU — the factor 2 compensates for ReLU zeroing half its inputs.

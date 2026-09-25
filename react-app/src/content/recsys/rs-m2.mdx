@@ -107,7 +107,7 @@ So far we have assumed the event log is clean. It is not. Next: the contract tha
 ---
 
 <ConceptBox title="TL;DR">
-- **Explicit** feedback (a 5-star review) is honest, rare, and biased toward extremes. **Implicit** feedback (views, carts, purchases) is abundant, noisy, and *positive-only*.
+- **Explicit** feedback (a rating) directly states a preference, but can be sparse, biased or manipulated. **Implicit** feedback (views, carts, purchases) is abundant and noisy; this track treats observed interactions as positive evidence, not as guaranteed satisfaction.
 - Implicit means: an interaction is weak evidence of interest; a non-interaction is mostly evidence of **nothing**. Missing ≠ negative.
 - The standard move is to collapse events into one number $r_{ui}$ with per-event weights, then split it into **preference** $p_{ui}\in\{0,1\}$ and **confidence** $c_{ui}$.
 - Signal strength runs opposite to signal volume: purchases are what you want and what you barely have.

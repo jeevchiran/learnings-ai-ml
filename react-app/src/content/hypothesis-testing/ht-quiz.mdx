@@ -65,15 +65,16 @@ This quiz covers all five modules of the Hypothesis Testing track — from null 
 />
 
 <MultiSelectQuiz
-  question="Which conditions justify using a Z-test rather than a t-test for a one-sample mean? (Select all that apply.)"
+  question="Which statements about choosing a one-sample mean test are correct?"
   options={[
-    "The population standard deviation σ is known",
-    "The sample size is large (n ≥ 30), making the sampling distribution approximately normal by the CLT",
+    "With known population σ and a normal sampling distribution of the mean, a Z-test is appropriate",
+    "With unknown population σ, the usual mean test uses the sample SD and a t distribution; for large samples it approaches the Z approximation",
     "The sample size is small (n < 10) and the population is non-normal",
     "The data are paired observations from the same subjects",
-    "The variable of interest is a proportion from a large sample with np ≥ 5 and n(1−p) ≥ 5"
+    "Every dataset with n ≥ 30 is guaranteed to have a sufficiently normal sampling distribution"
   ]}
-  correct={[0, 1, 4]}
+  correct={[0, 1]}
+  explanation="There is no universal n=30 guarantee. Skewness, heavy tails and dependence matter. A proportion test is a separate setting with its own approximation conditions."
 />
 
 <QuizCard

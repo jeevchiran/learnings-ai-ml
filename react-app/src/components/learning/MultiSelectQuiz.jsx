@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function MultiSelectQuiz({ question, options, correct }) {
+export default function MultiSelectQuiz({ question, options, correct, explanation }) {
   const [selected, setSelected] = useState(new Set())
   const [revealed, setRevealed] = useState(false)
 
@@ -36,6 +36,8 @@ export default function MultiSelectQuiz({ question, options, correct }) {
             <button
               key={i}
               className={cls}
+              aria-pressed={isSelected}
+              disabled={revealed}
               onClick={() => toggle(i)}
               style={!revealed && isSelected ? { outline: '2px solid #7c3aed', outlineOffset: '1px' } : undefined}
             >
@@ -63,11 +65,15 @@ export default function MultiSelectQuiz({ question, options, correct }) {
         </button>
       )}
       {revealed && (
+        <div role="status" aria-live="polite">
         <p className={`lc-quiz-result ${allCorrect ? 'correct' : 'wrong'}`}>
           {allCorrect
             ? 'Correct! All right answers selected.'
             : `Not quite. Correct: ${correct.map(i => options[i]).join('; ')}`}
         </p>
+        {explanation && <p>{explanation}</p>}
+        <button className="lc-study-btn" onClick={() => { setSelected(new Set()); setRevealed(false) }}>Try again</button>
+        </div>
       )}
     </div>
   )

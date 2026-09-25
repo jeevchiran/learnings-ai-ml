@@ -33,13 +33,13 @@ Module 2 derives the closed-form solution.
   correct={1}
 >
 
-OLS has its good properties (unbiasedness, efficiency) only when these hold:
+Different assumptions support different conclusions. Zero conditional mean errors supports unbiased coefficients; constant variance and uncorrelated errors support the Gauss–Markov efficiency result. Normality is an additional condition for exact small-sample inference, not for fitting the line.
 
 1. **Linearity** — the true relationship is linear; a curved one gets systematically misfit.
 2. **Independence** — errors are uncorrelated (violated by autocorrelation in time series).
 3. **Homoscedasticity** — constant error variance $\text{Var}(\varepsilon_i) = \sigma^2$; otherwise standard errors are unreliable.
 4. **Normality of errors** — $\varepsilon_i \sim \mathcal{N}(0,\sigma^2)$; needed for inference, not point estimates.
-5. **No perfect multicollinearity** — else $X^TX$ is singular and OLS has no solution; near-collinearity inflates coefficient variance.
+5. **No perfect multicollinearity** — needed for unique coefficients. If $X^TX$ is singular, least-squares solutions still exist, but coefficients are not unique; a pseudoinverse can select one. Near-collinearity can inflate coefficient variance.
 6. **Exogeneity** — $E[\varepsilon \mid X] = 0$; violated by omitting relevant variables or measurement error.
 
 <AssumptionWidget />
@@ -81,12 +81,12 @@ $$\beta_j = \frac{\partial\, E[y \mid \mathbf{x}]}{\partial x_j}$$
 ## Evaluating Performance
 
 <PredictReveal
-  prompt="You add a completely random, meaningless column to your regression and refit. What happens to the R-squared value?"
+  prompt="You add a random column and refit unregularized OLS with an intercept on exactly the same training rows. What happens to training R-squared?"
   options={["It falls, because the noise hurts the fit", "It rises, or at worst stays the same — R-squared never decreases when you add a predictor"]}
   correct={1}
 >
 
-**R²** — proportion of variance explained:
+**R²** compares squared prediction error with predicting the evaluated sample's mean. Training R² for OLS with an intercept lies between 0 and 1; held-out R² can be negative when predictions are worse than that mean baseline. The “cannot decrease” rule applies to training R² for nested unregularized OLS models fitted on the same rows, not test R².
 
 $$R^2 = 1 - \frac{\sum (y_i - \hat{y}_i)^2}{\sum (y_i - \bar{y})^2}$$
 
@@ -126,8 +126,8 @@ $h_{ii}$ = leverage (hat-matrix diagonal). Cook's distance $> 1$ flags points to
 <ConceptBox title="TL;DR">
 - Model $y$ as a weighted sum of predictors, and pick the weights that minimise **squared** residuals (OLS).
 - Each $\beta_j$ reads as "expected change in $y$ per unit of $x_j$, **holding the others fixed**." Standardise before comparing importance across scales.
-- Six assumptions; two matter most in practice. **Homoscedasticity** failing breaks your standard errors (not your predictions); **linearity** failing biases everything.
-- $R^2$ only ever rises as you add predictors — use **adjusted $R^2$** to compare models, RMSE to state error in real units.
+- Match assumptions to the conclusion: zero conditional mean errors supports unbiased coefficients; constant variance supports the usual standard-error formula. Residual plots help reveal when these assumptions are doubtful.
+- Adding predictors cannot lower **training $R^2$** for nested, unregularized OLS models on the same rows with an intercept. Test performance can worsen. Use held-out RMSE to assess prediction error in real units.
 - **Residual plots are the diagnostic.** Curve = nonlinearity, funnel = heteroscedasticity, off-diagonal Q-Q = non-normal errors, high leverage + big residual = influential point.
 </ConceptBox>
 

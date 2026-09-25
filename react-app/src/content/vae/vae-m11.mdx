@@ -93,7 +93,7 @@ Because discrete codebooks completely eliminate the Gaussian KL term, **VQ-VAEs 
 <ConceptBox title="TL;DR">
 - A **conditional VAE** feeds a label $y$ to both encoder and decoder, so generation can be *directed* — "produce a 7" rather than "produce something".
 - Once $y$ carries the class, $z$ stops needing to and instead learns **intra-class style**: slant, thickness, stroke quirks.
-- **VQ-VAE** swaps the continuous Gaussian latent for a discrete **codebook**, sidestepping both posterior collapse and Gaussian blur — the design underneath modern latent diffusion.
+- **VQ-VAE** swaps the continuous Gaussian latent for a discrete **codebook**, sidestepping both posterior collapse and Gaussian blur — one way to learn discrete latents. Latent diffusion can instead use a continuous, KL-regularized autoencoder.
 - Across the generative families: VAEs give stable training and a real encoder, **GANs** give sharpness without a likelihood, and **diffusion** gives the best fidelity at the cost of slow multi-step sampling. The next two tracks take these in turn.
 </ConceptBox>
 

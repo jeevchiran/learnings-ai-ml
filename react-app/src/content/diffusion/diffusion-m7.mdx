@@ -49,7 +49,7 @@ A **linear** schedule spends its early steps almost as aggressively as its later
 <ConceptBox title="TL;DR">
 - The **linear** noise schedule spends steps roughly evenly; the **cosine** schedule preserves signal longer near $t=0$, using the fixed step budget more effectively for the same $T$.
 - **DDIM** is a change to the *sampling* procedure, not the model — a non-Markovian reverse process that allows deterministic, larger jumps between timesteps.
-- Because DDIM reuses the exact same trained network, it is a **free speedup at inference time**: fewer sequential evaluations, no retraining required.
+- Because DDIM reuses the exact same trained network, it is an **inference-time speed/quality trade-off**: fewer sequential evaluations, no retraining required.
 </ConceptBox>
 
 <QuizCard

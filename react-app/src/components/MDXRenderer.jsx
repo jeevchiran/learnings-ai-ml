@@ -1,4 +1,7 @@
 import { MDXProvider } from '@mdx-js/react'
+import { useMemo, useRef } from 'react'
+import LessonGuide from './learning/LessonGuide.jsx'
+import LessonOutline from './learning/LessonOutline.jsx'
 import {
   ConceptBox, Bridge,
   DerivationSteps, DerivationStep,
@@ -23,7 +26,7 @@ const components = {
   // otherwise the whole content column drags sideways on a phone and takes the
   // body text with it.
   table: (props) => (
-    <div className="table-scroll">
+    <div className="table-scroll" role="region" aria-label="Data table, scroll horizontally if needed" tabIndex={0}>
       <table {...props} />
     </div>
   ),
@@ -41,10 +44,15 @@ const components = {
   },
 }
 
-export default function MDXRenderer({ Content }) {
+export default function MDXRenderer({ Content, mod }) {
+  const contentRef = useRef(null)
+  const lessonComponents = useMemo(() => mod ? {
+    ...components,
+    h1: props => <><h1 {...props} /><LessonGuide mod={mod} /><LessonOutline contentRef={contentRef} /></>,
+  } : components, [mod])
   return (
-    <MDXProvider components={components}>
-      <div className="module-mdx">
+    <MDXProvider components={lessonComponents}>
+      <div className="module-mdx" ref={contentRef}>
         <Content />
       </div>
     </MDXProvider>

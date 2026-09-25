@@ -10,10 +10,14 @@ You need basic Python — lists, dictionaries, calling a method on an object —
 
 You can't clean what you don't understand. Before dropping a single missing value or capping a single outlier, every analyst starts in the same place: looking at the raw shape of the data. Skip this step and every later decision — which column to fix, which fill strategy to use, which rows to drop — is a guess instead of a judgment call.
 
-The dataset used throughout this track is a small sample of NYC yellow-taxi trips: **30 rows, 12 columns**, drawn from a single day in March 2023. This mirrors the source notebook's own strategy of hourly-sampling a much larger trip log down to a size that's easy to inspect by eye — small enough to print in full, large enough to already contain a missing value, a zero-distance trip, and a fare that shouldn't be possible.
+Use the supplied **synthetic taxi practice dataset: 30 rows and 12 columns**. It deliberately includes missing values, zero-distance trips, negative amounts and one unusually large fare. It is teaching data, not a real NYC trip extract or a source of current fare rules. Worked questions later in the track state their own inputs; compute actual outputs when running the practice data.
+
+<ConceptBox title="Before running the Python examples">
+Install `pandas`, `matplotlib` and `seaborn` in your notebook environment. <a href={`${import.meta.env.BASE_URL}data/taxi_practice.csv`} download>Download taxi_practice.csv</a> and save it in the same folder as your notebook. Run the loading cell below first; later examples reuse the variable `df`. Restarting the notebook clears that variable, so rerun the earlier cells after a restart.
+</ConceptBox>
 
 <ConceptBox title="The dataset, end to end">
-Each row is one taxi trip. Columns cover identifiers (`id`), timestamps (`pickup`, `dropoff`), trip facts (`passenger_count`, `trip_distance`, `RatecodeID`, `payment_type`), money (`fare_amount`, `tip_amount`, `total_amount`, `airport_fee`), and geography (`PUBorough`, `DOBorough`). Every module in this track reuses this exact sample.
+Each row represents one synthetic trip. Columns cover `id`, `tpep_pickup_datetime`, `tpep_dropoff_datetime`, trip facts (`passenger_count`, `trip_distance`, `RatecodeID`, `payment_type`), money (`fare_amount`, `tip_amount`, `airport_fee`), and geography (`PUBorough`, `DOBorough`). Keep these column names unchanged when following the code.
 </ConceptBox>
 
 <Bridge>
@@ -58,7 +62,7 @@ Run the first check — confirm the dataset is the size we expect:
 
 ```python
 import pandas as pd
-df = pd.read_parquet("yellow_tripdata_2023-03_sample.parquet")
+df = pd.read_csv("taxi_practice.csv")
 print(df.shape)
 ```
 
@@ -76,7 +80,7 @@ print(df.describe()[['fare_amount']])
        fare_amount
 count        30.00
 mean          26.17
-std           71.57
+std           71.52
 min          -12.50
 25%            6.125
 50%           11.75
@@ -89,7 +93,7 @@ max          399.00
 **`min` is negative.** The minimum fare is **-12.50**. A taxi fare cannot be negative — this isn't a distribution quirk like skew, it's a data error (likely a refund or trip-correction record that leaked into the fare column). Module 3 (Data Quality & Invalid Values) deals with rows like this directly.
 
 <Bridge>
-Reading these five outputs by hand is fine for one column. The widget below lets you flip between all five views of the full 30-row sample on demand.
+Try `df.head()`, `df.dtypes` and `df.info()` on the loaded table. Before each call, say what question it answers. Then identify one column with missing values and one value worth investigating. The next module explains how to handle missing data.
 </Bridge>
 
 ---
@@ -99,7 +103,7 @@ Reading these five outputs by hand is fine for one column. The widget below lets
 - **`.shape` first** — a row count that doesn't match expectations means a join silently duplicated or dropped rows.
 - A numeric column showing up as `object` in `.dtypes` means stray text or mixed formatting is hiding in it.
 - `.info()` is the fastest null detector: any non-null count below the row count means missing data.
-- **`.describe()` computes happily on dirty data.** Read its min and max as a bug report — that's where the $-12.50 fare and the $399 fare surface.
+- **`.describe()` computes happily on dirty data.** Read its min and max as a bug report — that's where the USD -12.50 fare and the USD 399 fare surface.
 </ConceptBox>
 
 ## Practice
@@ -114,7 +118,7 @@ Reading these five outputs by hand is fine for one column. The widget below lets
 
 Given mean = 26.17 and median = 11.75 for `fare_amount`, what does the gap suggest about the distribution's shape, and which row do you suspect is driving it?
 
-**Solution:** The distribution is **right-skewed**: a few very large fares pull the mean well above the median, while the median — being robust to outliers, since it only depends on rank order — stays close to where most of the data sits. The dataset's **max (399.00)** is the prime suspect. One $399 fare sitting among mostly $3–$30 fares pulls the mean up substantially, while the median barely moves because it only looks at the middle-ranked value.
+**Solution:** The distribution is **right-skewed**: a few very large fares pull the mean well above the median, while the median — being robust to outliers, since it only depends on rank order — stays close to where most of the data sits. The dataset's **max (399.00)** is the prime suspect. One USD 399 fare sitting among mostly USD 3–USD 30 fares pulls the mean up substantially, while the median barely moves because it only looks at the middle-ranked value.
 
 ### Problem 3: Why Is `RatecodeID` a Float?
 
@@ -163,14 +167,14 @@ Even pandas's own nullable `Int64` extension type (capital "I") needs a special 
 - D: Mean and median are always different for floating-point columns
 
 <Bridge>
-**What's next: how much data is actually here?** `.describe()` already flagged something off — a $399 fare and a negative one. Before trusting any of these numbers, find out how much of the data is even there to compute on. Module 2 starts with missing values.
+**What's next: how much data is actually here?** `.describe()` already flagged something off — a USD 399 fare and a negative one. Before trusting any of these numbers, find out how much of the data is even there to compute on. Module 2 starts with missing values.
 </Bridge>
 
 <Recall items={[
   { q: "You load a CSV and .shape says 4.2 million rows when you expected 900,000. What happened?", a: "Almost certainly a join that fanned out — a many-to-many merge where the key was not unique on one side multiplies rows. Checking shape immediately after loading or merging is the cheapest way to catch it, before any statistic computed on the duplicated rows misleads you." },
   { q: "fare_amount shows dtype object instead of float64. What does that imply and what breaks?", a: "The column contains something non-numeric — currency symbols, thousands separators, an 'N/A' string, or mixed types. Arithmetic and .describe() will either fail or silently skip the column, and any model will treat it as categorical. It needs cleaning and an explicit conversion before use." },
   { q: "Which single call tells you both the dtype and the completeness of every column?", a: ".info(), which combines dtypes with a non-null count per column plus memory usage. Any column whose non-null count is below the total row count has missing values — making it the fastest first pass at spotting nulls." },
-  { q: "Why is .describe() dangerous if you only read the mean?", a: "Because it computes on whatever is there, ignoring NaNs silently and including invalid values happily. The mean is the number most distorted by both. The min and max rows are where the real information is: a negative fare and a $399 fare are visible there and invisible in the mean." },
+  { q: "Why is .describe() dangerous if you only read the mean?", a: "Because it computes on whatever is there, ignoring NaNs silently and including invalid values happily. The mean is the number most distorted by both. The min and max rows are where the real information is: a negative fare and a USD 399 fare are visible there and invisible in the mean." },
 ]} />
 
 <QuizCard

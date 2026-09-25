@@ -45,7 +45,6 @@ export default function ModuleViewer() {
   const navigate = useNavigate();
   const { isCompleted, isBookmarked, markComplete, toggleComplete, toggleBookmark, setLastVisited } = useProgressContext();
   const iframeRef    = useRef(null);
-  const autoTimerRef = useRef(null);
 
   const [dark, setDark] = useState(() => {
     try { return localStorage.getItem('theme') === 'dark'; } catch { return false; }
@@ -73,12 +72,10 @@ export default function ModuleViewer() {
   const prevTrack   = courseIdx > 0 ? courses[courseIdx - 1] : null;
   const nextTrack   = courseIdx < courses.length - 1 ? courses[courseIdx + 1] : null;
 
-  // record visit + start 30s auto-complete timer
+  // Reading time alone is not evidence that the learner has completed a lesson.
   useEffect(() => {
     if (!mod) return;
     setLastVisited(moduleId);
-    autoTimerRef.current = setTimeout(() => markComplete(moduleId), 30000);
-    return () => clearTimeout(autoTimerRef.current);
   }, [moduleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // sync iframe theme on dark change or module navigation
@@ -92,12 +89,10 @@ export default function ModuleViewer() {
   }, [dark, moduleId]);
 
   const handleMarkComplete = useCallback(() => {
-    clearTimeout(autoTimerRef.current);
     markComplete(moduleId);
   }, [moduleId, markComplete]);
 
   const handleToggleComplete = useCallback(() => {
-    clearTimeout(autoTimerRef.current);
     toggleComplete(moduleId);
   }, [moduleId, toggleComplete]);
 
@@ -122,9 +117,9 @@ export default function ModuleViewer() {
     >
       <div className="module-topbar">
         <div className="module-breadcrumb">
-          <span role="button" style={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
+          <button className="breadcrumb-link" onClick={() => navigate('/')}>
             {mod.courseTitle}
-          </span>
+          </button>
           {' › '}
           <strong>Module {mod.moduleNumber} of {mod.totalInCourse}</strong>
         </div>
@@ -172,7 +167,7 @@ export default function ModuleViewer() {
               className="module-mdx-wrap reading-mode"
               style={{ flex: 1, overflowY: 'auto' }}
             >
-              <MDXRenderer Content={Content} />
+              <MDXRenderer Content={Content} mod={mod} />
             </div>
           : <iframe
               ref={iframeRef}

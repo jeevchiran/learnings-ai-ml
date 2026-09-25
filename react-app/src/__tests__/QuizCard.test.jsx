@@ -22,10 +22,14 @@ describe('QuizCard', () => {
     expect(screen.getByText('Correct!')).toBeInTheDocument()
   })
 
-  it('shows Try again when wrong option clicked', () => {
+  it('explains the answer and allows a fresh attempt after a mistake', () => {
     render(<QuizCard {...props} />)
     fireEvent.click(screen.getByText('A list of column names'))
     expect(screen.getByText('Try again')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Correct answer: A tuple (rows, cols)')
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    fireEvent.click(screen.getByText('A tuple (rows, cols)'))
+    expect(screen.getByText('Correct!')).toBeInTheDocument()
   })
 
   it('locks options after correct answer', () => {

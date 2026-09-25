@@ -171,7 +171,7 @@ Re-seed the widget a few times with plain random initialisation and watch how of
 
 **Problem 3 — K-means++ sampling.** First centroid at $A=(2,2)$. Candidates B=(2,3), C=(8,8), D=(9,7), E=(8,9). Squared distances and probabilities?
 
-**Solution:** $D^2$: B=1, C=72, D=74, E=85; total 232. $P(B)\approx0.4\%$, $P(C)\approx31\%$, $P(D)\approx32\%$, $P(E)\approx36.6\%$. Most likely: **E**. The far cluster {C,D,E} gets ~99.5% combined vs nearby B's 0.5%, so the second centroid almost certainly lands in the far group — exactly the spread K-means++ is designed for.
+**Solution:** $D^2$: B=1, C=72, D=74, E=85; total 232. $P(B)\approx0.4\%$, $P(C)\approx31\%$, $P(D)\approx32\%$, $P(E)\approx36.6\%$. Most likely: **E**. The far group (C, D, E) gets $231/232\approx99.6\%$ combined, versus B's $1/232\approx0.4\%$. The second centroid is therefore very likely to land in the far group, illustrating the spread encouraged by K-means++.
 
 <Recall items={[
   { q: "Prove K-means terminates, in three steps.", a: "First, neither step can increase WCSS: assignment only moves a point to a strictly closer centroid, and the mean is provably the minimiser of squared distance within a set. Second, there are at most K^n possible assignments — finite. Third, a non-increasing quantity over finitely many states cannot cycle forever, so it must halt." },

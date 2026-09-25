@@ -140,7 +140,7 @@ Recall stops at 0.80 because only 4 of the 5 objects were ever found — the mis
 ---
 
 <ConceptBox title="TL;DR">
-- Every detector emits **far more boxes than objects**. The pipeline is always: score → threshold → **NMS** → final list.
+- Every detector emits **far more boxes than objects**. A common pipeline in the detectors covered here is: score → threshold → **NMS** → final list.
 - **NMS** is greedy: sort by score, keep the top box, delete everything overlapping it above a threshold, repeat. Per class.
 - Evaluation **matches** predictions to ground truth greedily by score; a second box on an already-matched object is a **false positive**, not a duplicate.
 - **AP** is the area under the precision–recall curve; **mAP** averages it over classes (and over IoU thresholds, for COCO).

@@ -4,6 +4,7 @@ import mdx from '@mdx-js/rollup'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
+import remarkVisuals from './scripts/remark-visuals.mjs'
 import { resolve, join, extname } from 'path'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
@@ -36,7 +37,7 @@ function serveTrackFiles() {
 export default defineConfig({
   plugins: [
     // MDX must come before react() so JSX transform sees compiled MDX
-    mdx({ remarkPlugins: [remarkGfm, remarkMath], rehypePlugins: [rehypeKatex], providerImportSource: '@mdx-js/react' }),
+    mdx({ remarkPlugins: [remarkGfm, remarkMath, remarkVisuals], rehypePlugins: [rehypeKatex], providerImportSource: '@mdx-js/react' }),
     react(),
     serveTrackFiles(),
   ],

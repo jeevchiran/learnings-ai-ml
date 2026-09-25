@@ -100,7 +100,7 @@ Every loss here consumes features. Building them without leaking the future is n
 
 <ConceptBox title="TL;DR">
 - Learning to rank optimises **order**, not per-item probability. Three families: **pointwise**, **pairwise**, **listwise**.
-- **Pointwise** scores each item alone against a 0/1 label. Simple, fast, calibrated — and only ranks correctly as a side effect.
+- **Pointwise** scores each item alone against a 0/1 label. Simple, fast, potentially calibratable — and only ranks correctly as a side effect.
 - **Pairwise** (RankNet, BPR, LambdaRank) trains on (positive, negative) pairs and depends only on score *differences*.
 - **Listwise** (ListNet, LambdaMART, softmax cross-entropy) scores the whole slate at once.
 - The tell: **add a constant to every score.** Pointwise loss changes; pairwise and listwise do not. Only two of the three are actually about ranking.

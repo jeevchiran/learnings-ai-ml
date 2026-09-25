@@ -99,7 +99,7 @@ def kl_divergence(mu, logvar):
 ---
 
 <ConceptBox title="TL;DR">
-- When both distributions are Gaussian, the KL term needs **no sampling at all** — it has an exact closed form: $D_{KL} = -	frac{1}{2}\sum_j (1 + \log\sigma_j^2 - \mu_j^2 - \sigma_j^2)$.
+- When both distributions are Gaussian, the KL term needs **no sampling at all** — it has an exact closed form: $D_{KL} = -\tfrac{1}{2}\sum_j (1 + \log\sigma_j^2 - \mu_j^2 - \sigma_j^2)$.
 - Read it as two pressures: $\mu_j^2$ pushes each cloud's centre toward the origin, and the $\log\sigma_j^2 - \sigma_j^2$ pair pushes its width toward 1.
 - The divergence is exactly **0** when $\mu = 0$ and $\sigma^2 = 1$ — the encoder has reproduced the prior precisely.
 - Encoders predict **log-variance**, not variance or standard deviation, because a linear layer outputs any real number and $\exp$ of that is always positive — no clipping, no risk of a negative variance crashing training.

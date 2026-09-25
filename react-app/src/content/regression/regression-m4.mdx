@@ -242,7 +242,8 @@ Neural networks extend this by stacking nonlinear transformations: each layer is
 </ConceptBox>
 
 <QuizCard
-  question="Why does minimizing cross-entropy loss guarantee finding the global optimum, while minimizing MSE with the sigmoid does not?"
-  options={['Cross-entropy has a larger learning rate by default, so it converges faster', 'Cross-entropy is a convex function of the parameters because -log(σ(z)) has always-positive second derivative, giving a unique global minimum; MSE composed with sigmoid creates non-convex regions where gradient descent can get stuck', 'MSE is undefined for binary labels, so cross-entropy is used instead', 'Cross-entropy is always smaller than MSE, so it is easier to minimize']}
+  question="What optimization advantage does binary cross-entropy have over squared error for a linear logistic model?"
+  options={['It chooses a learning rate automatically', 'It is convex in the linear model coefficients, whereas squared error composed with a sigmoid need not be convex', 'Squared error is undefined for binary labels', 'It is always numerically smaller than squared error']}
   correct={1}
+  explanation="Convexity rules out suboptimal local minima, but does not guarantee a unique finite minimizer or convergence for every optimizer setting. Perfectly separable data can make unregularized coefficients grow without bound. A neural network using cross-entropy is generally not convex in its weights."
 />

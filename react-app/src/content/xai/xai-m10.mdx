@@ -78,7 +78,7 @@ That completes the toolkit: the accuracy–interpretability trade-off, global vs
 <ConceptBox title="TL;DR">
 - Four dimensions decide everything: **speed, fidelity, consistency, generality**. No method wins all four.
 - The shortcut: tree model → Tree SHAP. Neural net or images → Deep SHAP / Integrated Gradients. Sealed API → Kernel SHAP (principled) or LIME (fast).
-- **LIME vs SHAP** in one line: LIME is a fast heuristic local fit that can vary between runs; SHAP is game-theoretic, deterministic, exactly additive, and consistent.
+- **LIME vs SHAP** in one line: LIME is a fast heuristic local fit that can vary between runs; exact Shapley values obey attribution axioms for a specified value function. Approximate SHAP estimators can have sampling error, and results depend on the background and feature-dependence assumptions.
 - Use SHAP where the explanation must be defended (audits, compliance, feature ranking); LIME for a quick gut-check.
 - **Explanations describe the model, not the world.** Cross-check with a second method and stay sceptical when features are correlated.
 </ConceptBox>

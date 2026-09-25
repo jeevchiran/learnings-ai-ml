@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function QuizCard({ question, options, correct }) {
+export default function QuizCard({ question, options, correct, explanation }) {
   const [selected, setSelected] = useState(null)
   const solved = selected === correct
 
@@ -25,9 +25,13 @@ export default function QuizCard({ question, options, correct }) {
         })}
       </div>
       {selected !== null && (
-        <p className={`lc-quiz-result ${solved ? 'correct' : 'wrong'}`}>
-          {solved ? 'Correct!' : 'Try again'}
-        </p>
+        <div role="status" aria-live="polite">
+          <p className={`lc-quiz-result ${solved ? 'correct' : 'wrong'}`}>
+            {solved ? 'Correct!' : `Not quite. Correct answer: ${options[correct]}`}
+          </p>
+          {explanation && <p>{explanation}</p>}
+          <button className="lc-study-btn" onClick={() => setSelected(null)}>Try again</button>
+        </div>
       )}
     </div>
   )

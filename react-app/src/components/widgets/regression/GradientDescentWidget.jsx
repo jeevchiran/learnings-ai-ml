@@ -24,13 +24,24 @@ const zSurface = linspace(-3, 8, 30).map(b1 => linspace(-5, 12, 30).map(b0 => co
 export default function GradientDescentWidget() {
   const contourRef = useRef(null)
   const surfaceRef = useRef(null)
+  const timerRef = useRef(null)
+  const plottingRef = useRef({ active: false, busy: false, dirty: false, pending: Promise.resolve() })
+  const [plotError, setPlotError] = useState(false)
   const stateRef = useRef({ beta: [8, -2], path: [[8], [-2]], iter: 0, running: false })
   const [display, setDisplay] = useState({ iter: 0, loss: computeLoss(8, -2).toFixed(4), b0: '8.000', b1: '-2.000' })
   const [lr, setLr] = useState(-1) // log10 scale
 
-  function drawPlots() {
-    const { path } = stateRef.current
-    Plotly.react(contourRef.current, [
+  async function drawPlots() {
+    const plotting = plottingRef.current
+    if (!plotting.active || !contourRef.current || !surfaceRef.current) return
+    if (plotting.busy) { plotting.dirty = true; return }
+    plotting.busy = true
+    plotting.dirty = false
+    // Plotly rendering is asynchronous. Keep one update per chart in flight and
+    // copy the path so animation ticks cannot mutate an unfinished render.
+    const path = stateRef.current.path.map(values => [...values])
+    try {
+    const contour = Plotly.react(contourRef.current, [
       { type: 'contour', x: b0Range, y: b1Range, z: zContour, colorscale: 'Blues', ncontours: 20, showscale: false, contours: { coloring: 'heatmap' } },
       { x: path[0], y: path[1], mode: 'lines+markers', type: 'scatter', marker: { size: 4, color: '#e53e3e' }, line: { color: '#e53e3e', width: 2 }, name: 'GD Path' },
     ], { xaxis: { title: 'β₀', range: [-5, 12] }, yaxis: { title: 'β₁', range: [-3, 8] }, title: { text: 'Contour of Loss', font: { size: 13 } }, margin: { t: 40, r: 10, b: 45, l: 50 }, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent' }, CFG)
@@ -38,10 +49,19 @@ export default function GradientDescentWidget() {
     const pathZ = path[0].map((b0, i) => computeLoss(b0, path[1][i]))
     const b0s = linspace(-5, 12, 30), b1s = linspace(-3, 8, 30)
     const zS = b1s.map(b1 => b0s.map(b0 => computeLoss(b0, b1)))
-    Plotly.react(surfaceRef.current, [
+    const surface = Plotly.react(surfaceRef.current, [
       { type: 'surface', x: b0s, y: b1s, z: zS, colorscale: 'Blues', opacity: 0.8, showscale: false },
       { type: 'scatter3d', x: path[0], y: path[1], z: pathZ, mode: 'lines+markers', marker: { size: 3, color: '#e53e3e' }, line: { color: '#e53e3e', width: 3 }, name: 'GD Path' },
     ], { scene: { xaxis: { title: 'β₀' }, yaxis: { title: 'β₁' }, zaxis: { title: 'Loss' }, camera: { eye: { x: 1.8, y: 1.8, z: 1.2 } } }, title: { text: '3D Loss Surface', font: { size: 13 } }, margin: { t: 40, r: 10 }, paper_bgcolor: 'transparent', showlegend: false }, CFG)
+    plotting.pending = Promise.all([contour, surface])
+    await plotting.pending
+    if (plotting.active) setPlotError(false)
+    } catch {
+      if (plotting.active) setPlotError(true)
+    } finally {
+      plotting.busy = false
+      if (plotting.dirty && plotting.active) drawPlots()
+    }
   }
 
   function doStep() {
@@ -59,23 +79,39 @@ export default function GradientDescentWidget() {
     const s = stateRef.current
     if (s.running) return
     s.running = true
-    const iv = setInterval(() => {
+    timerRef.current = setInterval(() => {
       doStep()
-      if (s.iter > 200 || computeLoss(s.beta[0], s.beta[1]) > 1e6) { clearInterval(iv); s.running = false }
+      if (s.iter > 200 || computeLoss(s.beta[0], s.beta[1]) > 1e6) { clearInterval(timerRef.current); s.running = false }
     }, 80)
   }
 
   function reset() {
+    clearInterval(timerRef.current)
     const s = stateRef.current
     s.beta = [8, -2]; s.path = [[8], [-2]]; s.iter = 0; s.running = false
     setDisplay({ iter: 0, loss: computeLoss(8, -2).toFixed(4), b0: '8.000', b1: '-2.000' })
     drawPlots()
   }
 
-  useEffect(() => { drawPlots() }, []) // eslint-disable-line
+  useEffect(() => {
+    const plotting = plottingRef.current
+    plotting.active = true
+    const contour = contourRef.current, surface = surfaceRef.current
+    // Cancel React StrictMode's first setup before starting an asynchronous plot.
+    const initialDraw = setTimeout(drawPlots, 0)
+    return () => {
+      plotting.active = false
+      clearTimeout(initialDraw)
+      clearInterval(timerRef.current)
+      // Wait until Plotly releases its calculation state before purging.
+      const purge = () => { if (!plotting.active) { Plotly.purge(contour); Plotly.purge(surface) } }
+      plotting.pending.then(purge, purge)
+    }
+  }, []) // eslint-disable-line
 
   return (
     <div>
+      {plotError && <p role="alert">The chart could not update. Use Reset to try again; the numerical values below show the current step.</p>}
       <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
         <label>Learning rate (10^): <input type="range" min="-3" max="0" step="0.1" value={lr}
           onChange={e => setLr(+e.target.value)} /> <strong>{Math.pow(10, lr).toFixed(4)}</strong></label>

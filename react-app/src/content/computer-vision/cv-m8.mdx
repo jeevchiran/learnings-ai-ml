@@ -121,10 +121,10 @@ COCO's stricter metric is why numbers dropped when the field moved to it — a d
 
 <ConceptBox title="TL;DR">
 - Four tasks, increasing difficulty: **classification** (what) → **localisation** (what + where, one object) → **detection** (what + where, unknown count) → **segmentation** (per-pixel).
-- The hard part of detection is not the box — it is that the **number of outputs is not known in advance**. A fixed-size output layer cannot express "3 objects" and "17 objects".
+- The hard part of detection is not the box — it is that the **number of outputs is not known in advance**. A fixed-size head can emit candidate slots with objectness scores; filtering those slots produces a variable-length output, up to the slot limit.
 - **IoU** is the whole vocabulary of correctness: $\text{IoU} = \frac{|A \cap B|}{|A \cup B|} \in [0,1]$.
 - IoU is **scale-free** — a 5-pixel error is fatal on a small object and irrelevant on a large one, and IoU already knows that.
-- A prediction is a TP or an FP depending only on the threshold you report at. VOC used 0.5; COCO averages 0.50 to 0.95.
+- A true positive needs the correct class and a match to an as-yet-unmatched ground-truth object at the chosen IoU threshold. VOC used 0.5; COCO averages 0.50 to 0.95.
 </ConceptBox>
 
 <QuizCard

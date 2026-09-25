@@ -20,7 +20,7 @@ The default multiplier is **k = 1.5** (Tukey's original choice). A stricter alte
 </ConceptBox>
 
 <ConceptBox title="WHY: Outliers distort summaries and models">
-Outliers skew the arithmetic mean, inflate variance, and drag regression lines off-track. In this dataset, `fare_amount` ID 26 records a **$399.00** fare for a 6.7-mile trip — almost certainly a meter-malfunction error. If left in, it pulls the column mean from ~$14 to ~$26 and would dominate any mean-based model. But not every extreme value is an error: IDs 6 and 18 record fares of $45 and $52 — plausible for a JFK airport flat-rate (`RatecodeID=2`). Detecting outliers is only step one; deciding what to do with them requires domain knowledge.
+Outliers skew the arithmetic mean, inflate variance, and drag regression lines off-track. In this dataset, `fare_amount` ID 26 records a **USD 399.00** fare for a 6.7-mile trip — almost certainly a meter-malfunction error. If left in, it pulls the column mean from ~USD 14 to ~USD 26 and would dominate any mean-based model. But not every extreme value is an error: IDs 6 and 18 record fares of USD 45 and USD 52 — plausible for a JFK airport flat-rate (`RatecodeID=2`). Detecting outliers is only step one; deciding what to do with them requires domain knowledge.
 
 For reference, a z-score framing makes the same point:
 
@@ -87,7 +87,7 @@ Rows after removal: 27
 38.625
 ```
 
-**Statistical outlier ≠ data error — always investigate before removing.** IDs 6 ($45) and 18 ($52) are flagged by the IQR method at k=1.5, but their `RatecodeID=2` marks them as JFK airport flat-rate fares — a documented, legitimate fare structure. Blindly deleting them would remove valid data about a real trip type. Only ID 26 ($399, standard RatecodeID=1, 6.7-mile trip) has no legitimate explanation — that is the true error most likely caused by a meter malfunction.
+**Statistical outlier ≠ data error — always investigate before removing.** IDs 6 (USD 45) and 18 (USD 52) are flagged by the IQR method at k=1.5, but their `RatecodeID=2` marks them as JFK airport flat-rate fares — a documented, legitimate fare structure. Blindly deleting them would remove valid data about a real trip type. Only ID 26 (USD 399, standard RatecodeID=1, 6.7-mile trip) has no legitimate explanation — that is the true error most likely caused by a meter malfunction.
 
 </PredictReveal>
 
@@ -106,7 +106,7 @@ The widget below lets you explore this interactively: change the column, adjust 
 <ConceptBox title="TL;DR">
 - **Tukey fences**: $Q1-k\cdot IQR$ and $Q3+k\cdot IQR$, with $k=1.5$ standard and $k=3$ for "far" outliers.
 - IQR beats z-scores because **Q1 and Q3 are unaffected by the very outliers you're hunting** — the mean and SD are not.
-- Detection is step one, not the decision. A $399 fare is a meter fault; a $52 fare is a legitimate JFK flat rate. Both sit outside the fence.
+- Detection is step one, not the decision. A USD 399 fare is a meter fault; a USD 52 fare is a legitimate JFK flat rate. Both sit outside the fence.
 - **Extreme is not the same as wrong.** Only domain knowledge separates them.
 - Cap or remove is a judgement call: capping keeps the row and distorts the value, removing loses the row entirely.
 </ConceptBox>
@@ -128,13 +128,13 @@ At k=2.0, what are the Tukey fences for `fare_amount`? How many outliers does k=
 - Lower fence = 6.125 − 2.0 × 13.0 = **−19.875**
 - Upper fence = 19.125 + 2.0 × 13.0 = **45.125**
 
-At k=1.5 the upper fence was 38.625, which flagged IDs 6 ($45), 18 ($52), and 26 ($399) — three outliers. At k=2.0 the fence rises to 45.125: $45.00 < $45.125 → inside; $52.00 > $45.125 → outside; $399.00 → outside. Result: **2 outliers** (IDs 18, 26) at k=2.0.
+At k=1.5 the upper fence was 38.625, which flagged IDs 6 (USD 45), 18 (USD 52), and 26 (USD 399) — three outliers. At k=2.0 the fence rises to 45.125: USD 45.00 < USD 45.125 → inside; USD 52.00 > USD 45.125 → outside; USD 399.00 → outside. Result: **2 outliers** (IDs 18, 26) at k=2.0.
 
 ### Problem 3: Why choose k=2.0 over k=1.5?
 
 Why might you choose k=2.0 over k=1.5 for `fare_amount`? What does the difference tell you about the role of domain knowledge in outlier detection?
 
-**Solution:** At k=1.5, the IQR method flags ID 6 ($45) as an outlier — but domain knowledge reveals it is a legitimate JFK airport flat-rate fare (`RatecodeID=2`). Raising k to 2.0 widens the fence enough that $45 is no longer flagged, avoiding a false positive. This illustrates the core tension: the IQR threshold is statistical, but the decision of where to draw the line is a **domain decision**. Always plot the flagged rows, check their other fields, and decide case-by-case before deleting anything.
+**Solution:** At k=1.5, the IQR method flags ID 6 (USD 45) as an outlier — but domain knowledge reveals it is a legitimate JFK airport flat-rate fare (`RatecodeID=2`). Raising k to 2.0 widens the fence enough that USD 45 is no longer flagged, avoiding a false positive. This illustrates the core tension: the IQR threshold is statistical, but the decision of where to draw the line is a **domain decision**. Always plot the flagged rows, check their other fields, and decide case-by-case before deleting anything.
 
 ## Quiz
 
@@ -147,9 +147,9 @@ Why might you choose k=2.0 over k=1.5 for `fare_amount`? What does the differenc
 - D: Range of the entire dataset
 
 **2. Which `fare_amount` value is MOST LIKELY a data error (not a legitimate fare)?**
-- A: $45.00 (RatecodeID=2, airport flat rate)
-- B: $52.00 (RatecodeID=2, airport flat rate)
-- C: $399.00 (RatecodeID=1, standard meter, 6.7-mile trip — likely meter malfunction) ✓
+- A: USD 45.00 (RatecodeID=2, airport flat rate)
+- B: USD 52.00 (RatecodeID=2, airport flat rate)
+- C: USD 399.00 (RatecodeID=1, standard meter, 6.7-mile trip — likely meter malfunction) ✓
 - D: All three are errors
 
 **3. Winsorization (capping) vs. removal — when should you prefer capping?**
@@ -170,8 +170,8 @@ Why might you choose k=2.0 over k=1.5 for `fare_amount`? What does the differenc
 
 <Recall items={[
   { q: "Why is the IQR method more robust than a z-score cutoff for finding outliers?", a: "Because Q1 and Q3 are order statistics — moving one extreme point further out does not shift them at all. The mean and standard deviation both absorb the outlier, so a single huge value inflates sigma and can pull its own z-score back under the threshold. The IQR method cannot be hidden from in that way." },
-  { q: "Compute the upper fence for Q1 = 6.125, Q3 = 19.125, k = 1.5.", a: "IQR = 19.125 - 6.125 = 13.0. Upper fence = Q3 + 1.5 * 13.0 = 19.125 + 19.5 = 38.625. Anything above that is flagged, which catches the $399 fare and also the legitimate $45 and $52 airport fares." },
-  { q: "Both a $399 fare and a $52 fare fall outside the fence. Why treat them differently?", a: "Because the fence is a statistical flag, not a verdict. $399 for a 6.7-mile trip is physically implausible and points at a meter fault. $52 matches the JFK flat rate, confirmed by RatecodeID 2 — a real value that is simply rare in this sample. Only the domain rule separates them; the arithmetic cannot." },
+  { q: "Compute the upper fence for Q1 = 6.125, Q3 = 19.125, k = 1.5.", a: "IQR = 19.125 - 6.125 = 13.0. Upper fence = Q3 + 1.5 * 13.0 = 19.125 + 19.5 = 38.625. Anything above that is flagged, which catches the USD 399 fare and also the legitimate USD 45 and USD 52 airport fares." },
+  { q: "Both a USD 399 fare and a USD 52 fare fall outside the fence. Why treat them differently?", a: "Because the fence is a statistical flag, not a verdict. USD 399 for a 6.7-mile trip is physically implausible and points at a meter fault. USD 52 matches the JFK flat rate, confirmed by RatecodeID 2 — a real value that is simply rare in this sample. Only the domain rule separates them; the arithmetic cannot." },
   { q: "Cap the outlier at the fence, or drop the row?", a: "Capping keeps the row's other columns and its contribution to counts, but writes a value that was never observed — fine when the extreme is a recording error and the rest of the row is sound. Dropping is right when the whole record is untrustworthy. Neither is right when the extreme is genuine, in which case you keep it and use robust statistics instead." },
   { q: "When do Tukey fences mislead you badly?", a: "On strongly skewed distributions. Fares, incomes and durations have long right tails by nature, so a symmetric fence flags a large chunk of perfectly normal high values as outliers. Log-transform first, or use domain thresholds, rather than deleting the tail the data genuinely has." },
 ]} />

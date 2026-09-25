@@ -16,6 +16,19 @@ The gradient (Module 9) tells you the slope. It says nothing about whether that 
 - **Hessian** — for a *scalar-valued* function $f:\mathbb{R}^n\to\mathbb{R}$, the matrix of all **second**-order partial derivatives, $H_{ij}=\frac{\partial^2 f}{\partial x_i \partial x_j}$. This is curvature — the Jacobian of the gradient.
 </ConceptBox>
 
+## Read a Small Jacobian First
+
+Suppose a layer takes two inputs and produces $f(x,y)=[2x+y,\;xy]$. At $(x,y)=(3,4)$ its output is $[10,12]$. Its Jacobian is
+
+$$
+J(x,y)=\begin{bmatrix}2&1\\y&x\end{bmatrix},\qquad
+J(3,4)=\begin{bmatrix}2&1\\4&3\end{bmatrix}.
+$$
+
+Read **rows as outputs, columns as inputs**. The bottom-left 4 means that increasing $x$ by a small amount changes the second output at about four times that rate, with $y$ held fixed. For an input step $[0.1,0]$, multiplying by $J$ predicts an output step $[0.2,0.4]$. Check directly: $f(3.1,4)=[10.2,12.4]$.
+
+The Jacobian describes how the **output** changes. Next, the Hessian describes how a scalar function's **slope** changes.
+
 ## The Hessian, for a Quadratic
 
 <DerivationSteps>
@@ -29,8 +42,8 @@ Both eigenvalues positive → **convex bowl**, a genuine local minimum. Both neg
 </DerivationSteps>
 
 <PredictReveal
-  prompt="A critical point in a million-parameter loss surface counts as a true local minimum only if every one of its million curvature eigenvalues is positive. How often should you expect that to happen?"
-  options={["Often — most flat points in a trained network are minima", "Almost never, so nearly every flat point is a saddle with a downhill direction still available"]}
+  prompt="For f(x,y) = x² − y², the gradient at the origin is zero. An x-step raises the loss, while a y-step lowers it. What kind of point is the origin?"
+  options={["A minimum, because its gradient is zero", "A saddle, because nearby directions can raise or lower the loss"]}
   correct={1}
 >
 
@@ -41,31 +54,31 @@ Start the widget from different points on the saddle preset and watch some runs 
 </PredictReveal>
 
 <Recall items={[
-  { q: "Why does the saddle problem get worse as the number of parameters grows?", a: "A critical point is a minimum only if every Hessian eigenvalue is positive. Treating the signs as roughly independent, the chance that all of them are positive falls off exponentially with the number of parameters, so in a large network virtually every flat point has at least one downhill direction." },
+  { q: "Does a zero Hessian eigenvalue rule out a minimum?", a: "No. Positive eigenvalues are sufficient for a strict local minimum at a critical point, but not necessary. For example, x⁴ has a minimum at zero even though its second derivative there is zero. The second-derivative test is then inconclusive." },
 ]} />
 
-<ConceptBox title="Common confusion — why deep learning worries more about saddles than local minima">
-In high dimensions, a critical point ($\nabla f=0$) needs *every* eigenvalue positive to be a true local minimum — increasingly unlikely by chance as dimensions grow. Most critical points in a high-dimensional loss landscape are saddles, not minima, which is a big part of why plain gradient descent can stall and why momentum-based optimizers (which carry velocity through flat/saddle regions) tend to outperform it in practice.
+<ConceptBox title="Common confusion — sufficient does not mean necessary">
+At a critical point of a twice continuously differentiable function, all-positive Hessian eigenvalues imply a strict local minimum; mixed signs imply a saddle. Zero eigenvalues can make the test inconclusive. For $f(x)=x^4$, both first and second derivatives vanish at 0, yet 0 is a minimum. Parameter count alone does not tell us what fraction of a particular model's critical points are saddles.
 </ConceptBox>
 
 <PredictReveal
-  prompt="Newton's method uses curvature as well as slope and converges in far fewer steps than gradient descent. Why does nobody train a large neural network with it?"
-  options={["It only works on convex problems", "The curvature matrix has one entry per pair of parameters, so for millions of parameters it cannot even be stored, let alone inverted"]}
+  prompt="Newton's method can converge quickly near a suitable minimum. What makes a full, dense Newton step expensive for a million-parameter network?"
+  options={["It only works on convex problems", "The Hessian has a trillion entries, and solving the associated linear system is costly"]}
   correct={1}
 >
 
-For n parameters the Hessian holds n squared entries and costs roughly n cubed work to invert. At a million parameters that is a trillion numbers per step. Adam and the other adaptive optimisers exist because they approximate the same curvature information per-parameter, at ordinary gradient cost.
+For n parameters a dense Hessian holds n squared entries. At a million parameters that is a trillion numbers, or about 4 TB with four-byte values, before other training memory. A general dense solve costs roughly n cubed operations. Hessian-vector methods and approximations can avoid forming the full matrix. Adam takes a different approach: it adapts updates from averages of gradients and squared gradients, not from a Hessian.
 
 </PredictReveal>
 
 <Recall items={[
-  { q: "Newton's method converges in fewer steps, so why is it not used for large networks?", a: "It needs the Hessian and its inverse. For n parameters that is n squared entries and roughly n cubed work per step, so at millions of parameters the matrix cannot be formed in memory, never mind inverted every iteration." },
+  { q: "Why is a full dense Newton step expensive for large networks?", a: "A dense Hessian has n squared entries and a general dense linear solve takes roughly n cubed work. Practical second-order methods can use approximations or Hessian-vector products instead. Computing an explicit matrix inverse is not required." },
 ]} />
 
 ## Where This Shows Up in Practice
 
-- **Newton's method** uses $H^{-1}\nabla f$ instead of just $\nabla f$ — it accounts for curvature directly, converging faster near a minimum, at the cost of computing (and inverting) the full Hessian, which is expensive at neural-network scale.
-- **Adam and other adaptive optimizers** approximate curvature *cheaply*, per-parameter, without ever forming the full Hessian.
+- **Newton's method** solves $H\Delta=-\nabla f$ for an update. Under suitable conditions it converges quickly near a minimum, but a full dense Hessian and solve are expensive at neural-network scale.
+- **Adam** uses first-order gradient statistics to adapt each parameter's update; it does not compute Hessian entries.
 - **Second-order Taylor expansion**: $f(\theta+\Delta) \approx f(\theta) + \nabla f^\top \Delta + \tfrac12 \Delta^\top H \Delta$ — the Hessian is literally the quadratic term describing how the loss curves around your current point.
 
 ## In Python
@@ -89,8 +102,8 @@ print(hessian)
 <ConceptBox title="TL;DR">
 - **Jacobian** = first derivatives of a *vector*-valued function. **Hessian** = second derivatives of a *scalar*-valued one. The Hessian is the Jacobian of the gradient.
 - The Hessian is curvature, and its **eigenvalues classify a flat point**: all positive → minimum, all negative → maximum, mixed → saddle.
-- In high dimensions all-positive is improbable, so most critical points are saddles — this, not local minima, is what stalls deep-net training.
-- Newton's method uses $H^{-1}\nabla f$ and converges faster but costs too much at network scale; Adam approximates the same information cheaply.
+- Zero eigenvalues can make the second-derivative test inconclusive. Both flat regions and saddle points can complicate optimization.
+- Newton's method uses curvature; a dense Hessian is expensive at network scale. Adam instead adapts updates using gradient statistics.
 </ConceptBox>
 
 ## Practice
@@ -105,8 +118,8 @@ print(hessian)
 
 <Recall items={[
   { q: "Jacobian or Hessian — which for a layer mapping R^512 to R^256, and which for the scalar loss?", a: "The layer is vector-to-vector, so its matrix of first partials is a Jacobian (256 x 512). The loss is vector-to-scalar, so its matrix of second partials is a Hessian (over the parameters). Backprop chains Jacobians; curvature analysis uses the Hessian." },
-  { q: "Why does the saddle problem get worse as dimensions increase?", a: "A critical point is a minimum only if EVERY Hessian eigenvalue is positive. Treating the signs as roughly independent, the chance of all n being positive falls off exponentially in n. With millions of parameters, virtually every flat point has at least one downhill direction — it is a saddle." },
-  { q: "Newton's method converges in fewer steps. Why does nobody use it to train a large network?", a: "It needs the Hessian and its inverse. For n parameters that is n^2 entries and roughly n^3 work to invert — with n in the millions, forming the matrix alone is impossible in memory, never mind inverting it each step." },
+  { q: "What can you conclude when a Hessian has both positive and negative eigenvalues at a critical point?", a: "There are uphill and downhill directions, so the point is a saddle. This conclusion requires mixed signs; a zero eigenvalue on its own is not enough." },
+  { q: "Do second-order methods always need to form and invert a full Hessian?", a: "No. A dense Newton step is costly, but approximations and Hessian-vector products can avoid storing the full matrix. Even with a full matrix, one usually solves a linear system rather than computing its inverse explicitly." },
   { q: "Write the second-order Taylor expansion of a loss and say what each term does.", a: "f(theta + d) ≈ f(theta) + grad^T d + (1/2) d^T H d. The first term is the current loss, the second is the linear slope that plain gradient descent uses, and the third is the curvature correction — it is what tells you whether a step of a given size will overshoot." },
 ]} />
 
