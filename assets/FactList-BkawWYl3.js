@@ -1,0 +1,1 @@
+import{j as s}from"./index-WYRBR6CI.js";function n({items:t=[],accent:c}){return t.length?s.jsx("dl",{className:"lc-facts",style:c?{"--facts-accent":c}:void 0,children:t.map(({t:l,d:r},a)=>s.jsxs("div",{className:"lc-facts-row",children:[s.jsx("dt",{children:l}),s.jsx("dd",{children:r})]},a))}):null}export{n as F};

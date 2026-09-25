@@ -1,0 +1,84 @@
+import{r as S,j as e,u as D,C as u,D as U,a as g,R as y,B as w,Q as T}from"./index-WYRBR6CI.js";import{P as A}from"./PredictReveal-DnF7AdIF.js";const c="#f97316",b="#dc2626",j="#2563eb",v={right:{label:"Right-skewed",bins:[2,9,14,12,8,5,3,2,1,1,1,1],note:"Long right tail (e.g. income, fares). Mean is pulled right, above the median."},symmetric:{label:"Symmetric",bins:[1,3,6,10,13,14,14,13,10,6,3,1],note:"Bell-shaped. Mean ≈ median — no tail pulling either way."},left:{label:"Left-skewed",bins:[1,1,1,1,2,3,5,8,12,14,9,2],note:"Long left tail (e.g. exam scores near a ceiling). Mean is pulled left, below the median."}};function W(i){const t=i.map((s,n)=>n+1),r=i.reduce((s,n)=>s+n,0),l=t.reduce((s,n,p)=>s+n*i[p],0)/r;let o=0,h=1;for(let s=0;s<i.length;s++)if(o+=i[s],o>=r/2){h=s+1;break}return{mean:l,median:h}}function B(){const[i,t]=S.useState("right"),r=v[i],{mean:l,median:o}=W(r.bins),h=440,s=180,n=24,p=Math.max(...r.bins),x=(h-2*n)/r.bins.length,d=a=>n+(a-.5)*x,f=a=>s-n-a/p*(s-2*n);return e.jsxs("div",{children:[e.jsx("div",{style:{display:"flex",gap:"0.4rem",marginBottom:"0.7rem",flexWrap:"wrap"},children:Object.entries(v).map(([a,m])=>e.jsx("button",{onClick:()=>t(a),style:{padding:"0.24rem 0.7rem",borderRadius:4,fontSize:"0.8rem",cursor:"pointer",fontWeight:i===a?700:400,border:`2px solid ${i===a?c:"var(--border)"}`,background:i===a?c:"var(--bg)",color:i===a?"#fff":"var(--text)"},children:m.label},a))}),e.jsx("div",{style:{overflowX:"auto"},children:e.jsxs("svg",{width:h,height:s,style:{display:"block",minWidth:340},children:[r.bins.map((a,m)=>e.jsx("rect",{x:n+m*x+1,y:f(a),width:x-2,height:s-n-f(a),fill:`${c}bb`,rx:2,style:{transition:"all 0.3s"}},m)),e.jsx("line",{x1:d(l),y1:4,x2:d(l),y2:s-n,stroke:b,strokeWidth:2}),e.jsxs("text",{x:d(l),y:14,textAnchor:"middle",fontSize:"9",fill:b,children:["mean ",l.toFixed(1)]}),e.jsx("line",{x1:d(o),y1:4,x2:d(o),y2:s-n,stroke:j,strokeWidth:2,strokeDasharray:"4,3"}),e.jsxs("text",{x:d(o),y:s-n+14,textAnchor:"middle",fontSize:"9",fill:j,children:["median ",o]}),e.jsx("line",{x1:n,y1:s-n,x2:h-n,y2:s-n,stroke:"var(--border)"})]})}),e.jsxs("div",{style:{marginTop:"0.4rem",background:"var(--bg-hover)",borderLeft:`3px solid ${c}`,padding:"0.5rem 0.8rem",borderRadius:"0 4px 4px 0",fontSize:"0.82rem"},children:[e.jsxs("strong",{style:{color:c},children:[r.label,":"]})," ",r.note]}),e.jsxs("p",{style:{fontSize:"0.78rem",color:"var(--text-muted)",marginTop:"0.4rem"},children:["The ",e.jsx("span",{style:{color:b},children:"mean"})," chases the tail; the ",e.jsx("span",{style:{color:j},children:"median"})," stays central. Their gap is a quick skew detector — mean ",">"," median means right skew."]})]})}function k(i){const t={code:"code",div:"div",em:"em",h1:"h1",h2:"h2",h3:"h3",hr:"hr",li:"li",p:"p",pre:"pre",strong:"strong",ul:"ul",...D(),...i.components};return e.jsxs(e.Fragment,{children:[e.jsx(t.h1,{children:"Univariate Visualization"}),`
+`,e.jsx(t.h2,{children:"What, Why, and How"}),`
+`,e.jsxs(u,{title:"WHAT: Charts for a single variable",children:[e.jsxs(t.p,{children:["Univariate visualization means looking at ",e.jsx(t.strong,{children:"one column at a time"})," — examining its shape, spread, and any unusual features before bringing other variables into the picture. The three workhorses are:"]}),e.jsxs(t.ul,{children:[`
+`,e.jsxs(t.li,{children:[e.jsx(t.strong,{children:"Histogram"})," — divides the value range into equal-width bins and counts how many rows fall into each. Reveals whether the data clusters, spreads, or has multiple peaks."]}),`
+`,e.jsxs(t.li,{children:[e.jsx(t.strong,{children:"KDE curve (Kernel Density Estimate)"})," — a smooth continuous approximation of the histogram shape. Not sensitive to bin count; instead depends on a bandwidth parameter."]}),`
+`,e.jsxs(t.li,{children:[e.jsx(t.strong,{children:"Box plot"})," — shows Q1, the median and Q3. In the default Tukey-style plot, whiskers reach the most extreme observed values within 1.5 IQR of the box; values beyond them appear separately. Whiskers are therefore not necessarily the minimum and maximum. Compact enough to compare several groups."]}),`
+`]})]}),`
+`,e.jsxs(u,{title:"WHY: Raw numbers hide distribution structure",children:[e.jsxs(t.p,{children:["A column's mean and standard deviation give you a two-number summary, but they cannot tell you whether the data is ",e.jsx(t.strong,{children:"symmetric, skewed, bimodal, or uniform"}),". Two datasets can have identical means and identical variances yet look completely different when plotted. Visualization reveals structure that statistics alone hide."]}),e.jsx(t.p,{children:"In this taxi dataset the difference is dramatic:"}),e.jsxs(t.ul,{children:[`
+`,e.jsxs(t.li,{children:[e.jsx(t.code,{children:"fare_amount"}),": mean ~USD 26, but the median is ~USD 11.75. A single USD 399 outlier drags the mean far from where most fares sit. The histogram shows a compact cluster at USD 3–USD 20 with a lone spike near USD 400."]}),`
+`,e.jsxs(t.li,{children:[e.jsx(t.code,{children:"trip_distance"}),": median is about 3 miles, but one trip records 120 miles — a probable data error that shifts the mean and inflates the standard deviation."]}),`
+`,e.jsxs(t.li,{children:[e.jsx(t.code,{children:"passenger_count"}),": only values 1–6 exist (plus some nulls). A histogram instantly reveals this is a discrete distribution with mode = 1."]}),`
+`]})]}),`
+`,e.jsxs(u,{title:"HOW: Three pandas / seaborn patterns",children:[e.jsxs(t.p,{children:["All three chart types require ",e.jsx(t.code,{children:"import matplotlib.pyplot as plt"})," and optionally ",e.jsx(t.code,{children:"import seaborn as sns"}),"."]}),e.jsxs(U,{children:[e.jsx(g,{number:1,title:"Histogram via pandas",children:e.jsxs(t.p,{children:[e.jsx(t.code,{children:"df['fare_amount'].hist(bins=10, figsize=(8,4))"})," — the ",e.jsx(t.code,{children:"bins"})," parameter controls granularity. Fewer bins smooth over detail; more bins can make sparse regions look noisy."]})}),e.jsx(g,{number:2,title:"KDE curve via pandas",children:e.jsxs(t.p,{children:[e.jsx(t.code,{children:"df['fare_amount'].plot(kind='kde')"})," — produces a smooth density curve. Unlike a histogram, the area under the curve integrates to 1 (it estimates probability density, not counts)."]})}),e.jsx(g,{number:3,title:"Box plot via pandas",children:e.jsxs(t.p,{children:[e.jsx(t.code,{children:"df.boxplot(column='fare_amount')"})," — whiskers sit at the IQR fences (k=1.5 by default) and individual points beyond the whiskers are plotted as circles. Instantly shows median, spread, and outliers."]})})]})]}),`
+`,e.jsx(t.h2,{children:"Code Walkthrough"}),`
+`,e.jsxs(A,{prompt:"A fare column has a mean of 26 and a median of 11.75. What does that gap tell you before you plot anything?",options:["Nothing much, means and medians usually differ","The distribution has a long right tail, and the mean is being dragged by a few large values"],correct:1,children:[e.jsx(t.pre,{children:e.jsx(t.code,{className:"language-python",children:`# Histogram
+df['fare_amount'].hist(bins=10, figsize=(8, 4))
+plt.xlabel('Fare Amount ($)')
+plt.title('Distribution of Fare Amounts')
+plt.show()
+`})}),e.jsx(t.pre,{children:e.jsx(t.code,{children:`Bar chart: most values between USD 3–USD 20, one isolated bar near USD 399
+`})}),e.jsx(t.pre,{children:e.jsx(t.code,{className:"language-python",children:`# KDE — smooth density estimate
+df['fare_amount'].plot(kind='kde')
+plt.xlabel('Fare Amount ($)')
+plt.show()
+`})}),e.jsx(t.pre,{children:e.jsx(t.code,{children:`Smooth curve — heavy left peak near USD 6–USD 15, long right tail past USD 50
+`})}),e.jsx(t.pre,{children:e.jsx(t.code,{className:"language-python",children:`import seaborn as sns
+sns.histplot(df['fare_amount'], bins=10, kde=True)
+plt.xlabel('Fare Amount ($)')
+plt.show()
+`})}),e.jsx(t.pre,{children:e.jsx(t.code,{children:`Bars + overlaid smooth density curve in one call
+`})}),e.jsxs(t.p,{children:[e.jsxs(t.strong,{children:["The ",e.jsx(t.code,{children:"kde=True"})," overlay is powerful for bin-count sensitivity."]})," When you have a small sample, histogram shape can change dramatically as you slide the bin count up or down. Adding ",e.jsx(t.code,{children:"kde=True"})," puts a smooth density curve on top — it is not affected by bin boundaries and shows the overall shape independently. Use both together to distinguish real structure from binning artifacts."]})]}),`
+`,e.jsx(y,{items:[{q:"What does a mean much larger than the median indicate?",a:"A right-skewed distribution with a long tail of high values. The median stays with the bulk of the data while the mean is pulled towards the extremes, so for a skewed column the median is the better summary of a typical value."}]}),`
+`,e.jsx(w,{children:e.jsx(t.p,{children:"The widget below lets you explore these three columns with either a histogram (adjustable bin count) or a box plot, and shows the summary statistics in real time."})}),`
+`,e.jsx(t.div,{className:"lesson-visual",role:"region","aria-label":"Histogram Skew interactive example; scroll horizontally if needed",tabIndex:"0",children:e.jsx(B,{})}),`
+`,e.jsx(t.hr,{}),`
+`,e.jsx(u,{title:"TL;DR",children:e.jsxs(t.ul,{children:[`
+`,e.jsxs(t.li,{children:[e.jsx(t.strong,{children:"Mean and SD cannot distinguish symmetric, skewed, bimodal, and uniform."})," Two very different columns can share both numbers. Plotting is the only way to see the shape."]}),`
+`,e.jsxs(t.li,{children:[e.jsx(t.strong,{children:"Histogram"})," = binned counts (bin count changes the story). ",e.jsx(t.strong,{children:"KDE"})," = smoothed version (bandwidth changes the story). ",e.jsx(t.strong,{children:"Box plot"})," = quartiles, median, whiskers and flagged outliers. With the usual Tukey rule, whiskers stop at the most extreme observations within 1.5 IQR of the box."]}),`
+`,e.jsxs(t.li,{children:["The ",e.jsx(t.strong,{children:"mean-versus-median gap is your skew detector"}),": fares average USD 26 with a median of USD 11.75, and that gap ",e.jsx(t.em,{children:"is"})," the USD 399 outlier."]}),`
+`,e.jsxs(t.li,{children:["A histogram immediately reveals a discrete column — ",e.jsx(t.code,{children:"passenger_count"})," takes only 1–6, mode 1."]}),`
+`]})}),`
+`,e.jsx(t.h2,{children:"Practice"}),`
+`,e.jsx(t.h3,{children:"Problem 1: Right-skewed distribution and mean vs. median"}),`
+`,e.jsx(t.p,{children:"What does a right-skewed distribution mean for the relationship between mean and median?"}),`
+`,e.jsxs(t.p,{children:[e.jsx(t.strong,{children:"Solution:"})," In a right-skewed distribution, the tail extends to the ",e.jsx(t.strong,{children:"right"})," (toward higher values). The mean is pulled in the direction of the tail, so ",e.jsx(t.strong,{children:"mean > median"}),". Intuition: the few very large values contribute disproportionately to the arithmetic average but do not move the median (which only depends on rank order). For ",e.jsx(t.code,{children:"fare_amount"}),", the USD 399 outlier drags the mean up to ~USD 26 while the median stays near USD 11.75 — a difference of ~USD 14, almost entirely caused by that single row."]}),`
+`,e.jsx(t.h3,{children:"Problem 2: Trade-off of increasing bin count"}),`
+`,e.jsxs(t.p,{children:["If you increase bin count from 5 to 30 for ",e.jsx(t.code,{children:"fare_amount"}),", what trade-off do you make?"]}),`
+`,e.jsxs(t.p,{children:[e.jsx(t.strong,{children:"Solution:"})," With 5 bins you get a ",e.jsx(t.strong,{children:"smoother but coarser"})," picture — structural features like the gap between USD 20–USD 399 are hidden inside wide bins, and each bin has more counts so bars look stable. With 30 bins you get ",e.jsx(t.strong,{children:"more granularity but noisier bars"})," — in a 30-row sample, many bins will contain 0 or 1 data points, making it hard to distinguish real patterns from sampling noise. The practical guideline: start around ",e.jsx(t.code,{children:"bins = sqrt(n)"})," (~5–6 for 30 rows), then adjust. A KDE uses a bandwidth instead of bins; changing that bandwidth also changes the apparent shape. Compare several settings."]}),`
+`,e.jsx(t.h3,{children:"Problem 3: Choosing the right central tendency measure for fare_amount"}),`
+`,e.jsxs(t.p,{children:["The ",e.jsx(t.code,{children:"fare_amount"}),' mean is ~USD 26 but the median is ~USD 11.75. Should you use mean or median to represent the "typical fare"? Why?']}),`
+`,e.jsxs(t.p,{children:[e.jsx(t.strong,{children:"Solution:"})," Use the ",e.jsx(t.strong,{children:"median"})," (~USD 11.75) to represent the typical fare in this sample. The mean (~USD 26) is distorted by a single USD 399 record that is deliberately unusual in this teaching dataset. In this synthetic sample, most fares are below USD 26 — they pay somewhere in the USD 6–USD 20 range. The median, being the middle-ranked value, is immune to this outlier: removing or capping ID 26 barely changes the median but cuts the mean roughly in half."]}),`
+`,e.jsx(t.h2,{children:"Quiz"}),`
+`,e.jsx(t.h3,{children:"Module 6 — Check Your Understanding"}),`
+`,e.jsx(t.p,{children:e.jsxs(t.strong,{children:["1. A histogram shows ",e.jsx(t.code,{children:"fare_amount"})," is right-skewed. This means:"]})}),`
+`,e.jsxs(t.ul,{children:[`
+`,e.jsx(t.li,{children:"A: Most fares are high"}),`
+`,e.jsx(t.li,{children:"B: A few very high fares pull the mean above the median ✓"}),`
+`,e.jsx(t.li,{children:"C: The data has errors"}),`
+`,e.jsx(t.li,{children:"D: All fares are equal"}),`
+`]}),`
+`,e.jsx(t.p,{children:e.jsx(t.strong,{children:"2. What does bin count affect in a histogram?"})}),`
+`,e.jsxs(t.ul,{children:[`
+`,e.jsx(t.li,{children:"A: The total count of data points"}),`
+`,e.jsx(t.li,{children:"B: The granularity of the distribution view ✓"}),`
+`,e.jsx(t.li,{children:"C: The mean value"}),`
+`,e.jsx(t.li,{children:"D: Whether outliers are included"}),`
+`]}),`
+`,e.jsx(t.p,{children:e.jsx(t.strong,{children:"3. Which chart best shows median, IQR, and outliers simultaneously?"})}),`
+`,e.jsxs(t.ul,{children:[`
+`,e.jsx(t.li,{children:"A: Histogram"}),`
+`,e.jsx(t.li,{children:"B: KDE curve"}),`
+`,e.jsx(t.li,{children:"C: Box plot ✓"}),`
+`,e.jsx(t.li,{children:"D: Bar chart"}),`
+`]}),`
+`,e.jsx(t.p,{children:e.jsxs(t.strong,{children:["4. ",e.jsx(t.code,{children:"df['col'].plot(kind='kde')"})," produces:"]})}),`
+`,e.jsxs(t.ul,{children:[`
+`,e.jsx(t.li,{children:"A: A bar chart of counts"}),`
+`,e.jsx(t.li,{children:"B: A scatter plot"}),`
+`,e.jsx(t.li,{children:"C: A pie chart"}),`
+`,e.jsx(t.li,{children:"D: A smooth density curve estimate ✓"}),`
+`]}),`
+`,e.jsx(w,{children:e.jsxs(t.p,{children:[e.jsx(t.strong,{children:"What's next: relationships between two variables."}),' Univariate charts answer "what does this column look like?" — but not "does it move together with another column?" Module 7 adds a second variable: scatter plots, correlation coefficients, and grouped comparisons that reveal whether fare amount grows with trip distance, and whether borough choice predicts price.']})}),`
+`,e.jsx(y,{items:[{q:"Mean USD 26, median USD 11.75, on the same column. What does the gap tell you before you plot anything?",a:"Strong right skew, almost certainly driven by a small number of very large values. The median barely moves when one point goes to infinity; the mean does. A large mean-above-median gap is the cheapest skew detector you have, and here it is the USD 399 outlier making itself visible in the summary statistics."},{q:"Histogram or KDE — what is the honest weakness of each?",a:"A histogram's shape depends on the bin count: too few bins hide structure such as bimodality, too many make sparse regions look like noise. A KDE removes that but substitutes a bandwidth parameter with exactly the same problem — over-smooth and peaks merge, under-smooth and you get spurious bumps. Neither is parameter-free; always try more than one setting."},{q:"Why is a box plot preferred when comparing many columns at once?",a:"Because it compresses a whole distribution into a few marks, so a dozen of them fit side by side and stay readable. It also draws the Tukey fences from Module 4 directly, so outliers are marked individually rather than being lost inside a bar."},{q:"What does a box plot hide that a histogram shows?",a:"Multimodality. The five-number summary is identical for a single broad hump and for two separate clusters with the same quartiles, so a bimodal distribution — for example metered versus flat-rate fares — looks like one wide box. If you suspect distinct regimes, you need the histogram or KDE."}]}),`
+`,e.jsx(T,{question:"Which chart shows a box from Q1 to Q3, a median line, whiskers and separately marked values beyond the whiskers?",options:["Histogram","KDE curve","Box plot","Bar chart"],correct:2})]})}function M(i={}){const{wrapper:t}={...D(),...i.components};return t?e.jsx(t,{...i,children:e.jsx(k,{...i})}):k(i)}export{M as default};
