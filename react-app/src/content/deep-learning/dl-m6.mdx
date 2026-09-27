@@ -1,11 +1,18 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import BackpropWidget from '../../components/widgets/deep-learning/BackpropWidget.jsx'
+import LearningLoopWidget from '../../components/widgets/shared/LearningLoopWidget.jsx'
 
 # Module 6: Backward Propagation
 
 <Bridge>
 **From Module 5:** Forward propagation computes the prediction and caches $(Z^{[l]}, A^{[l]})$ for each layer. Now we need to answer: given the loss, how should we update each weight to reduce it? The answer is **backpropagation** — applying the chain rule of calculus in reverse order through the network. This module derives every gradient from first principles and shows how PyTorch's autograd implements this automatically.
 </Bridge>
+
+## Connect Forward Prediction to Backward Learning
+
+Before following many layers, follow one weight. Notice that the slope calculation multiplies two sensitivities: loss with respect to prediction, and prediction with respect to weight. Backpropagation repeats this chain-rule idea through the network; the optimizer uses the resulting gradient to update parameters.
+
+<LearningLoopWidget />
 
 ## What is Backpropagation?
 

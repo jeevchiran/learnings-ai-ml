@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { moduleById } from '../../data/courses.js'
 import { learningGuides } from '../../data/learningGuides.js'
+import ConceptConnections from './ConceptConnections.jsx'
 
 export default function LessonGuide({ mod }) {
   const guide = learningGuides[mod.courseId]
@@ -9,6 +10,7 @@ export default function LessonGuide({ mod }) {
   return (
     <aside className="lesson-guide" aria-label="Lesson learning guide">
       <p><strong>Your focus:</strong> {mod.description}</p>
+      <ConceptConnections key={mod.id} mod={mod} />
       <details open={first}>
         <summary>{first ? 'Start with a small example' : 'Need a refresher? Prerequisites and a small example'}</summary>
         <p>{guide.readiness}</p>

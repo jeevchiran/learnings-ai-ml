@@ -1,11 +1,18 @@
 import { ConceptBox, Bridge, PredictReveal, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import AttentionPipelineWidget from '../../components/widgets/attention-seq2seq/AttentionPipelineWidget.jsx'
+import AttentionMixWidget from '../../components/widgets/shared/AttentionMixWidget.jsx'
 
 # Module 7: How Attention Works, Step by Step
 
 <Bridge>
 Module 6 established what attention does — a fresh, step-specific context vector instead of one reused vector. This module is the procedure that produces it: the exact four steps that run at every single decoder step, in order. Module 10 comes back to the same four steps with real numbers; this one is about the order of operations and why each step exists.
 </Bridge>
+
+## See What the Weights Actually Do
+
+The weighted sum is the part to understand first. This preview uses self-attention within one sentence so you can also experiment with a causal mask. In the encoder-decoder attention below, the decoder instead queries source states: a later source position is not automatically hidden just because its index is larger.
+
+<AttentionMixWidget />
 
 ## The four steps, once per decoder step
 

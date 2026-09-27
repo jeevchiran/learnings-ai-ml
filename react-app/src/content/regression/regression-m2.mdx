@@ -1,12 +1,19 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import ProjectionWidget from '../../components/widgets/regression/ProjectionWidget.jsx'
 import GradientDescentWidget from '../../components/widgets/regression/GradientDescentWidget.jsx'
+import LearningLoopWidget from '../../components/widgets/shared/LearningLoopWidget.jsx'
 
 # Module 2: Mathematics of Linear Regression
 
 <Bridge>
 **Bridge from Module 1:** In Module 1, we fit a line by minimizing the sum of squared residuals. We stated the result; now we derive it from first principles. Why does OLS work? How do we compute the optimal parameters analytically and iteratively? What guarantees does the solution carry?
 </Bridge>
+
+## See How a Coefficient Learns
+
+Start with one observation and one coefficient. Follow its prediction into the loss, then follow the derivative back to the coefficient. The full least-squares objective below combines these contributions across observations and coefficients.
+
+<LearningLoopWidget />
 
 ## The Cost Function
 

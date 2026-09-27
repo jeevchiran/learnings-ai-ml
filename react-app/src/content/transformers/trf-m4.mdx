@@ -1,12 +1,19 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, MultiSelectQuiz, Recall } from '../../components/learning/index.js'
 import QueryKeyWidget from '../../components/widgets/transformers/QueryKeyWidget.jsx'
 import CausalMaskingWidget from '../../components/widgets/transformers/CausalMaskingWidget.jsx'
+import AttentionMixWidget from '../../components/widgets/shared/AttentionMixWidget.jsx'
 
 # Module 4: The Math of Self-Attention
 
 <Bridge>
 Module 3 treated attention as a black box inside each block. This module opens it. If you've been through the Attention & Encoder-Decoder track, the formula will look familiar — it's the same scaled dot-product scoring from that track's Module 10, just with the query, key, and value now all coming from the *same* sequence instead of a decoder querying an encoder.
 </Bridge>
+
+## Connect Scores, Weights and Values
+
+Before deriving the score, see what changing one score does to the output. Keep the values fixed, adjust the score, then toggle the causal mask. Track the change through all three columns.
+
+<AttentionMixWidget />
 
 ## Query and Key: a question and an answer
 

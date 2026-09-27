@@ -1,0 +1,38 @@
+{
+  "base": "http://127.0.0.1:5194/learnings-ai-ml/",
+  "conceptMaps": [
+    "math-ml",
+    "pandas-eda",
+    "hypothesis-testing",
+    "etl-pyspark",
+    "regression",
+    "decision-trees",
+    "clustering",
+    "nlp",
+    "deep-learning",
+    "cnn",
+    "rnn",
+    "naive-bayes",
+    "model-eval",
+    "xai",
+    "association-rules",
+    "time-series",
+    "recsys",
+    "computer-vision",
+    "transfer-learning",
+    "attention-seq2seq",
+    "transformers",
+    "vae",
+    "gan",
+    "diffusion",
+    "genai-risks"
+  ],
+  "interactiveLessons": [
+    "math-m10",
+    "regression-m2",
+    "dl-m6",
+    "aed-m7",
+    "trf-m4"
+  ],
+  "errors": []
+}

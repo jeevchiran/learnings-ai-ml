@@ -1,11 +1,18 @@
 import { ConceptBox, Bridge, PredictReveal, DerivationSteps, DerivationStep, QuizCard, Recall } from '../../components/learning/index.js'
 import GradientDescentWidget from '../../components/widgets/math-ml/GradientDescentWidget.jsx'
+import LearningLoopWidget from '../../components/widgets/shared/LearningLoopWidget.jsx'
 
 # Module 10: Gradient Descent
 
 <Bridge>
 Module 9 produced the gradient and noted that it points uphill. That is one step of information. This module turns it into a loop, and then spends most of its time on the one number that decides whether the loop converges or blows up.
 </Bridge>
+
+## Connect the Numbers: Prediction to Update
+
+The same weight affects the prediction, the loss and the next update. Follow one example through the four steps, then deliberately make the learning rate too large.
+
+<LearningLoopWidget />
 
 ## The Optimization Loop, Distilled
 
