@@ -1,0 +1,90 @@
+import { Bridge, ConceptBox, PredictReveal, QuizCard } from '../../components/learning/index.js'
+import DeliveryReplayWidget from '../../components/widgets/mlops/DeliveryReplayWidget.jsx'
+
+# Module 5: Real-Time Streaming with Apache Kafka
+
+<Bridge>
+Daily training produces the model. A continuously running application consumes new trip events and applies that model. Kafka can retain and deliver those events.
+</Bridge>
+
+**Learning outcome:** follow an event through a Kafka topic and explain partition ordering, consumer groups, offset commits, and replay.
+
+## The log model
+
+A **producer** writes records to a named **topic**. A topic is divided into **partitions**, each an ordered log hosted by brokers. An **offset** identifies a record's position within one partition. A record key, such as `trip_id`, can keep related records in the same partition under a consistent partitioning scheme.
+
+In the standard consumer-group model, each partition is assigned to at most one consumer in a group at a time. A different group reads independently. Six consumers reading three partitions in one group can have only three active partition readers; extra consumers do not create more partitions. This lesson concerns consumer groups, not Kafka's separate share-group model.
+
+Order is per partition, not global across a topic. Preserving a key's placement requires care when changing the partition count or partitioner. Event timestamps can also arrive out of chronological order even when log positions are ordered.
+
+## Optional lab: produce and read events
+
+Start a disposable local Kafka broker using the [official quickstart](https://kafka.apache.org/quickstart/). Use its matching CLI tools in a Linux shell or WSL2. These commands assume the Kafka distribution directory and a broker reachable at `localhost:9092`; a container setup may require running the CLI inside the container.
+
+```bash
+bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+  --create --topic mlops-trips-lab --partitions 3 --replication-factor 1
+
+bin/kafka-console-producer.sh --bootstrap-server localhost:9092 \
+  --topic mlops-trips-lab \
+  --property parse.key=true --property key.separator='|'
+```
+
+At the producer prompt, enter these lines. The text before `|` is the Kafka key; the JSON after it is the value. Press Ctrl+C after sending them.
+
+```text
+trip-1|{"event_id":"start-1","trip_id":"trip-1","schema_version":1,"planned_km":4}
+trip-2|{"event_id":"start-2","trip_id":"trip-2","schema_version":1,"planned_km":7}
+trip-1|{"event_id":"start-1","trip_id":"trip-1","schema_version":1,"planned_km":4}
+```
+
+Read from a new consumer group:
+
+```bash
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 \
+  --topic mlops-trips-lab --group mlops-preview-v1 --from-beginning \
+  --property print.key=true --property print.partition=true \
+  --property print.offset=true
+```
+
+Expected: three records, including the repeated `start-1` event. Cross-partition display order can vary. `--from-beginning` applies when the group has no valid committed position; use a fresh group such as `mlops-preview-v2` to replay retained records without changing another group's progress. Stop the console consumer with Ctrl+C. The console demonstrates transport; it does not implement retry-safe inference.
+
+Replication factor 1 is for this single-broker lab and provides no replica redundancy. After the exercise, stop the disposable broker and remove the lab topic through your local setup's cleanup procedure.
+
+## Commit after durable processing
+
+A committed consumer offset represents the next position to resume from in a partition. If offset 41 is the last durably processed record, commit 42. For ordinary records, lag can be read as the gap between the log end offset and the committed offset; it is an operational indicator, not a direct measure of seconds of delay.
+
+```text
+Receive event
+  → validate schema
+  → compute prediction with a pinned model version
+  → atomically write prediction with a unique event key
+  → commit the next offset for the processed partition
+```
+
+For sequential processing, committing before the write risks skipping unfinished work after a crash. Writing before committing permits replay if the process dies between the two operations. A durable unique key makes that replay safe. With concurrent processing, only commit through the contiguous range of completed records; do not skip an unfinished lower offset.
+
+Kafka transactions can coordinate Kafka output records and offsets. They do not automatically make an arbitrary external database write or remote API call part of that transaction.
+
+## Try duplicate delivery
+
+Click **Deliver next message** four times, then enable deduplication and repeat. Observe the third delivery: a correct replay should not count passengers twice. The passenger numbers are synthetic and independent of the CLI event payloads above.
+
+<DeliveryReplayWidget />
+
+<PredictReveal prompt="A prediction was saved, but the consumer crashed before committing its offset. What should happen after restart?" options={['The record may replay, and the sink should recognize its event key', 'Kafka can infer that the external prediction write succeeded']} correct={0}>
+
+The committed offset cannot describe an uncommitted external side effect. Process the replay using the same logical output key. A database uniqueness constraint or transactional upsert can prevent a second prediction row.
+
+</PredictReveal>
+
+<QuizCard question="Prediction and analytics applications must each receive the whole event stream. How should they consume?" options={['Use different consumer groups', 'Use one group so the applications split the records', 'Delete records after prediction']} correct={0} explanation="Groups track progress independently. Consumers within one group share the partition assignments." />
+
+<ConceptBox title="TL;DR">
+Kafka retains partitioned logs. Groups provide independent consumption, offsets support recovery, and your sink must handle uncertain completion and duplicate events.
+</ConceptBox>
+
+## References
+
+See [Kafka's quickstart](https://kafka.apache.org/quickstart/) and [Kafka's delivery and transaction design](https://kafka.apache.org/design/).

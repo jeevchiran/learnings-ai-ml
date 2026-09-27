@@ -1,5 +1,12 @@
 // Short, concrete entry points. These are teaching examples, not fitted models.
 export const learningGuides = {
+  mlops: {
+    prerequisites: ['etl-pyspark-m1', 'me-m1'],
+    readiness: 'Know Python functions, basic ETL, and held-out model evaluation. You can complete the explanations and simulator without a cloud account; optional labs identify their runtime requirements.',
+    example: ['Train on a versioned snapshot of completed trips', 'Evaluate a candidate model before releasing it', 'Score new trip events and record each event ID with the model version'],
+    takeaway: 'Airflow and Composer coordinate finite workflows. Kafka and Pub/Sub carry events to independently running consumers. Reproducible artifacts and retry-safe writes connect the two paths.',
+    terms: [['DAG', 'A directed acyclic graph: tasks connected by dependencies without loops.'], ['Artifact', 'A saved, versioned output such as a model, dataset snapshot, or evaluation report.'], ['Idempotency', 'Repeating an operation has the same final effect as performing it once.'], ['Acknowledgment', 'A consumer signal that a delivered message has been handled.']],
+  },
   'math-ml': {
     prerequisites: [],
     readiness: 'Start with addition, multiplication, coordinates and basic algebra. A vector is a list of numbers; a matrix is a rectangular table of numbers.',

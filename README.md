@@ -1,8 +1,10 @@
 # ML Atlas
 
-Interactive lessons for learning data science and machine learning, with worked examples, equations, quizzes and visual experiments. The React app contains **25 tracks and 273 module pages**, including track quizzes.
+Interactive lessons for learning data science and machine learning, with worked examples, equations, quizzes and visual experiments. The React app contains **26 tracks and 281 module pages**, including track quizzes.
 
 [Open ML Atlas](https://jeevchiran.github.io/learnings-ai-ml/)
+
+The **MLOps: Pipelines and Streaming** track covers Apache Airflow, reliable retries and backfills, Google Cloud Composer, Apache Kafka, and Google Cloud Pub/Sub in seven lessons plus a quiz. Start at `#/module/mlops-m1`. It includes optional code labs, a duplicate-delivery simulator, and a capstone connecting batch training to streaming predictions.
 
 ## Start learning
 

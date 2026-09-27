@@ -497,6 +497,23 @@ export const courses = [
       { id: 'genai-risks-quiz', title: 'Track Quiz — GenAI Risks & Safety',             file: 'genai-risks-quiz.html', description: '16 questions plus 3 multi-selects — hallucination classification and causes, the calibration gap, the instruction hierarchy, injection vectors, and defence in depth.', readTime: 26 },
     ],
   },
+  {
+    id: 'mlops',
+    title: 'MLOps: Pipelines and Streaming',
+    description: '7 practical lessons on reproducible ML workflows, Apache Airflow pipelines, Google Cloud Composer, real-time streaming with Kafka, and Google Cloud Pub/Sub. Includes a duplicate-delivery simulator, code labs, an end-to-end capstone, and a track quiz.',
+    color: '#0f766e',
+    trackPath: 'mlops',
+    modules: [
+      { id: 'mlops-m1', title: 'MLOps Foundations and Architecture', file: 'mlops-m1.html', description: 'Connect reproducible training, model releases, batch orchestration, and streaming inference.', readTime: 10 },
+      { id: 'mlops-m2', title: 'Building Pipelines with Apache Airflow', file: 'mlops-m2.html', description: 'Write a TaskFlow DAG with validation, training, evaluation, and a release gate.', readTime: 15 },
+      { id: 'mlops-m3', title: 'Reliable Pipelines: Retries and Backfills', file: 'mlops-m3.html', description: 'Use data intervals, idempotent writes, artifact references, and failure recovery.', readTime: 12 },
+      { id: 'mlops-m4', title: 'Google Cloud Composer', file: 'mlops-m4.html', description: 'Move an Airflow DAG into a managed environment and inspect deployment, identity, and logs.', readTime: 12 },
+      { id: 'mlops-m5', title: 'Real-Time Streaming with Apache Kafka', file: 'mlops-m5.html', description: 'Explore topics, partitions, consumer groups, offsets, replay, and duplicate handling.', readTime: 16 },
+      { id: 'mlops-m6', title: 'Google Cloud Pub/Sub', file: 'mlops-m6.html', description: 'Publish events, consume a subscription, acknowledge durable work, and handle redelivery.', readTime: 15 },
+      { id: 'mlops-m7', title: 'Capstone: Training and Streaming Predictions', file: 'mlops-m7.html', description: 'Design a monitored model release and streaming inference workflow with recovery drills.', readTime: 15 },
+      { id: 'mlops-quiz', title: 'Track Quiz: MLOps', file: 'mlops-quiz.html', description: '12 questions on Airflow, Composer, Kafka, Pub/Sub, and operational recovery.', readTime: 15 },
+    ],
+  },
 ];
 
 /* ── Derived lookups (built once at module load) ── */

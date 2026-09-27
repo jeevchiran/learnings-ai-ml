@@ -1,0 +1,70 @@
+import { Bridge, ConceptBox, PredictReveal, QuizCard } from '../../components/learning/index.js'
+
+# Module 3: Reliable Pipelines: Retries and Backfills
+
+<Bridge>
+A working DAG is only the first step. Now assume a worker crashes, yesterday's data arrives late, or the same task runs twice.
+</Bridge>
+
+**Learning outcome:** design task inputs and outputs so retries and historical reruns produce predictable results.
+
+## Schedule time versus data time
+
+For a daily data-interval schedule, a run processes a bounded window such as `[September 20 00:00 UTC, September 21 00:00 UTC)`. The right endpoint is excluded. The run is normally scheduled after that interval ends. Its actual start time can be later if workers are busy.
+
+Read the interval from Airflow's runtime context, rather than computing yesterday from the current wall clock. Otherwise a retry two days later can silently train on different data. Pin an immutable snapshot as well: a fixed date filter alone does not freeze a table that can receive corrections.
+
+```python
+# Inside an Airflow 3 @task function:
+from airflow.sdk import get_current_context
+
+context = get_current_context()
+start = context["data_interval_start"].isoformat()
+end = context["data_interval_end"].isoformat()
+# Pass start and end as parameters to your data query.
+# Query predicate: event_time >= start AND event_time < end
+```
+
+This is a context fragment for an interval-based scheduled DAG. Manually triggered or event-based workflows must define their own intended input boundaries.
+
+**Catchup** controls automatic creation of missed scheduled runs. `catchup=False` avoids automatically replaying every old interval when enabling the example DAG. A **backfill** deliberately processes selected historical intervals. Neither makes unsafe writes safe.
+
+## Retry-safe outputs
+
+An operation is **idempotent** if repeating it has the same final effect as performing it once. Consider a task writing 100 predictions. Appending them twice yields 200 rows; upserting each prediction by a stable key leaves 100.
+
+| Design choice | Failure it prevents |
+|---|---|
+| Pin input snapshot, feature version, and training configuration | Retry silently changes the experiment |
+| Use a stable output key for the logical computation | Duplicate rows or artifacts after retry |
+| Stage output and publish a completion manifest atomically | Downstream tasks read partial output |
+| Store models in shared object storage; pass only references | Next task cannot access another worker's local file |
+| Set timeouts and bounded retries | A stuck task occupies a worker indefinitely |
+
+A retry attempt number is usually a poor deduplication key: each attempt would create a different logical result. For intentional retraining with new inputs, create a new version instead of silently overwriting an approved model.
+
+## Work through a crash
+
+Task A uploads a model, then its worker dies before Airflow records success. Airflow retries A. If A creates a new untracked model each time, reviewers cannot tell which one evaluation used. If A writes to a deterministic, versioned location and verifies the completed artifact, the retry can reuse the same result or safely replace a staged incomplete attempt.
+
+<PredictReveal prompt="An output write succeeded, but the task's success signal was lost. Should the retry assume the output is absent?" options={['Yes, failed task state means no output exists', 'No, inspect the durable output using the logical computation key']} correct={1}>
+
+Task status and external storage are separate systems. A crash can happen between their updates. Design for uncertain completion using atomic publication, deduplication, or a transactional sink.
+
+</PredictReveal>
+
+## Recovery exercise
+
+Write a recovery plan for a malformed data partition. State which validation failed, how the corrected snapshot will be versioned, which interval to rerun, and how the new candidate remains separate from the currently served model. First inspect the failed task's logs and inputs. Retry transient network failures; repair deterministic data errors before rerunning.
+
+For production training, submit a bounded job to an appropriate compute service and wait for its result. Record the external job ID so a task retry can reconcile an already-started job rather than creating duplicate expensive training jobs. Keep network requests and heavy work out of top-level DAG parsing.
+
+<QuizCard question="What should XCom normally carry between large training tasks?" options={['A multi-gigabyte DataFrame', 'A model URI, snapshot ID, and small metadata', 'A path on an unrelated worker\'s local disk']} correct={1} explanation="Shared artifact references keep task communication small and allow different workers to access the same durable output." />
+
+<ConceptBox title="TL;DR">
+Use explicit data boundaries, immutable inputs, durable artifacts, and repeatable writes. A retry repeats execution; your application must make repeated execution safe.
+</ConceptBox>
+
+## References
+
+Read [Airflow best practices](https://airflow.apache.org/docs/apache-airflow/stable/best-practices.html) and [DAG run data intervals, catchup, and backfill](https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dag-run.html).

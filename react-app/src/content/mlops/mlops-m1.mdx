@@ -1,0 +1,69 @@
+import { Bridge, ConceptBox, PredictReveal, QuizCard } from '../../components/learning/index.js'
+
+# Module 1: MLOps Foundations and Architecture
+
+<Bridge>
+You can already clean data and evaluate a model. MLOps adds the repeatable process that trains, releases, observes, and recovers that model when real data and software change.
+</Bridge>
+
+**Learning outcome:** place Airflow, Composer, Kafka, and Pub/Sub in an ML system and explain what evidence makes a model release reproducible.
+
+## One example, two paths
+
+Imagine predicting taxi-trip duration. A **feature** is an input available at prediction time, such as pickup hour or planned distance. A **label** is the completed trip's actual duration. Completed trips supply training labels; a newly started trip needs a prediction before its label exists.
+
+| Path | Trigger | Work | Output |
+|---|---|---|---|
+| Batch training | A daily schedule after a data interval closes | Validate completed trips, build features, train, evaluate | A versioned candidate and report |
+| Streaming inference | A new trip-start event | Validate the event, obtain features, score with an approved model | A prediction with event ID and model version |
+
+These paths share a feature definition and model artifacts. They run at different speeds: daily training need not interrupt a continuously running prediction consumer. Streaming means processing events as they arrive; it does not guarantee a particular response deadline.
+
+## Where the four tools fit
+
+| Tool | Responsibility | Example in this track |
+|---|---|---|
+| Apache Airflow | Coordinate finite tasks and their dependencies | Validate before training; evaluate before release |
+| Google Cloud Composer | Run a managed Airflow environment on Google Cloud | Schedule and observe the training DAG |
+| Apache Kafka | Retain event streams in partitioned logs | Feed trip events to prediction and analytics consumers |
+| Google Cloud Pub/Sub | Deliver published messages through subscriptions | Feed trip events to a managed messaging workflow |
+
+Kafka and Pub/Sub are alternative messaging choices here. Using both requires a reason and a bridge with its own failure handling. Neither trains a model or performs inference by itself: a consumer application does that work. Airflow can launch or supervise processing jobs; a permanently running consumer normally belongs in a separately operated service.
+
+## What to version
+
+A **model artifact** is the saved fitted model and the preprocessing it requires. A **release manifest** records the evidence needed to reproduce and diagnose a release. For our example, keep:
+
+```json
+{
+  "release_id": "duration-v7",
+  "training_snapshot": "completed-trips-2026-09-20",
+  "code_revision": "example-commit-id",
+  "feature_schema": "trip-features-v2",
+  "runtime_lock": "training-requirements.lock",
+  "model_uri": "gs://YOUR_BUCKET/models/duration-v7/model.bin",
+  "evaluation_uri": "gs://YOUR_BUCKET/models/duration-v7/evaluation.json"
+}
+```
+
+This manifest is illustrative; it does not refer to an existing model or bucket. Save random seeds and training parameters too. A saved model alone cannot explain which rows or feature code produced it.
+
+## Decide before releasing
+
+Suppose an older baseline has mean absolute error (MAE) of 4.0 minutes on a fixed validation set. A candidate has 3.6. The improvement is 0.4 minutes, or 10% relative to the baseline. That supports further release checks, but does not establish latency, subgroup quality, or behavior under tomorrow's traffic. Select with validation data and preserve a separate final test set.
+
+<PredictReveal prompt="The new model improves validation MAE, but requires a destination field that incoming events do not contain. Is it ready for streaming use?" options={['Yes, because its error is lower', 'No, its required input contract is not satisfied']} correct={1}>
+
+The deployed consumer cannot reproduce the training inputs. Change the feature design or the event contract, then evaluate the resulting model again. Using the completed trip duration as an input would also leak the future label.
+
+</PredictReveal>
+
+<QuizCard question="Which component should coordinate a daily validation → training → evaluation workflow?" options={['A Kafka topic', 'An Airflow DAG, optionally hosted by Composer', 'A Pub/Sub acknowledgment']} correct={1} explanation="A DAG expresses task dependencies and execution rules. Messaging services transport the events consumed by applications." />
+
+<ConceptBox title="TL;DR">
+MLOps connects repeatable training to observable releases. Keep the batch and streaming paths explicit, record their input contracts, and attach versioned evidence to each model.
+</ConceptBox>
+
+## References
+
+See the [Airflow TaskFlow tutorial](https://airflow.apache.org/docs/apache-airflow/stable/tutorial/taskflow.html), [Composer DAG deployment guide](https://docs.cloud.google.com/composer/docs/composer-3/manage-dags), [Kafka introduction and quickstart](https://kafka.apache.org/quickstart/), and [Pub/Sub subscription types](https://docs.cloud.google.com/pubsub/docs/subscriber) for the platform concepts used in this track.

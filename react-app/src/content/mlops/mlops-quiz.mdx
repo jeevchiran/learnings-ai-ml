@@ -1,0 +1,41 @@
+import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
+
+# Track Quiz: MLOps
+
+<ConceptBox title="End-of-track checkpoint">
+Ten single-choice questions and two multi-select questions cover architecture, Airflow, Composer, Kafka, Pub/Sub, and recovery. Explain what happens after a failure before selecting an answer. Every question includes reasoning and can be retried.
+</ConceptBox>
+
+## Pipelines and managed orchestration
+
+<QuizCard question="Which architecture suits daily model training and continuous trip prediction?" options={['A new Airflow DAG run for every high-volume event', 'A scheduled training DAG plus an independently running event consumer', 'A topic that trains the model automatically']} correct={1} explanation="The DAG coordinates finite training steps. The consumer continuously receives events and uses an approved model." />
+
+<QuizCard question="In the teaching DAG, training durations are 8, 10, 12 and validation durations are 9, 11. What is the constant predictor's validation MAE?" options={['0 minutes', '2 minutes', '1 minute']} correct={2} explanation="The training mean is 10. Validation absolute errors are 1 and 1, so their average is 1 minute." />
+
+<QuizCard question="Why should a scheduled task read its data interval instead of calculating yesterday from the wall clock?" options={['A later retry should use the same intended time boundary', 'Airflow forbids reading the current time', 'Data intervals automatically freeze mutable source tables']} correct={0} explanation="A late retry must target the original interval. Pin a snapshot too, because a stable time predicate does not prevent source data from changing." />
+
+<QuizCard question="A training task uploads its model and crashes before reporting success. Which design best supports recovery?" options={['Assume the upload did not happen', 'Create a new untracked model for every attempt', 'Reconcile a versioned artifact using a stable logical computation key']} correct={2} explanation="The external write and task status can disagree after a crash. Stable keys and atomic completion markers let retries determine what finished." />
+
+<QuizCard question="What must you check before copying an Airflow 3 DAG into Composer?" options={['Only that the environment is called Composer 3', 'The actual Airflow, Python, and provider versions in its image', 'Whether Kafka has three partitions']} correct={1} explanation="Composer generation and Airflow major version are different identifiers. Imports and dependencies must match the environment runtime." />
+
+## Streaming and recovery
+
+<QuizCard question="Five standard Kafka consumers share a group subscribed to a topic with three partitions. At most how many can hold active partition assignments?" options={['3', '5', '15']} correct={0} explanation="In the standard consumer-group model, each partition has at most one assigned consumer per group. Extra consumers may remain idle." />
+
+<QuizCard question="A sequential Kafka consumer has durably processed partition offset 41. Which offset should it commit next?" options={['40', '41', '42']} correct={2} explanation="The committed offset identifies the next position to resume from, so it advances beyond the completed record." />
+
+<QuizCard question="A consumer crashes after persisting a prediction but before acknowledging the Pub/Sub message. What behavior should the application support?" options={['Redelivery with a duplicate-safe durable write', 'The message service rolling back the prediction database', 'A guarantee that the message can never reappear']} correct={0} explanation="There is a crash boundary between the database transaction and the acknowledgment. A unique logical event key prevents a replay from adding a second result." />
+
+<QuizCard question="What is the difference between a Pub/Sub message ID and an application event ID?" options={['They must always contain identical strings', 'A message ID identifies a publication; an event ID can identify the same logical event across repeated publications', 'An event ID is the delivery acknowledgment ID']} correct={1} explanation="Republishing one logical event can create multiple service message IDs. Use a stable application key for business deduplication and the delivery ack ID for acknowledgment." />
+
+<QuizCard question="Traffic arrives at 120 events/second and processing sustains 80 events/second. How much does the backlog grow in one minute?" options={['40 events', '7,200 events', '2,400 events']} correct={2} explanation="The excess is 120 - 80 = 40 events/second. Across 60 seconds, that is 2,400 additional events, assuming the rates stay constant." />
+
+## Select every correct statement
+
+<MultiSelectQuiz question="Which statements about message delivery guarantees are correct?" options={['Kafka partition order implies global topic order', 'Pub/Sub ordering needs explicit configuration and has per-key scope', 'Kafka transactions automatically include any external HTTP side effect', 'Pub/Sub exactly-once delivery does not atomically commit your database write', 'Default consumers should be designed to handle replay']} correct={[1, 3, 4]} explanation="Ordering and exactly-once guarantees have defined boundaries. Cross-partition order and arbitrary external effects are not automatically covered; durable application deduplication remains essential." />
+
+<MultiSelectQuiz question="Which evidence helps diagnose a deployed model?" options={['A versioned training snapshot and feature schema', 'Only a green DAG status', 'The model version recorded beside each prediction', 'Latency, backlog, and errors plus quality measured when labels arrive', 'A compatible previous artifact for rollback']} correct={[0, 2, 3, 4]} explanation="Lineage connects a result to its inputs and model. Service metrics reveal operational failures, delayed labels reveal prediction quality, and a compatible prior release supports recovery. A green DAG alone supplies none of those guarantees." />
+
+<ConceptBox title="TL;DR">
+Be ready to explain what runs, what is stored, when delivery progress advances, and what a retry can repeat. Those boundaries connect all four platforms in this track.
+</ConceptBox>
