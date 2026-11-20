@@ -8,6 +8,11 @@ The **MLOps: Pipelines and Streaming** track covers Apache Airflow, reliable ret
 
 ## Start learning
 
+For a quick review, use the two revision guides. Both include worked examples and self-test questions with answers.
+
+- [Model selection, feature engineering, explainability, time series and recommender systems](docs/revision/applied-ml.md)
+- [Computer vision, transformers, transfer learning, multimodal models and responsible GenAI](docs/revision/vision-and-genai.md)
+
 1. Start with **Math for ML** if vectors, probability or derivatives are unfamiliar. Start **Pandas EDA** when you are comfortable with basic Python variables, lists and function calls.
 2. Read the lesson's focus and small example. Prerequisite links take you to the background needed for a track; the refresher stays available in later lessons.
 3. Use **Lesson sections** to navigate. Try one control at a time in a visual and explain the change in your own words.
