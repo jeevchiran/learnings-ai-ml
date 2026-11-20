@@ -3,7 +3,7 @@
 import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
 
 <ConceptBox title="End-of-track checkpoint">
-Sixteen questions plus three multi-selects spanning both halves of the track: what hallucination is and how it classifies, its training- and inference-stage causes, the calibration gap and automation bias, layered mitigation, the instruction hierarchy, injection versus jailbreaking, direct and indirect techniques, the confused-deputy problem, and defence in depth. Work through the reasoning before submitting your answers!
+Eighteen single-choice questions plus three multi-selects spanning both halves of the track: what hallucination is and how it classifies, its training- and inference-stage causes, the calibration gap and automation bias, layered mitigation, the instruction hierarchy, injection versus jailbreaking, direct and indirect techniques, the confused-deputy problem, and defence in depth. Work through the reasoning before submitting your answers!
 </ConceptBox>
 
 ## Single-Choice Questions
@@ -220,4 +220,28 @@ Sixteen questions plus three multi-selects spanning both halves of the track: wh
     "Injection risk scales with untrusted-input exposure multiplied by unsupervised capability"
   ]}
   correct={[0, 1, 2, 4]}
+/>
+
+## Scenario practice
+
+<QuizCard
+  question="A help-center assistant cites a real policy page and says refunds are allowed for 60 days. The cited page states 30 days. What should the quality check record?"
+  options={[
+    "A supported answer because the cited page exists.",
+    "An acceptable paraphrase because both numbers describe a refund window.",
+    "A claim contradicted by its cited source, with the time window flagged for correction.",
+  ]}
+  correct={2}
+  explanation="A citation establishes where to look. Comparing the actual claim with the source reveals a concrete disagreement. Link validity alone would miss it."
+/>
+
+<QuizCard
+  question="A support assistant summarizes customer attachments. It needs read access to tickets, yet its service account can also issue credits. The team wants an imported document to have no path to a financial action through this summarizer. Which change meets that requirement?"
+  options={[
+    "Add a warning to the prompt about financial requests.",
+    "Give the summarizer a read-only identity and keep issuing credits in a separate authorized workflow.",
+    "Show a confidence score beside each summary.",
+  ]}
+  correct={1}
+  explanation="A read-only identity removes the summarizer’s ability to issue a credit even if it misinterprets text. A prompt warning or confidence display leaves that permission available."
 />

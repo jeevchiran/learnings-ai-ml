@@ -1,16 +1,13 @@
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { courses, allModules } from '../data/courses.js'
+import { topics, allModules } from '../data/courses.js'
 import { useProgressContext } from '../hooks/useProgress.jsx'
 
-export default function Dashboard() {
-  const navigate = useNavigate();
-  const { isCompleted, isBookmarked, getTrackProgress, getLastVisited } = useProgressContext();
+function TrackCard({ course }) {
+  const { isCompleted, getTrackProgress, getLastVisited } = useProgressContext();
+  const { completed, total } = getTrackProgress(course.modules.map(m => m.id));
 
-  const completedCount  = allModules.filter(m => isCompleted(m.id)).length;
-  const bookmarkedCount = allModules.filter(m => isBookmarked(m.id)).length;
-
-  function getContinueId(course) {
+  function getContinueId() {
     let best = null, bestTs = 0;
     for (const m of course.modules) {
       const ts = getLastVisited(m.id) || 0;
@@ -21,6 +18,33 @@ export default function Dashboard() {
     return firstIncomplete ? firstIncomplete.id : course.modules[0].id;
   }
 
+  const continueId = getContinueId();
+  return (
+    <Link
+      to={`/module/${continueId}`}
+      className="track-card"
+      style={{ '--card-color': course.color }}
+    >
+      <h3>{course.title}</h3>
+      <p>{course.description}</p>
+      <div className="progress-bar-wrap">
+        <div className="progress-bar-fill" style={{ width: `${total ? completed / total * 100 : 0}%`, background: course.color }} />
+      </div>
+      <div className="progress-label">
+        {completed === total && total > 0 ? '✓ Complete' : `${completed} / ${total} modules`}
+      </div>
+      <span className="continue-btn" style={{ color: course.color }}>
+        {completed === 0 ? 'Start →' : completed === total ? 'Review →' : 'Continue →'}
+      </span>
+    </Link>
+  );
+}
+
+export default function Dashboard() {
+  const { isCompleted, isBookmarked } = useProgressContext();
+  const completedCount  = allModules.filter(m => isCompleted(m.id)).length;
+  const bookmarkedCount = allModules.filter(m => isBookmarked(m.id)).length;
+
   return (
     <motion.div
       className="dashboard"
@@ -30,53 +54,21 @@ export default function Dashboard() {
       transition={{ duration: 0.18 }}
     >
       <h1 className="dashboard-heading">ML Atlas</h1>
-      <p className="dashboard-sub">Self-paced interactive courses for data science and engineering.</p>
+      <p className="dashboard-sub">New to AI? Start by <Link to="/module/eda-m1">exploring a table of taxi trips</Link>, then <Link to="/module/regression-m1">fit your first prediction model</Link>.</p>
 
       <div className="stats-row">
         <div className="stat"><strong>{completedCount}</strong> / {allModules.length} modules completed</div>
         <div className="stat"><strong>{bookmarkedCount}</strong> bookmarked</div>
       </div>
 
-      <div className="track-grid">
-        {courses.map(course => {
-          const { completed, total } = getTrackProgress(course.modules.map(m => m.id));
-          const pct        = total > 0 ? (completed / total) * 100 : 0;
-          const continueId = getContinueId(course);
-
-          return (
-            <div
-              key={course.id}
-              className="track-card"
-              style={{ '--card-color': course.color }}
-              onClick={() => navigate(`/module/${continueId}`)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={e => e.key === 'Enter' && navigate(`/module/${continueId}`)}
-            >
-              <h3>{course.title}</h3>
-              <p>{course.description}</p>
-
-              <div className="progress-bar-wrap">
-                <div
-                  className="progress-bar-fill"
-                  style={{ width: `${pct}%`, background: course.color }}
-                />
-              </div>
-              <div className="progress-label">
-                {completed === total && total > 0 ? '✓ Complete' : `${completed} / ${total} modules`}
-              </div>
-
-              <button
-                className="continue-btn"
-                style={{ color: course.color }}
-                onClick={e => { e.stopPropagation(); navigate(`/module/${continueId}`); }}
-              >
-                {completed === 0 ? 'Start →' : completed === total ? 'Review →' : 'Continue →'}
-              </button>
-            </div>
-          );
-        })}
-      </div>
+      {topics.map(topic => (
+        <section className="dashboard-topic" key={topic.title} aria-label={topic.title}>
+          <h2>{topic.title}</h2>
+          <div className="track-grid">
+            {topic.courses.map(course => <TrackCard key={course.id} course={course} />)}
+          </div>
+        </section>
+      ))}
     </motion.div>
   );
 }

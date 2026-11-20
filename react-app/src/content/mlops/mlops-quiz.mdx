@@ -3,7 +3,7 @@ import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning
 # Track Quiz: MLOps
 
 <ConceptBox title="End-of-track checkpoint">
-Ten single-choice questions and two multi-select questions cover architecture, Airflow, Composer, Kafka, Pub/Sub, and recovery. Explain what happens after a failure before selecting an answer. Every question includes reasoning and can be retried.
+Twelve single-choice questions and two multi-select questions cover architecture, Airflow, Composer, Kafka, Pub/Sub, and recovery. Explain what happens after a failure before selecting an answer. Every question includes reasoning and can be retried.
 </ConceptBox>
 
 ## Pipelines and managed orchestration
@@ -35,6 +35,30 @@ Ten single-choice questions and two multi-select questions cover architecture, A
 <MultiSelectQuiz question="Which statements about message delivery guarantees are correct?" options={['Kafka partition order implies global topic order', 'Pub/Sub ordering needs explicit configuration and has per-key scope', 'Kafka transactions automatically include any external HTTP side effect', 'Pub/Sub exactly-once delivery does not atomically commit your database write', 'Default consumers should be designed to handle replay']} correct={[1, 3, 4]} explanation="Ordering and exactly-once guarantees have defined boundaries. Cross-partition order and arbitrary external effects are not automatically covered; durable application deduplication remains essential." />
 
 <MultiSelectQuiz question="Which evidence helps diagnose a deployed model?" options={['A versioned training snapshot and feature schema', 'Only a green DAG status', 'The model version recorded beside each prediction', 'Latency, backlog, and errors plus quality measured when labels arrive', 'A compatible previous artifact for rollback']} correct={[0, 2, 3, 4]} explanation="Lineage connects a result to its inputs and model. Service metrics reveal operational failures, delayed labels reveal prediction quality, and a compatible prior release supports recovery. A green DAG alone supplies none of those guarantees." />
+
+## Scenario practice
+
+<QuizCard
+  question="A new trip-duration model beats the validation baseline. It expects a destination timestamp recorded after drop-off, but the streaming service scores each trip at pickup. What should the release gate do?"
+  options={[
+    "Release the model and set the timestamp to midnight in production.",
+    "Hold the release and re-evaluate a candidate using features available at pickup.",
+    "Release the model and increase the consumer count to reduce lag.",
+  ]}
+  correct={1}
+  explanation="The offline score used information that arrives after the decision. The serving input cannot reproduce it. Rebuilding and evaluating the candidate at the pickup cutoff tests the actual prediction task."
+/>
+
+<QuizCard
+  question="A canary model has acceptable offline error, but its worker now processes fewer events per second than arrive. The backlog grows every minute. The previous compatible model processed events faster than they arrive now. Which immediate action best protects the latency target?"
+  options={[
+    "Roll back the canary to the previous model and replay the retained backlog with duplicate-safe writes as needed.",
+    "Commit offsets for the queued events before processing them to make the lag metric fall.",
+    "Wait for labeled trips so the team can recompute offline error before acting.",
+  ]}
+  correct={0}
+  explanation="The queue is growing because serving capacity has fallen below demand. Returning to the known compatible release restores capacity. Advancing offsets without durable results could silently skip predictions."
+/>
 
 <ConceptBox title="TL;DR">
 Be ready to explain what runs, what is stored, when delivery progress advances, and what a retry can repeat. Those boundaries connect all four platforms in this track.

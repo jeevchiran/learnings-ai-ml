@@ -3,7 +3,7 @@
 import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
 
 <ConceptBox title="End-of-track checkpoint">
-Fifteen questions plus three multi-selects spanning the complete VAE curriculum: latent space geometry, probabilistic generative modeling, ELBO derivation, Gaussian KL analytical calculations, the reparameterization trick, reconstruction likelihood assumptions, PyTorch training dynamics, latent space navigation, β-VAE disentanglement, and Conditional VAEs. Work through the calculations before submitting your answers!
+Seventeen single-choice questions plus three multi-selects spanning the complete VAE curriculum: latent space geometry, probabilistic generative modeling, ELBO derivation, Gaussian KL analytical calculations, the reparameterization trick, reconstruction likelihood assumptions, PyTorch training dynamics, latent space navigation, β-VAE disentanglement, and Conditional VAEs. Work through the calculations before submitting your answers!
 </ConceptBox>
 
 ## Single-Choice Questions
@@ -206,4 +206,28 @@ Fifteen questions plus three multi-selects spanning the complete VAE curriculum:
     "VAEs consistently generate crisper, sharper high-frequency details than state-of-the-art GANs."
   ]}
   correct={[0, 1, 2]}
+/>
+
+## Scenario practice
+
+<QuizCard
+  question="A VAE team compares two settings on the same validation batch. A has reconstruction loss 8 and KL penalty 1. B has reconstruction loss 5 and KL penalty 3. Both terms use the same averaging convention. With a KL weight of 2, which setting minimizes the training objective?"
+  options={[
+    "A, with a total loss of 10.",
+    "B, because it reconstructs more accurately.",
+    "They tie once the KL term is weighted.",
+  ]}
+  correct={0}
+  explanation="The objective is reconstruction loss plus twice the KL term. A scores 8 + 2 × 1 = 10 and B scores 5 + 2 × 3 = 11. With a weight of 1, the same measurements would favor B."
+/>
+
+<QuizCard
+  question="An engineer wants to check how a VAE reconstructs one specific input. Two reconstructions differ despite fixed weights and evaluation mode because the encoder samples a fresh latent code each time. Which diagnostic isolates a repeatable representative code for that input?"
+  options={[
+    "Sample more codes from the standard normal prior and pick the sharpest output.",
+    "Set every latent coordinate to zero for every input.",
+    "Decode the encoder’s posterior mean for that input using the decoder’s mean output.",
+  ]}
+  correct={2}
+  explanation="This fixes the latent code at the center of the distribution predicted for the input and reads a deterministic decoder output. Sampling from the prior instead tests generation of new examples."
 />

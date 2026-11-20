@@ -164,3 +164,27 @@ Questions across all eleven modules — vectors and dot products, matrix transfo
   ]}
   correct={1}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="A help desk wants the expected handling time for its staffing plan. Password resets take 5 minutes and other tickets take 25. Resets account for 80% of tickets. Which estimate should the planner use?"
+  options={[
+    "9 minutes",
+    "15 minutes",
+    "21 minutes",
+  ]}
+  correct={0}
+  explanation="Out of 100 tickets, 80 resets use 400 minutes and 20 other tickets use 500. Dividing 900 minutes by 100 gives 9 minutes per ticket. The 15-minute midpoint would assume equal volumes."
+/>
+
+<QuizCard
+  question="A monitoring job replaces each pair of CPU readings with their sum. One saved value is 70. Could an analyst recover the original two readings by inverting this transformation?"
+  options={[
+    "Yes, by dividing 70 equally between the two readings.",
+    "Yes, because the transformation is linear.",
+    "Only with extra information about the readings.",
+  ]}
+  correct={2}
+  explanation="Both (30, 40) and (20, 50) produce 70. Adding the readings drops a direction of variation, so the saved value alone cannot identify its input."
+/>

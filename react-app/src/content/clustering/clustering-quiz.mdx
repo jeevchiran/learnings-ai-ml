@@ -154,3 +154,27 @@ This quiz covers all four modules of the Clustering track — from K-means intui
   ]}
   correct={1}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="A team clusters servers by CPU utilization and memory use. It converts memory from gigabytes to megabytes and reruns Euclidean K-means on the raw columns. Group assignments change. Both features should have comparable influence. What should the team do?"
+  options={[
+    "Increase K until the old and new assignments match.",
+    "Standardize the two columns before computing distances.",
+    "Use more initializations on the converted raw values.",
+  ]}
+  correct={1}
+  explanation="Changing memory units multiplies differences in that column, which changes squared distances. Scaling each column by its own spread restores comparable units. Additional initializations still optimize the rescaled distances."
+/>
+
+<QuizCard
+  question="An analyst inspects a ticket whose average distance to its own cluster is 6. Its average distance to the closest other cluster is 2. What does its silhouette tell the analyst to investigate?"
+  options={[
+    "It is well inside its cluster because both distances are positive.",
+    "The whole dataset needs exactly two clusters.",
+    "This ticket is closer on average to another group, so inspect its assignment and features.",
+  ]}
+  correct={2}
+  explanation="Its silhouette is (2 − 6) / 6, about −0.67. That is evidence about this ticket’s fit. Use other tickets and the feature values to decide whether the grouping needs a wider change."
+/>

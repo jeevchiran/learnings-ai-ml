@@ -154,6 +154,13 @@ button { font-family: inherit; }
 .expand-all-btn:hover { background: var(--bg-hover); color: var(--text); }
 
 /* ── Track Groups ───────────────────────────────────── */
+.sidebar-topic-heading {
+  margin: 12px 14px 3px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 0.87rem;
+}
+
 .track-group { margin-bottom: 1px; }
 
 .track-header {
@@ -251,6 +258,9 @@ button { font-family: inherit; }
 .dashboard-heading { font-size: 1.4rem; font-weight: 700; margin-bottom: 4px; }
 
 .dashboard-sub { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 20px; }
+.dashboard-sub a { color: inherit; text-underline-offset: 2px; }
+.dashboard-topic + .dashboard-topic { margin-top: 28px; }
+.dashboard-topic h2 { font-size: 1.1rem; margin-bottom: 10px; }
 
 .stats-row { display: flex; gap: 24px; margin-bottom: 28px; }
 
@@ -264,6 +274,8 @@ button { font-family: inherit; }
 }
 
 .track-card {
+  color: var(--text);
+  text-decoration: none;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);

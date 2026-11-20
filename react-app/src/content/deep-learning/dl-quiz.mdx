@@ -154,3 +154,27 @@ This quiz covers all eleven modules of the Deep Learning track — from the perc
   ]}
   correct={0}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="A ticket classifier with dropout gives different scores when you run the same fixed tensor through it twice. Training has finished and dropout is the only source of randomness. Which change should the serving code make?"
+  options={[
+    "Set the learning rate to zero before each prediction.",
+    "Disable gradient recording while leaving the model in training mode.",
+    "Put the model in evaluation mode before running predictions.",
+  ]}
+  correct={2}
+  explanation="Evaluation mode turns dropout off for inference. Disabling gradient recording saves memory but can leave dropout masks active if the model stays in training mode."
+/>
+
+<QuizCard
+  question="A team saves a checkpoint every epoch. Validation loss is 0.48, 0.35, 0.29, 0.33 and 0.41 at epochs 1 through 5, while training loss falls throughout. The team selects by lowest validation loss. Which checkpoint should it evaluate on the reserved test set?"
+  options={[
+    "Epoch 5, because training loss is lowest.",
+    "Epoch 3, because validation loss reached 0.29.",
+    "Whichever of epochs 3 and 5 gives the better test result.",
+  ]}
+  correct={1}
+  explanation="Epoch 3 wins under the stated selection rule. The later increase suggests the extra training hurt generalization. Comparing checkpoints on the reserved test set would turn that set into selection data."
+/>

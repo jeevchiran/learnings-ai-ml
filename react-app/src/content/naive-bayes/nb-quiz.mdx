@@ -161,3 +161,27 @@ This quiz covers all eight modules of the Naive Bayes track — from probabilist
   ]}
   correct={[0, 1, 2, 4]}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="A ticket classifier has two binary fields, urgent_flag and urgent_copy. A migration made the second field an exact copy of the first. Each field contributes a likelihood ratio of 3 for escalation when present. What happens to the model’s odds if it uses both?"
+  options={[
+    "The evidence multiplies the prior odds by 6.",
+    "The evidence still multiplies the prior odds by 3.",
+    "The evidence multiplies the prior odds by 9 and counts the same observation twice.",
+  ]}
+  correct={2}
+  explanation="Naive Bayes multiplies the feature likelihood ratios, giving 3 × 3 = 9. Because the fields are copies, remove one to represent this observation once."
+/>
+
+<QuizCard
+  question="A monitoring classifier’s word frequencies within each class stay stable after a rollout. Confirmed incidents now make up 20% of messages, up from 2%. Which change uses this new information most directly?"
+  options={[
+    "Increase the smoothing strength for every word.",
+    "Update the incident and nonincident class priors from the new representative data.",
+    "Count each repeated word once per message.",
+  ]}
+  correct={1}
+  explanation="The changed quantity is the base rate of incidents. It enters the class score as the prior. Smoothing adjusts word likelihood estimates, which the scenario says have stayed stable."
+/>

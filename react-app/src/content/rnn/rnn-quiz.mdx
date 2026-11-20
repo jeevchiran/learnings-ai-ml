@@ -150,3 +150,27 @@ This quiz covers the full RNN track: why sequential data is different (order, va
   ]}
   correct={1}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="A recurrent model flags a fault as each sensor reading arrives. An offline bidirectional model scored well because its backward pass read the rest of each sequence. The live system must respond immediately. Which model should be evaluated for release?"
+  options={[
+    "A forward-only model scored on prefixes ending at the decision time.",
+    "The same bidirectional model scored on complete archived sequences.",
+    "A backward-only model that starts from the final reading in each archived sequence.",
+  ]}
+  correct={0}
+  explanation="At decision time only the current reading and its history are available. Scoring prefixes under that constraint measures the behavior the live system can deliver."
+/>
+
+<QuizCard
+  question="A stateful RNN reads events from one device at a time. The first prediction for device B changes depending on which unrelated device ran just before it. The inputs for B are identical. What should the service change?"
+  options={[
+    "Increase the hidden-state dimension.",
+    "Reverse the event order for each new device.",
+    "Reset the hidden state at each independent device boundary or restore B’s own state.",
+  ]}
+  correct={2}
+  explanation="The hidden state carries information between steps. Passing A’s final state into B mixes two independent histories. Keep state scoped to the device whose sequence it represents."
+/>

@@ -155,3 +155,27 @@ This quiz covers all five modules of the Hypothesis Testing track — from null 
   ]}
   correct={1}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="A service team will ship a change only if it saves at least 10 ms per request on average. In a large randomized test the estimated saving is 2 ms, with a 95% confidence interval from 1 to 3 ms. Which release note fits the evidence?"
+  options={[
+    "Ship because the interval excludes zero.",
+    "Call the test inconclusive because the interval contains positive values.",
+    "The measured improvement falls below the release threshold.",
+  ]}
+  correct={2}
+  explanation="The interval supports a small improvement, and even its upper end is below 10 ms. Statistical evidence for a difference and evidence of a worthwhile saving answer separate questions."
+/>
+
+<QuizCard
+  question="An A/B test on a small pilot gives p = 0.28. The owner wants to declare the two versions equally effective. The confidence interval includes both a meaningful loss and a meaningful gain. What should the team conclude?"
+  options={[
+    "There is a 28% probability that the versions are equally effective.",
+    "The pilot leaves meaningful differences plausible. Plan a larger test around the smallest change that matters.",
+    "The larger p-value establishes that either version can be released with equal impact.",
+  ]}
+  correct={1}
+  explanation="A wide interval shows the pilot estimated the effect imprecisely. Failing to reject zero difference cannot establish equivalence when effects large enough to matter still fit the observations."
+/>

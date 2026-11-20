@@ -8,6 +8,18 @@ The **MLOps: Pipelines and Streaming** track covers Apache Airflow, reliable ret
 
 ## Start learning
 
+For a move from IT into data science or AI engineering, start with the [two learning routes](docs/audit/it-career-switch.md#two-routes-through-the-material). Each route has a practical checkpoint. The [track-by-track assessment](docs/audit/it-career-switch.md#track-by-track-assessment) identifies prerequisites and the lessons where the difficulty rises.
+
+The dashboard and sidebar organize lessons by main topic, then subtopic. Each subtopic opens a track with its own lessons and quiz.
+
+| Main topic | Subtopics |
+|---|---|
+| Data and Statistics | Pandas exploratory data analysis, mathematics for ML, hypothesis testing |
+| Machine Learning | Linear and logistic regression, model selection and feature engineering, decision trees and ensembles, Naive Bayes, K-means, association rules, explainability |
+| Applied Data Science | Time series forecasting, recommender systems, natural language processing |
+| Advanced Deep Learning | Neural-network foundations, convolutional neural networks (CNNs), computer vision, transfer learning and U-Net, recurrent neural networks (RNNs), attention and encoder–decoder models, transformers, variational autoencoders (VAEs), generative adversarial networks (GANs), diffusion models |
+| Data Engineering and AI in Production | PySpark and ETL, MLOps pipelines and streaming, GenAI risks and safety |
+
 For a quick review, use the two revision guides. Both include worked examples and self-test questions with answers.
 
 - [Model selection, feature engineering, explainability, time series and recommender systems](docs/revision/applied-ml.md)
@@ -52,7 +64,7 @@ jupyter notebook
 
 | Location | Purpose |
 |---|---|
-| `react-app/src/data/courses.js` | All track metadata and ordered module IDs |
+| `react-app/src/data/courses.js` | Main topics, their ordered tracks and each track's lesson IDs |
 | `react-app/src/data/learningGuides.js` | Track prerequisites, concrete examples and term definitions |
 | `react-app/src/content/<track>/` | Registered MDX lessons |
 | `react-app/src/components/ModuleViewer.jsx` | Dynamic lesson loading and navigation |
@@ -72,7 +84,7 @@ Create `<module-id>.mdx` in its track folder and register the ID in `courses.js`
 
 Use explicit imports for learning components and widgets. `QuizCard` and `MultiSelectQuiz` accept an optional `explanation`. `PredictReveal` keeps its worked reasoning in its children. Component names ending in `Widget` receive a scrollable visual wrapper during MDX compilation.
 
-For a new track, add a guide in `learningGuides.js` and link its prerequisite module IDs. Keep illustrative data and fitted or measured results clearly distinguished.
+For a new track, include its ID in one main topic in `courses.js`, then add a guide in `learningGuides.js` and link its prerequisite module IDs. Keep illustrative data and fitted or measured results clearly distinguished.
 
 Common MDX mistakes:
 

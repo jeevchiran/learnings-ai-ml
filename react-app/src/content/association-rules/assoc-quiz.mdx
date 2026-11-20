@@ -3,7 +3,7 @@
 import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
 
 <ConceptBox title="End-of-track checkpoint">
-Thirteen questions across all four modules — support/confidence/lift, the Apriori algorithm and its anti-monotone property, rule generation and evaluation, and FP-Growth. Several need short calculations; the reference database is the same 10-basket grocery set used throughout the track. Work each numeric one out before answering.
+Fifteen questions across all four modules — support/confidence/lift, the Apriori algorithm and its anti-monotone property, rule generation and evaluation, and FP-Growth. Several need short calculations; the reference database is the same 10-basket grocery set used throughout the track. Work each numeric one out before answering.
 </ConceptBox>
 
 ## Questions
@@ -152,4 +152,28 @@ Thirteen questions across all four modules — support/confidence/lift, the Apri
     'FP-Growth guarantees higher-confidence rules'
   ]}
   correct={1}
+/>
+
+## Scenario practice
+
+<QuizCard
+  question="A shop suggests batteries with a device. Batteries appear in 80% of all baskets and in 80% of baskets containing that device. Should the 80% confidence persuade the shop that the device identifies unusually likely battery buyers?"
+  options={[
+    "No. Battery purchases are equally common in both groups, giving lift 1.",
+    "Yes. Confidence above 50% means the device adds a useful signal.",
+    "Yes. The rule implies 80% of battery buyers also buy the device.",
+  ]}
+  correct={0}
+  explanation="Lift is 0.80 / 0.80 = 1. Customers with the device buy batteries at the overall rate. Reversing the rule would require the proportion of baskets containing the device."
+/>
+
+<QuizCard
+  question="An analyst finds an add-on in both of the only two baskets containing a new product, among 10,000 baskets. The rule has 100% confidence. What should the analyst check before rolling out a promotion?"
+  options={[
+    "Whether the reverse rule also has 100% confidence.",
+    "Whether the pattern holds in more baskets containing the new product.",
+    "Whether removing baskets without the new product raises confidence.",
+  ]}
+  correct={1}
+  explanation="Only two baskets support the joint purchase, or 0.02% of all baskets. One additional product buyer who skips the add-on would drop confidence to two-thirds. More observations can show whether the pattern persists."
 />

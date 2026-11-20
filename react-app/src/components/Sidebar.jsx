@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useMatch } from 'react-router-dom'
-import { courses } from '../data/courses.js'
+import { courses, topics } from '../data/courses.js'
 import { useProgressContext } from '../hooks/useProgress.jsx'
 import SearchBar from './SearchBar.jsx'
 
@@ -83,61 +83,66 @@ export default function Sidebar({ dark, onToggleDark, mobileOpen, collapsed, onC
             {allOpen ? '⊟ Collapse All' : '⊞ Expand All'}
           </button>
         </div>
-        {courses.map(course => {
-          const isOpen = expanded[course.id];
-          const { completed, total } = getTrackProgress(course.modules.map(m => m.id));
+        {topics.map(topic => (
+          <section key={topic.title} aria-label={topic.title}>
+            <h2 className="sidebar-topic-heading">{topic.title}</h2>
+            {topic.courses.map(course => {
+              const isOpen = expanded[course.id];
+              const { completed, total } = getTrackProgress(course.modules.map(m => m.id));
 
-          return (
-            <div key={course.id} className="track-group">
-              <div
-                className="track-header"
-                onClick={() => toggleTrack(course.id)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => e.key === 'Enter' && toggleTrack(course.id)}
-                aria-expanded={isOpen}
-              >
-                <span className="track-dot" style={{ background: course.color }} />
-                <span style={{ flex: 1 }}>{course.title}</span>
-                <span className="track-progress-text">{completed}/{total}</span>
-                <span className="track-chevron" style={{ transform: isOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
-              </div>
+              return (
+                <div key={course.id} className="track-group">
+                  <div
+                    className="track-header"
+                    onClick={() => toggleTrack(course.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={e => e.key === 'Enter' && toggleTrack(course.id)}
+                    aria-expanded={isOpen}
+                  >
+                    <span className="track-dot" style={{ background: course.color }} />
+                    <span style={{ flex: 1 }}>{course.title}</span>
+                    <span className="track-progress-text">{completed}/{total}</span>
+                    <span className="track-chevron" style={{ transform: isOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
+                  </div>
 
-              {isOpen && (
-                <div className="module-items">
-                  {course.modules.map(mod => {
-                    const done    = isCompleted(mod.id);
-                    const starred = isBookmarked(mod.id);
-                    const active  = mod.id === activeId;
+                  {isOpen && (
+                    <div className="module-items">
+                      {course.modules.map(mod => {
+                        const done    = isCompleted(mod.id);
+                        const starred = isBookmarked(mod.id);
+                        const active  = mod.id === activeId;
 
-                    return (
-                      <div
-                        key={mod.id}
-                        ref={active ? activeRef : null}
-                        className={`module-item${active ? ' active' : ''}`}
-                        onClick={() => goModule(mod.id)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={e => e.key === 'Enter' && goModule(mod.id)}
-                        aria-current={active ? 'page' : undefined}
-                      >
-                        <span className="module-check">{done ? '✓' : ''}</span>
-                        <span className="module-name">{mod.title}</span>
-                        <button
-                          className={`star-btn${starred ? ' bookmarked' : ''}`}
-                          onClick={e => { e.stopPropagation(); toggleBookmark(mod.id); }}
-                          aria-label={starred ? 'Remove bookmark' : 'Bookmark'}
-                        >
-                          {starred ? '★' : '☆'}
-                        </button>
-                      </div>
-                    );
-                  })}
+                        return (
+                          <div
+                            key={mod.id}
+                            ref={active ? activeRef : null}
+                            className={`module-item${active ? ' active' : ''}`}
+                            onClick={() => goModule(mod.id)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={e => e.key === 'Enter' && goModule(mod.id)}
+                            aria-current={active ? 'page' : undefined}
+                          >
+                            <span className="module-check">{done ? '✓' : ''}</span>
+                            <span className="module-name">{mod.title}</span>
+                            <button
+                              className={`star-btn${starred ? ' bookmarked' : ''}`}
+                              onClick={e => { e.stopPropagation(); toggleBookmark(mod.id); }}
+                              aria-label={starred ? 'Remove bookmark' : 'Bookmark'}
+                            >
+                              {starred ? '★' : '☆'}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
+              );
+            })}
+          </section>
+        ))}
       </nav>
     </aside>
   );

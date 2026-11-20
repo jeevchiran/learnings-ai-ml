@@ -150,3 +150,27 @@ This quiz covers the full CNN track: why CNNs beat MLPs on images (locality, wei
   ]}
   correct={1}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="A CNN classifies traffic signs as left arrow or right arrow. The training pipeline randomly mirrors each image horizontally and keeps its label. Accuracy on clean signs drops. Which augmentation change addresses the cause?"
+  options={[
+    "Remove horizontal mirroring or swap the direction label whenever a sign is mirrored.",
+    "Keep the labels and mirror the validation images too.",
+    "Reduce the learning rate while keeping the mirrored training examples.",
+  ]}
+  correct={0}
+  explanation="Mirroring changes the class of a directional arrow. Keeping the old label gives the learner contradictory supervision. A useful augmentation must preserve the label or transform it consistently."
+/>
+
+<QuizCard
+  question="A camera classifier appears to recognize damaged boxes. Its activation maps concentrate on the bright inspection sticker attached only to damaged boxes in training. Which evaluation would best test whether the model relies on the sticker?"
+  options={[
+    "Collect more damaged boxes carrying the same sticker and score those alone.",
+    "Use a larger kernel so the model can see both the sticker and the box.",
+    "Score matched images where sticker presence varies while the actual damage stays the same.",
+  ]}
+  correct={2}
+  explanation="Varying the sticker independently of the damage tests whether the prediction follows that cue. An activation map raises the question, but the controlled comparison gives stronger evidence."
+/>

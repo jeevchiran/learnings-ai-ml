@@ -18,7 +18,7 @@ Module 3 ended on a dead end: the quantity we want to maximise, $\log p_\theta(x
   correct={1}
 >
 
-If a quantity you can compute always sits at or below the one you actually care about, then raising the computable one drags the target up with it — you may not know exactly where the target is, but you know it is at least as high as where you have pushed the bound.
+Suppose the best lower bound you can compute for an unknown score rises from 2 to 3. You now know the score is at least 3. A score of 5 throughout would satisfy both bounds. Improving the bound tells you how much you can guarantee.
 
 That computable under-estimate is called a **lower bound**, and the specific one used here is the **Evidence Lower Bound**, or **ELBO** ("evidence" being the name for $\log p_\theta(x)$):
 
@@ -29,7 +29,7 @@ The entire training procedure is: compute the ELBO, and maximise it.
 </PredictReveal>
 
 <Recall items={[
-  { q: "What is a lower bound, and why does maximising one help when the target quantity is incomputable?", a: "A lower bound is a quantity guaranteed never to exceed the target. Because it always sits at or below the target, pushing the bound up forces the target at least that high — so you can make progress on a quantity you cannot evaluate by optimising one you can." },
+  { q: "A lower bound improves from 2 to 3. What can you conclude about the score?", a: "The score is at least 3. Its exact value could have stayed at 5 throughout. Training uses the bound because it supplies an objective we can evaluate." },
 ]} />
 
 ## What the ELBO actually says
@@ -143,7 +143,7 @@ Substituting $p_\theta(x,z) = p_\theta(x|z)p(z)$ into the ELBO and splitting the
 - $\log p_\theta(x)$ cannot be computed, so training maximises a computable **lower bound** on it instead — the **ELBO**. Raising the bound improves the training objective, but does not guarantee that the exact log-likelihood rises on every joint parameter update.
 - The ELBO splits into exactly two terms: a **reconstruction** term (rebuild $x$ from the sampled code) minus a **KL regulariser** (keep the encoder's cloud near the prior). The training loss is the negative of this.
 - The two terms are in genuine tension — reconstruction alone recreates the gap-filled latent space of Module 2; KL alone collapses every input to the same cloud.
-- Because $\log p_\theta(x) = \text{ELBO} + D_{KL}(q_\phi \| p_\theta(z|x))$ and the left side does not depend on $\phi$, maximising the ELBO **automatically** shrinks the gap to the intractable true posterior.
+- With the generative model fixed, $\log p_\theta(x)$ stays constant. Increasing the ELBO by updating the encoder then shrinks the gap to the true posterior by the same amount.
 </ConceptBox>
 
 <QuizCard

@@ -154,3 +154,27 @@ This quiz covers all ten modules of the NLP track — from tokenisation and edit
   ]}
   correct={1}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="A search index removes frequent words before counting ticket terms. After the change, searching for ‘backup completed’ also retrieves ‘backup not completed’ with the same representation. Which change preserves the distinction most directly?"
+  options={[
+    "Increase the weight of ‘backup’ in both tickets.",
+    "Preserve negation and include phrases such as ‘not completed’ as features.",
+    "Stem both occurrences of ‘completed’ to ‘complete’.",
+  ]}
+  correct={1}
+  explanation="Dropping ‘not’ discards the word that changes the event’s meaning. Keeping it and representing adjacent word pairs lets the classifier or search engine distinguish the two phrases."
+/>
+
+<QuizCard
+  question="A parts catalog has a command named US and support notes also contain the pronoun us. A new search pipeline merges them after lowercasing. Which preprocessing choice preserves evidence needed for case-sensitive command lookup?"
+  options={[
+    "Keep the original case in the command field when indexing and querying it.",
+    "Lemmatize both strings after lowercasing.",
+    "Rank rare lowercase tokens more highly with TF-IDF.",
+  ]}
+  correct={0}
+  explanation="Both raw strings collapse to the same token during lowercasing. Changing weights or lemmas downstream cannot recover which spelling the user supplied."
+/>

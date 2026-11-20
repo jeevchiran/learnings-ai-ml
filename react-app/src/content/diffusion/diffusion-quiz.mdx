@@ -3,7 +3,7 @@
 import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
 
 <ConceptBox title="End-of-track checkpoint">
-Sixteen questions plus three multi-selects spanning the complete Diffusion Models curriculum: the forward and reverse processes, the ELBO connection to VAEs and the simple noise-prediction loss, the U-Net denoiser and timestep conditioning, sampling cost, noise schedules and DDIM, classifier-free guidance, latent diffusion, and the VAE/GAN/diffusion comparison. Work through the reasoning before submitting your answers!
+Eighteen single-choice questions plus three multi-selects spanning the complete Diffusion Models curriculum: the forward and reverse processes, the ELBO connection to VAEs and the simple noise-prediction loss, the U-Net denoiser and timestep conditioning, sampling cost, noise schedules and DDIM, classifier-free guidance, latent diffusion, and the VAE/GAN/diffusion comparison. Work through the reasoning before submitting your answers!
 </ConceptBox>
 
 ## Single-Choice Questions
@@ -220,4 +220,28 @@ Sixteen questions plus three multi-selects spanning the complete Diffusion Model
     "Latent diffusion runs the denoising process on a compressed representation rather than raw pixels"
   ]}
   correct={[0, 1, 3, 4]}
+/>
+
+## Scenario practice
+
+<QuizCard
+  question="A team trains a denoiser to predict the noise added to clean icons. Its loader corrupts each icon with random noise A, then draws independent noise B as the target at the same timestep. Training stalls. Which change restores the intended supervision?"
+  options={[
+    "Increase the number of timesteps while keeping B as the target.",
+    "Use a single fixed B for every icon in the dataset.",
+    "Save A when constructing the noisy input and use that same draw as the target.",
+  ]}
+  correct={2}
+  explanation="The noisy input contains evidence about the particular noise A used to create it. An independent B has no such link. Matching the timestep alone cannot recover that training signal."
+/>
+
+<QuizCard
+  question="A latent diffusion model generates product labels with unreadable fine print. Even when a real, clean label bypasses diffusion and goes only through the frozen autoencoder, the same letters disappear. Which experiment follows from that observation?"
+  options={[
+    "Increase the number of reverse diffusion steps first.",
+    "Test an autoencoder or latent resolution that preserves the letters in clean reconstructions.",
+    "Increase prompt guidance while keeping the autoencoder fixed.",
+  ]}
+  correct={1}
+  explanation="The clean reconstruction already loses the detail, isolating a bottleneck in compression or decoding. Check that the representation can preserve the letters before spending time tuning the denoiser."
 />

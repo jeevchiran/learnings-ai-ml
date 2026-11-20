@@ -3,7 +3,7 @@
 import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
 
 <ConceptBox title="End-of-track checkpoint">
-Sixteen questions plus three multi-selects, spanning the whole arc: why transfer learning works and where it fails, the freeze/fine-tune decision, embeddings and metric learning, the encoder–decoder bottleneck, upsampling and transposed convolution, skip connections, U-Net, and the Dice coefficient. Several need a short calculation — work them out before answering.
+Eighteen single-choice questions plus three multi-selects, spanning the whole arc: why transfer learning works and where it fails, the freeze/fine-tune decision, embeddings and metric learning, the encoder–decoder bottleneck, upsampling and transposed convolution, skip connections, U-Net, and the Dice coefficient. Several need a short calculation — work them out before answering.
 </ConceptBox>
 
 ## Questions
@@ -223,4 +223,28 @@ Sixteen questions plus three multi-selects, spanning the whole arc: why transfer
     "Replacing U-Net's encoder with a pretrained backbone is effective on small datasets"
   ]}
   correct={[0, 2, 3, 5]}
+/>
+
+## Scenario practice
+
+<QuizCard
+  question="A pretrained image backbone will be frozen. A team wants to compare ten classification heads on a fixed collection of images. Each image has one fixed preprocessing result, and the backbone runs in evaluation mode. Which computation can the team safely reuse?"
+  options={[
+    "The predictions of the first trained head as labels for the other heads.",
+    "The gradients of the first head for each remaining head.",
+    "One stored backbone embedding per image.",
+  ]}
+  correct={2}
+  explanation="With fixed inputs and backbone parameters, the features supplied to each head are identical. Compute them once. If the team later fine-tunes the backbone or changes the input views, it must recompute them."
+/>
+
+<QuizCard
+  question="A segmentation model labels every pixel as background on an inspection image. The reference mask contains 20 defect pixels out of 10,000. Ignore smoothing in the metric. Which evaluation exposes the failure?"
+  options={[
+    "Overall pixel accuracy, which falls to 0%.",
+    "Foreground Dice, which is 0 despite 99.8% pixel accuracy.",
+    "Foreground Dice, which is 1 because background pixels dominate.",
+  ]}
+  correct={1}
+  explanation="The prediction shares zero foreground pixels with the 20 labeled ones, giving Dice 2 × 0 / (0 + 20) = 0. The 9,980 correctly labeled background pixels make accuracy look high."
 />

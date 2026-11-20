@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 
 // Unrelated to what we're testing: this dep is CJS/ESM-broken under vitest.
 vi.mock('react-syntax-highlighter', () => ({ Prism: () => null }))
@@ -7,12 +7,21 @@ vi.mock('react-syntax-highlighter/dist/esm/styles/prism', () => ({ oneLight: {},
 
 const { default: App } = await import('../App.jsx')
 
-// Temporary verification of: (1) navigating to a module expands its track,
-// (2) the sidebar can be hidden and brought back.
 describe('sidebar', () => {
   beforeEach(() => { window.location.hash = ''; })
 
-  it('expands the track containing the routed module (tl-m7 is in the LAST track)', () => {
+  it('groups the advanced tracks on the dashboard and in course navigation', () => {
+    render(<App />)
+    const navigation = screen.getByRole('navigation', { name: 'Course navigation' })
+    const sidebarTopic = within(navigation).getByRole('region', { name: 'Advanced Deep Learning' })
+    const dashboardTopic = within(screen.getByRole('main')).getByRole('region', { name: 'Advanced Deep Learning' })
+    for (const name of [/Convolutional Neural Networks/, /Transformers/, /Variational Autoencoders/, /Generative Adversarial Networks/, /Diffusion Models/]) {
+      expect(within(sidebarTopic).getByRole('button', { name })).toBeInTheDocument()
+      expect(within(dashboardTopic).getByRole('link', { name })).toBeInTheDocument()
+    }
+  })
+
+  it('expands the track containing the routed module', () => {
     window.location.hash = '#/module/tl-m7'
     render(<App />)
     // The module only renders in the sidebar when its track is expanded.
@@ -23,7 +32,6 @@ describe('sidebar', () => {
   it('does NOT expand unrelated tracks', () => {
     window.location.hash = '#/module/ts-m5'
     render(<App />)
-    // math-ml is courses[0]; its modules must stay hidden.
     expect(screen.queryByText('Vectors & Dot Products')).toBeNull()
   })
 

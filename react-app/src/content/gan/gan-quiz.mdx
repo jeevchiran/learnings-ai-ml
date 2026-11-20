@@ -3,7 +3,7 @@
 import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
 
 <ConceptBox title="End-of-track checkpoint">
-Sixteen questions plus three multi-selects spanning the complete GAN curriculum: implicit vs. explicit density, the minimax game and its Nash equilibrium, vanishing gradients and the non-saturating fix, mode collapse, DCGAN's architectural guidelines, Wasserstein distance and the Lipschitz constraint, conditional GANs, CycleGAN's unpaired translation, and Inception Score vs. FID. Work through the reasoning before submitting your answers!
+Eighteen single-choice questions plus three multi-selects spanning the complete GAN curriculum: implicit vs. explicit density, the minimax game and its Nash equilibrium, vanishing gradients and the non-saturating fix, mode collapse, DCGAN's architectural guidelines, Wasserstein distance and the Lipschitz constraint, conditional GANs, CycleGAN's unpaired translation, and Inception Score vs. FID. Work through the reasoning before submitting your answers!
 </ConceptBox>
 
 ## Single-Choice Questions
@@ -220,4 +220,28 @@ Sixteen questions plus three multi-selects spanning the complete GAN curriculum:
     "CycleGAN requires paired before/after images of the same scene, exactly like pix2pix"
   ]}
   correct={[0, 1, 2, 4]}
+/>
+
+## Scenario practice
+
+<QuizCard
+  question="A conditional GAN should draw the digit requested by its label. Its outputs look realistic, but requesting a 7 produces mostly 2s. Which evaluation would most directly reveal the problem?"
+  options={[
+    "Pool samples across labels and rate only how realistic they look.",
+    "For each requested digit, count which digits independent reviewers recognize in the generated samples.",
+    "Count how often the discriminator calls the pooled samples real.",
+  ]}
+  correct={1}
+  explanation="A table of requested versus observed digits measures whether the generator follows its condition. Pooling can hide this failure even when the overall image distribution looks convincing."
+/>
+
+<QuizCard
+  question="A GAN training loop alternates updates. During the generator step, a developer detaches the generated images before passing them to the discriminator. The generator receives no gradient from its loss. What change restores the intended update?"
+  options={[
+    "Keep the generated images connected to the generator and step only the generator optimizer for this loss.",
+    "Keep the images detached and increase the generator learning rate.",
+    "Update only the discriminator weights until the generator loss starts moving.",
+  ]}
+  correct={0}
+  explanation="The generator needs the derivative of the discriminator’s score with respect to the generated image. Keeping that path connected lets the loss reach the generator while the discriminator parameters stay fixed for this update."
 />

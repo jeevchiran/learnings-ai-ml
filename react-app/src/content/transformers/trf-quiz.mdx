@@ -312,3 +312,27 @@ This quiz covers the full track: the static embedding families (Word2Vec CBOW/sk
   ]}
   correct={[0, 2, 3, 4]}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="A decoder is trained to suggest the next command in a log. With fixed weights and dropout disabled, changing a later command in a training example alters the logits at an earlier position. What should the engineer inspect first?"
+  options={[
+    "The tokenizer’s vocabulary size.",
+    "The number of output classes in the prediction head.",
+    "The causal mask that controls which positions each token may attend to.",
+  ]}
+  correct={2}
+  explanation="Earlier positions in a causal decoder may use only their own token and its prefix. A future-token edit changing earlier logits is a direct test for information flowing across that boundary."
+/>
+
+<QuizCard
+  question="A team has already indexed 50,000 help articles using one sentence encoder. It replaces the encoder with a fine-tuned version that produces vectors of the same length. What should it do before scoring new queries with the updated encoder?"
+  options={[
+    "Keep the old article vectors because their dimensions match.",
+    "Re-encode the articles with the updated encoder and compare retrieval on labeled query–article pairs.",
+    "Keep the old vectors and change cosine similarity to a raw dot product.",
+  ]}
+  correct={1}
+  explanation="Fine-tuning can change where meanings lie in the embedding space even if vector length stays the same. Encoding both sides with the same updated model makes their similarity scores comparable."
+/>

@@ -154,3 +154,27 @@ This quiz covers all nine modules of the Pandas EDA track — from first-look in
   ]}
   correct={1}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="A taxi dashboard shows lower tips after cash trips are added. The meter records card tips but leaves the tip field empty for every cash trip. The dashboard fills those gaps with zero. What can the analyst report from these data?"
+  options={[
+    "The average tip across all riders after filling cash tips with the card median.",
+    "The average recorded card tip, alongside the share of trips whose tip is unknown.",
+    "The difference in tipping between cash and card riders using the filled values.",
+  ]}
+  correct={1}
+  explanation="An empty cash tip records how the meter works. It gives no evidence about how much the rider tipped. Report what was observed and count the missing cash records before drawing a conclusion about all riders."
+/>
+
+<QuizCard
+  question="The overall mean fare rose from April to May. Mean fares within both the airport and local trip groups stayed exactly the same. Airport trips cost more on average. Which check would explain the rise?"
+  options={[
+    "Compare the share of airport trips in the two months.",
+    "Change the fare histogram from ten bins to twenty.",
+    "Average the two group means with equal weights in each month.",
+  ]}
+  correct={0}
+  explanation="The overall mean weights each group by its trip count. An increase in the airport share would raise the overall mean even with stable fares in each group. Equal weighting would hide that change."
+/>

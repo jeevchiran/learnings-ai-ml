@@ -154,3 +154,27 @@ This quiz covers the full track: word embedding limitations (context-independenc
   ]}
   correct={[0, 2, 3]}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="A translator handles long support messages. At the current output step, the relevant source states have scalar values 2 and 10, with attention weights 0.75 and 0.25. A reviewer changes the weights to 0.25 and 0.75. What should the context value do?"
+  options={[
+    "Stay at 6 because the two source states are unchanged.",
+    "Move from 4 to 8 as more weight shifts to the larger value.",
+    "Move from 8 to 4 as the first weight gets smaller.",
+  ]}
+  correct={1}
+  explanation="The first mixture is 0.75 × 2 + 0.25 × 10 = 4. Reversing the weights gives 8. Attention can deliver different context on successive output steps using the same stored source states."
+/>
+
+<QuizCard
+  question="A translation demo looks accurate when each decoder step receives the correct previous word. In production, one early mistranslation often leads to several more. Which validation run would measure that failure?"
+  options={[
+    "Start with the start token and feed the decoder its own previous predictions.",
+    "Supply the reference word at every step and average the token losses.",
+    "Use the reference translation to correct the prefix after each wrong word.",
+  ]}
+  correct={0}
+  explanation="The live decoder conditions on the words it has already generated. Feeding its own prefix during evaluation exposes how an early mistake changes later predictions. A reference prefix removes that source of error."
+/>

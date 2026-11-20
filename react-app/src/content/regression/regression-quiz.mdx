@@ -156,3 +156,27 @@ This quiz covers all 4 modules of the Regression track: linear regression assump
   ]}
   correct={[0, 1, 3]}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="Two models forecast ticket resolution time on the same four held-out tickets. Model A has absolute errors of 0, 0, 0 and 8 hours. Model B misses by 3 hours on each ticket. The team selects by lowest root mean squared error. Which model wins?"
+  options={[
+    "A, since its mean absolute error is 2 hours.",
+    "They tie because both make errors on the same four tickets.",
+    "B, with an RMSE of 3 hours against A’s 4 hours.",
+  ]}
+  correct={2}
+  explanation="For A, the mean squared error is 64 / 4 = 16, so RMSE is 4 hours. For B it is the square root of 9, or 3 hours. The large miss changes the choice under this metric."
+/>
+
+<QuizCard
+  question="A logistic model flags jobs at risk of failing. On validation data a cutoff of 0.7 yields 4 missed failures and 2 false alarms. At 0.4 it yields 1 miss and 8 false alarms. A miss costs 10 staff-hours and a false alarm costs 1. Which cutoff should the team select?"
+  options={[
+    "0.4, with an estimated cost of 18 staff-hours.",
+    "0.7, with an estimated cost of 6 staff-hours.",
+    "0.7, because it produces fewer false alarms.",
+  ]}
+  correct={0}
+  explanation="At 0.4 the cost is 1 × 10 + 8 = 18 hours. At 0.7 it is 4 × 10 + 2 = 42. Counting all mistakes equally would ignore the stated cost of a miss."
+/>

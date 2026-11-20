@@ -3,7 +3,7 @@
 import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
 
 <ConceptBox title="End-of-track checkpoint">
-Questions spanning all five modules — components and additive/multiplicative models, simple baselines and RMSE, exponential smoothing, stationarity and the ADF test, and AR models with confidence vs. prediction intervals.
+Questions spanning all six modules — components and additive/multiplicative models, simple baselines and RMSE, exponential smoothing, stationarity and the ADF test, and AR models with confidence vs. prediction intervals.
 </ConceptBox>
 
 ## Questions
@@ -151,4 +151,28 @@ Questions spanning all five modules — components and additive/multiplicative m
     'Longer horizons always have less data available'
   ]}
   correct={1}
+/>
+
+## Scenario practice
+
+<QuizCard
+  question="A help desk needs a Monday ticket forecast. Yesterday, a Sunday, had 40 tickets. The previous three Mondays, oldest first, had 119, 121 and 120. Which baseline would test whether a new model adds value over a weekly seasonal pattern?"
+  options={[
+    "The four-day average of 100, giving Sunday the same weight as each Monday.",
+    "Sunday’s count of 40, using the most recent observation.",
+    "Last Monday’s count of 120 as a seasonal naive forecast.",
+  ]}
+  correct={2}
+  explanation="A weekly seasonal naive forecast repeats the value at the same weekday one week earlier. Last Monday had 120 tickets. The four-day average mixes weekdays with different demand."
+/>
+
+<QuizCard
+  question="A dashboard models daily changes in queue length. Friday ends with 50 jobs. The model forecasts changes of +3 on Saturday and −2 on Sunday. Which queue length belongs on Sunday’s dashboard?"
+  options={[
+    "48 jobs",
+    "51 jobs",
+    "55 jobs",
+  ]}
+  correct={1}
+  explanation="Undo differencing by accumulating the forecast changes from the last observed level. Saturday ends at 53 and Sunday at 51. Subtracting 2 directly from Friday skips the Saturday increase."
 />

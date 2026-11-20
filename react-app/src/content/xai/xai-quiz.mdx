@@ -5,7 +5,7 @@ import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning
 ## Track Quiz — Explainable AI
 
 <ConceptBox title="End-of-track checkpoint">
-Thirteen questions spanning the whole track — the accuracy–interpretability trade-off, global vs. local scope, LIME's local surrogates and formulation, SHAP's Shapley foundation with its Kernel/Tree/Deep variants and additivity, image explanations, and DeepLIFT. A few need a quick calculation; work the numbers.
+Fifteen questions spanning the whole track — the accuracy–interpretability trade-off, global vs. local scope, LIME's local surrogates and formulation, SHAP's Shapley foundation with its Kernel/Tree/Deep variants and additivity, image explanations, and DeepLIFT. A few need a quick calculation; work the numbers.
 </ConceptBox>
 
 ## Questions
@@ -148,4 +148,28 @@ Thirteen questions spanning the whole track — the accuracy–interpretability 
     'SHAP\'s consistency guarantee makes it more trustworthy for feature ranking and audits'
   ]}
   correct={[0, 1, 2, 4]}
+/>
+
+## Scenario practice
+
+<QuizCard
+  question="A model forecasts 50 calls for tonight. Its SHAP explanation uses calls as the output unit and a reference value of 40. A scheduled release contributes +13 and weekend staffing contributes −3. A manager says canceling the release will prevent 13 calls. What does the explanation establish?"
+  options={[
+    "Canceling the release will reduce calls to 37.",
+    "The release contributes 13 calls to this model prediction relative to its reference.",
+    "Every release increases the observed call volume by 13.",
+  ]}
+  correct={1}
+  explanation="The contributions reconstruct this forecast, since 40 + 13 − 3 = 50. Estimating what would actually happen if the release were canceled requires evidence about that intervention."
+/>
+
+<QuizCard
+  question="Two LIME runs give different top features for the same ticket. The ticket model returns the same score both times. Before sending an explanation to the support lead, which check is most informative?"
+  options={[
+    "Check how well each local surrogate matches the model on plausible nearby tickets and repeat the sampling.",
+    "Choose the explanation with the larger coefficient.",
+    "Average the two feature names across all tickets and report a global ranking.",
+  ]}
+  correct={0}
+  explanation="LIME fits a simple model to sampled neighbors. Check its agreement with the original around this ticket and whether the feature ranking survives different samples. A large coefficient alone gives no measure of local fit."
 />

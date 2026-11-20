@@ -11,7 +11,11 @@ import ResidualDiagnosticsWidget from '../../components/widgets/regression/Resid
 
 ## What Is Linear Regression?
 
-It models a continuous response $y$ as a linear function of predictors $x_1,\ldots,x_p$:
+Work through one sale first. Suppose our rule predicts a price of 50,000 plus 100 for each square foot. For a 2,200-square-foot house it predicts 270,000. If the house sells for 280,000, the rule predicted 10,000 too little.
+
+Here the floor area is the **feature**, the recorded sale price is the **target**, and the difference (actual minus predicted) is the **residual**. Fitting a line means choosing the starting price and the price per square foot from past sales. We can then try the rule on a sale we held back and measure its error.
+
+Linear regression models a continuous response $y$ as a linear function of predictors $x_1,\ldots,x_p$:
 
 $$y = \beta_0 + \beta_1 x_1 + \cdots + \beta_p x_p + \varepsilon$$
 

@@ -1,8 +1,8 @@
-export const courses = [
+const courseCatalog = [
   {
     id: 'math-ml',
     title: 'Mathematics for Machine Learning',
-    description: '11 interactive modules covering the linear algebra, probability, and calculus foundations behind every model in this curriculum — vectors, matrix transformations, eigendecomposition, PCA, Bayes\' theorem, distributions, MLE, and gradient descent, with draggable vectors, transform grids, an eigenvector explorer, a Bayes population grid, and a live gradient-descent contour.',
+    description: 'Work through the arithmetic behind a prediction, from weighted sums and probability to the steps that reduce model error.',
     color: '#475569',
     trackPath: 'math-ml',
     modules: [
@@ -17,13 +17,13 @@ export const courses = [
       { id: 'math-m9',   title: 'Derivatives & the Chain Rule',          file: 'math-m9.html',   description: 'Slopes, partial derivatives, the gradient, and the chain rule that makes backprop work.', readTime: 14 },
       { id: 'math-m10',  title: 'Gradient Descent',                      file: 'math-m10.html',  description: 'The update rule, why learning rate has a knife-edge, and convex vs. non-convex reality.', readTime: 15 },
       { id: 'math-m11',  title: 'Jacobians & Hessians',                  file: 'math-m11.html',  description: 'Curvature, classifying critical points, and why deep learning worries about saddles.', readTime: 16 },
-      { id: 'math-quiz', title: 'Track Quiz — Mathematics for ML',       file: 'math-quiz.html', description: '15 questions spanning linear algebra, probability, and calculus foundations.', readTime: 20 },
+      { id: 'math-quiz', title: 'Track Quiz — Mathematics for ML',       file: 'math-quiz.html', description: '17 questions spanning linear algebra, probability, and calculus foundations. Includes two practical scenarios.', readTime: 24 },
     ],
   },
   {
     id: 'pandas-eda',
     title: 'Pandas EDA and Visualization',
-    description: '9 interactive modules covering data cleaning, missing values, outlier detection, and visualization using one NYC taxi-trip dataset.',
+    description: 'Explore a table of taxi trips. Find missing fares, investigate unusual values and explain what the cleaned data can tell you.',
     color: '#f97316',
     trackPath: 'pandas-eda',
     modules: [
@@ -36,13 +36,13 @@ export const courses = [
       { id: 'eda-m7', title: 'Bivariate Analysis',                     file: '07-bivariate-analysis.html',           description: 'Scatter plots, groupby, and why a correlation can hide in dirty data.',                   readTime: 16 },
       { id: 'eda-m8', title: 'Multivariate Analysis',                  file: '08-multivariate-analysis.html',        description: 'Correlation matrices and pivot tables across several variables at once.',                  readTime: 14 },
       { id: 'eda-m9',   title: 'Capstone — End-to-End EDA Workflow',     file: '09-capstone-eda-workflow.html',        description: 'Chaining every prior step into one repeatable pipeline.',                                  readTime: 13 },
-      { id: 'eda-quiz', title: 'Track Quiz — Pandas EDA',               file: 'eda-quiz.html',                        description: '13 questions covering all EDA modules — IQR numericals, fillna strategy, visualisation, and workflow.', readTime: 19 },
+      { id: 'eda-quiz', title: 'Track Quiz — Pandas EDA',               file: 'eda-quiz.html',                        description: '15 questions covering all EDA modules — IQR numericals, fillna strategy, visualisation, and workflow. Includes two practical scenarios.', readTime: 23 },
     ],
   },
   {
     id: 'hypothesis-testing',
     title: 'Hypothesis Testing',
-    description: '5 interactive modules covering errors, alpha, p-value, Z-tests, t-tests, A/B testing, and paired tests.',
+    description: 'Decide whether a change in a sample could be explained by chance. Compare two groups and interpret an A/B test.',
     color: '#10b981',
     trackPath: 'hypothesis-testing',
     modules: [
@@ -51,13 +51,13 @@ export const courses = [
       { id: 'ht-m3', title: 'One-Sample Z-Test',                        file: '03-one-sample-z.html',        description: 'Testing a population mean with known sigma. Full derivation, confidence intervals.',     readTime: 17 },
       { id: 'ht-m4', title: 'Two-Sample Tests and A/B Testing',         file: '04-two-sample-tests.html',    description: "Two-population Z-test, Welch's t-test, A/B testing, Cohen's d effect size.",            readTime: 14 },
       { id: 'ht-m5',   title: 'Paired t-Test',                            file: '05-paired-t.html',            description: 'Dependent samples, before-after designs, reduction to one-sample t on differences.',    readTime: 17 },
-      { id: 'ht-quiz', title: 'Track Quiz — Hypothesis Testing',         file: 'ht-quiz.html',                description: '13 questions — Z-score numericals, p-value traps, Type I/II errors, test selection, and effect size.', readTime: 20 },
+      { id: 'ht-quiz', title: 'Track Quiz — Hypothesis Testing',         file: 'ht-quiz.html',                description: '15 questions — Z-score numericals, p-value traps, Type I/II errors, test selection, and effect size. Includes two practical scenarios.', readTime: 24 },
     ],
   },
   {
     id: 'etl-pyspark',
     title: 'PySpark and ETL',
-    description: '10 modules covering distributed data processing, DataFrames, SQL, UDFs, data cleaning, and performance optimization.',
+    description: 'Transform tables using familiar filters, joins and aggregations. See how Spark executes them across partitions.',
     color: '#f59e0b',
     trackPath: 'etl-pyspark',
     modules: [
@@ -71,13 +71,13 @@ export const courses = [
       { id: 'etl-pyspark-m8',  title: 'Data Exploration',                file: '08-data-exploration.html',             description: 'Summarize, profile, and understand your cleaned dataset.',                                  readTime: 8 },
       { id: 'etl-pyspark-m9',  title: 'Transformation Operations',       file: '09-transformation-operations.html',    description: 'Reshape, join, aggregate, and pivot data for analysis.',                                    readTime: 14 },
       { id: 'etl-pyspark-m10', title: 'Caching and Broadcast Variables', file: '10-caching-broadcasting.html',         description: 'Optimize your Spark pipeline with caching strategies and broadcast joins.',                  readTime: 16 },
-      { id: 'etl-quiz',        title: 'Track Quiz — PySpark & ETL',      file: 'etl-quiz.html',                        description: '13 questions covering RDDs vs DataFrames, SparkSQL, UDFs, transformations, and caching.', readTime: 19 },
+      { id: 'etl-quiz',        title: 'Track Quiz — PySpark & ETL',      file: 'etl-quiz.html',                        description: '15 questions covering RDDs vs DataFrames, SparkSQL, UDFs, transformations, and caching. Includes two practical scenarios.', readTime: 23 },
     ],
   },
   {
     id: 'regression',
     title: 'Regression: Linear and Logistic',
-    description: '4 interactive modules with full mathematical derivations, KaTeX equations, and Plotly.js widgets.',
+    description: 'Fit a line to predict a price, then use logistic regression to estimate the probability of a yes-or-no outcome.',
     color: '#3b82f6',
     trackPath: 'regression',
     modules: [
@@ -85,13 +85,13 @@ export const courses = [
       { id: 'regression-m2', title: 'Mathematics of Linear Regression',     file: '02-math-linear-regression.html',    description: 'Normal equation derivation, gradient descent animation, Gauss-Markov theorem.',             readTime: 19 },
       { id: 'regression-m3', title: 'Logistic Regression',                  file: '03-logistic-regression.html',       description: 'Binary and multiclass classification, regularization, ROC curves.',                        readTime: 19 },
       { id: 'regression-m4',   title: 'Mathematics of Logistic Regression',   file: '04-math-logistic-regression.html',  description: "MLE, cross-entropy, Newton's method, Bayesian interpretation of regularization.",     readTime: 22 },
-      { id: 'regression-quiz', title: 'Track Quiz — Regression',              file: 'regression-quiz.html',              description: '13 questions — slope numericals, log-odds, sigmoid, MLE, regularisation, and ROC/AUC.', readTime: 19 },
+      { id: 'regression-quiz', title: 'Track Quiz — Regression',              file: 'regression-quiz.html',              description: '15 questions — slope numericals, log-odds, sigmoid, MLE, regularisation, and ROC/AUC. Includes two practical scenarios.', readTime: 23 },
     ],
   },
   {
     id: 'decision-trees',
     title: 'Decision Trees and Ensembles',
-    description: '7 interactive modules from splitting a single node to training gradient-boosted forests. Full derivations.',
+    description: 'Trace a prediction through a series of questions, then see how random forests and boosting combine many trees.',
     color: '#ef4444',
     trackPath: 'decision-trees',
     modules: [
@@ -102,13 +102,13 @@ export const courses = [
       { id: 'dt-m5', title: 'Bagging and Random Forests',                 file: '05-bagging-random-forests.html', description: 'Bootstrap aggregating, variance reduction, random feature subsets, OOB error.',       readTime: 18 },
       { id: 'dt-m6', title: 'Gradient Boosting',                          file: '06-gradient-boosting.html',      description: 'Functional gradient descent, pseudo-residuals, shrinkage, XGBoost overview.',        readTime: 18 },
       { id: 'dt-m7',   title: 'Hyperparameter Tuning',                      file: '07-hyperparameter-tuning.html',  description: 'Every knob for RF and GB through the bias-variance lens with interactive simulators.', readTime: 15 },
-      { id: 'dt-quiz', title: 'Track Quiz — Decision Trees & Ensembles',   file: 'dt-quiz.html',                   description: '13 questions — Gini numericals, info gain, pruning, Random Forests, and Gradient Boosting.', readTime: 19 },
+      { id: 'dt-quiz', title: 'Track Quiz — Decision Trees & Ensembles',   file: 'dt-quiz.html',                   description: '15 questions — Gini numericals, info gain, pruning, Random Forests, and Gradient Boosting. Includes two practical scenarios.', readTime: 23 },
     ],
   },
   {
     id: 'clustering',
     title: 'K-Means Clustering',
-    description: '4 interactive modules covering distance metrics, centroids, K-means algorithm, WCSS, elbow method, and silhouette score.',
+    description: 'Group examples without labels. Move cluster centres and use distances to judge whether the groups are useful.',
     color: '#8b5cf6',
     trackPath: 'clustering',
     modules: [
@@ -116,13 +116,13 @@ export const courses = [
       { id: 'clustering-m2', title: 'Distance, Means, and Centroids',        file: '02-distance-centroids.html', description: 'Euclidean, Manhattan, cosine distance. Centroid as minimiser of squared distances.',   readTime: 18 },
       { id: 'clustering-m3', title: 'Inertia (WCSS) and the Elbow Method',   file: '03-inertia-wcss.html',       description: 'WCSS as the K-means objective, coordinate descent view, elbow method and limits.',     readTime: 17 },
       { id: 'clustering-m4',   title: 'Silhouette Score and Evaluation',       file: '04-silhouette-metrics.html', description: 'Silhouette formula, silhouette plots, Davies-Bouldin, Calinski-Harabasz.',           readTime: 15 },
-      { id: 'clustering-quiz', title: 'Track Quiz — K-Means Clustering',      file: 'clustering-quiz.html',       description: '13 questions — distance numericals, centroid updates, WCSS, elbow, and silhouette.', readTime: 19 },
+      { id: 'clustering-quiz', title: 'Track Quiz — K-Means Clustering',      file: 'clustering-quiz.html',       description: '15 questions — distance numericals, centroid updates, WCSS, elbow, and silhouette. Includes two practical scenarios.', readTime: 23 },
     ],
   },
   {
     id: 'nlp',
     title: 'Natural Language Processing',
-    description: '10 interactive modules from raw text to language models. spaCy + NLTK code throughout.',
+    description: 'Turn text into tokens, counts and word vectors. Explore what each representation preserves about meaning and word order.',
     color: '#06b6d4',
     trackPath: 'nlp',
     modules: [
@@ -136,13 +136,13 @@ export const courses = [
       { id: 'nlp-m8',  title: 'BoW, TF-IDF & Topic Modeling',               file: '08-bow-tfidf-topic-modeling.html',                 description: 'Bag of words, TF-IDF formula, IDF weighting, NMF topic modeling with Plotly heatmap.',    readTime: 15 },
       { id: 'nlp-m9',  title: 'Word Embeddings',                             file: '09-word-embeddings.html',                          description: 'word2vec skip-gram/CBOW, embedding space, cosine similarity, analogy tasks, BERT overview.', readTime: 15 },
       { id: 'nlp-m10',  title: 'N-gram Language Models & Applications',       file: '10-ngram-lm-applications.html',  description: 'Chain rule, Laplace smoothing, perplexity, text generation, summarization, MT overview.',  readTime: 18 },
-      { id: 'nlp-quiz', title: 'Track Quiz — Natural Language Processing',    file: 'nlp-quiz.html',                  description: '13 questions — edit distance numericals, TF-IDF, PMI, POS tagging, NER, and word2vec.', readTime: 19 },
+      { id: 'nlp-quiz', title: 'Track Quiz — Natural Language Processing',    file: 'nlp-quiz.html',                  description: '15 questions — edit distance numericals, TF-IDF, PMI, POS tagging, NER, and word2vec. Includes two practical scenarios.', readTime: 23 },
     ],
   },
   {
     id: 'deep-learning',
     title: 'Foundations of Deep Learning',
-    description: '11 interactive modules from the perceptron to end-to-end PyTorch training. Full math behind every forward and backward pass.',
+    description: 'Start here for neural networks. Follow a prediction through a layer, calculate its error and update the weights in PyTorch.',
     color: '#7c3aed',
     trackPath: 'deep-learning',
     modules: [
@@ -157,13 +157,13 @@ export const courses = [
       { id: 'dl-m9',  title: 'Weight Initialization',                      file: 'dl-m9.html',  description: 'Vanishing/exploding gradients, Xavier/Glorot, He, orthogonal, signal propagation theory.',  readTime: 16 },
       { id: 'dl-m10', title: 'Regularization & Normalization',             file: 'dl-m10.html', description: 'L1/L2 regularization, dropout, batch normalization, layer normalization — math and code.',   readTime: 15 },
       { id: 'dl-m11',  title: 'Preventing Overfitting & PyTorch Examples',  file: 'dl-m11.html', description: 'Early stopping, data augmentation, end-to-end PyTorch training loop, MNIST walkthrough.',   readTime: 22 },
-      { id: 'dl-quiz', title: 'Track Quiz — Foundations of Deep Learning',  file: 'dl-quiz.html', description: '13 questions — forward pass numericals, backprop chain rule, activations, optimisers, and regularisation.', readTime: 21 },
+      { id: 'dl-quiz', title: 'Track Quiz — Foundations of Deep Learning',  file: 'dl-quiz.html', description: '15 questions — forward pass numericals, backprop chain rule, activations, optimisers, and regularisation. Includes two practical scenarios.', readTime: 25 },
     ],
   },
   {
     id: 'cnn',
     title: 'Convolutional Neural Networks',
-    description: '10 interactive modules from why MLP fails on images to CIFAR-10 training. Convolution math, parameter numericals, augmentation, transfer learning, and activation visualization.',
+    description: 'Slide a small filter across pixels to detect a pattern. Follow the resulting feature maps through an image classifier.',
     color: '#be185d',
     trackPath: 'cnn',
     modules: [
@@ -177,13 +177,13 @@ export const courses = [
       { id: 'cnn-m8',  title: 'Transfer Learning',                       file: 'cnn-m8.html',  description: 'Feature extraction vs fine-tuning, ResNet/EfficientNet, layer freezing, convergence comparison.',             readTime: 20 },
       { id: 'cnn-m9',  title: 'Visualizing CNN Activations',             file: 'cnn-m9.html',  description: 'Activation maps, GradCAM, saliency, filter visualization — interactive heatmap widget.',                      readTime: 18 },
       { id: 'cnn-m10',  title: 'CIFAR-10 with PyTorch',                   file: 'cnn-m10.html',  description: 'End-to-end: data pipeline, model, training, evaluation, confusion matrix, generalization analysis.',         readTime: 20 },
-      { id: 'cnn-quiz', title: 'Track Quiz — Convolutional Neural Networks', file: 'cnn-quiz.html', description: '13 questions — output size formula, parameter count numericals, pooling, transfer learning, and GradCAM.', readTime: 18 },
+      { id: 'cnn-quiz', title: 'Track Quiz — Convolutional Neural Networks', file: 'cnn-quiz.html', description: '15 questions — output size formula, parameter count numericals, pooling, transfer learning, and GradCAM. Includes two practical scenarios.', readTime: 22 },
     ],
   },
   {
     id: 'rnn',
     title: 'Recurrent Neural Networks',
-    description: '14 interactive modules from sequential data intuition to LSTM/GRU, BPTT, vanishing gradients, and NLP applications. PyTorch throughout.',
+    description: 'Follow a sequence one step at a time. Trace what the network remembers and how that state affects the next prediction.',
     color: '#0f766e',
     trackPath: 'rnn',
     modules: [
@@ -201,13 +201,13 @@ export const courses = [
       { id: 'rnn-m12', title: 'Sequence Modeling Patterns',               file: 'rnn-m12.html', description: 'Many-to-one, one-to-many, many-to-many (synced & encoder-decoder) — interactive pattern switcher.',          readTime: 19 },
       { id: 'rnn-m13', title: 'Time Series & Sequence Classification',    file: 'rnn-m13.html', description: 'LSTM for time-series regression and sequence classification, full PyTorch code with training loop.',           readTime: 20 },
       { id: 'rnn-m14',  title: 'RNNs in Language — NLP Applications',      file: 'rnn-m14.html',  description: 'Sentiment analysis, NER, language modeling, machine translation — step-through sentiment widget.',          readTime: 22 },
-      { id: 'rnn-quiz', title: 'Track Quiz — Recurrent Neural Networks',   file: 'rnn-quiz.html', description: '13 questions — BPTT gradient product, LSTM gate numericals, vanishing gradients, patterns, and NLP apps.', readTime: 19 },
+      { id: 'rnn-quiz', title: 'Track Quiz — Recurrent Neural Networks',   file: 'rnn-quiz.html', description: '15 questions — BPTT gradient product, LSTM gate numericals, vanishing gradients, patterns, and NLP apps. Includes two practical scenarios.', readTime: 23 },
     ],
   },
   {
     id: 'naive-bayes',
     title: 'Naive Bayes',
-    description: '8 interactive modules from probabilistic classification intuition to the Multinomial/Bernoulli/Gaussian variants, log-space stability, and model comparison.',
+    description: 'Classify an email by combining how common spam is with how often its words appear in spam and ordinary messages.',
     color: '#4338ca',
     trackPath: 'naive-bayes',
     modules: [
@@ -219,13 +219,13 @@ export const courses = [
       { id: 'nb-m6', title: 'Numerical Stability and Log-Space Computation', file: 'nb-m6.html', description: 'Why raw probability products underflow to zero, the log-space fix, and the logsumexp normalization trick.', readTime: 14 },
       { id: 'nb-m7', title: 'Advantages and Disadvantages of Naive Bayes', file: 'nb-m7.html', description: 'Genuine strengths, the zero-frequency problem, calibration issues, and class-imbalance behavior.', readTime: 16 },
       { id: 'nb-m8', title: 'Comparison with Other Classification Models', file: 'nb-m8.html', description: 'Naive Bayes vs. logistic regression, decision trees, k-NN, and SVM across speed, data efficiency, and expressiveness.', readTime: 16 },
-      { id: 'nb-quiz', title: 'Track Quiz — Naive Bayes', file: 'nb-quiz.html', description: '13 questions — Bayes theorem numericals, independence assumption, variant selection, log-space stability, and model comparison.', readTime: 20 },
+      { id: 'nb-quiz', title: 'Track Quiz — Naive Bayes', file: 'nb-quiz.html', description: '16 questions — Bayes theorem numericals, independence assumption, variant selection, log-space stability, and model comparison. Includes two practical scenarios.', readTime: 24 },
     ],
   },
   {
     id: 'model-eval',
     title: 'Model Selection & Feature Engineering',
-    description: '8 interactive modules covering validation strategy, cross-validation, hyperparameter search, and filter/wrapper/embedded feature selection — with leakage-safe pipelines throughout.',
+    description: 'Choose which rows to train on, which to evaluate on and which inputs the model could actually know at prediction time.',
     color: '#c026d3',
     trackPath: 'model-eval',
     modules: [
@@ -237,13 +237,13 @@ export const courses = [
       { id: 'me-m6', title: 'Filter-Based Methods', file: 'me-m6.html', description: 'Variance threshold, correlation filtering, chi-square, ANOVA F-test, and mutual information — model-agnostic ranking.', readTime: 20 },
       { id: 'me-m7', title: 'Wrapper & Embedded Methods', file: 'me-m7.html', description: 'RFE, forward/backward sequential selection, L1/Lasso sparsity, and tree-based importance — interactive selection explorer.', readTime: 21 },
       { id: 'me-m8', title: 'Leakage-Safe & Unbiased Feature Selection', file: 'me-m8.html', description: 'Why selecting features before CV inflates scores, pipelines, nested CV, and an interactive leaky-vs-correct pipeline widget.', readTime: 21 },
-      { id: 'me-quiz', title: 'Track Quiz — Model Selection & Feature Engineering', file: 'me-quiz.html', description: '13 questions — CV mechanics, search strategy tradeoffs, filter/wrapper/embedded selection, and leakage detection.', readTime: 30 },
+      { id: 'me-quiz', title: 'Track Quiz — Model Selection & Feature Engineering', file: 'me-quiz.html', description: '22 questions — CV mechanics, search strategy tradeoffs, filter/wrapper/embedded selection, and leakage detection. Includes two practical scenarios.', readTime: 34 },
     ],
   },
   {
     id: 'xai',
     title: 'Explainable AI',
-    description: '10 interactive modules from the accuracy–interpretability trade-off to LIME, SHAP (Kernel/Tree/Deep), and DeepLIFT — with movable local surrogates, a Shapley calculator, and force plots throughout.',
+    description: 'Investigate why a model made one prediction and which features influence its predictions across a dataset.',
     color: '#ca8a04',
     trackPath: 'xai',
     modules: [
@@ -257,13 +257,13 @@ export const courses = [
       { id: 'xai-m8',  title: 'SHAP in Practice — Numerical & Image',  file: 'xai-m8.html',  description: 'End-to-end Tree SHAP on tabular data and pixel-region attributions on an image classifier.', readTime: 17 },
       { id: 'xai-m9',  title: 'DeepLIFT Method',                       file: 'xai-m9.html',  description: 'Reference-based contributions, multipliers and the chain rule, rescale/RevealCancel rules, and beating gradient saturation.', readTime: 17 },
       { id: 'xai-m10', title: 'Comparison of XAI Libraries',           file: 'xai-m10.html', description: 'LIME vs SHAP vs DeepLIFT vs Integrated Gradients across speed, fidelity, consistency, and generality — with a decision guide.', readTime: 15 },
-      { id: 'xai-quiz', title: 'Track Quiz — Explainable AI',          file: 'xai-quiz.html', description: '13 questions — interpretability scope, LIME formulation, Shapley numericals, SHAP additivity, image attribution, and DeepLIFT.', readTime: 17 },
+      { id: 'xai-quiz', title: 'Track Quiz — Explainable AI',          file: 'xai-quiz.html', description: '15 questions — interpretability scope, LIME formulation, Shapley numericals, SHAP additivity, image attribution, and DeepLIFT. Includes two practical scenarios.', readTime: 21 },
     ],
   },
   {
     id: 'association-rules',
     title: 'Association Rule Mining',
-    description: '4 interactive modules on market-basket analysis — support/confidence/lift, the Apriori algorithm and its anti-monotone pruning, rule generation and evaluation, and FP-Growth — with a live metric explorer, a level-by-level Apriori stepper, and a rankable rule table.',
+    description: 'Find items that occur together in shopping baskets and check how much of the pattern their popularity already explains.',
     color: '#0891b2',
     trackPath: 'association-rules',
     modules: [
@@ -271,13 +271,13 @@ export const courses = [
       { id: 'assoc-m2',   title: 'The Apriori Algorithm',                            file: 'assoc-m2.html',   description: 'Frequent itemsets, the anti-monotone property, candidate join-and-prune, and the level-by-level scan.',   readTime: 16 },
       { id: 'assoc-m3',   title: 'Rule Generation & Evaluation',                     file: 'assoc-m3.html',   description: 'Splitting itemsets into rules, confidence pruning, and ranking with lift, leverage, and conviction.',      readTime: 13 },
       { id: 'assoc-m4',   title: 'Apriori in Practice & FP-Growth',                  file: 'assoc-m4.html',   description: 'One-hot encoding, mlxtend apriori/association_rules, tuning the thresholds, and the FP-tree alternative.', readTime: 15 },
-      { id: 'assoc-quiz', title: 'Track Quiz — Association Rule Mining',             file: 'assoc-quiz.html', description: '13 questions — support/confidence/lift numericals, anti-monotone pruning, rule metrics, and FP-Growth.',   readTime: 18 },
+      { id: 'assoc-quiz', title: 'Track Quiz — Association Rule Mining',             file: 'assoc-quiz.html', description: '15 questions — support/confidence/lift numericals, anti-monotone pruning, rule metrics, and FP-Growth. Includes two practical scenarios.',   readTime: 22 },
     ],
   },
   {
     id: 'time-series',
     title: 'Time Series Forecasting',
-    description: '6 interactive modules from trend/seasonality decomposition to exponential smoothing, stationarity/ADF, and the full AR/MA/ARMA/ARIMA/SARIMA family — with a live decomposer, tunable Holt-Winters, an ACF/PACF identification lab, an MA shock explorer, an AR forecaster showing intervals widen with horizon, and an ARIMA/SARIMA builder.',
+    description: 'Forecast future values from past observations. Compare a simple baseline with models that learn trend and seasonality.',
     color: '#0369a1',
     trackPath: 'time-series',
     modules: [
@@ -287,13 +287,13 @@ export const courses = [
       { id: 'ts-m4',   title: 'Stationarity — Tests & Autocorrelation',            file: 'ts-m4.html',   description: 'What stationarity means, the ADF test, differencing/log fixes, and reading the ACF.', readTime: 15 },
       { id: 'ts-m5',   title: 'Autoregressive Models & Forecast Intervals',        file: 'ts-m5.html',   description: 'AR(p) and MA(q), Yule-Walker fitting, ACF/PACF identification, and confidence vs. prediction intervals.', readTime: 27 },
       { id: 'ts-m6',   title: 'ARMA, ARIMA & SARIMA',                              file: 'ts-m6.html',   description: 'Backshift notation, folding differencing into the model, the multiplicative seasonal block, and the Box-Jenkins loop.', readTime: 25 },
-      { id: 'ts-quiz', title: 'Track Quiz — Time Series Forecasting',              file: 'ts-quiz.html', description: '13 questions — decomposition, baselines/RMSE, smoothing parameters, stationarity/ADF, and AR intervals.', readTime: 17 },
+      { id: 'ts-quiz', title: 'Track Quiz — Time Series Forecasting',              file: 'ts-quiz.html', description: '15 questions — decomposition, baselines/RMSE, smoothing parameters, stationarity/ADF, and AR intervals. Includes two practical scenarios.', readTime: 21 },
     ],
   },
   {
     id: 'recsys',
     title: 'Recommender Systems',
-    description: '18 interactive modules built around one e-commerce store — 12 fundamentals from funnel architecture, implicit signals and event contracts through ranking metrics, leakage-safe splits, collaborative filtering, implicit MF/ALS, learning to rank, point-in-time features, negative sampling and multi-modal cold start, then 6 build modules that assemble the whole pipeline in code. With a retrieval/ranking funnel, a live metric explorer, a leak-spotting split timeline, a baseline scoreboard, a CF similarity heatmap, an ALS factor map, an LTR loss comparator and a cold-start blender.',
+    description: 'Build a recommendation pipeline from event logs. Retrieve candidates, rank them and measure the quality of the list.',
     color: '#65a30d',
     trackPath: 'recsys',
     modules: [
@@ -315,13 +315,13 @@ export const courses = [
       { id: 'rs-b4',   title: 'Build — Implicit MF (ALS)',               file: 'rs-b4.html',   description: 'ALS in 20 lines of NumPy with the Gram trick, the monotone-loss assertion, k sweep, and FAISS deployment.',    readTime: 18 },
       { id: 'rs-b5',   title: 'Build — Feature Generation',              file: 'rs-b5.html',   description: 'As-of joins with merge_asof, cross features, the leak assertion, and training/serving skew.',                   readTime: 15 },
       { id: 'rs-b6',   title: 'Build — LTR Training',                    file: 'rs-b6.html',   description: 'Positives plus sampled negatives, LightGBM grouping, and reading feature importance when the ranker loses.',    readTime: 18 },
-      { id: 'rs-quiz', title: 'Track Quiz — Recommender Systems',        file: 'rs-quiz.html', description: '16 questions — funnel roles, implicit confidence, event contracts, NDCG numericals, leakage, CF, ALS, LTR losses, and negative sampling.', readTime: 23 },
+      { id: 'rs-quiz', title: 'Track Quiz — Recommender Systems',        file: 'rs-quiz.html', description: '18 questions — funnel roles, implicit confidence, event contracts, NDCG numericals, leakage, CF, ALS, LTR losses, and negative sampling. Includes two practical scenarios.', readTime: 27 },
     ],
   },
   {
     id: 'computer-vision',
     title: 'Computer Vision: Images & Object Detection',
-    description: '19 interactive modules in two halves. First the image itself — pixels and colour spaces, point arithmetic, filters and convolution, affine and projective transforms, Harris features, regions of interest, and histograms/normalisation. Then detection end to end — IoU, the masked localisation loss, NMS and mAP, fully convolutional sliding windows, the R-CNN → Fast → Faster line and where it stalls, then YOLO from the grid tensor through inference, training on your own labels, anchor boxes, and SSD\'s multi-scale default boxes. Eighteen widgets: a pixel inspector, a filter bank, a live affine matrix, a Harris explorer, draggable IoU boxes, a step-through NMS, a PR-curve builder, a YOLO grid decoder, a k-means anchor map, and the SSD pyramid.',
+    description: 'Read images as arrays, locate objects with boxes and measure when two detections describe the same object.',
     color: '#15803d',
     trackPath: 'computer-vision',
     modules: [
@@ -344,13 +344,13 @@ export const courses = [
       { id: 'cv-m17',  title: 'Training YOLO on Your Own Data',          file: 'cv-m17.html',  description: 'The folder convention and data.yaml, the four label bugs, COCO conversion, scene-level splits, and reading runs.', readTime: 20 },
       { id: 'cv-m18',  title: 'Anchor Boxes',                            file: 'cv-m18.html',  description: 'Why anchors make assignment well-posed, IoU k-means, the sigmoid/exp parameterisation, and anchor-free methods.',  readTime: 20 },
       { id: 'cv-m19',  title: 'SSD — Single Shot MultiBox Detector',     file: 'cv-m19.html',  description: 'Six prediction scales, where the 8,732 default boxes come from, the scale formula, and hard negative mining.',    readTime: 21 },
-      { id: 'cv-quiz', title: 'Track Quiz — Computer Vision',            file: 'cv-quiz.html', description: '16 questions plus 3 multi-selects — memory numericals, kernels, IoU and AP by hand, the R-CNN line, YOLO tensors, anchors, and SSD.', readTime: 26 },
+      { id: 'cv-quiz', title: 'Track Quiz — Computer Vision',            file: 'cv-quiz.html', description: '21 questions — memory numericals, kernels, IoU and AP by hand, the R-CNN line, YOLO tensors, anchors, and SSD. Includes two practical scenarios.', readTime: 30 },
     ],
   },
   {
     id: 'transfer-learning',
     title: 'Transfer Learning, Embeddings & U-Net',
-    description: '12 interactive modules following one arc — what to do with a pretrained backbone. Why transfer works and when it fails, the freeze-versus-fine-tune decision as a data budget, then a measured demonstration. Cutting the classifier off turns the same network into an embedding model, which leads to vector representations, similarity search and metric learning. Then the opposite problem: producing a label per pixel. Encoder-decoders and the bottleneck they lose detail in, upsampling, transposed convolution and its checkerboard geometry, skip connections, U-Net itself, the Dice coefficient, and a U-Net built and trained in PyTorch. Thirteen widgets including a layer-transferability curve, a freeze-budget calculator, an embedding space with live kNN, a triplet-margin explorer, a stamp-by-stamp transposed convolution, an interactive U-Net with per-level skips, and draggable Dice masks.',
+    description: 'Adapt a pretrained image model to a new task. Explore similarity search and use U-Net to label individual pixels.',
     color: '#9f1239',
     trackPath: 'transfer-learning',
     modules: [
@@ -366,13 +366,13 @@ export const courses = [
       { id: 'tl-m10',  title: 'U-Net',                                    file: 'tl-m10.html', description: 'The full architecture, why 572 becomes 388, overlap-tile inference, pretrained encoders, and where the 31M parameters sit.',     readTime: 17 },
       { id: 'tl-m11',  title: 'The Dice Coefficient & Segmentation Losses', file: 'tl-m11.html', description: 'Dice as pixel-wise F1, D = 2J/(1+J), why accuracy and BCE collapse under imbalance, soft Dice, and what the epsilon protects.', readTime: 20 },
       { id: 'tl-m12',  title: 'Demonstration — U-Net in PyTorch',         file: 'tl-m12.html', description: 'The full model in 60 lines, shape-first debugging, BCE+Dice, checkpointing on the metric, and the threshold sweep.',           readTime: 20 },
-      { id: 'tl-quiz', title: 'Track Quiz — Transfer Learning & U-Net',   file: 'tl-quiz.html', description: '16 questions plus 3 multi-selects — transferability, freeze budgets, embedding memory, triplet regimes, conv arithmetic, skips, and Dice/IoU conversions.', readTime: 25 },
+      { id: 'tl-quiz', title: 'Track Quiz — Transfer Learning & U-Net',   file: 'tl-quiz.html', description: '21 questions — transferability, freeze budgets, embedding memory, triplet regimes, conv arithmetic, skips, and Dice/IoU conversions. Includes two practical scenarios.', readTime: 29 },
     ],
   },
   {
     id: 'attention-seq2seq',
     title: 'Attention & Encoder-Decoder Models',
-    description: '11 interactive modules from word embeddings to the math of attention. One running translation example throughout — encoder-decoder, BLEU score, the bottleneck problem, and the attention mechanism that fixes it, with runnable PyTorch/Colab demos for both.',
+    description: 'Follow a translation as the decoder assigns different weights to the source words for each output word.',
     color: '#b45309',
     trackPath: 'attention-seq2seq',
     modules: [
@@ -387,13 +387,13 @@ export const courses = [
       { id: 'aed-m9',  title: 'Demonstration — Attention Encoder-Decoder in PyTorch', file: 'aed-m9.html', description: 'The attention decoder wired in, and how little of the Module 4 training loop needs to change.',        readTime: 10 },
       { id: 'aed-m10', title: 'The Math of Attention — Context Vectors',       file: 'aed-m10.html', description: 'Dot/general/additive score functions, the variance argument for scaled dot-product, worked numeric example.', readTime: 13 },
       { id: 'aed-m11', title: 'Limitations of Attention-Based Encoder-Decoder', file: 'aed-m11.html', description: 'Still-sequential computation and O(T_src·T_tgt) cost — the two constraints self-attention removes next.',  readTime: 11 },
-      { id: 'aed-quiz', title: 'Track Quiz — Attention & Encoder-Decoder Models', file: 'aed-quiz.html', description: '13 questions — BLEU by hand, context-vector numericals, teacher forcing, and score-function comparison.', readTime: 18 },
+      { id: 'aed-quiz', title: 'Track Quiz — Attention & Encoder-Decoder Models', file: 'aed-quiz.html', description: '15 questions — BLEU by hand, context-vector numericals, teacher forcing, and score-function comparison. Includes two practical scenarios.', readTime: 22 },
     ],
   },
   {
     id: 'transformers',
     title: 'Transformers',
-    description: '13 interactive modules from static word embeddings to production models. Self-attention, causal masking, multi-head attention, positional encoding and training — then the BERT/GPT/T5 model families, fine-tuning, translation and question answering, and sentence embeddings. One running example throughout, with runnable PyTorch/Colab demos.',
+    description: 'Trace how tokens exchange information through attention. Compare the architectures used for classification, translation and generation.',
     color: '#1e3a8a',
     trackPath: 'transformers',
     modules: [
@@ -410,13 +410,13 @@ export const courses = [
       { id: 'trf-m11', title: 'Fine-Tuning BERT for Classification',       file: 'trf-m11.html', description: 'Tokenisation and attention masks, the classification head, and updating encoder plus head together.',      readTime: 24 },
       { id: 'trf-m12', title: 'Translation and Question Answering',        file: 'trf-m12.html', description: 'MarianMT for translation and T5 text-to-text QA, via pretrained Hugging Face pipelines.',                readTime: 17 },
       { id: 'trf-m13', title: 'Sentence Transformers',                     file: 'trf-m13.html', description: 'The bi-encoder fix for cross-encoder O(N²) cost — shared weights, pooling, and cosine similarity.',      readTime: 19 },
-      { id: 'trf-quiz', title: 'Track Quiz — Transformers',                file: 'trf-quiz.html', description: '19 questions plus 5 multi-selects — embeddings, attention math by hand, multi-head shapes, the BERT/GPT/T5 families, fine-tuning, and sentence embeddings.', readTime: 38 },
+      { id: 'trf-quiz', title: 'Track Quiz — Transformers',                file: 'trf-quiz.html', description: '29 questions — embeddings, attention math by hand, multi-head shapes, the BERT/GPT/T5 families, fine-tuning, and sentence embeddings. Includes two practical scenarios.', readTime: 42 },
     ],
   },
   {
     id: 'vae',
     title: 'Variational Autoencoders (VAE)',
-    description: '12 interactive modules starting from first principles — compression, autoencoders and what a latent space even is — then building through the probabilistic framework, the Evidence Lower Bound (ELBO), Gaussian KL divergence, the reparameterization trick, reconstruction likelihoods, an end-to-end PyTorch implementation, 2D latent manifolds, β-VAE disentanglement, and Conditional VAEs. No prior exposure to autoencoders or KL divergence assumed; the heavy derivations are kept as optional depth so the main thread stays followable. With an interactive latent geometry inspector, an analytical Gaussian KL explorer, a live reparameterization computational graph, a 2D meshgrid generator, and a β-tuner simulator.',
+    description: 'Encode an example as a distribution, sample a code and decode it. Explore the trade-off between reconstruction and generating new examples.',
     color: '#6366f1',
     trackPath: 'vae',
     modules: [
@@ -431,13 +431,13 @@ export const courses = [
       { id: 'vae-m9',   title: 'Latent Space Exploration & Manifold Generation',  file: 'vae-m9.html', description: '2D grid sampling, linear (lerp) vs spherical (slerp) interpolation, and vector arithmetic in latent space.', readTime: 10 },
       { id: 'vae-m10',  title: 'β-VAE & Disentangled Representations',           file: 'vae-m10.html', description: 'The information bottleneck principle, forcing independent generative factors, and diagnosing/preventing posterior collapse.', readTime: 9 },
       { id: 'vae-m11',  title: 'Conditional VAE (CVAE) & Modern Frontiers',       file: 'vae-m11.html', description: 'Targeted class generation p(x|z, y), discrete codebooks with VQ-VAE, and comparing VAEs vs GANs vs Diffusion models.', readTime: 10 },
-      { id: 'vae-quiz', title: 'Track Quiz — Variational Autoencoders',          file: 'vae-quiz.html', description: '15 questions plus 3 multi-selects — latent geometry, ELBO derivation, Gaussian KL numericals, loss scaling, β-VAE, and CVAE.', readTime: 25 },
+      { id: 'vae-quiz', title: 'Track Quiz — Variational Autoencoders',          file: 'vae-quiz.html', description: '20 questions — latent geometry, ELBO derivation, Gaussian KL numericals, loss scaling, β-VAE, and CVAE. Includes two practical scenarios.', readTime: 29 },
     ],
   },
   {
     id: 'gan',
     title: 'Generative Adversarial Networks (GANs)',
-    description: '11 interactive modules from implicit density and the minimax game to DCGAN, Wasserstein distance, conditional and unpaired (CycleGAN) translation, and evaluation with Inception Score and FID. A single running arc from the theoretical Nash equilibrium to a trained PyTorch DCGAN. With a live minimax-game simulator, a mode-collapse visualizer, a clickable DCGAN architecture diagram, an Inception Score vs. FID comparator, and a latent-space interpolation grid.',
+    description: 'Train a generator to produce examples and a discriminator to distinguish them from real data. Investigate why training can stall.',
     color: '#a21caf',
     trackPath: 'gan',
     modules: [
@@ -452,13 +452,13 @@ export const courses = [
       { id: 'gan-m9',   title: 'Evaluating GANs — Inception Score & FID',      file: 'gan-m9.html',   description: 'Borrowing a pretrained classifier\'s opinion, and why FID catches mode collapse that Inception Score can miss.', readTime: 11 },
       { id: 'gan-m10',  title: 'Demonstration — DCGAN in PyTorch',            file: 'gan-m10.html',  description: 'Generator, Discriminator, and the full non-saturating training loop, end to end on Fashion-MNIST.', readTime: 12 },
       { id: 'gan-m11',  title: 'GANs in Context — Comparison & What\'s Next',  file: 'gan-m11.html', description: 'DCGAN, WGAN, conditioning, and CycleGAN as independent dials, latent-space smoothness, and where GANs still win.', readTime: 12 },
-      { id: 'gan-quiz', title: 'Track Quiz — Generative Adversarial Networks', file: 'gan-quiz.html', description: '16 questions plus 3 multi-selects — the minimax game, non-saturating loss, mode collapse, DCGAN, WGAN, conditioning, CycleGAN, and IS/FID.', readTime: 28 },
+      { id: 'gan-quiz', title: 'Track Quiz — Generative Adversarial Networks', file: 'gan-quiz.html', description: '21 questions — the minimax game, non-saturating loss, mode collapse, DCGAN, WGAN, conditioning, CycleGAN, and IS/FID. Includes two practical scenarios.', readTime: 32 },
     ],
   },
   {
     id: 'diffusion',
     title: 'Diffusion Models',
-    description: '11 interactive modules completing the VAE-GAN-Diffusion trilogy — the forward noising process and its closed-form shortcut, the reverse process and the ELBO connection back to VAEs, the simple noise-prediction loss, a U-Net denoiser with timestep conditioning, sampling cost, noise schedules and DDIM, classifier-free guidance, and latent diffusion (the Stable Diffusion connection). With a forward-noising slider, a reverse-denoising step-through, a linear-vs-cosine schedule comparator, a DDPM-vs-DDIM sampling-path visualizer, and a guidance-scale dial.',
+    description: 'Add noise to a clean example during training, then follow a learned denoiser as it turns noise into an image.',
     color: '#7c2d12',
     trackPath: 'diffusion',
     modules: [
@@ -473,13 +473,13 @@ export const courses = [
       { id: 'diffusion-m9',  title: 'Latent Diffusion',                              file: 'diffusion-m9.html',  description: 'Running the whole process in a pretrained autoencoder\'s latent space — the mechanism behind Stable Diffusion.', readTime: 11 },
       { id: 'diffusion-m10', title: 'Demonstration — DDPM in PyTorch',               file: 'diffusion-m10.html', description: 'Forward process, time-conditioned U-Net, the simple loss, and the full training and sampling loops.', readTime: 13 },
       { id: 'diffusion-m11', title: 'Diffusion in Context — Comparison & What\'s Next', file: 'diffusion-m11.html', description: 'The VAE/GAN/Diffusion trilogy compared directly, and why diffusion won on stability despite slower sampling.', readTime: 12 },
-      { id: 'diffusion-quiz', title: 'Track Quiz — Diffusion Models',                 file: 'diffusion-quiz.html', description: '16 questions plus 3 multi-selects — forward/reverse processes, the ELBO connection, U-Net conditioning, DDIM, guidance, and latent diffusion.', readTime: 27 },
+      { id: 'diffusion-quiz', title: 'Track Quiz — Diffusion Models',                 file: 'diffusion-quiz.html', description: '21 questions — forward/reverse processes, the ELBO connection, U-Net conditioning, DDIM, guidance, and latent diffusion. Includes two practical scenarios.', readTime: 31 },
     ],
   },
   {
     id: 'genai-risks',
     title: 'GenAI Risks & Safety',
-    description: '11 interactive modules in two halves. First hallucination — what the term actually means, how it classifies across faithfulness/factuality and intrinsic/extrinsic axes, its training- and inference-stage causes, the calibration gap and automation bias that make it disproportionately harmful, and the layered mitigations production systems use. Then prompt injection and jailbreaking — why the instruction hierarchy is a learned preference rather than an enforced boundary, how injection differs from jailbreaking, direct and indirect delivery channels, the confused-deputy problem in tool-using agents, and defence in depth. With a hallucination taxonomy classifier, a calibration-gap explorer, a mitigation-layer risk meter, an instruction-hierarchy visualiser, and an injection-surface map.',
+    description: 'Evaluate unsupported claims in generated answers and decide what access and checks an AI application needs.',
     color: '#b91c1c',
     trackPath: 'genai-risks',
     modules: [
@@ -494,13 +494,13 @@ export const courses = [
       { id: 'genai-risks-m9',   title: 'Direct and Indirect Injection Techniques',      file: 'genai-risks-m9.html',   description: 'Payloads in the user turn versus in ingested content, why hidden text passes human review, and why signature filtering fails.', readTime: 15 },
       { id: 'genai-risks-m10',  title: 'Why It Is Serious, and Where It Arises',        file: 'genai-risks-m10.html',  description: 'The confused-deputy problem, exfiltration without a tool call, and risk as untrusted input times unsupervised capability.', readTime: 14 },
       { id: 'genai-risks-m11',  title: 'Layered Mitigation in Responsible Design',      file: 'genai-risks-m11.html',  description: 'Least privilege, privilege separation, human confirmation, egress control, spotlighting — and why resistance is operational.', readTime: 15 },
-      { id: 'genai-risks-quiz', title: 'Track Quiz — GenAI Risks & Safety',             file: 'genai-risks-quiz.html', description: '16 questions plus 3 multi-selects — hallucination classification and causes, the calibration gap, the instruction hierarchy, injection vectors, and defence in depth.', readTime: 26 },
+      { id: 'genai-risks-quiz', title: 'Track Quiz — GenAI Risks & Safety',             file: 'genai-risks-quiz.html', description: '21 questions — hallucination classification and causes, the calibration gap, the instruction hierarchy, injection vectors, and defence in depth. Includes two practical scenarios.', readTime: 30 },
     ],
   },
   {
     id: 'mlops',
     title: 'MLOps: Pipelines and Streaming',
-    description: '7 practical lessons on reproducible ML workflows, Apache Airflow pipelines, Google Cloud Composer, real-time streaming with Kafka, and Google Cloud Pub/Sub. Includes a duplicate-delivery simulator, code labs, an end-to-end capstone, and a track quiz.',
+    description: 'Connect a training pipeline to a prediction service. Practise handling failed jobs, backfills and duplicate events.',
     color: '#0f766e',
     trackPath: 'mlops',
     modules: [
@@ -511,12 +511,30 @@ export const courses = [
       { id: 'mlops-m5', title: 'Real-Time Streaming with Apache Kafka', file: 'mlops-m5.html', description: 'Explore topics, partitions, consumer groups, offsets, replay, and duplicate handling.', readTime: 16 },
       { id: 'mlops-m6', title: 'Google Cloud Pub/Sub', file: 'mlops-m6.html', description: 'Publish events, consume a subscription, acknowledge durable work, and handle redelivery.', readTime: 15 },
       { id: 'mlops-m7', title: 'Capstone: Training and Streaming Predictions', file: 'mlops-m7.html', description: 'Design a monitored model release and streaming inference workflow with recovery drills.', readTime: 15 },
-      { id: 'mlops-quiz', title: 'Track Quiz: MLOps', file: 'mlops-quiz.html', description: '12 questions on Airflow, Composer, Kafka, Pub/Sub, and operational recovery.', readTime: 15 },
+      { id: 'mlops-quiz', title: 'Track Quiz: MLOps', file: 'mlops-quiz.html', description: '14 questions on Airflow, Composer, Kafka, Pub/Sub, and operational recovery. Includes two practical scenarios.', readTime: 19 },
     ],
   },
 ];
 
 /* ── Derived lookups (built once at module load) ── */
+function topic(title, courseIds) {
+  return { title, courses: courseIds.map(id => courseCatalog.find(course => course.id === id)) };
+}
+
+export const topics = [
+  topic('Data and Statistics', ['pandas-eda', 'math-ml', 'hypothesis-testing']),
+  topic('Machine Learning', [
+    'regression', 'model-eval', 'decision-trees', 'naive-bayes', 'clustering', 'association-rules', 'xai',
+  ]),
+  topic('Applied Data Science', ['time-series', 'recsys', 'nlp']),
+  topic('Advanced Deep Learning', [
+    'deep-learning', 'cnn', 'computer-vision', 'transfer-learning', 'rnn',
+    'attention-seq2seq', 'transformers', 'vae', 'gan', 'diffusion',
+  ]),
+  topic('Data Engineering and AI in Production', ['etl-pyspark', 'mlops', 'genai-risks']),
+];
+
+export const courses = topics.flatMap(group => group.courses);
 export const moduleById = {};
 
 courses.forEach(course => {

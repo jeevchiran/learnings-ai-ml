@@ -155,3 +155,27 @@ This quiz covers all 10 modules of the ETL with PySpark track: pipeline architec
   ]}
   correct={[0, 1, 3]}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="A Spark pipeline joins 1,000 orders to a customer table and produces 1,150 rows. Every order has one customer ID and every ID has a match. The output must keep one row per order. What should the engineer check first?"
+  options={[
+    "Whether the customer table has multiple matching rows per ID.",
+    "Whether there are too few partitions for the join.",
+    "Whether caching the joined table changes its row count.",
+  ]}
+  correct={0}
+  explanation="An order produces one output for each matching customer row. Group the lookup by ID and count the matches, then resolve which record belongs to each order. Partitioning changes execution cost, not join cardinality."
+/>
+
+<QuizCard
+  question="A fleet dashboard must show every sensor reading beside the previous reading from the same device. Times are unique within each device. Which Spark operation preserves the rows and pairs them correctly?"
+  options={[
+    "Group by device and take the minimum reading.",
+    "Use lag over a window partitioned by device and ordered by time.",
+    "Use lag over all readings ordered by time.",
+  ]}
+  correct={1}
+  explanation="Partitioning separates device histories. Ordering by time makes the previous row the previous observation for that device. A global window can pair different devices, while grouping would collapse many readings into one row."
+/>

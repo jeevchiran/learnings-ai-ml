@@ -154,3 +154,27 @@ This quiz covers all seven modules of the Decision Trees track — from axis-ali
   ]}
   correct={0}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="Two candidate splits predict ticket escalation. Split A leaves 10 tickets in a pure child and 90 in a child with Gini impurity 0.40. Split B leaves two equal groups, each with impurity 0.30. Which split reduces impurity more from the same parent?"
+  options={[
+    "A, because one child is pure.",
+    "B, because its weighted child impurity is 0.30.",
+    "A, because the unweighted average of its two impurities is 0.20.",
+  ]}
+  correct={1}
+  explanation="Split A leaves weighted impurity (10 × 0 + 90 × 0.40) / 100 = 0.36. Split B leaves 0.30. Comparing weighted values accounts for the 90 tickets in A’s less pure child."
+/>
+
+<QuizCard
+  question="A squared-error boosting model predicts 8 minutes for a job that took 14. The next tree predicts a correction of +4 minutes for that job. The learning rate is 0.25. What value should appear in the updated forecast?"
+  options={[
+    "9 minutes",
+    "12 minutes",
+    "9.5 minutes",
+  ]}
+  correct={0}
+  explanation="The new forecast is 8 + 0.25 × 4 = 9. The observed residual is 6 minutes, but the update uses the correction the new tree actually learned."
+/>

@@ -1,9 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { courses, moduleById, allModules, getPrevNext } from '../data/courses.js'
+import { courses, topics, moduleById, allModules, getPrevNext } from '../data/courses.js'
 
 describe('courses data', () => {
   it('has 26 tracks', () => {
     expect(courses).toHaveLength(26)
+  })
+
+  it('assigns every lesson folder to exactly one main topic', () => {
+    const folders = Object.keys(import.meta.glob('../content/*/*.mdx')).map(path => path.split('/')[2])
+    const trackIds = topics.flatMap(topic => topic.courses.map(course => course.trackPath))
+    expect(trackIds.sort()).toEqual([...new Set(folders)].sort())
   })
 
   it('has 281 modules total', () => {

@@ -232,3 +232,27 @@ This quiz covers all eight modules of the Model Selection & Feature Engineering 
   ]}
   correct={[0, 1, 3]}
 />
+
+## Scenario practice
+
+<QuizCard
+  question="A vendor will deploy a ticket classifier to customers it has never served. Its labeled data contain hundreds of tickets per customer and distinctive customer-specific wording. Which validation design tests the deployment claim?"
+  options={[
+    "Keep every customer entirely in one fold.",
+    "Randomly split tickets while preserving the escalation rate.",
+    "Put each customer’s oldest tickets in training and its latest in validation.",
+  ]}
+  correct={0}
+  explanation="Holding out whole customers tests transfer to an unseen customer. Both ticket-level alternatives let the model learn wording from the same customers it later scores."
+/>
+
+<QuizCard
+  question="A team predicts late deliveries when a parcel is booked. A final refund code entered after delivery tops the feature rankings even with chronological validation. What should change before the team trusts the score?"
+  options={[
+    "Retain the field and use a smaller model to reduce its influence.",
+    "Keep the code during training and supply a default value at booking.",
+    "Rebuild features as of booking time, exclude the final code and repeat validation.",
+  ]}
+  correct={2}
+  explanation="The historical table contains facts that arrived after the prediction deadline for each row. Splitting rows by date still leaves that future information inside each feature vector."
+/>

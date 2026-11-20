@@ -3,7 +3,7 @@
 import { ConceptBox, QuizCard, MultiSelectQuiz } from '../../components/learning/index.js'
 
 <ConceptBox title="End-of-track checkpoint">
-Sixteen questions across both parts — funnel architecture, implicit signals, event contracts, ranking metrics, splits and leakage, baselines, collaborative filtering, implicit MF, learning to rank, features, negative sampling, cold start, and the build pipeline. Several need a short calculation; the reference data is the same NovaCart store used throughout. Work the numeric ones out before answering.
+Eighteen questions across both parts — funnel architecture, implicit signals, event contracts, ranking metrics, splits and leakage, baselines, collaborative filtering, implicit MF, learning to rank, features, negative sampling, cold start, and the build pipeline. Several need a short calculation; the reference data is the same NovaCart store used throughout. Work the numeric ones out before answering.
 </ConceptBox>
 
 ## Questions
@@ -182,4 +182,28 @@ Sixteen questions across both parts — funnel architecture, implicit signals, e
     'Because in-batch negatives are always false negatives'
   ]}
   correct={1}
+/>
+
+## Scenario practice
+
+<QuizCard
+  question="A store retrieves 100 candidates and ranks ten for display. An audit finds that the purchased item is absent from the 100 candidates in 70 of 100 held-out sessions. Which experiment addresses the clearest limit on top-ten hit rate?"
+  options={[
+    "Try another candidate source and measure how often purchases enter the candidate set.",
+    "Use a more accurate ranker on exactly the same 100 candidates.",
+    "Increase the number displayed from ten to twenty within the current candidates.",
+  ]}
+  correct={0}
+  explanation="Even a perfect ranker can place the purchased item in the top ten in at most the 30 sessions where it was retrieved. Check candidate recall before tuning the ordering."
+/>
+
+<QuizCard
+  question="A store launches new products every morning. Each new item has a description and category but no interactions. Returning shoppers have purchase histories. What could the store use to personalize those items’ first recommendations?"
+  options={[
+    "Similarity between the new item’s click history and each shopper’s history.",
+    "Its purchase count from tomorrow’s logs as an initial popularity score.",
+    "Similarity between the item description and descriptions of products the shopper already liked.",
+  ]}
+  correct={2}
+  explanation="Item content is available on launch day. It lets a recommender match a new item to known preferences while collaborative signals are still missing. Using tomorrow’s activity would leak future behavior."
 />
