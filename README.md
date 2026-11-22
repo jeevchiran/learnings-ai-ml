@@ -20,7 +20,7 @@ The dashboard and sidebar organize lessons by main topic, then subtopic. Each su
 | Advanced Deep Learning | Neural-network foundations, convolutional neural networks (CNNs), computer vision, transfer learning and U-Net, recurrent neural networks (RNNs), attention and encoder–decoder models, transformers, variational autoencoders (VAEs), generative adversarial networks (GANs), diffusion models |
 | Data Engineering and AI in Production | PySpark and ETL, MLOps pipelines and streaming, GenAI risks and safety |
 
-For a quick review, use the two revision guides. Both include worked examples and self-test questions with answers.
+For a quick review, [print the two-page A4 cheat sheet](docs/revision/ml-and-genai-cheatsheet.pdf). The two guides below include mind maps aligned with *GenAI Revision 1*, worked examples and self-test questions.
 
 - [Model selection, feature engineering, explainability, time series and recommender systems](docs/revision/applied-ml.md)
 - [Computer vision, transformers, transfer learning, multimodal models and responsible GenAI](docs/revision/vision-and-genai.md)

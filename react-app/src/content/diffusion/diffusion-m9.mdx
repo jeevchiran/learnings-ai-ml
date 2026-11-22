@@ -32,6 +32,16 @@ A pretrained autoencoder (VAE track) first compresses a $1024\times1024$ image i
 
 <LatentVsPixelCostWidget />
 
+## Matching a prompt and generating an image
+
+Suppose the prompt is “a red mug to the left of a blue bowl.” CLIP trains image and text encoders on paired examples. It scores a candidate image by the similarity of its embedding to the prompt embedding. This makes it useful for retrieving an existing picture from a catalog.
+
+In a text-conditioned latent diffusion model, start with a noisy image latent. A U-Net receives the current latent and a timestep embedding so it can adapt to the remaining noise level. Cross-attention lets spatial features query text-token features as the latent is updated. After sampling, an image decoder maps the latent to pixels.
+
+**Check the relationship.** An image containing both objects in reversed positions can still score highly on overall similarity. Evaluate object identity, color and position separately. Hold the starting noise fixed to compare prompt wording, then vary the seed to see whether the relationship holds across samples.
+
+For exam revision, trace the generation and alignment branches in the [vision and GenAI mind map](https://github.com/jeevchiran/learnings-ai-ml/blob/main/docs/revision/vision-and-genai.md) or [open the printable cheat sheet](https://github.com/jeevchiran/learnings-ai-ml/blob/main/docs/revision/ml-and-genai-cheatsheet.pdf).
+
 ## Why this doesn't just trade one cost for another
 
 <PredictReveal

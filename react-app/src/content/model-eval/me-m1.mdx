@@ -98,6 +98,20 @@ ridge_strong = Ridge(alpha=100.0)                     # high bias, low variance
 ridge_weak   = Ridge(alpha=0.001)                     # low bias, high variance
 ```
 
+## Choosing an SVM margin and kernel
+
+A linear support vector machine (SVM) places a hyperplane between classes. The margin is the distance from that boundary to its supporting planes. Points on the margin or violating it can determine the fitted boundary. With preprocessing and the sum-loss penalty fixed, adding correctly classified points strictly beyond the margin adds zero hinge loss at the current solution.
+
+| Clue in the data | Choice to test | Reason |
+|---|---|---|
+| Classes separate cleanly | Hard-margin linear SVM | Finds the widest separating margin. A mislabeled point can make separation impossible. |
+| Classes overlap or labels are noisy | Soft-margin linear SVM | Slack allows margin violations, including misclassifications. Larger C penalizes violations more heavily. |
+| A linear boundary misses a curved pattern | Compare linear and radial basis function (RBF) kernels | A kernel computes similarity in a transformed feature space. Higher RBF gamma makes each example's influence more local and can increase variance. |
+
+For example, suppose one class forms a compact cluster surrounded by a ring of the other class. A straight cut crosses the ring. Compare a scaled linear SVM with a scaled RBF SVM on the same folds. Fit scaling inside each training fold, tune C and gamma there, and compare held-out performance and prediction cost.
+
+For exam revision, follow the classifier branches in the [applied ML mind map](https://github.com/jeevchiran/learnings-ai-ml/blob/main/docs/revision/applied-ml.md) or [open the printable cheat sheet](https://github.com/jeevchiran/learnings-ai-ml/blob/main/docs/revision/ml-and-genai-cheatsheet.pdf).
+
 ## Why Training Error Cannot Select a Model
 
 Training error is a *biased, optimistic* estimate of generalization, and the bias worsens with flexibility. The extreme case: a lookup table that memorizes every training pair achieves exactly zero training error and generalizes to nothing. Judged by training error, it wins every comparison.

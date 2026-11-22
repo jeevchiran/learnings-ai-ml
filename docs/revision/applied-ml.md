@@ -2,29 +2,39 @@
 
 ```mermaid
 mindmap
-  root((Applied ML))
-    Select a model
-      Compare with a baseline
-      Match the split to deployment
-      Tune on validation folds
-    Engineer features
-      Encode categories and scale numbers
-      Build lags from past observations
-      Fit transforms inside each fold
-    Explain predictions
-      Global · shuffle a feature and measure score loss
-      Local · SHAP attributes one prediction
-      Attribution alone cannot establish cause
+  root((Applied machine learning))
+    Choose a classifier
+      Bias and variance across training samples
+      SVM · hyperplane and support vectors
+        Hard margin for separable data
+        Soft margin · slack and penalty C
+        Scale features before testing kernels
+      Naive Bayes · choose by feature type
+        Gaussian measurements · multinomial counts · Bernoulli flags
+        Sum log likelihoods to preserve ranking
+    Select and explain
+      Split by time or entity when needed
+      Tune inside folds · evaluate outside
+      Feature selection · filter, wrapper, embedded
+      Global importance · local LIME and SHAP
+        Kernel SHAP samples coalitions
+        Tree SHAP exploits tree structure
     Forecast a series
-      Identify trend and seasonality
-      Compare with the same day last week
-      Backtest on successive future windows
-    Recommend items
-      Content · match item attributes to interests
-      Collaborative · learn from shared behavior
-      Retrieve candidates then rank by relevance
-      Recall at K measures relevant items recovered
+      Constant or proportional seasonal swings
+      Baseline · naive or seasonal naive
+      Smooth · moving average, exponential, Holt, Holt-Winters
+      Model lag dependence · ACF, AR, MA, ARMA
+      Difference for stability · ARIMA or SARIMA
+      Score RMSE and MAPE · check interval coverage
+    Rank recommendations
+      Event contract · impression, click, rating and time
+      Retrieve candidates then learn to rank
+      Implicit factors and sampled negatives
+      Cold start · combine text, image and behavior
+      Check leakage, popularity bias, diversity and latency
 ```
+
+Revision scope follows the instructor outline and question bank in *GenAI Revision 1.pdf*. [Print the two-page A4 cheat sheet](ml-and-genai-cheatsheet.pdf).
 
 Imagine you run a bookshop. Predicting next week's sales, explaining one unusually high forecast and choosing five books for a reader are three different tasks. The prediction target determines what information you may use, how to split the data and which score describes success.
 

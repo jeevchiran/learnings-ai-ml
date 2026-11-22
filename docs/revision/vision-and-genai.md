@@ -2,30 +2,39 @@
 
 ```mermaid
 mindmap
-  root((Vision and GenAI))
+  root((Vision and generative AI))
     Represent an image
-      Pixels · intensity and color channels
-      CNN · slide filters over local regions
-      ViT · attend across image patches
-    Model language
-      Tokens become embeddings with position information
-      Self-attention mixes information across tokens
-      Causal masking hides future tokens
-    Transfer learning
-      Freeze the backbone and train a task head
-      Fine-tune layers for the target domain
-    Generate samples
-      VAE · sample a latent vector and decode
-      GAN · learn from a discriminator
-      Diffusion · remove noise over successive steps
-    Connect modalities
-      Captioning · image features guide word generation
-      Text to image · prompt embeddings guide denoising
-    Use GenAI responsibly
-      Ground outputs in evidence
-      Check errors across groups
-      Protect private data and track provenance
+      Tensor · channels, resolution and normalization
+      Histogram · intensity distribution
+      Filters and convolution · local features
+      ROI selects a region · segmentation labels pixels
+      GPU batches · memory limits resolution
+    Represent language
+      Word2Vec and GloVe · static word vectors
+      Seq2seq attention · align source and target
+      Multi-head self-attention and position signals
+      Encoder · classify · decoder · generate
+      Encoder–decoder · translate
+      Sentence transformers · embed and retrieve
+    Transfer visual features
+      Freeze backbone and train a head
+      Fine-tune on target-domain data
+      ViT · patches attend across the image
+    Generate and align
+      VAE · reconstruction and latent regularization
+      GAN · adversarial training and mode collapse
+      Diffusion · time-conditioned U-Net denoises
+      Cross-attention · text guides spatial features
+      CLIP · align paired text and image embeddings
+      Check prompt sensitivity and sampling latency
+    Evaluate responsibly
+      Score fluency, factuality and relevance separately
+      Compare claims with sources · human review
+      Direct and indirect prompt injection
+      Enforce instruction hierarchy and tool permissions
 ```
+
+Revision scope follows the instructor outline and question bank in *GenAI Revision 1.pdf*. [Print the two-page A4 cheat sheet](ml-and-genai-cheatsheet.pdf).
 
 Follow two examples through these notes. In **image captioning**, an image supplies evidence to a language model that writes text. In **text-to-image generation**, a prompt guides the creation of an image. For either task, identify the input representation, what the model learns during training and how it produces an output at inference.
 
